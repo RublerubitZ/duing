@@ -9,6 +9,12 @@ import { useOptionalToast } from '@/app/_components/toast/ToastProvider';
 
 type AppRouter = ReturnType<typeof useRouter>;
 
+/**
+ * refresh 가 실제로 나갈 때 창에 내는 신호 — refresh 는 라우터 트리를 새로 만들어 Next 라우트 공지기가 제목을 다시 읽으므로,
+ * 동아리 라우트 공지 영역(ClubsRouteAnnouncer)이 그 값을 따라간다(스펙 P1 §3.6). 오프라인이라 건너뛰면 내지 않는다.
+ */
+export const ROUTER_REFRESH_EVENT = 'duing:router-refresh';
+
 // 프로그래매틱 내비게이션(push/replace)의 오프라인 방어.
 // 오프라인에서 새 라우트 이동은 RSC fetch 실패 → Next 라우터의 하드 내비게이션 폴백으로
 // 브라우저 오류 페이지 이탈을 일으킨다(재현 실험으로 확인). 앵커 클릭은 OfflineNavigationGuard 가
@@ -50,6 +56,7 @@ export function useGuardedRouter(): AppRouter {
         if (typeof navigator !== 'undefined' && !navigator.onLine) {
           return;
         }
+        window.dispatchEvent(new Event(ROUTER_REFRESH_EVENT));
         router.refresh();
       },
     }),

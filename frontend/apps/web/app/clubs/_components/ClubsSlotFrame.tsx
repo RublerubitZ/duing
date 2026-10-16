@@ -5,6 +5,8 @@ import { useSelectedLayoutSegment, useSelectedLayoutSegments } from 'next/naviga
 
 import { parsePositiveIdParam } from '@/app/_lib/idParam';
 
+import { ClubsRouteAnnouncer } from './ClubsRouteAnnouncer';
+
 // modal 미러 라우트 그룹(@modal/(passthrough)/…)의 세그먼트 — 하드 로드 상세·회원 화면의 modal 경로에 들어 있다. 폴더 이름과
 // 같아야 한다(미러 구조는 test/clubs/clubs-modal-routes.test.tsx 가 지킨다).
 const PASSTHROUGH_SEGMENT = '(passthrough)';
@@ -31,7 +33,7 @@ type Props = {
  *   position 으로 숨기면 문서 높이가 남고 View Transition 캡처에 들어가 로고 이름(club-logo-<id>)이 겹친다.
  * - 상세(modal)는 children 래퍼 뒤에 문서 흐름으로 그린다(고정 오버레이 아님 — iOS 문서 스크롤·툴바 접힘 유지).
  * 루트 data-clubs-slot(list·page·intercepted)과 숨은 목록 래퍼의 data-clubs-hidden-list 는 테스트·QA 가 인터셉트와 전체 페이지를
- * 가르는 표식이다.
+ * 가르는 표식이다. 마지막 자식은 라우트 공지 영역(ClubsRouteAnnouncer)이다.
  */
 export function ClubsSlotFrame({ children, modal }: Props) {
   const modalPath = useSelectedLayoutSegments('modal');
@@ -58,6 +60,8 @@ export function ClubsSlotFrame({ children, modal }: Props) {
         </div>
       )}
       {modal}
+      {/* 라우트 공지 영역은 마지막 자식 — 같은 커밋에서 상세의 제목 effect 뒤, Next 공지기 앞에 돈다(스펙 P1 §3.6). */}
+      <ClubsRouteAnnouncer intercepted={intercepted} />
     </div>
   );
 }

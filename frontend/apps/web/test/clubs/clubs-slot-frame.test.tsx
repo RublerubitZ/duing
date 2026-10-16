@@ -315,6 +315,16 @@ describe('ClubsSlotFrame — 판별 매트릭스(스펙 P1 §3.2)', () => {
     expect(screen.getByTestId('list-probe')).toBe(listNode);
     expect(listNode).not.toBeVisible();
   });
+
+  it('라우트 공지 영역은 프레임 루트의 마지막 자식이다 — 같은 커밋에서 상세의 effect 뒤에 돈다(스펙 P1 §3.6)', () => {
+    navigationStore.set(LIST);
+    renderFrame();
+
+    const lastChild = frameRoot().lastElementChild;
+    expect(lastChild).toHaveAttribute('role', 'status');
+    expect(lastChild).toHaveClass('sr-only');
+    expect(lastChild).not.toHaveAttribute('aria-live');
+  });
 });
 
 describe('ClubsSlotFrame — 거부된 회원 화면의 replace(스펙 P1 §4)', () => {
