@@ -2,6 +2,7 @@ import { writeFileSync } from 'node:fs';
 
 import {
   devices,
+  errors,
   expect,
   test,
   type Browser,
@@ -43,6 +44,8 @@ const HERO_ACTIVITY_SKELETON_LABEL = '대표 활동 불러오는 중';
 const PRESS_HOLD_MS = 80;
 // 목록이 뜬 뒤 Next 링크 프리페치가 끝나도록 기다린다(develop 의 흔한 경로).
 const PREFETCH_SETTLE_MS = 2000;
+// 전환 끝 대기 상한 — 전환(180ms)은 히어로 직후엔 대개 아직 돈다. 끝나지 않는 전환이 시행을 붙잡지 않게 넘기면 끝을 못 본 채(null) 적는다.
+const TRANSITION_SETTLE_TIMEOUT_MS = 1500;
 // 스펙 §2 기준 — 포인터 진입의 상세 스켈레톤: 중앙값 0프레임·p90 ≤ 150ms(데스크탑은 대표 활동 스켈레톤도).
 const P90_LIMIT_MS = 150;
 
@@ -57,7 +60,12 @@ type FrameSummary = {
   activitySkeletonFrames: number;
   activitySkeletonMs: number;
 };
-type TransitionSummary = { transitionCount: number; transitionAborts: number; transitionMs: number | null };
+type TransitionSummary = {
+  transitionCount: number;
+  transitionAborts: number;
+  transitionMs: number | null;
+  transitionSettleTimedOut: boolean;
+};
 type TrialResult = FrameSummary & TransitionSummary & { build: BuildName; mode: EntryMode; project: string; clubId: number; trial: number };
 type TrialRun = { build: BuildName; baseUrl: string; target: MeasureTarget; mode: EntryMode; project: string; trial: number };
 
@@ -277,6 +285,21 @@ async function measureEntry(browser: Browser, run: TrialRun): Promise<TrialResul
     await page.evaluate(
       () => new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))),
     );
+    // 읽기 전에 누름 뒤 시작된 전환이 모두 끝나기를 기다린다(상한을 넘기면 그대로 적고 시한 초과로 센다).
+    let transitionSettleTimedOut = false;
+    try {
+      await page.waitForFunction(
+        (pressedAtArg) =>
+          (window.__duingEntryTransitions ?? [])
+            .filter((transition) => transition.start >= pressedAtArg)
+            .every((transition) => transition.finishedAt !== null),
+        pressedAt,
+        { timeout: TRANSITION_SETTLE_TIMEOUT_MS },
+      );
+    } catch (settleError) {
+      if (!(settleError instanceof errors.TimeoutError)) throw settleError;
+      transitionSettleTimedOut = true;
+    }
     const frames = (await page.evaluate(() => window.__duingEntryFrames ?? [])).filter((frame) => frame.t >= pressedAt);
     const transitions = (await page.evaluate(() => window.__duingEntryTransitions ?? [])).filter(
       (transition) => transition.start >= pressedAt,
@@ -289,6 +312,7 @@ async function measureEntry(browser: Browser, run: TrialRun): Promise<TrialResul
         (transitionAbortMessages.length - abortMessagesBeforePress),
       transitionMs:
         firstTransition && firstTransition.finishedAt !== null ? firstTransition.finishedAt - firstTransition.start : null,
+      transitionSettleTimedOut,
     };
     return {
       build: run.build,
@@ -360,7 +384,13 @@ test('동아리 상세 진입 — 포인터·키보드 × 비교 기준·P1(번�
     const abortedTrials = results.filter(
       (result) => result.build === build && result.mode === mode && result.transitionAborts > 0,
     ).length;
+    const settleTimedOutTrials = results.filter(
+      (result) => result.build === build && result.mode === mode && result.transitionSettleTimedOut,
+    ).length;
     console.log(`[진입 측정] ${project} ${build} ${mode} — 전환 중단 1건 이상인 시행 ${abortedTrials}/${trials}`);
+    console.log(
+      `[진입 측정] ${project} ${build} ${mode} — 전환 끝 대기 시한(${TRANSITION_SETTLE_TIMEOUT_MS}ms) 초과 시행 ${settleTimedOutTrials}/${trials}`,
+    );
   }
   if (OUTPUT_PATH) {
     writeFileSync(OUTPUT_PATH.replace(/(\.json)?$/, `-${project}.json`), JSON.stringify({ project, rows, results }, null, 2));
