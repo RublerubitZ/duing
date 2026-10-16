@@ -45,7 +45,7 @@ export function ClubDetailHeroActivities({ clubId }: Props) {
   const heroActivities = heroQuery.data ?? [];
   if (heroActivities.length === 0) return null; // 0개·데이터 없는 에러 공통 — 랜딩은 조용히 강등(시드가 있는 재요청 실패는 아래에서 그린다).
   // 이미지는 이 쿼리가 신선해진 뒤에만 받는다 — ISR 시드(dataUpdatedAt 0)로 그리는 동안(서버 HTML·하이드레이션 첫 프레임)
-  // 받으면 지원 버튼 잠금을 푸는 상세 재요청과 대역폭을 나눠 쓴다. 재요청이 끝내 실패하면 시드 URL 로 붙인다(#1457).
+  // 받으면 모집 상태를 바로잡는 상세 재요청(외부 폼 재확인이 기다린다)과 대역폭을 나눠 쓴다. 재요청이 끝내 실패하면 시드 URL 로 붙인다(#1457).
   const showImages = heroQuery.dataUpdatedAt > 0 || heroQuery.isError;
 
   const slides: LightboxSlide[] = heroActivities.map((activity) => ({

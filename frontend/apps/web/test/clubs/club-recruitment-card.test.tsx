@@ -4,7 +4,7 @@ import { describe, expect, it, vi, beforeAll, afterAll, afterEach } from 'vitest
 import type { ReactNode } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { setupServer } from 'msw/node';
-import { http, HttpResponse, delay } from 'msw';
+import { http, HttpResponse } from 'msw';
 import type { ApplicationSummary, MyClubMembership, StudentRecruitmentProjection } from '@duing/types';
 import { createApiClient } from '@duing/api';
 import { ApiClientProvider } from '@duing/hooks';
@@ -340,9 +340,15 @@ describe('ClubRecruitmentCard', () => {
   // 누른 뒤 확인 중에도 버튼은 disabled(딤)가 아니다 — 라벨을 그대로 두고 aria-disabled 와 라벨 왼쪽 지연 스피너로만 알린다.
   it('사전 확인 중에는 라벨을 그대로 두고 "지원 자격 확인 중" 지연 스피너와 aria-disabled 로만 알린다', async () => {
     mockAuthStatus.value = 'authenticated';
+    let eligibilityRequestCount = 0;
+    let releaseEligibility!: () => void;
+    const eligibilityHeld = new Promise<void>((resolve) => {
+      releaseEligibility = resolve;
+    });
     server.use(
       http.get(`*/recruitments/${base.id}/applications/eligibility`, async () => {
-        await delay('infinite');
+        eligibilityRequestCount += 1;
+        await eligibilityHeld;
         return HttpResponse.json({ ok: true, data: null, message: null });
       }),
     );
@@ -361,6 +367,13 @@ describe('ClubRecruitmentCard', () => {
       'absolute',
       'right-full',
     );
+    // disabled 가 아니라 확인 중 연타는 handleApply 의 진행 중 가드만 막는다 — 확인 요청은 fetchQuery 가 하나로 합치지만,
+    // 가드가 없으면 누를 때마다 지원서로 이동한다.
+    fireEvent.click(pendingButton);
+    releaseEligibility();
+    await waitFor(() => expect(mockRouterPush).toHaveBeenCalledWith(`/apply/${base.id}`));
+    expect(mockRouterPush).toHaveBeenCalledTimes(1);
+    expect(eligibilityRequestCount).toBe(1);
   });
 
   // 서버는 중복 지원을 상태와 무관하게 409 로 막는다(REJECTED 포함) — 버튼 대신 제출한 지원서로 보낸다.
