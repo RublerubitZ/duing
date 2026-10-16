@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { useGuardedRouter } from '@/app/_lib/useGuardedRouter';
+import { useRoutePathname } from '@/app/_lib/useRoutePathname';
 
 import { useClubListQuery, useFavoriteIdsQuery } from '@duing/hooks';
 import { isBackNavigationPending } from '@/app/_lib/backNavigationViewTransition';
@@ -104,9 +105,19 @@ const Icon = {
 export function ClubExplorePage() {
   const router = useGuardedRouter();
   const searchParams = useSearchParams();
+  // 목록 가드(스펙 P1 §3.3) — 인터셉트 상세(/clubs/<id>)가 열린 동안 이 목록은 숨은 채 마운트돼 있다. 그 주소의 빈 쿼리를 받아들이면
+  // 기본 필터로 다시 받고 다시 그리므로, 탐색 주소(/clubs — 끝 슬래시는 정규화 훅이 접는다)일 때만 live 쿼리를 쓰고 아니면 마지막으로
+  // 커밋된 목록 쿼리를 쓴다. 목록은 보일 때만 새로 마운트되므로(ClubsSlotFrame) 첫 값은 마운트 때의 live 쿼리다.
+  const isExplorePath = useRoutePathname() === '/clubs';
+  const liveSearch = searchParams?.toString() ?? '';
+  const committedListSearchRef = useRef(liveSearch);
+  useEffect(() => {
+    if (isExplorePath) committedListSearchRef.current = liveSearch;
+  }, [isExplorePath, liveSearch]);
+  const listSearch = isExplorePath ? liveSearch : committedListSearchRef.current;
   const params = useMemo<ExploreParams>(
-    () => parseExploreParams(new URLSearchParams(searchParams?.toString() ?? '')),
-    [searchParams],
+    () => parseExploreParams(new URLSearchParams(listSearch)),
+    [listSearch],
   );
 
   /** 검색 인풋은 입력 중 URL 을 흔들지 않도록 별도 로컬 상태로 둔다 */
@@ -116,11 +127,13 @@ export function ClubExplorePage() {
 
   const updateParams = useCallback(
     (patch: Partial<ExploreParams>) => {
+      // 숨은 목록(인터셉트 상세가 열린 동안)은 주소를 바꾸지 않는다 — 보정 effect 같은 백그라운드 replace 가 상세를 닫는다(§3.3).
+      if (!isExplorePath) return;
       const next: ExploreParams = { ...DEFAULT_EXPLORE_PARAMS, ...params, ...patch };
       const query = serializeExploreParams(next);
       router.replace(toRoute(`/clubs${query ? `?${query}` : ''}`), { scroll: false });
     },
-    [params, router],
+    [isExplorePath, params, router],
   );
 
   const authStatus = useSeededAuthStatus();
