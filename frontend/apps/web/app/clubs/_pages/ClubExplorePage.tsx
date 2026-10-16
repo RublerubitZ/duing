@@ -615,8 +615,9 @@ export function ClubExplorePage() {
                      카드가 트랙 폭 이상으로 늘어나지 않아 비율이 유지된다. */
                   <div
                     // keepPreviousData 전환 중(스코프·필터 변경)에는 이전 카드가 남으므로 딤으로 갱신 중 신호를 준다.
+                    // 전이 클래스는 상시 — 딤이 풀릴 때도 같은 전이로 돌아온다(붙을 때만 전이면 복귀가 뚝 끊긴다).
                     aria-busy={clubListQuery.isPlaceholderData}
-                    className={cn(CARD_GRID_CLASS, clubListQuery.isPlaceholderData && 'opacity-60 transition-opacity')}
+                    className={cn(CARD_GRID_CLASS, 'transition-opacity', clubListQuery.isPlaceholderData && 'opacity-60')}
                   >
                     {visibleClubs.map((club, index) => (
                       // 스태거 래퍼가 그리드 아이템 자리를 대신 받는다 — grid 로 둬야 카드가 행 높이까지
@@ -710,8 +711,8 @@ export function ClubExplorePage() {
               필터 전환 중(keepPreviousData)에는 목록 그리드와 같은 딤으로 "이전 값 갱신 중" 신호를 준다. */}
           <div
             className={cn(
-              'text-[13.5px] text-charcoal-2',
-              recruitingCountQuery.isPlaceholderData && 'opacity-60 transition-opacity',
+              'text-[13.5px] text-charcoal-2 transition-opacity',
+              recruitingCountQuery.isPlaceholderData && 'opacity-60',
             )}
           >
             {/* 비로그인 찜 게이트에서는 안내 문구 위에 0개/stale 숫자가 뜨지 않게 숨긴다(#801). */}
@@ -775,8 +776,8 @@ export function ClubExplorePage() {
                 <div
                   aria-busy={clubListQuery.isPlaceholderData}
                   className={cn(
-                    'flex flex-col gap-3',
-                    clubListQuery.isPlaceholderData && 'opacity-60 transition-opacity',
+                    'flex flex-col gap-3 transition-opacity',
+                    clubListQuery.isPlaceholderData && 'opacity-60',
                   )}
                 >
                   {visibleClubs.map((club, index) => (

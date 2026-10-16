@@ -268,3 +268,72 @@ describe('ClubExplorePage — 등장 스태거', () => {
     expect(staggerWrappers()).toHaveLength(4);
   });
 });
+
+// 갱신 중 딤 — keepPreviousData 로 이전 목록이 남는 동안 opacity-60 을 걸고, 전이 클래스는 상시 둔다.
+// 전이는 값이 바뀌는 순간 요소에 걸려 있어야 한다 — 딤이 붙을 때만 전이를 주면 풀리는 순간엔 전이가 없어 뚝 끊긴다.
+describe('ClubExplorePage — 갱신 중 딤의 복귀 전이', () => {
+  // 카드를 품은 갱신 컨테이너 — PC 그리드와 모바일 리스트 둘이다(CSS 로만 감춘다). 카드 자체엔 aria-busy 가 없다.
+  function listContainersOf(clubName: string): HTMLElement[] {
+    const containers = new Set<HTMLElement>();
+    for (const cardText of screen.getAllByText(clubName)) {
+      const container = cardText.closest<HTMLElement>('[aria-busy]');
+      if (container) containers.add(container);
+    }
+    return Array.from(containers);
+  }
+
+  it('정착한 목록은 딤 없이 전이 클래스를 유지하고, 필터 전환 중(이전 목록 유지)에는 딤이 붙고, 정착하면 딤만 떨어진다', async () => {
+    // 예술 필터 응답만 붙잡아 둔다 — 같은 조건의 요청(목록·모집 중 카운트)이 모두 같은 약속을 기다린다.
+    let releaseArtList: () => void = () => {};
+    const artListReleased = new Promise<void>((resolve) => {
+      releaseArtList = resolve;
+    });
+    server.use(
+      http.get(`${BASE}/clubs`, async ({ request }) => {
+        if (new URL(request.url).search.includes('ART')) {
+          await artListReleased;
+          return HttpResponse.json({ ok: true, data: toPage(ART_CLUBS), message: null });
+        }
+        return HttpResponse.json({ ok: true, data: toPage(ALL_CLUBS), message: null });
+      }),
+    );
+    renderExplore();
+    await waitFor(() => expect(screen.getAllByText('밴드부').length).toBeGreaterThan(0));
+
+    // 정착 — 딤은 없지만 전이 클래스는 상시다.
+    const settledContainers = listContainersOf('밴드부');
+    expect(settledContainers).toHaveLength(2);
+    for (const container of settledContainers) {
+      expect(container).toHaveAttribute('aria-busy', 'false');
+      expect(container).toHaveClass('transition-opacity');
+      expect(container).not.toHaveClass('opacity-60');
+    }
+
+    // 대기가 실패해도 붙잡은 응답을 푼다 — 안 풀면 요청이 케이스가 끝난 뒤에도 API 클라이언트 타임아웃까지 남는다.
+    try {
+      await userEvent.click(within(screen.getByRole('navigation')).getByRole('button', { name: '예술' }));
+
+      // 전환 중 — 이전 목록(밴드부)이 남은 채 딤과 전이가 함께 있다.
+      await waitFor(() => {
+        for (const container of listContainersOf('밴드부')) {
+          expect(container).toHaveAttribute('aria-busy', 'true');
+        }
+      });
+      for (const container of listContainersOf('밴드부')) {
+        expect(container).toHaveClass('opacity-60', 'transition-opacity');
+      }
+    } finally {
+      releaseArtList();
+    }
+    await waitFor(() => expect(screen.getAllByText('연극부').length).toBeGreaterThan(0));
+
+    // 정착 — 딤만 떨어지고 전이 클래스는 남아 풀릴 때도 같은 전이로 돌아온다.
+    const resettledContainers = listContainersOf('연극부');
+    expect(resettledContainers).toHaveLength(2);
+    for (const container of resettledContainers) {
+      expect(container).toHaveAttribute('aria-busy', 'false');
+      expect(container).toHaveClass('transition-opacity');
+      expect(container).not.toHaveClass('opacity-60');
+    }
+  });
+});
