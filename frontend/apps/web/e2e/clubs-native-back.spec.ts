@@ -180,10 +180,14 @@ test.describe('회원 체인 — 목록 → 인터셉트 상세 → 회원 화�
     await gotoList(page, '?sort=ALPHABETICAL');
     await softNavigate(page, `/clubs/${MEMBER_CLUB_ID}`);
     await waitForInterceptedDetail(page);
+    const detailTitle = await page.title();
     await page.getByRole('tab', { name: '동아리 소식' }).click();
     await page.locator(`a[href="/clubs/${MEMBER_CLUB_ID}/member/notices"]:visible`).first().click();
     await expect(page).toHaveURL(new RegExp(`/clubs/${MEMBER_CLUB_ID}/member/notices$`), { timeout: ROUTE_TIMEOUT_MS });
     await expect(page.locator('[data-clubs-slot="page"]')).toBeVisible();
+    // 인터셉트를 떠나는 전환 커밋에서 공지 영역의 head 관찰이 새 화면 제목(회원 화면 head)을 덮지 않는다.
+    await expect(page).not.toHaveTitle(LIST_TITLE);
+    await expect(page).not.toHaveTitle(detailTitle);
 
     await page.goBack();
     await expect(page).toHaveURL(new RegExp(`/clubs/${MEMBER_CLUB_ID}$`));
