@@ -45,12 +45,16 @@ public final class LogoThumbnailGenerator {
      * 프로그레시브·다중 스캔(첫 스캔이 프레임의 일부 성분만 담는 순차) JPEG 의 픽셀 상한. libjpeg 는 이런 JPEG 를 원본 전체 크기의 계수
      * 버퍼(픽셀당 최대 약 6B — 4:4:4 3성분 × 2B)에 모아 디코딩하고, 이 버퍼는 힙 밖에 잡혀 서브샘플링이 줄여 주지 않는다. 8,000,000 픽셀
      * (×6B = 48MB)로 묶는다. 운영 로고(긴 변 800~1150px, 약 100만 픽셀)는 전부 상한 안이다.
+     * 헤더가 첫 스캔까지 길이 있는 마커로 이어지지 않는 JPEG 도 스캔 구성을 알 수 없어 이 상한을 쓴다.
      */
     public static final long MAX_PROGRESSIVE_JPEG_PIXELS = 8_000_000L;
     static final float JPEG_QUALITY = 0.85f;
     static final int UPRIGHT_ORIENTATION = 1;
 
-    /** JPEG 헤더에서 읽은 것 — Exif Orientation(없으면 1)·프로그레시브 여부·다중 스캔 여부(첫 스캔이 프레임의 일부 성분만 담는다). */
+    /**
+     * JPEG 헤더에서 읽은 것 — Exif Orientation(없으면 1)·프로그레시브 여부·다중 스캔 여부(첫 스캔이 프레임의 일부 성분만 담거나,
+     * 헤더가 첫 스캔까지 길이 있는 마커로 이어지지 않아 알 수 없다).
+     */
     record JpegHeader(int orientation, boolean progressive, boolean multiScan) {
     }
 
@@ -127,12 +131,13 @@ public final class LogoThumbnailGenerator {
      * 스캔 데이터(SOS) 앞의 세그먼트를 한 번 훑어 세 가지를 읽는다 — SOF2·SOF6·SOF10·SOF14 가 있으면 프로그레시브, 첫 SOS 의 성분 수(Ns)가
      * SOF0·SOF1·SOF2 의 성분 수(Nf)보다 적으면 다중 스캔, APP1(Exif) 의 TIFF IFD0 에서 Orientation(0x0112). 바이트 순서 II(리틀)·MM(빅)을
      * 모두 다루고, APP1 이 없거나 구조가 깨졌으면 정방향(1)으로 본다 — 대부분의 로고는 EXIF 가 없다. 세그먼트 길이가 남은 바이트를 넘으면
-     * 그 자리에서 멈춘다(매 회 1바이트 이상 전진해 무한 루프가 없다).
+     * 그 자리에서 멈춘다(매 회 1바이트 이상 전진해 무한 루프가 없다). 첫 SOS 에 닿기 전에 멈추면(길이 없는 마커·마커가 아닌 바이트·이미지 끝·
+     * 길이 이상) 다중 스캔으로 본다 — 디코더는 그런 바이트를 건너뛰고 읽으므로 일반 상한은 첫 SOS 까지 길이 있는 마커로 이어질 때만 쓴다.
      */
     static JpegHeader scanJpegHeader(byte[] jpeg) {
         int orientation = UPRIGHT_ORIENTATION;
         boolean progressive = false;
-        boolean multiScan = false;
+        boolean multiScan = true; // 첫 SOS 의 Ns 를 읽었을 때만 거짓이 될 수 있다
         int frameComponents = 0;
         ByteBuffer buffer = ByteBuffer.wrap(jpeg);
         if (buffer.remaining() < 4 || (buffer.getShort() & 0xFFFF) != 0xFFD8) {
@@ -146,10 +151,11 @@ public final class LogoThumbnailGenerator {
             }
             if (marker == 0xFFDA) {
                 // SOS 는 마커 뒤 Ls(2)·Ns(1) — 첫 스캔이 프레임의 성분을 다 담지 않으면 순차 JPEG 도 여러 스캔으로 나뉜다.
-                multiScan = buffer.remaining() >= 3 && (buffer.get(buffer.position() + 2) & 0xFF) < frameComponents;
+                multiScan = buffer.remaining() < 3 || (buffer.get(buffer.position() + 2) & 0xFF) < frameComponents;
             }
-            if ((marker & 0xFF00) != 0xFF00 || marker == 0xFFDA || marker == 0xFFD9) {
-                break; // 손상 또는 스캔 데이터 시작·끝 — 헤더 세그먼트는 여기까지다
+            if ((marker & 0xFF00) != 0xFF00 || marker == 0xFFDA || marker == 0xFFD9
+                    || marker == 0xFF00 || marker == 0xFF01 || (marker >= 0xFFD0 && marker <= 0xFFD7)) {
+                break; // 마커가 아닌 바이트(FF00 포함)·스캔 데이터 시작·이미지 끝·길이 없는 마커(TEM·RSTn) — 헤더 세그먼트는 여기까지다
             }
             int segmentLength = buffer.getShort() & 0xFFFF;
             if (segmentLength < 2 || segmentLength - 2 > buffer.remaining()) {

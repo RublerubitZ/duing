@@ -12,6 +12,7 @@ import java.awt.color.ColorSpace;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import javax.imageio.ImageIO;
 import org.junit.jupiter.api.DisplayName;
@@ -169,6 +170,28 @@ class LogoThumbnailGeneratorTest {
         assertThat(skipReason(interleaved)).isEqualTo(SkipReason.UNREADABLE);
         // 인터리브 헤더도 치수는 읽힌다 — 2,500만 픽셀을 넘기면 같은 픽스처가 선검사에서 끊긴다.
         assertThat(skipReason(ImageFixture.jpegHeaderOnly(6000, 5000, 3))).isEqualTo(SkipReason.TOO_MANY_PIXELS);
+    }
+
+    @Test
+    @DisplayName("헤더가 첫 스캔까지 길이 있는 마커로 이어지지 않으면(길이 없는 마커·세그먼트 사이 바이트·앞에 붙은 표만 있는 이미지) 800만 픽셀 상한을 쓴다")
+    void jpegHeaderNotReachingFirstScanUsesSmallLimit() {
+        // 4000×2100 = 840만 픽셀 프로그레시브 — 작은 상한(800만)은 넘고 일반 상한(2,500만)은 안이다. 디코더는 세 변형을 모두 읽는다.
+        byte[] progressive = ImageFixture.progressiveJpeg(4000, 2100);
+        int afterFirstSegment = 4 + (((progressive[4] & 0xFF) << 8) | (progressive[5] & 0xFF)); // SOI 뒤 첫 세그먼트(APP0) 끝
+        byte[] tablesOnlyImage = {(byte) 0xFF, (byte) 0xD8, (byte) 0xFF, (byte) 0xD9};
+
+        assertThat(skipReason(insertAt(progressive, 2, (byte) 0xFF, (byte) 0xD0))).isEqualTo(SkipReason.TOO_MANY_PIXELS);
+        assertThat(skipReason(insertAt(progressive, afterFirstSegment, (byte) 0x00))).isEqualTo(SkipReason.TOO_MANY_PIXELS);
+        assertThat(skipReason(insertAt(progressive, 0, tablesOnlyImage))).isEqualTo(SkipReason.TOO_MANY_PIXELS);
+        // 헤더만 있는 900만 픽셀 다중 스캔 — 디코딩했다면 UNREADABLE 이다.
+        assertThat(skipReason(insertAt(ImageFixture.jpegHeaderOnly(3000, 3000, 1), 2, (byte) 0xFF, (byte) 0xD0)))
+                .isEqualTo(SkipReason.TOO_MANY_PIXELS);
+    }
+
+    /** offset 자리에 바이트를 끼운다 — 0 은 맨 앞, 2 는 SOI 바로 뒤. */
+    private static byte[] insertAt(byte[] jpeg, int offset, byte... inserted) {
+        return ByteBuffer.allocate(jpeg.length + inserted.length)
+                .put(jpeg, 0, offset).put(inserted).put(jpeg, offset, jpeg.length - offset).array();
     }
 
     @Test
