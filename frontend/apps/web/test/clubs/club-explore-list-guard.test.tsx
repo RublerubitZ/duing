@@ -170,6 +170,11 @@ describe('ClubExplorePage — 목록 가드(스펙 P1 §3.3)', () => {
     expect(listRequestSearches.slice(requestsBeforeIntercept)).toEqual([]);
     expect(screen.getAllByText('연극부').length).toBeGreaterThan(0);
     expect(screen.queryByText('밴드부')).toBeNull();
+
+    // 목록 주소로 돌아와도 같은 쿼리라 다시 받지 않는다 — 숨긴 채 유지한 목록이 그대로 보인다(스펙 §3.3).
+    goTo('/clubs', 'category=ART');
+    await settle();
+    expect(listRequestSearches.slice(requestsBeforeIntercept)).toEqual([]);
   });
 
   it('숨은 동안은 필터를 눌러도 주소를 바꾸지 않고, 목록 주소로 돌아오면(끝 슬래시 /clubs/ 포함) 다시 바꾼다', async () => {
@@ -205,10 +210,10 @@ describe('ClubExplorePage — 목록 가드(스펙 P1 §3.3)', () => {
     );
     navigation.search = 'page=3';
     renderExplore();
-    await waitFor(() => expect(listRequestSearches.some((search) => search.includes('page=2'))).toBe(true));
 
     // 대기가 실패해도 붙잡은 응답을 푼다 — 안 풀면 요청이 케이스가 끝난 뒤에도 남는다.
     try {
+      await waitFor(() => expect(listRequestSearches.some((search) => search.includes('page=2'))).toBe(true));
       goTo('/clubs/3', '');
     } finally {
       releaseLatePage();
@@ -219,5 +224,8 @@ describe('ClubExplorePage — 목록 가드(스펙 P1 §3.3)', () => {
 
     goTo('/clubs', 'page=3');
     await waitFor(() => expect(replaceCalls).toEqual(['/clubs']));
+    // 보정은 한 번뿐이다.
+    await settle();
+    expect(replaceCalls).toEqual(['/clubs']);
   });
 });
