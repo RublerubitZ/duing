@@ -46,6 +46,8 @@ const PRESS_HOLD_MS = 80;
 const PREFETCH_SETTLE_MS = 2000;
 // 전환 끝 대기 상한 — 전환(180ms)은 히어로 직후엔 대개 아직 돈다. 끝나지 않는 전환이 시행을 붙잡지 않게 넘기면 끝을 못 본 채(null) 적는다.
 const TRANSITION_SETTLE_TIMEOUT_MS = 1500;
+// 시행 결과에 싣는 중단 문구 수 상한(문구는 모을 때 이미 160자로 자른다).
+const ABORT_MESSAGE_LIMIT = 5;
 // 스펙 §2 기준 — 포인터 진입의 상세 스켈레톤: 중앙값 0프레임·p90 ≤ 150ms(데스크탑은 대표 활동 스켈레톤도).
 const P90_LIMIT_MS = 150;
 
@@ -54,6 +56,7 @@ type BuildName = 'develop' | 'p1';
 type EntryMode = 'pointer' | 'keyboard';
 type EntryFrame = { t: number; detailSkeleton: boolean; activitySkeleton: boolean; hero: boolean };
 type EntryTransition = { start: number; finishedAt: number | null; readyRejected: boolean; reason: string | null };
+type EntryPressMark = { type: 'pointerdown' | 'click'; t: number };
 type FrameSummary = {
   detailSkeletonFrames: number;
   detailSkeletonMs: number;
@@ -65,8 +68,20 @@ type TransitionSummary = {
   transitionAborts: number;
   transitionMs: number | null;
   transitionSettleTimedOut: boolean;
+  // 진단 — 갱신 시한(TimeoutError)·새 전환에 밀림(AbortError)·무관한 오류를 가른다. 이유는 전환 순서대로(없으면 null).
+  transitionReasons: Array<string | null>;
+  abortMessages: string[];
 };
-type TrialResult = FrameSummary & TransitionSummary & { build: BuildName; mode: EntryMode; project: string; clubId: number; trial: number };
+type TrialResult = FrameSummary &
+  TransitionSummary & {
+    build: BuildName;
+    mode: EntryMode;
+    project: string;
+    clubId: number;
+    trial: number;
+    // 첫 pointerdown → 첫 click 실제 간격(선조회가 앞선 시간). 키보드는 pointerdown 이 없어 null.
+    pressToClickMs: number | null;
+  };
 type TrialRun = { build: BuildName; baseUrl: string; target: MeasureTarget; mode: EntryMode; project: string; trial: number };
 
 declare global {
@@ -74,16 +89,21 @@ declare global {
     __duingEntryFrames?: EntryFrame[];
     __duingEntryClubName?: string;
     __duingEntryTransitions?: EntryTransition[];
+    __duingEntryPressMarks?: EntryPressMark[];
   }
 }
 
 function parseTargets(raw: string | undefined): MeasureTarget[] {
   if (!raw) return [];
   return raw.split(';').flatMap((entry) => {
+    // 빈 항목(끝 세미콜론 등)만 넘긴다.
+    if (entry.trim() === '') return [];
     const separatorIndex = entry.indexOf('=');
     const clubId = Number(entry.slice(0, separatorIndex));
     const keyword = entry.slice(separatorIndex + 1).trim();
-    return separatorIndex > 0 && Number.isInteger(clubId) && clubId > 0 && keyword !== '' ? [{ clubId, keyword }] : [];
+    if (separatorIndex > 0 && Number.isInteger(clubId) && clubId > 0 && keyword !== '') return [{ clubId, keyword }];
+    // 형식이 틀린 항목을 버리면 오타 하나로 대상이 조용히 줄어든다 — 실패로 알린다.
+    throw new Error(`E2E_MEASURE_TARGETS 항목 형식이 틀렸다(id=검색어): '${entry}'`);
   });
 }
 
@@ -170,6 +190,11 @@ async function recordEntryFrames(context: BrowserContext): Promise<void> {
           return transition;
         };
       }
+      // 실제 누름 간격 — 캡처 단계에서 pointerdown·click 시각을 적는다(터치는 합성 pointerdown 뒤 tap 까지의 지연이 담긴다).
+      const pressMarks: EntryPressMark[] = [];
+      window.__duingEntryPressMarks = pressMarks;
+      document.addEventListener('pointerdown', () => pressMarks.push({ type: 'pointerdown', t: performance.now() }), true);
+      document.addEventListener('click', () => pressMarks.push({ type: 'click', t: performance.now() }), true);
       const frames: EntryFrame[] = [];
       window.__duingEntryFrames = frames;
       const poll = () => {
@@ -256,7 +281,10 @@ async function measureEntry(browser: Browser, run: TrialRun): Promise<TrialResul
       if (abortPattern.test(message.text())) transitionAbortMessages.push(message.text().slice(0, 160));
     });
     page.on('pageerror', (pageError) => {
-      if (abortPattern.test(`${pageError.name} ${pageError.message}`)) transitionAbortMessages.push(pageError.message.slice(0, 160));
+      // 이름(TimeoutError·AbortError·InvalidStateError)까지 실어야 진단에서 원인을 가른다.
+      if (abortPattern.test(`${pageError.name} ${pageError.message}`)) {
+        transitionAbortMessages.push(`${pageError.name}: ${pageError.message}`.slice(0, 160));
+      }
     });
     await page.goto(`/clubs?q=${encodeURIComponent(run.target.keyword)}`);
     const card = page.locator(`a[href="/clubs/${run.target.clubId}"]:visible`).first();
@@ -304,6 +332,9 @@ async function measureEntry(browser: Browser, run: TrialRun): Promise<TrialResul
     const transitions = (await page.evaluate(() => window.__duingEntryTransitions ?? [])).filter(
       (transition) => transition.start >= pressedAt,
     );
+    const pressMarks = (await page.evaluate(() => window.__duingEntryPressMarks ?? [])).filter((mark) => mark.t >= pressedAt);
+    const firstPointerdown = pressMarks.find((mark) => mark.type === 'pointerdown');
+    const firstClick = pressMarks.find((mark) => mark.type === 'click');
     const firstTransition = transitions[0];
     const transitionSummary: TransitionSummary = {
       transitionCount: transitions.length,
@@ -313,6 +344,8 @@ async function measureEntry(browser: Browser, run: TrialRun): Promise<TrialResul
       transitionMs:
         firstTransition && firstTransition.finishedAt !== null ? firstTransition.finishedAt - firstTransition.start : null,
       transitionSettleTimedOut,
+      transitionReasons: transitions.map((transition) => transition.reason),
+      abortMessages: transitionAbortMessages.slice(abortMessagesBeforePress, abortMessagesBeforePress + ABORT_MESSAGE_LIMIT),
     };
     return {
       build: run.build,
@@ -320,6 +353,7 @@ async function measureEntry(browser: Browser, run: TrialRun): Promise<TrialResul
       project: run.project,
       clubId: run.target.clubId,
       trial: run.trial,
+      pressToClickMs: firstPointerdown && firstClick ? firstClick.t - firstPointerdown.t : null,
       ...summarizeFrames(frames),
       ...transitionSummary,
     };
@@ -342,10 +376,14 @@ function percentile90(values: number[]): number {
 
 test('동아리 상세 진입 — 포인터·키보드 × 비교 기준·P1(번갈아), 시행마다 새 컨텍스트', async ({ browser }, testInfo) => {
   const project = testInfo.project.name;
+  // 기본 설정(playwright.config.ts)의 desktop 프로젝트도 e2e/ 를 통째로 집는다 — 기기 옵션이 없는 프로젝트에서는 재지 않는다.
+  test.skip(!Object.hasOwn(CONTEXT_OPTIONS, project), '측정 전용 설정(playwright.entry-measure.config.ts)으로만 돈다');
   const builds: Array<{ build: BuildName; baseUrl: string }> = [];
   if (DEVELOP_URL) builds.push({ build: 'develop', baseUrl: DEVELOP_URL });
   if (P1_URL) builds.push({ build: 'p1', baseUrl: P1_URL });
 
+  // 결과 파일은 시행마다 지금까지의 결과로 덮어쓴다 — 중간에 멈춰도 앞 시행이 남는다(요약 rows 는 끝에서 함께 쓴다).
+  const outputFile = OUTPUT_PATH?.replace(/(\.json)?$/, `-${project}.json`);
   const results: TrialResult[] = [];
   for (let trial = 0; trial < TRIALS; trial += 1) {
     for (const target of TARGETS) {
@@ -354,6 +392,7 @@ test('동아리 상세 진입 — 포인터·키보드 × 비교 기준·P1(번�
       for (const { build, baseUrl } of order) {
         for (const mode of ['pointer', 'keyboard'] as const) {
           results.push(await measureEntry(browser, { build, baseUrl, target, mode, project, trial }));
+          if (outputFile) writeFileSync(outputFile, JSON.stringify({ project, results }, null, 2));
         }
       }
     }
@@ -392,12 +431,15 @@ test('동아리 상세 진입 — 포인터·키보드 × 비교 기준·P1(번�
       `[진입 측정] ${project} ${build} ${mode} — 전환 끝 대기 시한(${TRANSITION_SETTLE_TIMEOUT_MS}ms) 초과 시행 ${settleTimedOutTrials}/${trials}`,
     );
   }
-  if (OUTPUT_PATH) {
-    writeFileSync(OUTPUT_PATH.replace(/(\.json)?$/, `-${project}.json`), JSON.stringify({ project, rows, results }, null, 2));
+  if (outputFile) {
+    writeFileSync(outputFile, JSON.stringify({ project, rows, results }, null, 2));
   }
 
   // 판정(스펙 §2) — P1 포인터 진입만 기준이 있다(키보드는 값만 적는다). 넘으면 2단계(서버 시드)를 같은 PR 에 더한다(Task 12).
   const p1Pointer = rows.find((row) => row.build === 'p1' && row.mode === 'pointer');
+  // 시행이 0이면 빈 배열의 중앙값·p90 이 0이라 판정이 저절로 통과한다 — P1 포인터와 잰 빌드·모드마다 시행이 있어야 한다.
+  expect(p1Pointer?.trials ?? 0, 'P1 포인터 시행 수').toBeGreaterThan(0);
+  for (const row of rows) expect(row.trials, `${row.build} ${row.mode} 시행 수`).toBeGreaterThan(0);
   expect.soft(p1Pointer?.detailFramesMedian, '상세 스켈레톤 중앙값 0프레임').toBe(0);
   expect.soft(p1Pointer?.detailMsP90 ?? Number.POSITIVE_INFINITY, '상세 스켈레톤 p90 ≤ 150ms').toBeLessThanOrEqual(P90_LIMIT_MS);
   if (project === 'desktop-mouse') {
