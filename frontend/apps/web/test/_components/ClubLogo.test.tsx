@@ -1,5 +1,5 @@
 import { render, screen, fireEvent } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ClubLogo } from '../../app/_components/ClubLogo';
 
 describe('ClubLogo', () => {
@@ -116,15 +116,18 @@ describe('ClubLogo — 썸네일 우선(iOS 깜빡임 P0 §5)', () => {
     expect(screen.queryByAltText('로고')).toBeNull();
   });
 
-  it('logoUrl 이 null 이면 썸네일이 있어도 무시하고 처음부터 children(이니셜) 폴백이다 — 백엔드 계약(#1473)', () => {
-    render(
-      <ClubLogo logoUrl={null} thumbnailUrl={THUMBNAIL} alt="로고">
-        <span data-testid="fallback">🏛</span>
-      </ClubLogo>,
-    );
-    expect(screen.getByTestId('fallback')).toBeInTheDocument();
-    expect(screen.queryByAltText('로고')).toBeNull();
-  });
+  it.each([null, ''])(
+    'logoUrl 이 %j 이면 썸네일이 있어도 무시하고 처음부터 children(이니셜) 폴백이다 — 백엔드 계약(#1473)',
+    (logoUrl) => {
+      render(
+        <ClubLogo logoUrl={logoUrl} thumbnailUrl={THUMBNAIL} alt="로고">
+          <span data-testid="fallback">🏛</span>
+        </ClubLogo>,
+      );
+      expect(screen.getByTestId('fallback')).toBeInTheDocument();
+      expect(screen.queryByAltText('로고')).toBeNull();
+    },
+  );
 
   it.each([undefined, null])(
     'thumbnailUrl 이 %s 이면(구 응답·미생성) 원본을 지금처럼 lazy·async 로 그린다 — fail-open',
@@ -162,5 +165,52 @@ describe('ClubLogo — 썸네일 우선(iOS 깜빡임 P0 §5)', () => {
     const replacedLogo = screen.getByAltText('로고');
     expect(replacedLogo).toHaveAttribute('src', 'https://files.duings.com/club/logo/b-thumb.png');
     expect(replacedLogo).toHaveAttribute('loading', 'eager');
+  });
+
+  describe('마운트 때 이미 끝난 썸네일 — 하이드레이션 전에 난 load·error 는 React 19 가 다시 알리지 않는다', () => {
+    afterEach(() => vi.restoreAllMocks());
+
+    function mockSettledImage(naturalWidth: number) {
+      vi.spyOn(HTMLImageElement.prototype, 'complete', 'get').mockReturnValue(true);
+      vi.spyOn(HTMLImageElement.prototype, 'naturalWidth', 'get').mockReturnValue(naturalWidth);
+    }
+
+    it('이미 깨진 썸네일(complete·naturalWidth 0)은 원본으로 물러선다 — 원본은 같은 판정을 받지 않는다(외부 URL·SVG 는 0 일 수 있다)', () => {
+      mockSettledImage(0);
+      render(
+        <ClubLogo logoUrl={ORIGINAL} thumbnailUrl={THUMBNAIL} alt="로고">
+          <span data-testid="fallback">🏛</span>
+        </ClubLogo>,
+      );
+      expect(screen.getByAltText('로고')).toHaveAttribute('src', ORIGINAL);
+      expect(screen.queryByTestId('fallback')).toBeNull();
+    });
+
+    it('이미 받은 썸네일(캐시 적중, naturalWidth>0)은 그대로 그린다', () => {
+      mockSettledImage(384);
+      render(
+        <ClubLogo logoUrl={ORIGINAL} thumbnailUrl={THUMBNAIL} alt="로고">
+          <span data-testid="fallback">🏛</span>
+        </ClubLogo>,
+      );
+      expect(screen.getByAltText('로고')).toHaveAttribute('src', THUMBNAIL);
+    });
+  });
+
+  it('썸네일 실패로 원본을 쓸 때 loading 을 src 보다 먼저 쓴다 — WebKit 은 src 가 바뀌는 순간의 loading 으로 지연 여부를 정한다', () => {
+    render(
+      <ClubLogo logoUrl={ORIGINAL} thumbnailUrl={THUMBNAIL} alt="로고">
+        <span data-testid="fallback">🏛</span>
+      </ClubLogo>,
+    );
+    const setAttribute = vi.spyOn(Element.prototype, 'setAttribute');
+    fireEvent.error(screen.getByAltText('로고'));
+
+    const writtenNames = setAttribute.mock.calls.map(([name]) => name);
+    setAttribute.mockRestore();
+    expect(writtenNames.filter((name) => name === 'loading' || name === 'src')).toEqual([
+      'loading',
+      'src',
+    ]);
   });
 });

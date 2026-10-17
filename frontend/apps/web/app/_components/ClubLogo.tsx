@@ -25,30 +25,40 @@ type Props = {
  * - logoUrl 이 없으면 thumbnailUrl 도 무시한다(백엔드 #1473 계약 — 썸네일은 현재 로고에서 만든 변형이다)
  * - 원본과 다른 썸네일만 loading="eager" decoding="sync", 원본(원본과 같은 썸네일 포함)은 loading="lazy" decoding="async"
  *   (원본은 수백 KB~1.3MB 라 동기 디코딩 금지)
- * - 후보가 없거나 모두 onError → children fallback 렌더
+ * - 후보가 없거나 모두 실패(onError, 썸네일은 마운트 때 이미 깨진 것 포함) → children fallback 렌더
  * - 실패한 URL 만 기억하는 derived state — URL 이 새 값으로 바뀌면 옛 실패는 후보와 어긋나 자동 reset (useEffect 없음, 깜빡임 없음)
  *
  * 호출처 컨테이너가 `relative + overflow-hidden + 사이즈/모양/배경` 을 책임진다.
  */
 export function ClubLogo({ logoUrl, thumbnailUrl, alt, children }: Props) {
   const [failedUrls, setFailedUrls] = useState<readonly string[]>([]);
-  const candidateUrls = logoUrl ? [thumbnailUrl, logoUrl].filter((url): url is string => !!url) : [];
+  const candidateUrls = logoUrl
+    ? [thumbnailUrl, logoUrl].filter((url): url is string => !!url)
+    : [];
   // 썸네일이 원본과 같은 URL 이면 한 번의 실패로 둘 다 걸러져 바로 children 이다 — 같은 URL 을 두 번 시도하지 않는다.
   const src = candidateUrls.find((url) => !failedUrls.includes(url));
 
   if (src === undefined) return <>{children}</>;
   // 후보는 썸네일·원본 둘뿐이라 원본이 아니면 서버가 만든 384px 썸네일이다. 원본과 같은 값은 크기를 몰라 원본 속성으로 그린다.
   const isThumbnail = src !== logoUrl;
+  const markFailed = () =>
+    setFailedUrls((previous) => (previous.includes(src) ? previous : [...previous, src]));
   return (
     // eslint-disable-next-line @next/next/no-img-element -- 외부 Storage URL. next/image 도메인 화이트리스트 후속 PR 예정.
     <img
-      src={src}
-      alt={alt ?? ''}
+      // React 는 갱신 때 JSX 순서로 속성을 쓴다 — WebKit 은 src 가 바뀌는 순간의 loading 으로 지연을 정하므로 src 보다 앞에 둔다.
       loading={isThumbnail ? 'eager' : 'lazy'}
       decoding={isThumbnail ? 'sync' : 'async'}
+      src={src}
+      alt={alt ?? ''}
       draggable={false}
       className="absolute inset-0 w-full h-full object-cover"
-      onError={() => setFailedUrls((previous) => [...previous, src])}
+      ref={(image) => {
+        // 하이드레이션 전에 이미 깨진 서버 HTML 썸네일 — React 19 는 그 error 를 다시 알리지 않는다. 서버가 만든 PNG·JPEG 라
+        // naturalWidth 0 이 곧 실패다(원본은 외부 URL·SVG 일 수 있어 판정하지 않는다).
+        if (isThumbnail && image?.complete && image.naturalWidth === 0) markFailed();
+      }}
+      onError={markFailed}
     />
   );
 }
