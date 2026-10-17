@@ -90,10 +90,12 @@ describe('동아리 modal 슬롯 라우트(스펙 P1 §3.1)', () => {
     expect(fetchPublicClubHeroActivitiesMock).not.toHaveBeenCalled();
   });
 
-  it('인터셉트 상세는 정적(●)이다 — generateStaticParams 는 빈 목록이고, 재생성 주기·메타데이터는 두지 않는다', () => {
+  it('인터셉트 상세는 정적(●)이다 — generateStaticParams 는 빈 목록이고, 재생성 주기·generateMetadata 는 두지 않으며 정적 메타데이터는 색인 차단뿐이다', () => {
     expect(interceptRoute.generateStaticParams()).toEqual([]);
     expect('revalidate' in interceptRoute).toBe(false);
     expect('generateMetadata' in interceptRoute).toBe(false);
+    // 결과 경로(/clubs/(...)clubs/<id>)를 주소로 직접 열 때 쓰이는 head — 색인하지 않는다(링크는 따라간다).
+    expect(interceptRoute.metadata).toEqual({ robots: { index: false, follow: true } });
   });
 
   it('인터셉트 상세의 로딩 경계는 탐색 로딩 그림(ClubsRouteLoading)을, 오류 경계는 공용 오류 화면을 그린다', () => {

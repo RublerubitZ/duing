@@ -1,3 +1,5 @@
+import type { Metadata } from 'next';
+
 import { ClubDetailPage } from '../../../[clubId]/_pages/ClubDetailPage';
 
 type Props = {
@@ -11,6 +13,10 @@ type Props = {
 // ⚠️ cookies()·headers()·searchParams 를 읽으면 동적 라우트(ƒ)가 돼 카드 프리페치마다 함수가 돈다 — 쓰지 말 것.
 // 폴더는 (.)[clubId] 대신 루트 기준 (...)clubs 다 — dev 감시 이벤트마다 인터셉트 rewrite 가 쌓이는 Next 버그(vercel/next.js#91265)
 // 때문이다. (.)[clubId] 는 결과 경로(/clubs/(.)<id>)가 원래 패턴에 다시 맞아 깨지고, (...)clubs 는 다시 맞지 않는다(운영 동작은 같다).
+
+// 정적 메타데이터는 색인 차단 하나뿐이다 — 결과 경로(/clubs/(...)clubs/<id>)를 주소로 직접 열면 children 이 기본값이라 이 head 가
+// 쓰여 셸이 200 으로 열린다(링크는 없다). 인터셉트 이동 중 head 는 숨은 목록 것이 먼저 골라져 그대로다.
+export const metadata: Metadata = { robots: { index: false, follow: true } };
 
 // 정적(●)을 지킨다 — 빌드 때 만드는 경로는 없고 경로마다 첫 요청 때 생성한다(app/clubs/[clubId]/page.tsx 와 같은 이유).
 export function generateStaticParams() {

@@ -55,22 +55,26 @@ export function ClubsRouteAnnouncer({ intercepted }: Props) {
   const titleBeforeInterceptRef = useRef<string | null>(null);
   // 인터셉트 동안의 head <title> 요소 — 바뀌면 head 가 다시 그려진 것이다.
   const titleElementRef = useRef<Element | null>(null);
+  // 인터셉트 동안 마지막으로 본 제목(경로 커밋 — 늦은 진입이면 아직 목록 제목 — 과 (a) 관찰) — nextTitle 은 (a) 가 바꾸지 않아,
+  // 첫 로드 중 로그아웃처럼 신호 뒤에 도착한 제목은 nextTitle 과 다르다.
+  const interceptTitleRef = useRef<string | null>(null);
 
   useEffect(() => {
     const leavesIntercept = wasInterceptedRef.current && !intercepted;
     const titleBeforeIntercept = titleBeforeInterceptRef.current;
-    // refresh 뒤 뒤로는 비워진 캐시를 다시 받는 동안 옛 상세가 남아(Next) 제목이 아직 Next 가 읽은 상세 제목이다. 상세 정리가 나중에
-    // 되돌릴 제목을 먼저 넣어 Next 가 이 커밋에서 읽게 한다 — 그러면 상세 정리는 제목이 제 것이 아니라 그대로 둔다.
+    // refresh 뒤 뒤로는 비워진 캐시를 다시 받는 동안 옛 상세가 남아(Next) 제목이 아직 상세 것이다. 상세 정리가 나중에 되돌릴 제목을
+    // 먼저 넣어 Next 가 이 커밋에서 읽게 한다 — 그러면 상세 정리는 제목이 제 것이 아니라 그대로 둔다.
     if (
       leavesIntercept &&
       titleBeforeIntercept !== null &&
-      document.title === nextTitleRef.current &&
+      document.title === interceptTitleRef.current &&
       document.title !== titleBeforeIntercept
     ) {
       document.title = titleBeforeIntercept;
     }
     const title = document.title;
     setAnnouncement(leavesIntercept && title === nextTitleRef.current ? title : '');
+    interceptTitleRef.current = intercepted ? title : null;
     nextTitleRef.current = title;
     committedLocationPathnameRef.current = window.location.pathname;
     wasInterceptedRef.current = intercepted;
@@ -100,6 +104,7 @@ export function ClubsRouteAnnouncer({ intercepted }: Props) {
       // head 재렌더는 데이터 도착이 아니다 — 위 effect 가 못 본 재렌더(프레임이 다시 그려지지 않은 커밋)면 여기서 되돌린다.
       if (restoreTitleReplacedByHead(titleElementRef)) return;
       const title = document.title;
+      interceptTitleRef.current = title;
       if (title !== nextTitleRef.current) setAnnouncement(title);
     });
     observer.observe(document.head, { childList: true, subtree: true, characterData: true });
