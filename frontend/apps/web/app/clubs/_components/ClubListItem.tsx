@@ -114,7 +114,7 @@ export function ClubListItem({
         }}
         aria-label={`${club.name} 로고`}
       >
-        <ClubLogo logoUrl={club.logoUrl}>{initial}</ClubLogo>
+        <ClubLogo logoUrl={club.logoUrl} thumbnailUrl={club.logoThumbnailUrl}>{initial}</ClubLogo>
       </div>
 
       <div className="min-w-0 flex-1">

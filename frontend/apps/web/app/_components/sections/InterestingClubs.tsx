@@ -99,7 +99,7 @@ function ClubCardLogo({ club, className }: { club: ClubSummary; className?: stri
       className={cn('relative grid shrink-0 place-items-center overflow-hidden font-bold', className)}
       style={{ background: `${color}1f`, color }}
     >
-      <ClubLogo logoUrl={club.logoUrl}>{club.name.charAt(0)}</ClubLogo>
+      <ClubLogo logoUrl={club.logoUrl} thumbnailUrl={club.logoThumbnailUrl}>{club.name.charAt(0)}</ClubLogo>
     </span>
   );
 }

@@ -45,6 +45,8 @@ export function summaryToClub(summary: ClubSummary): Club {
     college: summary.college ?? null,
     color: pickColor(summary.id),
     logoUrl: summary.logoUrl,
+    // 배포 전환기(썸네일 필드 미탑재 구버전 응답)는 undefined 로 오므로 null 로 눕힌다(department 와 같은 규약).
+    logoThumbnailUrl: summary.logoThumbnailUrl ?? null,
     activeRecruitment: summary.activeRecruitment,
   };
 }

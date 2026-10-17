@@ -133,7 +133,7 @@ export function ClubCard({
           }}
           aria-label={`${club.name} 로고`}
         >
-          <ClubLogo logoUrl={club.logoUrl}>{initial}</ClubLogo>
+          <ClubLogo logoUrl={club.logoUrl} thumbnailUrl={club.logoThumbnailUrl}>{initial}</ClubLogo>
         </div>
 
         {/* 계층 2 — 소속은 우측 상단 속성 자리(이름과 경쟁 금지), 하트는 그 옆 코너 액션. */}
