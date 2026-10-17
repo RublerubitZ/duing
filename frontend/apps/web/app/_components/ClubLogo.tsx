@@ -43,13 +43,15 @@ export function ClubLogo({ logoUrl, thumbnailUrl, alt, children }: Props) {
   const isThumbnail = src !== logoUrl;
   const markFailed = () =>
     setFailedUrls((previous) => (previous.includes(src) ? previous : [...previous, src]));
+  // React 는 같은 img 를 갱신할 때 props 순서로 속성을 쓰고, 브라우저는 그 순간의 loading 값으로 요청을 정한다. 원본(지연)으로 갈 때는
+  // loading 을 먼저 써야 WebKit 이 화면 밖 원본을 바로 받지 않고, 썸네일(즉시)로 갈 때는 src 를 먼저 써야 미뤄 둔 원본 요청이 풀리지 않는다.
+  const loadProps = isThumbnail
+    ? ({ src, loading: 'eager', decoding: 'sync' } as const)
+    : ({ loading: 'lazy', decoding: 'async', src } as const);
   return (
     // eslint-disable-next-line @next/next/no-img-element -- 외부 Storage URL. next/image 도메인 화이트리스트 후속 PR 예정.
     <img
-      // React 는 갱신 때 JSX 순서로 속성을 쓴다 — WebKit 은 src 가 바뀌는 순간의 loading 으로 지연을 정하므로 src 보다 앞에 둔다.
-      loading={isThumbnail ? 'eager' : 'lazy'}
-      decoding={isThumbnail ? 'sync' : 'async'}
-      src={src}
+      {...loadProps}
       alt={alt ?? ''}
       draggable={false}
       className="absolute inset-0 w-full h-full object-cover"

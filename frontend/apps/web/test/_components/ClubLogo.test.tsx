@@ -197,20 +197,45 @@ describe('ClubLogo — 썸네일 우선(iOS 깜빡임 P0 §5)', () => {
     });
   });
 
-  it('썸네일 실패로 원본을 쓸 때 loading 을 src 보다 먼저 쓴다 — WebKit 은 src 가 바뀌는 순간의 loading 으로 지연 여부를 정한다', () => {
-    render(
-      <ClubLogo logoUrl={ORIGINAL} thumbnailUrl={THUMBNAIL} alt="로고">
-        <span data-testid="fallback">🏛</span>
-      </ClubLogo>,
-    );
-    const setAttribute = vi.spyOn(Element.prototype, 'setAttribute');
-    fireEvent.error(screen.getByAltText('로고'));
+  describe('같은 img 를 갱신할 때 속성 쓰는 순서 — 브라우저는 그 순간의 loading 값으로 요청을 정한다', () => {
+    afterEach(() => vi.restoreAllMocks());
 
-    const writtenNames = setAttribute.mock.calls.map(([name]) => name);
-    setAttribute.mockRestore();
-    expect(writtenNames.filter((name) => name === 'loading' || name === 'src')).toEqual([
-      'loading',
-      'src',
-    ]);
+    function writtenLoadingAndSrc(update: () => void): string[] {
+      const setAttribute = vi.spyOn(Element.prototype, 'setAttribute');
+      update();
+      return setAttribute.mock.calls
+        .map(([name]) => name)
+        .filter((name) => name === 'loading' || name === 'src');
+    }
+
+    it('원본(지연)으로 갈 때는 loading 을 먼저 쓴다 — WebKit 이 화면 밖 원본을 바로 받지 않게', () => {
+      render(
+        <ClubLogo logoUrl={ORIGINAL} thumbnailUrl={THUMBNAIL} alt="로고">
+          <span data-testid="fallback">🏛</span>
+        </ClubLogo>,
+      );
+      expect(writtenLoadingAndSrc(() => fireEvent.error(screen.getByAltText('로고')))).toEqual([
+        'loading',
+        'src',
+      ]);
+    });
+
+    it('썸네일(즉시)로 갈 때는 src 를 먼저 쓴다 — eager 를 먼저 쓰면 화면 밖에 미뤄 둔 원본 요청이 풀린다', () => {
+      const { rerender } = render(
+        <ClubLogo logoUrl={ORIGINAL} thumbnailUrl={null} alt="로고">
+          <span data-testid="fallback">🏛</span>
+        </ClubLogo>,
+      );
+      // 로고 교체 직후 등 썸네일이 아직 없던 목록이 다시 조회돼 썸네일을 받는 경우다.
+      const writtenNames = writtenLoadingAndSrc(() =>
+        rerender(
+          <ClubLogo logoUrl={ORIGINAL} thumbnailUrl={THUMBNAIL} alt="로고">
+            <span data-testid="fallback">🏛</span>
+          </ClubLogo>,
+        ),
+      );
+      expect(writtenNames).toEqual(['src', 'loading']);
+      expect(screen.getByAltText('로고')).toHaveAttribute('loading', 'eager');
+    });
   });
 });
