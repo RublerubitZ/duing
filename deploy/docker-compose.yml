@@ -5,7 +5,8 @@ services:
   backend:
     image: ${BACKEND_IMAGE}
     restart: unless-stopped
-    # 정지 유예 80초 = 정상 종료 정지 단계 30초 × 2(웹 요청 대기·진행 중 예약 잡 대기) + 실행기 소멸 대기 9초(2·2·5) + 여유(DB 풀·JVM 종료) — 기본 10초면 정상 종료 도중 SIGKILL 된다.
+    # 정지 유예 80초 = 정상 종료 정지 단계 30초 × 2(웹 요청 대기·진행 중 예약 잡 대기) + 실행기 소멸 대기 9초(ClubLogoThumbnailAsyncConfig 2·
+    # FrontendRevalidationAsyncConfig 2·MonitoringAsyncConfig 5) + 여유(톰캣 실행기 최대 5초·DB 풀·JVM 종료) — 기본 10초면 정상 종료 도중 SIGKILL 된다.
     stop_grace_period: 80s
     # 메모리 상한 — 없으면 JVM 의 MaxRAMPercentage=75 가 호스트 전체 RAM(1.9GB 실측) 기준으로 힙을 잡아
     # Caddy·OS 몫을 침식하고, 호스트 OOM 킬러는 ExitOnOutOfMemoryError 가 막지 못한다. 1400m 이면 힙 상한 ≈1.05GB

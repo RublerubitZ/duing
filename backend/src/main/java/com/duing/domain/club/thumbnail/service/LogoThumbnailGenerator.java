@@ -61,8 +61,8 @@ public final class LogoThumbnailGenerator {
     /** sRGB 판정에 쓰는 색 — 원색 셋(1.0)이 원색·백색점을, 중간 회색(0.5)이 곡선을 드러낸다. */
     private static final float[][] SRGB_PROBE_COLORS = {{1f, 0f, 0f}, {0f, 1f, 0f}, {0f, 0f, 1f}, {0.5f, 0.5f, 0.5f}};
     /**
-     * sRGB 와 같다고 보는 XYZ(D50) 차이 상한. JDK 21 실측 — sRGB 계열(JDK 내장, macOS sRGB IEC61966-2.1)은 0.0003 이하이고, 가장 가까운
-     * sRGB 아닌 프로파일(원색은 같고 곡선만 다른 BT.709)이 0.045, Display P3 가 0.093 이다.
+     * sRGB 와 같다고 보는 XYZ(D50) 차이 상한. JDK 21 실측 — sRGB 계열(JDK 내장, macOS sRGB IEC61966-2.1)은 0.0003 이하이고, 실측한
+     * sRGB 아닌 프로파일은 0.0428(외장 모니터 프로파일) 이상이다 — 원색은 같고 곡선만 다른 BT.709 가 0.045, Display P3 가 0.093.
      */
     private static final float SRGB_XYZ_TOLERANCE = 0.01f;
     /** iCCP 를 풀어 읽는 상한 — 행렬·곡선형 프로파일은 수 KB 다. 넘으면 읽지 못한 것으로 본다(압축 폭탄). */

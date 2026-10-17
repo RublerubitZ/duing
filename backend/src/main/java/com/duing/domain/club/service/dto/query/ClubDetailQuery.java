@@ -23,7 +23,7 @@ public record ClubDetailQuery(
         String department,
         String description,
         String logoUrl,
-        /** 로고의 384px 변형 URL(원본이 작으면 원본 URL). 아직 없거나 만들 수 없는 형식이면 null — 클라이언트는 logoUrl 로 폴백한다. */
+        /** 로고의 384px 변형 URL(원본이 작거나 sRGB 가 아닌 색 프로파일이 붙었으면 원본 URL — 같은 값이 작은 이미지라는 뜻은 아니다). 아직 없거나 만들 수 없는 형식이면 null — 클라이언트는 logoUrl 로 폴백한다. */
         String logoThumbnailUrl,
         String coverUrl,
         List<String> tags,
