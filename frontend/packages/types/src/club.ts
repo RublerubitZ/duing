@@ -45,6 +45,13 @@ export type ClubSummary = {
    */
   department?: string | null;
   logoUrl: string | null;
+  /**
+   * 로고의 384px 썸네일 공개 URL. logoUrl 과 같은 값일 수 있다 — 원본의 긴 변이 이미 384 이하인 경우 등 서버가 원본을 그대로
+   * 쓰는 경우다(같은 값이 작은 이미지라는 뜻은 아니다). 서버가 로고 저장 뒤 비동기로 만들어 생성 전·건너뜀(WebP·EXIF 회전 등)·구 응답에서는 null 이거나
+   * 필드 자체가 없다 — 그때 클라이언트는 logoUrl 을 쓴다(department 와 같은 옵셔널 규약). logoUrl 이 null 이면 이 값도 무시하고,
+   * 편집 폼의 시드·저장에서 logoUrl 자리에 넣지 않는다(백엔드 #1473 계약). ClubDetail 은 ClubSummary 를 확장하므로 상세도 같은 필드를 받는다.
+   */
+  logoThumbnailUrl?: string | null;
   status: ClubStatus;
   tags: string[];
   tagline: string | null;
