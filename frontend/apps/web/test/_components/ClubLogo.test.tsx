@@ -1,5 +1,5 @@
 import { render, screen, fireEvent } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ClubLogo } from '../../app/_components/ClubLogo';
 
 describe('ClubLogo', () => {
@@ -51,5 +51,191 @@ describe('ClubLogo', () => {
     );
     expect(screen.getByAltText('로고')).toHaveAttribute('src', 'https://example.com/new.png');
     expect(screen.queryByTestId('fallback')).toBeNull();
+  });
+});
+
+describe('ClubLogo — 썸네일 우선(iOS 깜빡임 P0 §5)', () => {
+  const THUMBNAIL = 'https://files.duings.com/club/logo/a-thumb.png';
+  const ORIGINAL = 'https://files.duings.com/club/logo/a.png';
+
+  it('thumbnailUrl 이 있으면 그 URL 을 즉시(eager·sync) 그린다', () => {
+    render(
+      <ClubLogo logoUrl={ORIGINAL} thumbnailUrl={THUMBNAIL} alt="로고">
+        <span data-testid="fallback">🏛</span>
+      </ClubLogo>,
+    );
+    const logo = screen.getByAltText('로고');
+    expect(logo).toHaveAttribute('src', THUMBNAIL);
+    expect(logo).toHaveAttribute('loading', 'eager');
+    expect(logo).toHaveAttribute('decoding', 'sync');
+    expect(screen.queryByTestId('fallback')).toBeNull();
+  });
+
+  it('썸네일이 실패하면 원본으로 물러서되 원본은 지금 속성(lazy·async)대로 그린다 — 원본은 최대 1.3MB 라 동기 디코딩 금지', () => {
+    render(
+      <ClubLogo logoUrl={ORIGINAL} thumbnailUrl={THUMBNAIL} alt="로고">
+        <span data-testid="fallback">🏛</span>
+      </ClubLogo>,
+    );
+    fireEvent.error(screen.getByAltText('로고'));
+
+    const original = screen.getByAltText('로고');
+    expect(original).toHaveAttribute('src', ORIGINAL);
+    expect(original).toHaveAttribute('loading', 'lazy');
+    expect(original).toHaveAttribute('decoding', 'async');
+    expect(screen.queryByTestId('fallback')).toBeNull();
+  });
+
+  it('썸네일·원본이 모두 실패하면 children 폴백이다', () => {
+    render(
+      <ClubLogo logoUrl={ORIGINAL} thumbnailUrl={THUMBNAIL} alt="로고">
+        <span data-testid="fallback">🏛</span>
+      </ClubLogo>,
+    );
+    fireEvent.error(screen.getByAltText('로고'));
+    fireEvent.error(screen.getByAltText('로고'));
+
+    expect(screen.getByTestId('fallback')).toBeInTheDocument();
+    expect(screen.queryByAltText('로고')).toBeNull();
+  });
+
+  it('썸네일이 원본과 같은 URL(작은 원본 등)이면 원본 속성(lazy·async)으로 한 번만 시도하고, 실패하면 바로 children 폴백이다', () => {
+    render(
+      <ClubLogo logoUrl={ORIGINAL} thumbnailUrl={ORIGINAL} alt="로고">
+        <span data-testid="fallback">🏛</span>
+      </ClubLogo>,
+    );
+    // 서버는 작은 원본(스펙 §4.2) 등에 원본 URL 을 그대로 준다(백엔드 후속이 들어오면 넓은 색역 로고도) — 크기를 알 수 없어 동기 디코딩하지 않는다.
+    const logo = screen.getByAltText('로고');
+    expect(logo).toHaveAttribute('src', ORIGINAL);
+    expect(logo).toHaveAttribute('loading', 'lazy');
+    expect(logo).toHaveAttribute('decoding', 'async');
+
+    fireEvent.error(logo);
+    expect(screen.getByTestId('fallback')).toBeInTheDocument();
+    expect(screen.queryByAltText('로고')).toBeNull();
+  });
+
+  it.each([null, ''])(
+    'logoUrl 이 %j 이면 썸네일이 있어도 무시하고 처음부터 children(이니셜) 폴백이다 — 백엔드 계약(#1473)',
+    (logoUrl) => {
+      render(
+        <ClubLogo logoUrl={logoUrl} thumbnailUrl={THUMBNAIL} alt="로고">
+          <span data-testid="fallback">🏛</span>
+        </ClubLogo>,
+      );
+      expect(screen.getByTestId('fallback')).toBeInTheDocument();
+      expect(screen.queryByAltText('로고')).toBeNull();
+    },
+  );
+
+  it.each([undefined, null])(
+    'thumbnailUrl 이 %s 이면(구 응답·미생성) 원본을 지금처럼 lazy·async 로 그린다 — fail-open',
+    (thumbnailUrl) => {
+      render(
+        <ClubLogo logoUrl={ORIGINAL} thumbnailUrl={thumbnailUrl} alt="로고">
+          <span data-testid="fallback">🏛</span>
+        </ClubLogo>,
+      );
+      const logo = screen.getByAltText('로고');
+      expect(logo).toHaveAttribute('src', ORIGINAL);
+      expect(logo).toHaveAttribute('loading', 'lazy');
+      expect(logo).toHaveAttribute('decoding', 'async');
+    },
+  );
+
+  it('썸네일이 실패한 뒤 새 썸네일 URL 로 바뀌면(로고 교체) 다시 썸네일부터 시도한다', () => {
+    const { rerender } = render(
+      <ClubLogo logoUrl={ORIGINAL} thumbnailUrl={THUMBNAIL} alt="로고">
+        <span data-testid="fallback">🏛</span>
+      </ClubLogo>,
+    );
+    fireEvent.error(screen.getByAltText('로고'));
+    expect(screen.getByAltText('로고')).toHaveAttribute('src', ORIGINAL);
+
+    rerender(
+      <ClubLogo
+        logoUrl="https://files.duings.com/club/logo/b.png"
+        thumbnailUrl="https://files.duings.com/club/logo/b-thumb.png"
+        alt="로고"
+      >
+        <span data-testid="fallback">🏛</span>
+      </ClubLogo>,
+    );
+    const replacedLogo = screen.getByAltText('로고');
+    expect(replacedLogo).toHaveAttribute('src', 'https://files.duings.com/club/logo/b-thumb.png');
+    expect(replacedLogo).toHaveAttribute('loading', 'eager');
+  });
+
+  describe('마운트 때 이미 끝난 썸네일 — 하이드레이션 전에 난 load·error 는 React 19 가 다시 알리지 않는다', () => {
+    afterEach(() => vi.restoreAllMocks());
+
+    function mockSettledImage(naturalWidth: number) {
+      vi.spyOn(HTMLImageElement.prototype, 'complete', 'get').mockReturnValue(true);
+      vi.spyOn(HTMLImageElement.prototype, 'naturalWidth', 'get').mockReturnValue(naturalWidth);
+    }
+
+    it('이미 깨진 썸네일(complete·naturalWidth 0)은 원본으로 물러선다 — 원본은 같은 판정을 받지 않는다(외부 URL·SVG 는 0 일 수 있다)', () => {
+      mockSettledImage(0);
+      render(
+        <ClubLogo logoUrl={ORIGINAL} thumbnailUrl={THUMBNAIL} alt="로고">
+          <span data-testid="fallback">🏛</span>
+        </ClubLogo>,
+      );
+      expect(screen.getByAltText('로고')).toHaveAttribute('src', ORIGINAL);
+      expect(screen.queryByTestId('fallback')).toBeNull();
+    });
+
+    it('이미 받은 썸네일(캐시 적중, naturalWidth>0)은 그대로 그린다', () => {
+      mockSettledImage(384);
+      render(
+        <ClubLogo logoUrl={ORIGINAL} thumbnailUrl={THUMBNAIL} alt="로고">
+          <span data-testid="fallback">🏛</span>
+        </ClubLogo>,
+      );
+      expect(screen.getByAltText('로고')).toHaveAttribute('src', THUMBNAIL);
+    });
+  });
+
+  describe('같은 img 를 갱신할 때 속성 쓰는 순서 — 브라우저는 그 순간의 loading 값으로 요청을 정한다', () => {
+    afterEach(() => vi.restoreAllMocks());
+
+    function writtenLoadingAndSrc(update: () => void): string[] {
+      const setAttribute = vi.spyOn(Element.prototype, 'setAttribute');
+      update();
+      return setAttribute.mock.calls
+        .map(([name]) => name)
+        .filter((name) => name === 'loading' || name === 'src');
+    }
+
+    it('원본(지연)으로 갈 때는 loading 을 먼저 쓴다 — WebKit 이 화면 밖 원본을 바로 받지 않게', () => {
+      render(
+        <ClubLogo logoUrl={ORIGINAL} thumbnailUrl={THUMBNAIL} alt="로고">
+          <span data-testid="fallback">🏛</span>
+        </ClubLogo>,
+      );
+      expect(writtenLoadingAndSrc(() => fireEvent.error(screen.getByAltText('로고')))).toEqual([
+        'loading',
+        'src',
+      ]);
+    });
+
+    it('썸네일(즉시)로 갈 때는 src 를 먼저 쓴다 — eager 를 먼저 쓰면 화면 밖에 미뤄 둔 원본 요청이 풀린다', () => {
+      const { rerender } = render(
+        <ClubLogo logoUrl={ORIGINAL} thumbnailUrl={null} alt="로고">
+          <span data-testid="fallback">🏛</span>
+        </ClubLogo>,
+      );
+      // 로고 교체 직후 등 썸네일이 아직 없던 목록이 다시 조회돼 썸네일을 받는 경우다.
+      const writtenNames = writtenLoadingAndSrc(() =>
+        rerender(
+          <ClubLogo logoUrl={ORIGINAL} thumbnailUrl={THUMBNAIL} alt="로고">
+            <span data-testid="fallback">🏛</span>
+          </ClubLogo>,
+        ),
+      );
+      expect(writtenNames).toEqual(['src', 'loading']);
+      expect(screen.getByAltText('로고')).toHaveAttribute('loading', 'eager');
+    });
   });
 });

@@ -204,4 +204,25 @@ describe('ClubListItem — 모바일 가로형 카드', () => {
     expect(logoBox.style.background).toContain('linear-gradient(135deg');
     expect(logoBox.style.background).toContain('rgb(31, 74, 54)');
   });
+
+  it('썸네일 URL 이 있으면 썸네일을 즉시(eager) 그리고, 없으면 원본을 지금처럼(lazy) 그린다', () => {
+    const { unmount } = render(
+      <ClubListItem
+        club={{
+          ...baseClub,
+          logoUrl: 'https://cdn.example.com/logo.png',
+          logoThumbnailUrl: 'https://cdn.example.com/logo-thumb.png',
+        }}
+      />,
+    );
+    const thumbnail = screen.getByLabelText('테스트 동아리 로고').querySelector('img');
+    expect(thumbnail).toHaveAttribute('src', 'https://cdn.example.com/logo-thumb.png');
+    expect(thumbnail).toHaveAttribute('loading', 'eager');
+    unmount();
+
+    render(<ClubListItem club={{ ...baseClub, logoUrl: 'https://cdn.example.com/logo.png' }} />);
+    const original = screen.getByLabelText('테스트 동아리 로고').querySelector('img');
+    expect(original).toHaveAttribute('src', 'https://cdn.example.com/logo.png');
+    expect(original).toHaveAttribute('loading', 'lazy');
+  });
 });
