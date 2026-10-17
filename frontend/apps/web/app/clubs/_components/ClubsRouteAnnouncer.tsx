@@ -55,8 +55,8 @@ export function ClubsRouteAnnouncer({ intercepted }: Props) {
   const titleBeforeInterceptRef = useRef<string | null>(null);
   // 인터셉트 동안의 head <title> 요소 — 바뀌면 head 가 다시 그려진 것이다.
   const titleElementRef = useRef<Element | null>(null);
-  // 인터셉트 동안 마지막으로 본 상세 제목(경로 커밋·(a) 관찰) — nextTitle 은 (a) 가 바꾸지 않아, 첫 로드 중 로그아웃처럼 신호 뒤에
-  // 도착한 제목은 nextTitle 과 다르다.
+  // 인터셉트 동안 마지막으로 본 제목(경로 커밋 — 늦은 진입이면 아직 목록 제목 — 과 (a) 관찰) — nextTitle 은 (a) 가 바꾸지 않아,
+  // 첫 로드 중 로그아웃처럼 신호 뒤에 도착한 제목은 nextTitle 과 다르다.
   const interceptTitleRef = useRef<string | null>(null);
 
   useEffect(() => {
