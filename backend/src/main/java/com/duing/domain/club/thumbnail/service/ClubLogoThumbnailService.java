@@ -26,7 +26,7 @@ import org.springframework.transaction.support.TransactionTemplate;
  * 원본이 이미 작으면(긴 변 ≤ 384) 새 객체 없이 원본 URL 을 넣고 추적 행도 만들지 않는다 — 해제는 원본 해제 경로가 맡는다.
  *
  * <p>상세 재생성 이벤트는 로고 변경 경로({@link #generateAfterLogoChange})만 발행한다. 백필({@link #generateForBackfill})은
- * 발행하지 않는다 — 러너가 끝에 공개 동아리만 직접 요청한다(스펙 §4.5). 발행하면 리스너가 공개 여부를 거르지 않아 비공개 동아리까지
+ * 발행하지 않는다 — 러너가 반영 직후 공개 동아리만 직접 요청한다(스펙 §4.5). 발행하면 리스너가 공개 여부를 거르지 않아 비공개 동아리까지
  * 렌더되고, 공개 동아리는 두 번 렌더되며, 생성 속도가 재생성 큐(100)를 넘칠 수 있다.
  *
  * <p>로그에는 clubId·사유만 남긴다(URL·키 금지). 건너뜀은 INFO, 스토리지 장애 등 예외는 호출자(리스너·백필)가 WARN 으로 센다.
@@ -70,7 +70,7 @@ public class ClubLogoThumbnailService {
         return generate(clubId, logoUrl, changedByUserId == null ? SYSTEM_UPLOADER_ID : changedByUserId, true);
     }
 
-    /** 백필 — 상세 재생성 이벤트를 발행하지 않는다(러너가 끝에 공개 동아리만 직접 요청한다). 업로더는 시스템 표식. */
+    /** 백필 — 상세 재생성 이벤트를 발행하지 않는다(러너가 반영 직후 공개 동아리만 직접 요청한다). 업로더는 시스템 표식. */
     public LogoThumbnailOutcome generateForBackfill(Long clubId, String logoUrl) {
         return generate(clubId, logoUrl, SYSTEM_UPLOADER_ID, false);
     }

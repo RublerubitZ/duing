@@ -1,9 +1,13 @@
 package com.duing.domain.club.thumbnail.job;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
@@ -223,24 +227,77 @@ class ClubLogoThumbnailBackfillRunnerTest extends IntegrationTestBase {
     }
 
     @Test
-    @DisplayName("컨텍스트 종료가 시작되면 남은 상세 재생성을 건너뛰고 완료 로그에 그때까지의 건수를 남긴다")
-    void contextCloseStopsRemainingRevalidations(CapturedOutput output) throws Exception {
+    @DisplayName("썸네일을 반영한 공개 동아리마다 다음 동아리를 만들기 전에 그 동아리의 상세 재생성을 요청하고, 비공개 동아리는 요청하지 않는다")
+    void revalidatesEachPublicClubRightAfterItsThumbnail(CapturedOutput output) throws Exception {
+        Club first = saveClub(ClubStatus.ACTIVE, seedLogo(ImageFixture.png(800, 600, true)));
+        Club pending = saveClub(ClubStatus.PENDING_APPROVAL, seedLogo(ImageFixture.png(800, 600, true)));
+        Club last = saveClub(ClubStatus.ACTIVE, seedLogo(ImageFixture.png(800, 600, true)));
+        List<Club> clubs = List.of(first, pending, last);
+        List<String> requests = new ArrayList<>();
+        // 요청마다 그 순간 썸네일이 생긴 동아리 수를 함께 적는다 — 생성 1 → 재생성 1 → 생성 2·3 → 재생성 3 순서가 여기서 드러난다.
+        doAnswer(invocation -> {
+            long storedSoFar = clubs.stream().filter(club -> thumbnailUrlOf(club.getId()) != null).count();
+            requests.add(invocation.getArgument(0) + " — 썸네일 " + storedSoFar + "곳");
+            return null;
+        }).when(frontendRevalidator).revalidateWithoutAlert(anyString());
+
+        runner().run();
+
+        assertThat(requests).containsExactly(
+                "/clubs/" + first.getId() + " — 썸네일 1곳",
+                "/clubs/" + last.getId() + " — 썸네일 3곳");
+        assertThat(output).contains("[로고 썸네일 백필] 완료 — 생성 3 · 건너뜀 0 · 실패 0 · 재생성 2");
+    }
+
+    @Test
+    @DisplayName("동아리 2곳의 썸네일을 반영한 직후 컨텍스트 종료가 시작되면 그 2곳은 상세 재생성까지 마치고, 남은 동아리는 생성·재생성 모두 하지 않는다")
+    void contextCloseAfterGenerationStillRevalidatesGeneratedClubs(CapturedOutput output) throws Exception {
         Club first = saveClub(ClubStatus.ACTIVE, seedLogo(ImageFixture.png(800, 600, true)));
         Club second = saveClub(ClubStatus.ACTIVE, seedLogo(ImageFixture.png(800, 600, true)));
-        ClubLogoThumbnailBackfillRunner runner = runner();
-        // 첫 재생성 요청 도중 컨텍스트 종료가 시작된다 — 리스너가 세우는 플래그를 그대로 세운다.
+        Club third = saveClub(ClubStatus.ACTIVE, seedLogo(ImageFixture.png(800, 600, true)));
+        ClubLogoThumbnailService observedService = spy(clubLogoThumbnailService);
+        ClubLogoThumbnailBackfillRunner runner = new ClubLogoThumbnailBackfillRunner(
+                clubRepository, observedService, frontendRevalidator, Runnable::run);
+        // 둘째 동아리 썸네일을 반영한 직후(그 상세 재생성 전) 컨텍스트 종료가 시작된다 — 리스너가 세우는 플래그를 그대로 세운다.
         doAnswer(invocation -> {
+            Object outcome = invocation.callRealMethod();
             runner.stopOnContextClose();
-            return null;
-        }).when(frontendRevalidator).revalidateWithoutAlert("/clubs/" + first.getId());
+            return outcome;
+        }).when(observedService).generateForBackfill(eq(second.getId()), anyString());
 
         runner.run();
 
-        verify(frontendRevalidator).revalidateWithoutAlert("/clubs/" + first.getId());
+        InOrder revalidationOrder = inOrder(frontendRevalidator);
+        revalidationOrder.verify(frontendRevalidator).revalidateWithoutAlert("/clubs/" + first.getId());
+        revalidationOrder.verify(frontendRevalidator).revalidateWithoutAlert("/clubs/" + second.getId());
         verifyNoMoreInteractions(frontendRevalidator);
+        assertThat(thumbnailUrlOf(first.getId())).matches(PNG_THUMBNAIL_URL_PATTERN);
         assertThat(thumbnailUrlOf(second.getId())).matches(PNG_THUMBNAIL_URL_PATTERN);
-        assertThat(output).contains("[로고 썸네일 백필] 종료 중 — 상세 재생성 남은 1곳 건너뜀")
-                .contains("[로고 썸네일 백필] 완료 — 생성 2 · 건너뜀 0 · 실패 0 · 재생성 1");
+        assertThat(thumbnailUrlOf(third.getId())).isNull();
+        assertThat(output).contains("[로고 썸네일 백필] 종료 중 — 남은 1곳 건너뜀")
+                .contains("[로고 썸네일 백필] 완료 — 생성 2 · 건너뜀 0 · 실패 0 · 재생성 2");
+    }
+
+    @Test
+    @DisplayName("상세 재생성 요청이 예외를 던져도 생성은 성공으로 세고 연속 실패로 멈추지 않으며, 재생성 수에서만 빠진다")
+    void revalidationFailureIsNotCountedAsGenerationFailure(CapturedOutput output) throws Exception {
+        // 연속 실패 임계(3)보다 하나 많다 — 재생성 예외를 생성 실패로 셌다면 넷째 동아리 앞에서 멈춘다.
+        List<Club> clubs = new ArrayList<>();
+        for (int count = 0; count < 4; count++) {
+            clubs.add(saveClub(ClubStatus.ACTIVE, seedLogo(ImageFixture.png(800, 600, true))));
+        }
+        // 요청기는 던지지 않는 계약이다 — 어긴 경우를 흉내 낸다.
+        doThrow(new IllegalStateException("계약 위반")).when(frontendRevalidator).revalidateWithoutAlert(anyString());
+
+        runner().run();
+
+        for (Club club : clubs) {
+            assertThat(thumbnailUrlOf(club.getId())).matches(PNG_THUMBNAIL_URL_PATTERN);
+            verify(frontendRevalidator).revalidateWithoutAlert("/clubs/" + club.getId());
+        }
+        assertThat(output).doesNotContain("연속 3회 실패")
+                .contains("[로고 썸네일 백필] 상세 재생성 실패 — clubId=" + clubs.get(0).getId() + ", reason=IllegalStateException")
+                .contains("[로고 썸네일 백필] 완료 — 생성 4 · 건너뜀 0 · 실패 0 · 재생성 0");
     }
 
     @Test
