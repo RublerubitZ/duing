@@ -16,6 +16,7 @@ import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
 import java.util.stream.Stream;
 import javax.imageio.ImageIO;
 import org.junit.jupiter.api.DisplayName;
@@ -136,6 +137,20 @@ class LogoThumbnailGeneratorTest {
                 .isEqualTo(SkipReason.TOO_MANY_PIXELS);
         assertThat(skipReason(ImageFixture.withJpegIccProfile(ImageFixture.jpegHeaderOnly(3000, 3000, 1), displayP3)))
                 .isEqualTo(SkipReason.TOO_MANY_PIXELS);
+    }
+
+    @Test
+    @DisplayName("iCCP 를 풀어 읽는 상한(1MiB)을 넘는 프로파일은 읽지 못한 것으로 보고 지금처럼 줄인다 — 압축 폭탄의 유일한 방어라 경계를 고정한다")
+    void iccpInflateLimitBoundary() {
+        byte[] displayP3 = ImageFixture.displayP3Profile();
+        // 프로파일 검증기가 꼬리 바이트를 허용해, 상한이 없으면 두 경우 모두 원본 사용이 된다 — 첫 단언이 상한을 붙잡는다.
+        byte[] overLimit = Arrays.copyOf(displayP3, (1 << 20) + 1);
+        byte[] atLimit = Arrays.copyOf(displayP3, 1 << 20);
+
+        assertThat(LogoThumbnailGenerator.generate(ImageFixture.withPngIccProfile(ImageFixture.png(800, 600, true), overLimit)))
+                .isInstanceOf(Generated.class);
+        assertThat(LogoThumbnailGenerator.generate(ImageFixture.withPngIccProfile(ImageFixture.png(800, 600, true), atLimit)))
+                .isEqualTo(new UseOriginal(UseOriginalReason.NON_SRGB_PROFILE));
     }
 
     @Test
