@@ -36,14 +36,16 @@ export function ClubDetailHero({ club, recruitmentDisplayStatus }: Props) {
       : [club.college != null && collegeDisplayName(club.college), club.department]
   ).filter((part): part is string => typeof part === 'string' && part.length > 0);
   const initial = club.name.trim().charAt(0);
-  // 로고 없는 동아리의 로고박스 배경 — 카드/리스트와 동일 색을 써 모핑 중 배경 점프를 없앤다.
+  // 로고박스 배경 — 로고 유무와 상관없이 카드/리스트와 같은 시그니처 색. 로고가 있으면 이미지가 덮지만, 썸네일 디코딩 전
+  // 한 프레임이 생겨도 목록과 같은 색이라 모핑 중 초록(ink) 상자로 튀지 않는다(iOS 깜빡임 P0 §5).
   const logoColor = pickColor(club.id);
+  const logoBoxBackground = `linear-gradient(135deg, ${logoColor} 0%, ${logoColor}CC 100%)`;
   const isAuthenticated = useSeededAuthStatus() === 'authenticated';
 
   const [reportOpen, setReportOpen] = useState(false);
 
   // 모바일 배너 이미지 — 커버가 없으면 활동 사진 첫 장이 같은 자리를 채운다.
-  // 로드 실패한 URL 만 파생 상태로 기억해(ClubLogo 의 errorSrc 관례, useEffect 없음)
+  // 로드 실패한 URL 만 파생 상태로 기억해(ClubLogo 의 실패 URL 기억 관례, useEffect 없음)
   // 실패하면 배너 자체를 접고 커버·사진이 모두 없는 동아리와 같은 화면으로 돌아간다.
   const [failedHeroImageUrl, setFailedHeroImageUrl] = useState<string | null>(null);
   const resolvedHeroImageUrl = resolveHeroImageUrl(club);
@@ -109,15 +111,12 @@ export function ClubDetailHero({ club, recruitmentDisplayStatus }: Props) {
               <div
                 className="relative grid h-[140px] w-[140px] shrink-0 place-items-center overflow-hidden rounded-[28px] border-[3px] border-white text-white shadow-lg"
                 style={{
-                  // 로고 있으면 ink(이미지가 덮음), 없으면 카드와 동일 시그니처 색 → 모핑 중 배경 일치.
-                  background: club.logoUrl
-                    ? 'linear-gradient(135deg, #1F4A36 0%, #2E6149 100%)'
-                    : `linear-gradient(135deg, ${logoColor} 0%, ${logoColor}CC 100%)`,
+                  background: logoBoxBackground,
                   // 공유요소 전환 — 목록 카드 로고에서 모핑되어 들어온다.
                   viewTransitionName: `club-logo-${club.id}`,
                 }}
               >
-                <ClubLogo logoUrl={club.logoUrl}>
+                <ClubLogo logoUrl={club.logoUrl} thumbnailUrl={club.logoThumbnailUrl}>
                   <span className="text-[56px] font-bold leading-none">
                     {initial}
                   </span>
@@ -226,15 +225,12 @@ export function ClubDetailHero({ club, recruitmentDisplayStatus }: Props) {
                 heroImageUrl ? '-mt-6' : 'mt-1',
               )}
               style={{
-                // 로고 있으면 ink(이미지가 덮음), 없으면 카드/리스트와 동일 시그니처 색 → 모핑 중 배경 일치.
-                background: club.logoUrl
-                  ? 'linear-gradient(135deg, #1F4A36 0%, #2E6149 100%)'
-                  : `linear-gradient(135deg, ${logoColor} 0%, ${logoColor}CC 100%)`,
+                background: logoBoxBackground,
                 // 공유요소 전환 — 목록 카드 로고에서 모핑되어 들어온다(모바일 히어로).
                 viewTransitionName: `club-logo-${club.id}`,
               }}
             >
-              <ClubLogo logoUrl={club.logoUrl}>
+              <ClubLogo logoUrl={club.logoUrl} thumbnailUrl={club.logoThumbnailUrl}>
                 <span className="text-[34px] font-bold leading-none">{initial}</span>
               </ClubLogo>
             </div>

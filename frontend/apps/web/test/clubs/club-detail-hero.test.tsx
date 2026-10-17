@@ -352,3 +352,52 @@ describe('ClubDetailHero — 커버 로드 페이드(iOS 깜빡임 P0 §6.2)', (
     expect(html).not.toContain('opacity-0');
   });
 });
+
+describe('ClubDetailHero — 로고 박스(썸네일·배경, iOS 깜빡임 P0 §5)', () => {
+  const LOGO = 'https://files.duings.com/club/logo/x.png';
+  const THUMBNAIL = 'https://files.duings.com/club/logo/x-thumb.png';
+
+  // 데스크탑(140px)·모바일(80px) 로고 박스 — 둘 다 DOM 에 있다(반응형은 CSS 로만 갈린다). 블록(hidden md:block · md:hidden)으로
+  // 좁혀 고르고, style 을 읽으려고 위 requireElement(HTMLElement 로 좁힌다 — as 금지)를 쓴다.
+  function logoBoxes(container: HTMLElement): HTMLElement[] {
+    return [
+      requireElement(container, 'div.md\\:block div.h-\\[140px\\]'),
+      requireElement(container, 'div.md\\:hidden div.h-20'),
+    ];
+  }
+
+  it.each([
+    ['로고가 있어도', LOGO],
+    ['로고가 없어도', null],
+  ])('%s 로고 박스 배경은 목록과 같은 시그니처 색 그라데이션이다 — 모핑 중 초록(ink) 상자가 비치지 않게', (_case, logoUrl) => {
+    const { container } = render(<ClubDetailHero club={{ ...baseClub, logoUrl }} />);
+
+    for (const logoBox of logoBoxes(container)) {
+      // jsdom 은 hex 를 rgb 로 정규화한다 — pickColor(1) = #143025 → rgb(20, 48, 37), 옛 ink #1F4A36 → rgb(31, 74, 54).
+      expect(logoBox.style.background).toContain('linear-gradient(135deg');
+      expect(logoBox.style.background).toContain('rgb(20, 48, 37)');
+      expect(logoBox.style.background).not.toContain('rgb(31, 74, 54)');
+    }
+  });
+
+  it('썸네일 URL 이 있으면 데스크탑·모바일 히어로 로고 모두 썸네일을 즉시(eager·sync) 그린다 — 목록과 같은 URL 이라 캐시·모핑이 이어진다', () => {
+    const { container } = render(
+      <ClubDetailHero club={{ ...baseClub, logoUrl: LOGO, logoThumbnailUrl: THUMBNAIL }} />,
+    );
+
+    const logos = container.querySelectorAll(`img[src="${THUMBNAIL}"]`);
+    expect(logos).toHaveLength(2);
+    for (const logo of logos) {
+      expect(logo).toHaveAttribute('loading', 'eager');
+      expect(logo).toHaveAttribute('decoding', 'sync');
+    }
+  });
+
+  it('썸네일 필드가 없으면(구 응답) 원본을 지금처럼 lazy 로 그린다 — fail-open', () => {
+    const { container } = render(<ClubDetailHero club={{ ...baseClub, logoUrl: LOGO }} />);
+
+    const logos = container.querySelectorAll(`img[src="${LOGO}"]`);
+    expect(logos).toHaveLength(2);
+    for (const logo of logos) expect(logo).toHaveAttribute('loading', 'lazy');
+  });
+});
