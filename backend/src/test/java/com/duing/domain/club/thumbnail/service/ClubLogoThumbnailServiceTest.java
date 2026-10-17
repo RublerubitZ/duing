@@ -205,7 +205,7 @@ class ClubLogoThumbnailServiceTest extends IntegrationTestBase {
 
     @Test
     @DisplayName("원본 긴 변이 384 이하이면 원본 URL 을 썸네일로 넣고 새 객체·추적 행은 만들지 않되 상세 재생성은 요청한다")
-    void smallLogoReusesOriginalUrlWithoutTrackingRow() throws Exception {
+    void smallLogoReusesOriginalUrlWithoutTrackingRow(CapturedOutput output) throws Exception {
         String logoUrl = seedLogo(ImageFixture.png(300, 200, false), "png");
         Club club = saveClub(ClubStatus.ACTIVE, logoUrl);
 
@@ -215,6 +215,22 @@ class ClubLogoThumbnailServiceTest extends IntegrationTestBase {
         assertThat(thumbnailUrlOf(club.getId())).isEqualTo(logoUrl);
         assertThat(thumbnailTrackingRowCount()).isZero();
         verify(frontendRevalidator, timeout(ASYNC_WAIT_MS)).revalidateWithoutAlert("/clubs/" + club.getId());
+        assertThat(output).doesNotContain("[로고 썸네일] 원본 사용"); // 흔한 경우라 사유를 남기지 않는다
+    }
+
+    @Test
+    @DisplayName("sRGB 가 아닌 RGB 프로파일이 붙은 큰 로고는 줄이지 않고 원본 URL 을 썸네일로 넣으며(추적 행 없음) 사유를 clubId 와 한 줄 남긴다")
+    void nonSrgbProfileLogoReusesOriginalUrl(CapturedOutput output) throws Exception {
+        String logoUrl = seedLogo(
+                ImageFixture.withPngIccProfile(ImageFixture.png(800, 600, true), ImageFixture.displayP3Profile()), "png");
+        Club club = saveClub(ClubStatus.ACTIVE, logoUrl);
+
+        LogoThumbnailOutcome outcome = clubLogoThumbnailService.generateForBackfill(club.getId(), logoUrl);
+
+        assertThat(outcome).isEqualTo(LogoThumbnailOutcome.STORED);
+        assertThat(thumbnailUrlOf(club.getId())).isEqualTo(logoUrl);
+        assertThat(thumbnailTrackingRowCount()).isZero();
+        assertThat(output).contains("[로고 썸네일] 원본 사용 — clubId=" + club.getId() + ", reason=NON_SRGB_PROFILE");
     }
 
     @Test

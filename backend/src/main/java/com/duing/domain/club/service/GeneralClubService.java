@@ -287,7 +287,7 @@ public class GeneralClubService implements ClubService {
             // 현재 값을 SQL 로 다시 읽는 이유: 이 요청이 동아리를 읽은 뒤 위 flush 전에 생성기가 반영·커밋한 썸네일까지 해제한다.
             // flush 가 바뀐 로고로 행을 UPDATE 해 커밋까지 행 잠금을 잡았으므로 그 뒤로는 생성기의 조건부 갱신이 들어오지 못한다
             // (잠금 뒤 재평가에서 logo_url 불일치 → 0건). 여기 추가 방어는 필요 없다.
-            // 썸네일이 원본 URL 과 같았던(작은 원본) 경우는 위 로고 해제가 이미 다뤘으므로 같은 키를 두 번 다루지 않는다.
+            // 썸네일이 원본 URL 과 같았던(원본을 그대로 쓴) 경우는 위 로고 해제가 이미 다뤘으므로 같은 키를 두 번 다루지 않는다.
             String currentLogoThumbnailUrl = clubRepository.findLogoThumbnailUrlById(club.getId());
             clubRepository.clearLogoThumbnailUrl(club.getId());
             if (currentLogoThumbnailUrl != null && !currentLogoThumbnailUrl.equals(previousLogoUrl)) {
