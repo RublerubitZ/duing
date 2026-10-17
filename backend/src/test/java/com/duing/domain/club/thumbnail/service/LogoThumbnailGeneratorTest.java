@@ -8,16 +8,23 @@ import com.duing.domain.club.thumbnail.service.LogoThumbnailResult.Generated;
 import com.duing.domain.club.thumbnail.service.LogoThumbnailResult.SkipReason;
 import com.duing.domain.club.thumbnail.service.LogoThumbnailResult.Skipped;
 import com.duing.domain.club.thumbnail.service.LogoThumbnailResult.UseOriginal;
+import com.duing.domain.club.thumbnail.service.LogoThumbnailResult.UseOriginalReason;
 import java.awt.color.ColorSpace;
+import java.awt.color.ICC_Profile;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
+import java.util.stream.Stream;
 import javax.imageio.ImageIO;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Named;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 class LogoThumbnailGeneratorTest {
@@ -94,6 +101,78 @@ class LogoThumbnailGeneratorTest {
         assertThat(LogoThumbnailGenerator.generate(ImageFixture.png(300, 200, true))).isInstanceOf(UseOriginal.class);
         assertThat(LogoThumbnailGenerator.generate(ImageFixture.png(384, 200, false))).isInstanceOf(UseOriginal.class);
         assertThat(LogoThumbnailGenerator.generate(ImageFixture.jpeg(100, 384))).isInstanceOf(UseOriginal.class);
+    }
+
+    static Stream<Arguments> nonSrgbRgbProfiles() {
+        return Stream.of(
+                Arguments.of(Named.of("Display P3 원색", ImageFixture.displayP3Profile())),
+                Arguments.of(Named.of("sRGB 원색·선형 곡선", ICC_Profile.getInstance(ColorSpace.CS_LINEAR_RGB).getData())));
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("nonSrgbRgbProfiles")
+    @DisplayName("sRGB 가 아닌 RGB ICC 프로파일이 붙은 큰 JPEG(APP2)·PNG(iCCP)는 줄이지 않고 원본을 쓴다")
+    void nonSrgbRgbProfileUsesOriginal(byte[] profile) {
+        UseOriginal useOriginal = new UseOriginal(UseOriginalReason.NON_SRGB_PROFILE);
+
+        assertThat(LogoThumbnailGenerator.generate(ImageFixture.withJpegIccProfile(ImageFixture.jpeg(800, 600), profile)))
+                .isEqualTo(useOriginal);
+        assertThat(LogoThumbnailGenerator.generate(ImageFixture.withPngIccProfile(ImageFixture.png(800, 600, true), profile)))
+                .isEqualTo(useOriginal);
+    }
+
+    @Test
+    @DisplayName("색 프로파일은 치수 상한 뒤·디코딩 전에 헤더만 보고 정한다 — 픽셀 데이터가 없어도 원본 사용이 되고, 상한을 넘으면 프로파일과 무관하게 건너뛴다")
+    void profileIsCheckedFromHeaderAfterSizeLimits() {
+        byte[] displayP3 = ImageFixture.displayP3Profile();
+        UseOriginal useOriginal = new UseOriginal(UseOriginalReason.NON_SRGB_PROFILE);
+
+        // 헤더만 있는 2,500만 픽셀 PNG·900만 픽셀 인터리브 JPEG — 디코딩했다면 UNREADABLE 이다(래스터를 잡지 않는다).
+        assertThat(LogoThumbnailGenerator.generate(
+                ImageFixture.withPngIccProfile(ImageFixture.pngHeaderOnly(5000, 5000), displayP3))).isEqualTo(useOriginal);
+        assertThat(LogoThumbnailGenerator.generate(
+                ImageFixture.withJpegIccProfile(ImageFixture.jpegHeaderOnly(3000, 3000, 3), displayP3))).isEqualTo(useOriginal);
+        // 픽셀 수 상한·다중 스캔 상한이 먼저다.
+        assertThat(skipReason(ImageFixture.withPngIccProfile(ImageFixture.pngHeaderOnly(6000, 5000), displayP3)))
+                .isEqualTo(SkipReason.TOO_MANY_PIXELS);
+        assertThat(skipReason(ImageFixture.withJpegIccProfile(ImageFixture.jpegHeaderOnly(3000, 3000, 1), displayP3)))
+                .isEqualTo(SkipReason.TOO_MANY_PIXELS);
+    }
+
+    @Test
+    @DisplayName("iCCP 를 풀어 읽는 상한(1MiB)을 넘는 프로파일은 읽지 못한 것으로 보고 지금처럼 줄인다 — 압축 폭탄의 유일한 방어라 경계를 고정한다")
+    void iccpInflateLimitBoundary() {
+        byte[] displayP3 = ImageFixture.displayP3Profile();
+        // 프로파일 검증기가 꼬리 바이트를 허용해, 상한이 없으면 두 경우 모두 원본 사용이 된다 — 첫 단언이 상한을 붙잡는다.
+        byte[] overLimit = Arrays.copyOf(displayP3, (1 << 20) + 1);
+        byte[] atLimit = Arrays.copyOf(displayP3, 1 << 20);
+
+        assertThat(LogoThumbnailGenerator.generate(ImageFixture.withPngIccProfile(ImageFixture.png(800, 600, true), overLimit)))
+                .isInstanceOf(Generated.class);
+        assertThat(LogoThumbnailGenerator.generate(ImageFixture.withPngIccProfile(ImageFixture.png(800, 600, true), atLimit)))
+                .isEqualTo(new UseOriginal(UseOriginalReason.NON_SRGB_PROFILE));
+    }
+
+    @Test
+    @DisplayName("sRGB·회색 프로파일이 붙었거나 프로파일을 읽지 못하면(깨진 바이트) 지금처럼 줄인 썸네일을 만든다")
+    void srgbGrayOrUnreadableProfileStillGeneratesThumbnail() throws IOException {
+        byte[] srgb = ICC_Profile.getInstance(ColorSpace.CS_sRGB).getData();
+        byte[] broken = "not an icc profile".getBytes(StandardCharsets.US_ASCII);
+
+        assertThat(decode(generated(ImageFixture.withJpegIccProfile(ImageFixture.jpeg(800, 600), srgb))).getWidth())
+                .isEqualTo(384);
+        assertThat(decode(generated(ImageFixture.withPngIccProfile(ImageFixture.png(800, 600, true), srgb))).getWidth())
+                .isEqualTo(384);
+        assertThat(generated(ImageFixture.withJpegIccProfile(ImageFixture.jpeg(800, 600), broken)).contentType())
+                .isEqualTo("image/jpeg");
+        assertThat(generated(ImageFixture.withPngIccProfile(ImageFixture.png(800, 600, true), broken)).contentType())
+                .isEqualTo("image/png");
+        // 회색 프로파일은 대상이 아니다 — 회색+알파 PNG 는 지금의 회색 분기로 밝기를 지킨다.
+        byte[] grayAlpha = ImageFixture.withPngIccProfile(ImageFixture.grayAlphaPng(800, 600, 128, false),
+                ICC_Profile.getInstance(ColorSpace.CS_GRAY).getData());
+        BufferedImage grayThumbnail = decode(generated(grayAlpha));
+        int center = grayThumbnail.getRGB(grayThumbnail.getWidth() / 2, grayThumbnail.getHeight() / 2);
+        assertThat((center >> 16) & 0xFF).isCloseTo(128, within(2));
     }
 
     @Test

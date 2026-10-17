@@ -1,6 +1,7 @@
 package com.duing.common.fixture;
 
 import java.awt.color.ColorSpace;
+import java.awt.color.ICC_Profile;
 import java.awt.image.BufferedImage;
 import java.awt.image.DataBuffer;
 import java.awt.image.WritableRaster;
@@ -11,6 +12,7 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.charset.StandardCharsets;
 import java.util.zip.CRC32;
+import java.util.zip.DeflaterOutputStream;
 import javax.imageio.IIOImage;
 import javax.imageio.ImageIO;
 import javax.imageio.ImageTypeSpecifier;
@@ -122,6 +124,48 @@ public final class ImageFixture {
         return jpeg.array();
     }
 
+    /**
+     * Display P3 원색(Apple Display P3 프로파일의 원색 태그 값)에 sRGB 곡선·백색점을 둔 RGB 프로파일 — 저장소에 바이너리를 두지 않으려 JDK sRGB
+     * 프로파일 사본의 원색 태그만 바꾼다. 사본에 쓴다 — JDK 21 은 내장 프로파일의 setData 를 막지 않아 JVM 전체의 sRGB 가 바뀐다.
+     */
+    public static byte[] displayP3Profile() {
+        ICC_Profile profile = ICC_Profile.getInstance(ICC_Profile.getInstance(ColorSpace.CS_sRGB).getData());
+        profile.setData(ICC_Profile.icSigRedColorantTag, xyzTag(33759, 15807, -69));
+        profile.setData(ICC_Profile.icSigGreenColorantTag, xyzTag(19135, 45367, 2745));
+        profile.setData(ICC_Profile.icSigBlueColorantTag, xyzTag(10296, 4363, 51385));
+        return profile.getData();
+    }
+
+    /** SOI 바로 뒤에 APP2(ICC_PROFILE, 조각 1/1)를 끼운다 — 헤더만 있는 JPEG 에도 쓴다. */
+    public static byte[] withJpegIccProfile(byte[] jpeg, byte[] profile) {
+        byte[] identifier = "ICC_PROFILE\0".getBytes(StandardCharsets.US_ASCII);
+        int segmentLength = 2 + identifier.length + 2 + profile.length;
+        return ByteBuffer.allocate(jpeg.length + 2 + segmentLength)
+                .put(jpeg, 0, 2)                                            // SOI
+                .putShort((short) 0xFFE2).putShort((short) segmentLength)
+                .put(identifier).put((byte) 1).put((byte) 1)                // 조각 번호·조각 수
+                .put(profile)
+                .put(jpeg, 2, jpeg.length - 2)
+                .array();
+    }
+
+    /** IHDR 바로 뒤에 iCCP(이름·0·압축 방식 0·zlib 프로파일) 청크를 끼운다 — 헤더만 있는 PNG 에도 쓴다. */
+    public static byte[] withPngIccProfile(byte[] png, byte[] profile) {
+        ByteArrayOutputStream data = new ByteArrayOutputStream();
+        data.writeBytes("ICC Profile\0".getBytes(StandardCharsets.ISO_8859_1));
+        data.write(0);
+        try (DeflaterOutputStream deflater = new DeflaterOutputStream(data)) {
+            deflater.write(profile);
+        } catch (IOException writeFailure) {
+            throw new UncheckedIOException(writeFailure);
+        }
+        byte[] chunk = pngChunk("iCCP", data.toByteArray());
+        int afterIhdr = 8 + 4 + 4 + 13 + 4;                                 // 시그니처 · IHDR 길이·형식·데이터·CRC
+        return ByteBuffer.allocate(png.length + chunk.length)
+                .put(png, 0, afterIhdr).put(chunk).put(png, afterIhdr, png.length - afterIhdr)
+                .array();
+    }
+
     /** RIFF/WEBP 컨테이너 헤더만 있는 바이트 — ImageIO 가 읽지 못하는 형식의 대표. */
     public static byte[] webpHeaderOnly() {
         byte[] header = new byte[20];
@@ -144,6 +188,22 @@ public final class ImageFixture {
         tiff.putShort((short) 0);          // 값 필드 나머지 2바이트
         tiff.putInt(0);                    // 다음 IFD 없음
         return tiff.array();
+    }
+
+    /** ICC XYZType 태그 — 형식 'XYZ '·예약 4바이트·s15Fixed16 세 값. */
+    private static byte[] xyzTag(int x, int y, int z) {
+        return ByteBuffer.allocate(20).put("XYZ ".getBytes(StandardCharsets.US_ASCII)).putInt(0)
+                .putInt(x).putInt(y).putInt(z).array();
+    }
+
+    /** PNG 청크 — 길이·형식·데이터·CRC(형식+데이터). */
+    private static byte[] pngChunk(String type, byte[] data) {
+        byte[] typeAndData = ByteBuffer.allocate(4 + data.length)
+                .put(type.getBytes(StandardCharsets.US_ASCII)).put(data).array();
+        CRC32 crc = new CRC32();
+        crc.update(typeAndData);
+        return ByteBuffer.allocate(4 + typeAndData.length + 4)
+                .putInt(data.length).put(typeAndData).putInt((int) crc.getValue()).array();
     }
 
     private static byte[] withExifApp1(byte[] jpeg, byte[] tiff) {

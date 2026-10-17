@@ -23,10 +23,11 @@ import org.springframework.transaction.support.TransactionTemplate;
  *
  * <p>조건부 갱신은 "생성에 쓴 원본이 그대로이고 썸네일이 비어 있고 폐쇄되지 않았을 때" 만 쓴다 — 그사이 로고가 바뀌었거나
  * 다른 생성이 먼저 반영됐거나 폐쇄됐으면 만든 객체의 추적 행을 RELEASED 로 남겨 파기 잡이 유예 뒤 지운다(경합 안전).
- * 원본이 이미 작으면(긴 변 ≤ 384) 새 객체 없이 원본 URL 을 넣고 추적 행도 만들지 않는다 — 해제는 원본 해제 경로가 맡는다.
+ * 원본이 이미 작거나(긴 변 ≤ 384) sRGB 가 아닌 RGB 색 프로파일이 붙었으면 새 객체 없이 원본 URL 을 넣고 추적 행도 만들지 않는다 —
+ * 해제는 원본 해제 경로가 맡는다.
  *
  * <p>상세 재생성 이벤트는 로고 변경 경로({@link #generateAfterLogoChange})만 발행한다. 백필({@link #generateForBackfill})은
- * 발행하지 않는다 — 러너가 끝에 공개 동아리만 직접 요청한다(스펙 §4.5). 발행하면 리스너가 공개 여부를 거르지 않아 비공개 동아리까지
+ * 발행하지 않는다 — 러너가 반영 직후 공개 동아리만 직접 요청한다(스펙 §4.5). 발행하면 리스너가 공개 여부를 거르지 않아 비공개 동아리까지
  * 렌더되고, 공개 동아리는 두 번 렌더되며, 생성 속도가 재생성 큐(100)를 넘칠 수 있다.
  *
  * <p>로그에는 clubId·사유만 남긴다(URL·키 금지). 건너뜀은 INFO, 스토리지 장애 등 예외는 호출자(리스너·백필)가 WARN 으로 센다.
@@ -70,7 +71,7 @@ public class ClubLogoThumbnailService {
         return generate(clubId, logoUrl, changedByUserId == null ? SYSTEM_UPLOADER_ID : changedByUserId, true);
     }
 
-    /** 백필 — 상세 재생성 이벤트를 발행하지 않는다(러너가 끝에 공개 동아리만 직접 요청한다). 업로더는 시스템 표식. */
+    /** 백필 — 상세 재생성 이벤트를 발행하지 않는다(러너가 반영 직후 공개 동아리만 직접 요청한다). 업로더는 시스템 표식. */
     public LogoThumbnailOutcome generateForBackfill(Long clubId, String logoUrl) {
         return generate(clubId, logoUrl, SYSTEM_UPLOADER_ID, false);
     }
@@ -90,8 +91,13 @@ public class ClubLogoThumbnailService {
         }
         return switch (LogoThumbnailGenerator.generate(source)) {
             case LogoThumbnailResult.Skipped skippedResult -> skipped(clubId, skippedResult.reason().name());
-            case LogoThumbnailResult.UseOriginal useOriginal ->
-                    apply(clubId, logoUrl, logoUrl, false, uploaderId, publishDetailChange);
+            case LogoThumbnailResult.UseOriginal useOriginal -> {
+                // 작은 원본은 흔해 남기지 않는다 — 색 프로파일로 원본을 쓴 로고만 센다(배포 뒤 수 확인).
+                if (useOriginal.reason() != LogoThumbnailResult.UseOriginalReason.SMALL_ORIGINAL) {
+                    log.info("[로고 썸네일] 원본 사용 — clubId={}, reason={}", clubId, useOriginal.reason());
+                }
+                yield apply(clubId, logoUrl, logoUrl, false, uploaderId, publishDetailChange);
+            }
             case LogoThumbnailResult.Generated generated -> {
                 String thumbnailUrl = fileStorageService.uploadBytes(
                         newThumbnailKey(generated.contentType()), generated.bytes(), generated.contentType());

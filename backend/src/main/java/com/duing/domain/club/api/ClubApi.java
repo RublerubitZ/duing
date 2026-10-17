@@ -37,7 +37,7 @@ public interface ClubApi {
 
     @Operation(summary = "동아리 목록 조회",
             description = "카테고리·분류·키워드·태그·모집중 필터와 페이지네이션 지원. "
-                    + "logoThumbnailUrl 은 로고의 384px 변형 URL(원본이 작으면 원본 URL)이며, 아직 만들지 않았거나 "
+                    + "logoThumbnailUrl 은 로고의 384px 변형 URL(원본이 작거나 sRGB 가 아닌 색 프로파일이 붙었으면 원본 URL)이며, 아직 만들지 않았거나 "
                     + "만들 수 없는 형식이면 null — 클라이언트는 logoUrl 로 폴백한다.")
     @GetMapping("/clubs")
     ResponseEntity<ApiResponse<PageResponse<ClubSummaryResponse>>> getClubs(

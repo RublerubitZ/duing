@@ -1,20 +1,27 @@
 package com.duing.domain.club.thumbnail.service;
 
-/** 썸네일 생성 결과(스펙 §4.2) — 만든 바이트·형식, 원본이 이미 작아 원본 URL 을 쓰는 경우, 건너뜀(사유)을 구분한다. */
+/** 썸네일 생성 결과(스펙 §4.2) — 만든 바이트·형식, 원본 URL 을 그대로 쓰는 경우(사유), 건너뜀(사유)을 구분한다. */
 public sealed interface LogoThumbnailResult {
 
-    LogoThumbnailResult USE_ORIGINAL = new UseOriginal();
+    LogoThumbnailResult USE_ORIGINAL = new UseOriginal(UseOriginalReason.SMALL_ORIGINAL);
 
     /** 리사이즈한 썸네일 바이트 — contentType 은 image/png(알파 있음) 또는 image/jpeg(알파 없음). */
     record Generated(byte[] bytes, String contentType) implements LogoThumbnailResult {
     }
 
-    /** 원본 긴 변이 이미 상한 이하 — 새 객체 없이 원본 URL 을 썸네일로 쓴다(확대·재인코딩 없음). */
-    record UseOriginal() implements LogoThumbnailResult {
+    /** 새 객체 없이 원본 URL 을 썸네일로 쓴다(확대·재인코딩 없음). */
+    record UseOriginal(UseOriginalReason reason) implements LogoThumbnailResult {
     }
 
     /** 만들지 않는다 — 썸네일은 NULL 로 두고 클라이언트가 원본을 쓴다. */
     record Skipped(SkipReason reason) implements LogoThumbnailResult {
+    }
+
+    enum UseOriginalReason {
+        /** 원본 긴 변이 이미 상한 이하. */
+        SMALL_ORIGINAL,
+        /** sRGB 가 아닌 RGB ICC 프로파일(Display P3 같은 넓은 색역 등)이 붙었다 — 이 생성기는 프로파일을 옮기지 않아 다시 쓰면 색이 달라진다. */
+        NON_SRGB_PROFILE
     }
 
     enum SkipReason {

@@ -35,6 +35,7 @@ public class ClubLogoThumbnailAsyncConfig {
         executor.setRejectedExecutionHandler((rejectedTask, pool) ->
                 log.warn("[로고 썸네일] 실행 큐 포화(또는 종료 중) — 이번 생성을 버린다(비어 있는 썸네일은 다음 기동의 백필이 만든다)."));
         executor.setWaitForTasksToCompleteOnShutdown(true);
+        // 이 대기는 컨테이너 정지 유예(deploy/docker-compose.yml 의 stop_grace_period)의 합산에 들어 있다 — 바꾸면 그 값도 맞춘다.
         executor.setAwaitTerminationSeconds(2);
         return executor;
     }
