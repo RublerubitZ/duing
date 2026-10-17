@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 
 import { ApiError } from '@duing/api';
 import {
@@ -28,6 +28,10 @@ import { ClubRecruitmentCard } from '../_components/ClubRecruitmentCard';
 import { ClubRecruitmentSummary } from '../_components/ClubRecruitmentSummary';
 import type { ClubDetailCheck } from '../_lib/useClubApply';
 
+// 실패 화면 문구 — 화면과 탭 제목이 같은 글자를 쓴다(스펙 P1 §3.6).
+const UNAVAILABLE_TITLE = '이 동아리는 지금 볼 수 없어요';
+const LOAD_FAILED_TITLE = '동아리 정보를 불러오지 못했습니다';
+
 export function ClubDetailPage({ clubId }: { clubId: number }) {
   const apiClient = useApiClient();
   const detail = useClubDetailQuery(clubId);
@@ -51,8 +55,19 @@ export function ClubDetailPage({ clubId }: { clubId: number }) {
   const isAuthenticated = useSeededAuthStatus() === 'authenticated';
   const membership = useClubMembershipQuery(isAuthenticated ? clubId : null);
 
-  // 공개 동아리는 서버 메타데이터가 제목을 붙인다 — 서버가 데이터를 못 받은 렌더(셸)에서도 같은 형식이 되도록 데이터 도착 후 맞춘다.
-  useDocumentTitle(detail.data?.name ?? null);
+  // 볼 수 없는 동아리(삭제·승인 대기)는 서버가 미존재와 같은 404 로 답한다(열거 방지) — 그 한 경우만 "볼 수 없음" 화면이다.
+  const isUnavailable =
+    (detail.error instanceof ApiError && detail.error.status === 404) || (detail.isSuccess && !detail.data);
+  // 공개 동아리는 서버 메타데이터가 제목을 붙인다 — 서버가 데이터를 못 받은 렌더(셸·인터셉트 상세)에서도 같은 형식이 되도록 데이터
+  // 도착 후 맞춘다. 실패로 끝나면 그 화면 문구가 제목이다 — 제목이 그대로면 Next·라우트 공지 영역 모두 침묵한다(스펙 P1 §3.6).
+  const screenTitle = detail.isLoading ? null : isUnavailable ? UNAVAILABLE_TITLE : (detail.data?.name ?? LOAD_FAILED_TITLE);
+  // 제목을 비우는 건 첫 로드뿐이다 — 로그아웃·세션 만료의 queryClient.clear() 뒤 다시 받는 동안 비우면 정리가 직전 제목(목록·기본 제목)으로
+  // 되돌려 탭 제목이 틀리고 refresh 커밋의 공지도 그 제목을 읽는다. 렌더에서 읽고 커밋 뒤에 갱신한다(다른 동아리는 다시 마운트돼 새로 시작).
+  const settledTitleRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (screenTitle !== null) settledTitleRef.current = screenTitle;
+  }, [screenTitle]);
+  useDocumentTitle(screenTitle ?? settledTitleRef.current);
   // 앞으로 들어왔거나(첫 로드·앱 안 이동) 스켈레톤을 거친 마운트면 본문이 떠오른다(뒤로·앞으로 가기는 그대로) —
   // early return 보다 위에서 잡는다. 서버 HTML 에도 실려 첫 화면에서 CSS 로 재생된다.
   const playsEntrance = useEntranceMotion(detail.isLoading);
@@ -61,16 +76,12 @@ export function ClubDetailPage({ clubId }: { clubId: number }) {
   if (detail.isLoading) {
     return <ClubDetailSkeleton clubId={clubId} />;
   }
-  // 볼 수 없는 동아리(삭제·승인 대기)는 서버가 미존재와 같은 404 로 답한다(열거 방지) — 그 한 경우만
-  // "볼 수 없음" 화면으로 보낸다. 5xx·타임아웃·오프라인(status 0)까지 여기로 흘리면 일시적 장애를
+  // "볼 수 없음" 은 404 한 경우만이다(isUnavailable). 5xx·타임아웃·오프라인(status 0)까지 여기로 흘리면 일시적 장애를
   // "삭제됐어요" 로 단정해 사용자가 재시도를 포기한다. 소식 상세(NoticeDetailPage)와 같은 분기 구조다.
-  if (
-    (detail.error instanceof ApiError && detail.error.status === 404) ||
-    (detail.isSuccess && !detail.data)
-  ) {
+  if (isUnavailable) {
     return (
       <ResourceNotFound
-        title="이 동아리는 지금 볼 수 없어요"
+        title={UNAVAILABLE_TITLE}
         description="삭제됐거나 승인 대기 중일 수 있어요."
         actionHref="/clubs"
         actionLabel="동아리 탐색으로"
@@ -79,7 +90,7 @@ export function ClubDetailPage({ clubId }: { clubId: number }) {
   }
   // 그 밖의 실패(5xx·네트워크·타임아웃)는 중립 오류 — data 없이 아래로 내려가면 본문이 깨진다.
   if (!detail.data) {
-    return <p className="p-6 text-sm text-coral-deep">동아리 정보를 불러오지 못했습니다.</p>;
+    return <p className="p-6 text-sm text-coral-deep">{LOAD_FAILED_TITLE}.</p>;
   }
 
   const club = detail.data;

@@ -73,6 +73,8 @@ type Props = {
    */
   isFavoriteStateReady?: boolean;
   onLikeToggle?: (id: number) => void;
+  /** 카드 누름(pointerdown) — 탐색 화면이 상세 선조회를 붙인다(스펙 P1 §3.4). 넘기지 않으면 지금과 같다. */
+  onPointerDown?: (event: React.PointerEvent<HTMLAnchorElement>) => void;
 };
 
 export function ClubListItem({
@@ -81,6 +83,7 @@ export function ClubListItem({
   isLikeBusy = false,
   isFavoriteStateReady = true,
   onLikeToggle,
+  onPointerDown,
 }: Props) {
   const cat = CAT_COLORS[club.cat];
   const affiliation = clubAffiliationLabel(club);
@@ -92,6 +95,7 @@ export function ClubListItem({
   return (
     <Link
       href={toRoute(`/clubs/${club.id}`)}
+      onPointerDown={onPointerDown}
       className={cn(
         'tap-card group relative flex items-center gap-3 rounded-2xl border border-line bg-paper p-3.5 hover:shadow-2',
         isDimmed && 'opacity-[0.78]',

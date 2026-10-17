@@ -19,6 +19,7 @@ export {
 } from './auth';
 export { authQueryKeys } from './authQueryKeys';
 export {
+  clubDetailQueryOptions,
   useClubListQuery,
   useClubDetailQuery,
   useClubPhotosQuery,
@@ -72,6 +73,7 @@ export {
 export { userQueryKeys } from './userQueryKeys';
 export { clubQueryKeys } from './clubQueryKeys';
 export {
+  clubHeroActivitiesQueryOptions,
   useClubHeroActivitiesQuery,
   useCreateHeroActivityMutation,
   useUpdateHeroActivityMutation,

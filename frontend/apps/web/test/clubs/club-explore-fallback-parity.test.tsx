@@ -14,6 +14,9 @@ import { ApiClientProvider, clubQueryKeys } from '@duing/hooks';
  */
 
 vi.mock('next/navigation', () => ({
+  // 목록 가드(useRoutePathname)가 탐색 주소에서만 live 쿼리를 받는다 — 이 스위트는 늘 탐색 화면이다.
+  usePathname: () => '/clubs',
+  useSelectedLayoutSegment: () => null,
   useSearchParams: () => new URLSearchParams(),
   useRouter: () => ({ push: vi.fn(), replace: vi.fn(), prefetch: vi.fn() }),
 }));

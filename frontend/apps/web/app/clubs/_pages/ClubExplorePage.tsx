@@ -3,9 +3,17 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
+import { useQueryClient } from '@tanstack/react-query';
 import { useGuardedRouter } from '@/app/_lib/useGuardedRouter';
+import { useRoutePathname } from '@/app/_lib/useRoutePathname';
 
-import { useClubListQuery, useFavoriteIdsQuery } from '@duing/hooks';
+import {
+  clubDetailQueryOptions,
+  clubHeroActivitiesQueryOptions,
+  useApiClient,
+  useClubListQuery,
+  useFavoriteIdsQuery,
+} from '@duing/hooks';
 import { isBackNavigationPending } from '@/app/_lib/backNavigationViewTransition';
 import { useEnteredFromSkeleton } from '@/app/_lib/useEnteredFromSkeleton';
 import { useFavoriteToggleFlow } from '@/app/_lib/useFavoriteToggleFlow';
@@ -104,9 +112,19 @@ const Icon = {
 export function ClubExplorePage() {
   const router = useGuardedRouter();
   const searchParams = useSearchParams();
+  // 목록 가드(스펙 P1 §3.3) — 인터셉트 상세(/clubs/<id>)가 열린 동안 이 목록은 숨은 채 마운트돼 있다. 그 주소의 빈 쿼리를 받아들이면
+  // 기본 필터로 다시 받고 다시 그리므로, 탐색 주소(/clubs — 끝 슬래시는 정규화 훅이 접는다)일 때만 live 쿼리를 쓰고 아니면 마지막으로
+  // 커밋된 목록 쿼리를 쓴다. 목록은 보일 때만 새로 마운트되므로(ClubsSlotFrame) 첫 값은 마운트 때의 live 쿼리다.
+  const isExplorePath = useRoutePathname() === '/clubs';
+  const liveSearch = searchParams?.toString() ?? '';
+  const committedListSearchRef = useRef(liveSearch);
+  useEffect(() => {
+    if (isExplorePath) committedListSearchRef.current = liveSearch;
+  }, [isExplorePath, liveSearch]);
+  const listSearch = isExplorePath ? liveSearch : committedListSearchRef.current;
   const params = useMemo<ExploreParams>(
-    () => parseExploreParams(new URLSearchParams(searchParams?.toString() ?? '')),
-    [searchParams],
+    () => parseExploreParams(new URLSearchParams(listSearch)),
+    [listSearch],
   );
 
   /** 검색 인풋은 입력 중 URL 을 흔들지 않도록 별도 로컬 상태로 둔다 */
@@ -116,11 +134,13 @@ export function ClubExplorePage() {
 
   const updateParams = useCallback(
     (patch: Partial<ExploreParams>) => {
+      // 숨은 목록(인터셉트 상세가 열린 동안)은 주소를 바꾸지 않는다 — 보정 effect 같은 백그라운드 replace 가 상세를 닫는다(§3.3).
+      if (!isExplorePath) return;
       const next: ExploreParams = { ...DEFAULT_EXPLORE_PARAMS, ...params, ...patch };
       const query = serializeExploreParams(next);
       router.replace(toRoute(`/clubs${query ? `?${query}` : ''}`), { scroll: false });
     },
-    [params, router],
+    [isExplorePath, params, router],
   );
 
   const authStatus = useSeededAuthStatus();
@@ -237,6 +257,23 @@ export function ClubExplorePage() {
     (params.activeDays.length > 0 && params.activeDays.length < DAY_ORDER.length);
 
   const handleToggleLike = favoriteFlow.toggle;
+
+  // 카드 누름 선조회(스펙 P1 §3.4) — 인터셉트 상세 셸은 데이터 없이 마운트한다. 누르는 순간(pointerdown) 받아 두면 흔한 진입은
+  // 커밋 때 데이터가 있어 스켈레톤 없이 히어로가 그려진다(데스크탑 로고는 이미지로 착지). 훅과 같은 쿼리 옵션이라 신선한 캐시면
+  // 요청하지 않고, 진행 중이면 같은 요청을 함께 쓴다. 터치가 스크롤로 넘어가도(pointercancel) 취소하지 않는다 — 5분 신선이라 곧
+  // 그 카드를 누르면 쓰인다. 키보드·포커스·뷰포트 선조회는 하지 않는다(Tab 이동·카드 20장마다 요청이 나간다).
+  const queryClient = useQueryClient();
+  const apiClient = useApiClient();
+  const prefetchClubEntry = (event: React.PointerEvent<HTMLAnchorElement>, clubId: number) => {
+    // 보조 버튼·수정키는 새 탭(하드 로드 — 인터셉트 없음)이고, 카드 안 버튼(하트)은 이동하지 않는다.
+    if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+    if (event.target instanceof Element && event.target.closest('button') !== null) return;
+    void queryClient.prefetchQuery(clubDetailQueryOptions(apiClient, clubId));
+    // 대표 활동은 마우스·펜만 — 데스크탑 첫 화면에 걸리고, 터치(모바일)는 접힌 아래라 스크롤 시작 낭비를 상세 1건으로 묶는다.
+    if (event.pointerType !== 'touch') {
+      void queryClient.prefetchQuery(clubHeroActivitiesQueryOptions(apiClient, clubId));
+    }
+  };
 
   /** 로그인 후 찜 필터가 켜진 채 돌아오도록 next 에 favorite=true 를 얹는다. */
   const favoriteLoginHref = useMemo(() => {
@@ -637,6 +674,7 @@ export function ClubExplorePage() {
                           // 방향을 모르는 동안 — 카드는 aria-disabled 로 알리고 핸들러가 토글을 건너뛰며, 하트 팝도 재생하지 않는다.
                           isFavoriteStateReady={!isFavoriteDirectionUnknown}
                           onLikeToggle={handleToggleLike}
+                          onPointerDown={(event) => prefetchClubEntry(event, club.id)}
                         />
                       </div>
                     ))}
@@ -797,6 +835,7 @@ export function ClubExplorePage() {
                         // 방향을 모르는 동안 — 카드는 aria-disabled 로 알리고 핸들러가 토글을 건너뛰며, 하트 팝도 재생하지 않는다.
                         isFavoriteStateReady={!isFavoriteDirectionUnknown}
                         onLikeToggle={handleToggleLike}
+                        onPointerDown={(event) => prefetchClubEntry(event, club.id)}
                       />
                     </div>
                   ))}

@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { act, render, screen } from '@testing-library/react';
 import { ToastProvider } from '@/app/_components/toast/ToastProvider';
-import { useGuardedRouter } from '@/app/_lib/useGuardedRouter';
+import { ROUTER_REFRESH_EVENT, useGuardedRouter } from '@/app/_lib/useGuardedRouter';
 
 const pushSpy = vi.fn();
 const replaceSpy = vi.fn();
@@ -184,5 +184,37 @@ describe('useGuardedRouter', () => {
       });
     }).not.toThrow();
     expect(pushSpy).not.toHaveBeenCalled();
+  });
+
+  it('온라인 refresh 는 라우트 공지 영역용 신호(ROUTER_REFRESH_EVENT)를 한 번 낸다 — Next 공지기가 제목을 다시 읽는 순간을 알린다', () => {
+    mockNavigatorOnLine(true);
+    const refreshSignal = vi.fn();
+    window.addEventListener(ROUTER_REFRESH_EVENT, refreshSignal);
+    try {
+      render(<GuardedCaller action="refresh" />);
+      act(() => {
+        screen.getByText('이동').click();
+      });
+      expect(refreshSignal).toHaveBeenCalledTimes(1);
+      expect(refreshSpy).toHaveBeenCalledTimes(1);
+    } finally {
+      window.removeEventListener(ROUTER_REFRESH_EVENT, refreshSignal);
+    }
+  });
+
+  it('오프라인이라 refresh 를 건너뛰면 신호도 내지 않는다', () => {
+    mockNavigatorOnLine(false);
+    const refreshSignal = vi.fn();
+    window.addEventListener(ROUTER_REFRESH_EVENT, refreshSignal);
+    try {
+      render(<GuardedCaller action="refresh" />);
+      act(() => {
+        screen.getByText('이동').click();
+      });
+      expect(refreshSignal).not.toHaveBeenCalled();
+      expect(refreshSpy).not.toHaveBeenCalled();
+    } finally {
+      window.removeEventListener(ROUTER_REFRESH_EVENT, refreshSignal);
+    }
   });
 });

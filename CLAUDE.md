@@ -67,6 +67,7 @@ duing/
   - QueryDSL 보안 PR 이 7.x 를 제안하면 머지하지 않고 닫는다 — 7.x 는 Hibernate 7(Boot 4) 전용이다. 알림은 dismiss 하지 않고 노출 경로를 평가해, 필요하면 Boot 4 전환을 앞당긴다
   - 프론트 Radix(`@radix-ui/*`)는 버전 업데이트를 받지 않는다(ignore) — 터치 드롭다운 클릭 관통 회귀(#1331)가 해결되면 ignore 를 지운다. Radix 보안 PR 은 #1331 의 터치 QA(390 폭, 메뉴 4곳)를 거친 뒤 머지한다
   - 프론트 `next-view-transitions` 는 `frontend/patches` 로 패치해 쓰므로 버전 업데이트를 받지 않는다(ignore) — 올릴 때는 새 버전에 `pnpm patch` 를 다시 만들고 `test/lib/view-transitions-popstate-patch.test.tsx` 로 확인한다. 보안 PR 은 패치 미적용으로 설치가 실패하므로 같은 절차로 직접 올린다
+  - 프론트 `next` 를 올리는 PR 은 머지 전에 `frontend/apps/web/e2e/clubs-native-back*.spec.ts` 의 슬롯 표식 케이스(목록 `list`·하드 로드 상세 `page`·인터셉트 `intercepted`)를 돌린다 — 동아리 목록 유지(P1)의 슬롯 판별이 라우트 그룹 세그먼트 노출에 기대고, CI 에는 E2E 가 없다
 - **릴리스 게이트(develop 을 main 으로 내보내기 직전의 GO/NO-GO 점검)에서 직전 릴리스 뒤의 spring.io 권고를 직접 대조한다**(#1318) — 프론트 단독 릴리스도 돌린다(기준점이 직전 릴리스라 건너뛰면 그 사이 권고가 빈다)
   - 왜: spring.io 권고는 GitHub 에 대개 패키지 범위 없이(unreviewed) 올라 Dependabot·OSV 로 잡히지 않고, 리뷰돼 알림이 와도 몇 주 늦다(8/20 권고 → 10/7·10/12 알림 #5·#11). Spring 3.5 줄(Boot 3.5·Framework 6.2·Security 6.5·Data JPA/Commons 3.5·Micrometer 1.15·Retry 2.0)은 OSS 지원도 끝나(2026-06-30) 수정판이 Enterprise 전용이다
   - 목록(직전 릴리스 7일 전부터). 첫 줄 = `since <창 기준일>`, 행 = 날짜·심각도·프로젝트·slug·영향 범위(`도입~마지막 영향`)·`fix=<버전>/<oss|enterprise>,…` — fix 열은 영향 범위 열과 같은 순서로 범위마다 공백으로 나뉘고, 수정판이 없는 범위는 `-` 다:

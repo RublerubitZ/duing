@@ -35,6 +35,9 @@ vi.mock('next/navigation', async () => {
   };
   const readSearch = () => navStore.search;
   return {
+    // 목록 가드(useRoutePathname)가 탐색 주소에서만 live 쿼리를 받는다 — 이 스위트는 늘 탐색 화면이다.
+    usePathname: () => '/clubs',
+    useSelectedLayoutSegment: () => null,
     useSearchParams: () =>
       new URLSearchParams(useSyncExternalStore(subscribe, readSearch, readSearch)),
     useRouter: () => ({
