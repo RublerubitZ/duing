@@ -132,8 +132,8 @@ public final class LogoThumbnailGenerator {
                 reader.dispose();
             }
         } catch (IOException | RuntimeException decodeFailure) {
-            // 프로파일 없는 CMYK JPEG 는 IIOException("Unsupported Image Type")(프로파일이 붙은 CMYK 는 JDK 21 이 그 프로파일로 디코딩해
-            // 썸네일이 된다), 손상 파일은 EOF·zlib 오류 등 — 전부 건너뜀.
+            // 손상 파일(EOF·zlib 오류 등)처럼 리더가 읽지 못하면 전부 건너뜀. CMYK·YCCK JPEG 는 JDK 21 이 디코딩한다(프로파일이 있으면
+            // 그 프로파일로, 없으면 단순 변환으로 — 이때 색은 원본과 다를 수 있다).
             return new Skipped(SkipReason.UNREADABLE);
         }
     }
