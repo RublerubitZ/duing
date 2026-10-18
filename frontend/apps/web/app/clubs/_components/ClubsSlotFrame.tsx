@@ -21,9 +21,9 @@ type Props = {
 };
 
 /**
- * 동아리 레이아웃의 슬롯 판별·목록 숨김(스펙 P1 §3.2) — 목록에서 상세를 인터셉트(modal 슬롯)로 열 때 목록(children)을 hidden 으로
- * 숨긴 채 마운트해 둬, 뒤로가기(iOS 스와이프 백)에서 다시 그리지 않는다. 판별 값은 이 레이아웃 기준이다(LayoutRouterContext 가
- * clubs 세그먼트).
+ * 동아리 레이아웃의 슬롯 판별·목록 숨김(스펙 P1 §3.2) — 목록에서 상세를 인터셉트(modal 슬롯)로 열 때 목록(children)을 숨긴 채
+ * (모바일은 크림 배경 뒤에 그려 둔 채 덮고 md 이상은 display:none — 아래 '숨기는 방식') 마운트해 둬, 뒤로가기(iOS 스와이프 백)에서
+ * 다시 그리지 않는다. 판별 값은 이 레이아웃 기준이다(LayoutRouterContext 가 clubs 세그먼트).
  * - 인터셉트 = modal 경로(useSelectedLayoutSegments('modal'))에 미러 그룹 '(passthrough)' 가 없고 마지막 세그먼트가 양의 정수 id 일
  *   때뿐이다((...)clubs/[clubId] 는 동아리 id 로 끝난다). 그 밖에는 children 세그먼트로 가른다(null = 목록, 아니면 전체 페이지). fail-open 이다
  *   — Next 내부 세그먼트('(__SLOT__)'·'__DEFAULT__' 등)는 보지 않아, 모르는 값이 생겨도 목록·하드 로드 상세는 그대로 그려진다(인터셉트를
