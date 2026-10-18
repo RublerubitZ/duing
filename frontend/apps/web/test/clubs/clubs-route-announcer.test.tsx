@@ -238,6 +238,8 @@ describe('ClubsRouteAnnouncer — Next 공지기가 놓치는 인터셉트 전�
       rerenderHeadTitle(LIST_TITLE);
       view.rerender({ intercepted: true, detailTitle: null });
     });
+    // Next 는 refresh 커밋에서 목록 제목을 읽었다 — 그래서 뒤로(같은 값)에서는 침묵하고 영역이 알린다.
+    expect(nextAnnouncerReads.at(-1)).toBe(LIST_TITLE);
     await settle();
     view.rerender({ intercepted: true, detailTitle: '밴드부' });
     await waitFor(() => expect(announced(texts)).toEqual([CLUB_TITLE]));
@@ -249,6 +251,36 @@ describe('ClubsRouteAnnouncer — Next 공지기가 놓치는 인터셉트 전�
     await settle();
     expect(document.title).toBe(LIST_TITLE);
     expect(announced(texts)).toEqual([CLUB_TITLE, LIST_TITLE]);
+  });
+
+  it('늦은 진입 뒤 로그아웃 → 다시 받은 상세가 실패 문구 → 뒤로(옛 상세가 남은 커밋) — Next 는 목록 제목을 읽고 영역은 동아리 제목·실패 문구만', async () => {
+    const unavailableTitle = `${UNAVAILABLE_TITLE} | 두잉`;
+    document.title = LIST_TITLE;
+    const view = renderAt('/clubs', { intercepted: false });
+    const texts = recordRegion();
+    pushPath('/clubs/7');
+    view.rerender({ intercepted: true, detailTitle: null });
+    view.rerender({ intercepted: true, detailTitle: '밴드부' });
+    await waitFor(() => expect(announced(texts)).toEqual([CLUB_TITLE]));
+
+    act(() => window.dispatchEvent(new Event(ROUTER_REFRESH_EVENT)));
+    act(() => {
+      rerenderHeadTitle(LIST_TITLE);
+      view.rerender({ intercepted: true, detailTitle: '밴드부' });
+    });
+    expect(nextAnnouncerReads.at(-1)).toBe(CLUB_TITLE);
+    await settle();
+    // 로그아웃 뒤 다시 받은 상세가 실패 문구로 바뀐다(데이터 도착 — 영역 몫).
+    view.rerender({ intercepted: true, detailTitle: UNAVAILABLE_TITLE });
+    await waitFor(() => expect(announced(texts)).toEqual([CLUB_TITLE, unavailableTitle]));
+
+    popToPath('/clubs');
+    view.rerender({ intercepted: false, detailTitle: UNAVAILABLE_TITLE });
+    expect(nextAnnouncerReads.at(-1)).toBe(LIST_TITLE);
+    view.rerender({ intercepted: false });
+    await settle();
+    expect(document.title).toBe(LIST_TITLE);
+    expect(announced(texts)).toEqual([CLUB_TITLE, unavailableTitle]);
   });
 
   it('StrictMode 에서 인터셉트 엔트리로 처음 마운트(clubs 레이아웃 밖에서 뒤로 돌아옴) — 도착에 동아리 제목, 뒤로에 목록 제목을 한 번씩', async () => {
