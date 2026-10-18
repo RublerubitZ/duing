@@ -187,6 +187,24 @@ describe('InterestingClubs — 로고 폴백', () => {
     expect(screen.getAllByText('로').length).toBeGreaterThan(0);
   });
 
+  it('썸네일 URL 이 있으면 홈 카드도 썸네일을 즉시(eager) 그린다', async () => {
+    fetchInterestingClubsMock.mockResolvedValue([
+      club({
+        id: 9,
+        name: '로고클럽',
+        logoUrl: 'https://cdn.example.test/logo.png',
+        logoThumbnailUrl: 'https://cdn.example.test/logo-thumb.png',
+      }),
+    ]);
+
+    const { container } = render(await InterestingClubs());
+
+    const logos = container.querySelectorAll('img[src="https://cdn.example.test/logo-thumb.png"]');
+    expect(logos).not.toHaveLength(0);
+    for (const logo of logos) expect(logo).toHaveAttribute('loading', 'eager');
+    expect(container.querySelector('img[src="https://cdn.example.test/logo.png"]')).toBeNull();
+  });
+
   it('PC 카드는 md 2×2·lg 4열이고, lg 부터 컨테이너 쿼리로 카드 폭에 비례해 통째로 줄어든다', async () => {
     fetchInterestingClubsMock.mockResolvedValue([clubWith(null)]);
 

@@ -38,6 +38,8 @@ export type Club = {
   college: College | null;
   color: string;
   logoUrl: string | null;
+  /** 서버가 만든 384px 로고 썸네일 — 어댑터가 department 처럼 null 로 눕힌다(없으면 logoUrl 만 쓴다). 기존 Club 픽스처 호환을 위해 옵셔널로 둔다. */
+  logoThumbnailUrl?: string | null;
   /** 활성 또는 가장 최근 마감 모집 1건. null 이면 카드에 "모집 없음" 표시. */
   activeRecruitment: ClubSummaryRecruitment | null;
 };
