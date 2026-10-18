@@ -34,6 +34,8 @@ type Props = {
    */
   isFavoriteStateReady?: boolean;
   onLikeToggle?: (id: number) => void;
+  /** 카드 누름(pointerdown) — 탐색 화면이 상세 선조회를 붙인다(스펙 P1 §3.4). 넘기지 않으면(서버 fallback·단독 렌더) 지금과 같다. */
+  onPointerDown?: (event: React.PointerEvent<HTMLAnchorElement>) => void;
 };
 
 type StatusKey = RecruitmentDisplayStatus | 'NONE';
@@ -94,6 +96,7 @@ export function ClubCard({
   isLikeBusy = false,
   isFavoriteStateReady = true,
   onLikeToggle,
+  onPointerDown,
 }: Props) {
   const cat = CAT_COLORS[club.cat];
   const affiliation = clubAffiliationLabel(club);
@@ -110,6 +113,7 @@ export function ClubCard({
   return (
     <Link
       href={toRoute(`/clubs/${club.id}`)}
+      onPointerDown={onPointerDown}
       className={`relative flex flex-col gap-3.5 overflow-hidden bg-paper border border-line rounded-[18px] p-[18px] cursor-pointer transition hover:shadow-2 ${isDimmed ? 'opacity-[0.85]' : ''}`}
     >
       <div className="flex items-start justify-between gap-2">
@@ -129,7 +133,7 @@ export function ClubCard({
           }}
           aria-label={`${club.name} 로고`}
         >
-          <ClubLogo logoUrl={club.logoUrl}>{initial}</ClubLogo>
+          <ClubLogo logoUrl={club.logoUrl} thumbnailUrl={club.logoThumbnailUrl}>{initial}</ClubLogo>
         </div>
 
         {/* 계층 2 — 소속은 우측 상단 속성 자리(이름과 경쟁 금지), 하트는 그 옆 코너 액션. */}

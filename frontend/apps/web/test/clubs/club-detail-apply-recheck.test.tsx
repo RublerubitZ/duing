@@ -209,17 +209,24 @@ describe('동아리 상세 — 확인한 지 오래된 상세로는 외부 폼�
     }
   });
 
-  it('다시 받는 동안에는 버튼이 잠기고 "모집 정보 확인 중" 이 보인다', async () => {
+  it('다시 받는 동안에는 라벨을 그대로 두고 "모집 정보 확인 중" 상태(aria-disabled)가 되며, 그동안 다시 눌러도 요청이 늘지 않는다', async () => {
     server.use(respondDetail(externalAlwaysOpen, { hold: true }));
     renderCheckedDetail(externalAlwaysOpen, Date.now() - THREE_MINUTES_MS);
 
-    fireEvent.click(applyButtons('외부 폼으로 이동')[0]);
-    // 재확인 상태는 훅 인스턴스마다 따로라, 누른 카드 버튼만 확인 중이 된다(하단 바는 그대로).
-    expect(await screen.findByRole('button', { name: '모집 정보 확인 중' })).toBeDisabled();
+    const [cardButton] = applyButtons('외부 폼으로 이동');
+    fireEvent.click(cardButton);
+    // 재확인 상태는 훅 인스턴스마다 따로라, 누른 카드 버튼(같은 노드)만 확인 중이 된다(하단 바는 그대로).
+    // 스피너 이름이 라벨 앞에 붙고, 시각적 disabled(딤) 대신 aria-disabled 로 알린다.
+    const pendingButton = await screen.findByRole('button', { name: /^모집 정보 확인 중\s?외부 폼으로 이동$/ });
+    expect(pendingButton).toBe(cardButton);
+    expect(pendingButton).toHaveAttribute('aria-disabled', 'true');
+    expect(pendingButton).toBeEnabled();
     expect(screen.getByRole('button', { name: '외부 폼으로 이동' })).toBeEnabled();
+    // 진행 중 중복 클릭은 handleApply 가 무시한다.
+    fireEvent.click(pendingButton);
 
     releaseDetail();
-    await waitFor(() => expect(applyButtons('외부 폼으로 이동')[0]).toBeEnabled());
+    await waitFor(() => expect(applyButtons('외부 폼으로 이동')[0]).not.toHaveAttribute('aria-disabled'));
     expect(detailRequestCount).toBe(1);
   });
 

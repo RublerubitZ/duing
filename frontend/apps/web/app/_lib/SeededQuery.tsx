@@ -14,7 +14,8 @@ type Props = {
  * <p>updatedAt 0 — 마운트 직후 항상 stale 이라 지금처럼 방문마다 다시 받는다. ISR HTML 의 익명 스냅샷이
  * 로그인 사용자에게 남지 않는다(연락처처럼 뷰어에 따라 달라지는 필드). 이미 캐시에 있는 같은 키는 덮지 않는다
  * — hydrate 는 더 새로운 dataUpdatedAt 만 반영한다(클라이언트 내비게이션).
- * 상세 지원 버튼은 이 0 을 "ISR 스냅샷" 표지로 읽어 최신을 받기 전까지 잠근다(ClubDetailPage) — 값을 바꾸면 그 판정도 함께 바꿀 것.
+ * 상세 지원 버튼은 이 0 을 "ISR 스냅샷" 표지로 읽어, 외부 폼이면 누를 때 먼저 최신을 다시 받는다(ClubDetailPage·useClubApply)
+ * — 외부 폼 안전(#1421·#1424)이 이 값에 기댄다. 0 이 아니게 바꾸면 그 판정도 함께 바꿀 것.
  * 대표 활동 이미지도 이 0 이면 받지 않고 재요청이 끝내 실패해야 시드 URL 로 받는다(ClubDetailHeroActivities) — 마찬가지로 함께 바꿀 것.
  */
 export function SeededQuery({ queryKey, data, children }: Props) {

@@ -6,7 +6,8 @@ import { useRoutePathname } from '@/app/_lib/useRoutePathname';
 import { ClubDetailSkeleton } from '../[clubId]/_components/ClubDetailSkeleton';
 import { ClubExploreSkeleton } from './ClubExploreSkeleton';
 
-const CLUB_DETAIL_PATH = /^\/clubs\/[^/]+$/;
+// 상세는 숫자 id 경로만이다(탐색 내비와 같은 \d+, 스펙 §6.1) — 잡은 id 로 스켈레톤 로고 자리의 공유요소 이름(club-logo-<id>)을 만든다.
+const CLUB_DETAIL_PATH = /^\/clubs\/(\d+)$/;
 
 // /clubs 아래 경로 로딩 경계(app/clubs/loading.tsx·[clubId]/loading.tsx)가 함께 쓰는 그림 — 경계는 자기 페이지뿐 아니라
 // 하위 세그먼트까지 감싸, 프리페치 전 상세·멤버로 이동하면 부모 경계가 먼저 잡힌다(16.3.6 낙관적 라우팅이 상세를 지연 노드로
@@ -23,6 +24,7 @@ export function ClubsRouteLoading() {
       </div>
     );
   }
-  if (CLUB_DETAIL_PATH.test(pathname)) return <ClubDetailSkeleton />;
+  const detailMatch = CLUB_DETAIL_PATH.exec(pathname);
+  if (detailMatch) return <ClubDetailSkeleton clubId={Number(detailMatch[1])} />;
   return <RouteLoading />;
 }

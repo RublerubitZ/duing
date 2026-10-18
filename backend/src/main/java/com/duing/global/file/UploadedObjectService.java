@@ -57,6 +57,26 @@ public class UploadedObjectService {
     }
 
     /**
+     * 서버가 만든 객체(로고 썸네일) 기록(스펙 §4.4) — 업로드 API 를 거치지 않아 PENDING 단계가 없다. 같은 tx 에서 참조가 확정됐으면
+     * ACTIVE, 확정되지 않았으면(조건부 갱신 0건 — 경합) 바로 RELEASED 로 남겨 파기 잡이 유예 뒤 참조 스캔을 거쳐 지우게 한다.
+     * 자기 스토리지 URL 이 아니면 recordUpload 와 같이 기록만 포기한다.
+     */
+    public void recordServerGenerated(String fileUrl, FilePurpose purpose, Long uploaderId, boolean attached) {
+        String storageKey = fileStorageService.toStorageKey(fileUrl);
+        if (storageKey == null) {
+            log.warn("[업로드 추적] 자기 스토리지 URL 이 아니어서 생성 객체 기록을 건너뜀: purpose={}", purpose);
+            return;
+        }
+        Instant now = Instant.now(clock);
+        UploadedObject generatedObject = UploadedObject.pending(storageKey, purpose, uploaderId, now);
+        generatedObject.activate(now);
+        if (!attached) {
+            generatedObject.release(now);
+        }
+        uploadedObjectRepository.save(generatedObject);
+    }
+
+    /**
      * attach 지점 공통 진입 — 각 URL 을 키로 바꿔 PENDING·RELEASED 이면 ACTIVE 로 전이한다.
      * 키를 사전순으로 정렬해 잠근다: 같은 키 집합을 두 tx 가 서로 다른 순서로 잠그는 ABBA 데드락을 없앤다.
      */

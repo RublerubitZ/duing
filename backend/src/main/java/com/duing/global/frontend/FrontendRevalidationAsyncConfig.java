@@ -16,8 +16,8 @@ import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
  * 스레드에서 나간다.
  *
  * <p>큐(100)가 차면 버리고 WARN 만 남긴다 — 커밋한 요청 스레드를 막지 않는 것이 계약이다(CallerRuns·Abort 금지). 잃은
- * 요청은 상세의 자체 재생성 주기가 상한이다. 종료 때는 진행 중·대기 요청을 최대 2초만 기다린다 — 모니터링 실행기(5초)와
- * 합쳐도 Docker 기본 종료 유예(10초) 안이고, 끊긴 요청도 그 주기가 상한이다.
+ * 요청은 상세의 자체 재생성 주기가 상한이다. 종료 때는 진행 중·대기 요청을 최대 2초만 기다린다 — 끊긴 요청도 그 주기가 상한이다.
+ * 이 대기는 컨테이너 정지 유예(deploy/docker-compose.yml 의 stop_grace_period)의 합산에 들어 있다 — 바꾸면 그 값도 맞춘다.
  */
 @Slf4j
 @Configuration

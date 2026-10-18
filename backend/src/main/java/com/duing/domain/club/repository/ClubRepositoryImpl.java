@@ -80,7 +80,7 @@ public class ClubRepositoryImpl implements ClubRepositoryCustom {
      */
     private static final Expression<?>[] SUMMARY_COLUMNS = {
             club.id, club.name, club.category, club.division, club.college, club.department,
-            club.logoUrl, club.status, club.tags, club.tagline, club.centralClub,
+            club.logoUrl, club.logoThumbnailUrl, club.status, club.tags, club.tagline, club.centralClub,
             SUMMARY_METRIC.weeklyVisitorCount
     };
 
@@ -143,6 +143,7 @@ public class ClubRepositoryImpl implements ClubRepositoryCustom {
                 row.get(club.college),
                 row.get(club.department),
                 row.get(club.logoUrl),
+                row.get(club.logoThumbnailUrl),
                 row.get(club.status),
                 // Club.getTags() 와 같은 계약 — null 컬럼은 빈 목록으로 본다.
                 tags == null ? List.of() : Collections.unmodifiableList(Arrays.asList(tags)),

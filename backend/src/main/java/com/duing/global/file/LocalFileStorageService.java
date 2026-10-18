@@ -68,6 +68,26 @@ public class LocalFileStorageService implements FileStorageService {
     }
 
     @Override
+    public String uploadBytes(String storageKey, byte[] content, String contentType) {
+        // 키는 서버가 만든 값이지만 download 와 같은 경로 탈출 가드를 둔다.
+        Path destination = rootDir.resolve(storageKey).normalize();
+        if (!destination.startsWith(rootDir)) {
+            throw new IllegalArgumentException("저장 키가 업로드 디렉터리 밖을 가리킵니다.");
+        }
+        try {
+            Path parentDirectory = destination.getParent();
+            if (parentDirectory != null) {
+                Files.createDirectories(parentDirectory);
+            }
+            Files.write(destination, content);
+        } catch (IOException exception) {
+            throw new IllegalStateException("파일 저장에 실패했습니다.", exception);
+        }
+        // Content-Type 은 저장 확장자로 복원된다(download) — 키의 .png/.jpg 가 그 값이다.
+        return filesPrefix() + storageKey;
+    }
+
+    @Override
     public boolean delete(String fileUrl) {
         if (fileUrl == null || fileUrl.isBlank()) {
             return false;

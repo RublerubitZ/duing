@@ -9,6 +9,22 @@ vi.mock('next/navigation', () => ({
   useParams: () => ({ clubId: '38', noticeId: '7' }),
   useRouter: () => ({ replace: vi.fn(), back: vi.fn(), push: vi.fn() }),
 }));
+// 상세 스켈레톤은 실제 상단 바(ClubDetailTopBar)를 그린다 — 찜 버튼이 스토어·찜 쿼리를 부르므로 상단 바 테스트와 같은 mock 을 둔다.
+vi.mock('@duing/stores', () => {
+  const state = { status: 'unauthenticated' };
+  return {
+    useAuthStore: Object.assign((selector: (s: typeof state) => unknown) => selector(state), {
+      subscribe: () => () => {},
+      getState: () => state,
+      getInitialState: () => state,
+    }),
+  };
+});
+vi.mock('@duing/hooks', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@duing/hooks')>()),
+  useFavoriteIdsQuery: () => ({ data: [] }),
+  useFavoriteToggleMutation: () => ({ mutate: vi.fn(), isPending: false }),
+}));
 
 import Loading from '@/app/clubs/[clubId]/loading';
 

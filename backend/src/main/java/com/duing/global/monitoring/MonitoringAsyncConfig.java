@@ -34,6 +34,7 @@ public class MonitoringAsyncConfig {
         executor.setRejectedExecutionHandler((rejectedTask, pool) ->
                 log.warn("운영 알림 큐 포화 — 이번 Slack 알림을 폐기한다(핵심 서비스 무영향)."));
         executor.setWaitForTasksToCompleteOnShutdown(true);
+        // 이 대기는 컨테이너 정지 유예(deploy/docker-compose.yml 의 stop_grace_period)의 합산에 들어 있다 — 바꾸면 그 값도 맞춘다.
         executor.setAwaitTerminationSeconds(5);
         return executor;
     }

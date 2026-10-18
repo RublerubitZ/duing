@@ -378,4 +378,34 @@ class S3FileStorageServiceTest {
 
         verify(s3Client, never()).getObject(any(GetObjectRequest.class));
     }
+
+    @Test
+    @DisplayName("uploadBytes 는 주어진 키 그대로 Content-Type·inline·영구 Cache-Control 로 저장하고 공개 URL 을 돌려준다")
+    void uploadBytesStoresUnderGivenKeyWithSameMetadata() throws IOException {
+        byte[] content = {1, 2, 3};
+
+        String url = service.uploadBytes("club/logo/abc-thumb.png", content, "image/png");
+
+        ArgumentCaptor<PutObjectRequest> requestCaptor = ArgumentCaptor.forClass(PutObjectRequest.class);
+        ArgumentCaptor<RequestBody> bodyCaptor = ArgumentCaptor.forClass(RequestBody.class);
+        verify(s3Client).putObject(requestCaptor.capture(), bodyCaptor.capture());
+        assertThat(requestCaptor.getValue().bucket()).isEqualTo("duing");
+        assertThat(requestCaptor.getValue().key()).isEqualTo("club/logo/abc-thumb.png");
+        assertThat(requestCaptor.getValue().contentType()).isEqualTo("image/png");
+        assertThat(requestCaptor.getValue().contentDisposition()).isEqualTo("inline");
+        assertThat(requestCaptor.getValue().cacheControl()).isEqualTo("public, max-age=31536000, immutable");
+        assertThat(bodyCaptor.getValue().contentStreamProvider().newStream().readAllBytes()).isEqualTo(content);
+        assertThat(url).isEqualTo("https://files.duing.app/club/logo/abc-thumb.png");
+    }
+
+    @Test
+    @DisplayName("uploadBytes 중 S3 예외는 IllegalStateException 으로 래핑된다")
+    void uploadBytesWrapsSdkException() {
+        when(s3Client.putObject(any(PutObjectRequest.class), any(RequestBody.class)))
+                .thenThrow(SdkClientException.create("network"));
+
+        assertThatThrownBy(() -> service.uploadBytes("club/logo/abc-thumb.png", new byte[]{1}, "image/png"))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("S3 Storage 업로드에 실패했습니다.");
+    }
 }

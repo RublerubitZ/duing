@@ -1,5 +1,7 @@
 import { cn } from '@/app/_lib/cn';
 
+import { HeroActivityImage } from './HeroActivityImage';
+
 type Props = {
   imageUrl: string | null;
   title: string;
@@ -26,10 +28,8 @@ export function HeroActivityCard({ imageUrl, title, description, slotNumber, siz
         big ? 'h-full' : 'aspect-[4/5]',
       )}
     >
-      {showImage && imageUrl && (
-        // eslint-disable-next-line @next/next/no-img-element -- 외부 Storage URL. 대표 활동 카드 이미지.
-        <img src={imageUrl} alt={title || '대표 활동'} draggable={false} className="absolute inset-0 h-full w-full object-cover" />
-      )}
+      {/* 이미지만 클라이언트 컴포넌트 — 로드 완료 때 드러난다(useImageLoadFade). 카드 자체는 서버 컴포넌트로 남긴다. */}
+      {showImage && imageUrl && <HeroActivityImage imageUrl={imageUrl} alt={title || '대표 활동'} />}
       <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/45 via-transparent to-black/70" />
       {showImage && !imageUrl && (
         <span className="absolute inset-0 grid place-items-center text-[13px] font-medium text-charcoal-2">사진을 선택하세요</span>

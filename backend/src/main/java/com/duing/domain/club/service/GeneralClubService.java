@@ -23,6 +23,7 @@ import com.duing.domain.club.service.dto.query.ClubSearchCondition;
 import com.duing.domain.club.service.dto.query.ClubStatsQuery;
 import com.duing.domain.club.service.dto.query.ClubSummaryQuery;
 import com.duing.domain.club.service.dto.query.ClubViewer;
+import com.duing.domain.club.thumbnail.event.ClubLogoChangedEvent;
 import com.duing.domain.clubmember.entity.ClubMember;
 import com.duing.domain.clubmember.entity.ClubMemberRole;
 import com.duing.domain.clubmember.repository.ClubMemberRepository;
@@ -45,6 +46,7 @@ import java.time.Clock;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import lombok.RequiredArgsConstructor;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.context.ApplicationEventPublisher;
@@ -113,6 +115,10 @@ public class GeneralClubService implements ClubService {
         }
 
         uploadedObjectService.activate(createClubCommand.logoUrl());
+        if (savedClub.getLogoUrl() != null) {
+            // 썸네일은 커밋 뒤 전용 실행기가 만든다(스펙 §4.3). 등록 커맨드에는 행위자 id 가 없어 추적 행 업로더는 시스템 표식이다.
+            eventPublisher.publishEvent(new ClubLogoChangedEvent(savedClub.getId(), savedClub.getLogoUrl(), null));
+        }
 
         // 동아리 생성과 동시에 designated leader 를 ClubMember(LEADER) 로 자동 등록.
         clubMemberRepository.save(ClubMember.asLeader(savedClub, leader));
@@ -276,6 +282,23 @@ public class GeneralClubService implements ClubService {
         // 교체·비우기로 빠진 옛 로고·커버는 해제(#1153) — 새 값을 먼저 확정한 뒤.
         uploadedObjectService.releaseIfReplaced(previousLogoUrl, club.getLogoUrl());
         uploadedObjectService.releaseIfReplaced(previousCoverUrl, club.getCoverUrl());
+        if (!Objects.equals(previousLogoUrl, club.getLogoUrl())) {
+            // 썸네일은 엔티티 저장이 쓰지 않는 컬럼(updatable=false)이라 SQL 로 비운다 — 옛 썸네일이 새 로고 옆에 남지 않게.
+            // 현재 값을 SQL 로 다시 읽는 이유: 이 요청이 동아리를 읽은 뒤 위 flush 전에 생성기가 반영·커밋한 썸네일까지 해제한다.
+            // flush 가 바뀐 로고로 행을 UPDATE 해 커밋까지 행 잠금을 잡았으므로 그 뒤로는 생성기의 조건부 갱신이 들어오지 못한다
+            // (잠금 뒤 재평가에서 logo_url 불일치 → 0건). 여기 추가 방어는 필요 없다.
+            // 썸네일이 원본 URL 과 같았던(원본을 그대로 쓴) 경우는 위 로고 해제가 이미 다뤘으므로 같은 키를 두 번 다루지 않는다.
+            String currentLogoThumbnailUrl = clubRepository.findLogoThumbnailUrlById(club.getId());
+            clubRepository.clearLogoThumbnailUrl(club.getId());
+            if (currentLogoThumbnailUrl != null && !currentLogoThumbnailUrl.equals(previousLogoUrl)) {
+                uploadedObjectService.release(currentLogoThumbnailUrl);
+            }
+            if (club.getLogoUrl() != null) {
+                // 새 로고의 썸네일은 커밋 뒤 전용 실행기가 만든다(스펙 §4.3).
+                eventPublisher.publishEvent(new ClubLogoChangedEvent(
+                        club.getId(), club.getLogoUrl(), updateClubCommand.requesterId()));
+            }
+        }
         // 공개 상세 재생성(#1356) — 리더 수정·총동연 수정이 모두 이 지점을 지난다(로고·커버·태그·연락처 공개 범위 포함).
         eventPublisher.publishEvent(new ClubPublicPageChangedEvent(club.getId()));
     }

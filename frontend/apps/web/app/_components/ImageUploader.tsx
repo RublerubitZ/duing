@@ -119,9 +119,10 @@ export function ImageUploader({
             'absolute flex',
             // dense 도 gap-2 — 히트 확장(before:-inset-2)이 이웃 버튼 가시 표면을 덮어 오클릭(제거)되는 것 방지.
             dense ? 'right-1 top-1 gap-2' : 'right-2 top-2 gap-2',
-            // 모바일(hover 없음)은 항상 노출, md+ 는 컨테이너 hover·키보드 포커스 시 등장.
+            // hover 없는 기기(휴대폰·터치 태블릿)는 항상 노출, hover 기기의 md+ 는 컨테이너 hover·키보드 포커스 시 등장.
+            // 숨김은 can-hover: 로 건다 — hover: 는 hover 기기에서만 켜져(tailwind future.hoverOnlyWhenSupported) 폭만으로 숨기면 터치 태블릿에서 드러낼 길이 없다.
             'translate-y-0 opacity-100',
-            'md:-translate-y-1 md:opacity-0',
+            'md:can-hover:-translate-y-1 md:can-hover:opacity-0',
             'md:group-hover:translate-y-0 md:group-hover:opacity-100',
             'md:group-focus-within:translate-y-0 md:group-focus-within:opacity-100',
             'motion-safe:transition motion-safe:duration-200',

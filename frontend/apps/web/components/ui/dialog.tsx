@@ -5,6 +5,8 @@
 // 타이틀은 본문 서체(Pretendard) 그대로 — 서체는 하나뿐이고 위계는 weight 로 만든다(DESIGN Typography).
 // 빌트인 X 닫기 버튼은 두지 않는다
 // (호출처가 비동기 제어 패턴이면 명시 버튼/ESC 로 닫는다). 포털은 .duing 스코프 밖이라 토큰 클래스로만 스타일링한다.
+// 동작 줄이기(prefers-reduced-motion): 열림·닫힘 애니메이션은 data-[state=…] 변형이라 특이성이 (0,2,0)이다 — motion-reduce:animate-none(0,1,0)은
+// 지지 않으므로 `!` 로 animation 을 끈다. 끄면 Radix Presence 가 닫힘 애니메이션을 기다리지 않고 바로 내린다(sheet·dropdown·popover·두 라이트박스 동일).
 
 import * as React from 'react';
 import * as DialogPrimitive from '@radix-ui/react-dialog';
@@ -34,7 +36,7 @@ const DialogOverlay = React.forwardRef<
     <DialogPrimitive.Overlay
       ref={ref}
       className={cn(
-        'fixed inset-0 z-50 bg-ink/35 backdrop-blur-[2px] data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0',
+        'fixed inset-0 z-50 bg-ink/35 backdrop-blur-[2px] data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 motion-reduce:!animate-none',
         className,
       )}
       {...props}
@@ -92,7 +94,7 @@ const DialogContent = React.forwardRef<
         }}
         className={cn(
           'fixed left-1/2 top-1/2 z-50 grid w-full max-w-md -translate-x-1/2 -translate-y-1/2 gap-4 rounded-lg border border-line bg-card p-6 font-body tracking-body shadow-3',
-          'data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95',
+          'data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 motion-reduce:!animate-none',
           className,
         )}
         {...props}

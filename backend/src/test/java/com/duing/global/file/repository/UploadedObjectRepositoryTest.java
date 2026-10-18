@@ -281,4 +281,20 @@ class UploadedObjectRepositoryTest extends IntegrationTestBase {
         assertThat(uploadedObjectRepository.isReferenced(attachmentKey)).isTrue();
         assertThat(uploadedObjectRepository.isReferenced(suggestedBannerKey)).isTrue();
     }
+
+    @Test
+    @DisplayName("참조 스캔은 동아리 로고 썸네일 URL 이 키로 끝나면 참조 있음으로, 폐쇄된 동아리의 썸네일은 참조 없음으로 판정한다")
+    void detectsClubLogoThumbnailReference() {
+        String logoKey = uniqueKey("club/logo");
+        String thumbnailKey = uniqueKey("club/logo");
+        Club club = clubRepository.save(Club.create("썸네일참조클럽-" + sequence.incrementAndGet(), ClubCategory.ACADEMIC,
+                null, "설명", "https://files.example.com/" + logoKey));
+        clubRepository.setLogoThumbnailUrlIfLogoUnchanged(club.getId(), "https://files.example.com/" + logoKey,
+                "https://files.example.com/" + thumbnailKey);
+        assertThat(uploadedObjectRepository.isReferenced(thumbnailKey)).isTrue();
+
+        clubRepository.delete(club);
+
+        assertThat(uploadedObjectRepository.isReferenced(thumbnailKey)).isFalse();
+    }
 }
