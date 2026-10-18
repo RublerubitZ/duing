@@ -11,6 +11,10 @@ import { ClubsRouteAnnouncer } from './ClubsRouteAnnouncer';
 // 같아야 한다(미러 구조는 test/clubs/clubs-modal-routes.test.tsx 가 지킨다).
 const PASSTHROUGH_SEGMENT = '(passthrough)';
 
+// 숨겨 유지하는 목록 — 모바일은 크림 배경 뒤에 그려 둔 채 덮고 md 이상은 display:none, 안쪽 view-transition-name 은 끈다(아래 문서 주석).
+const HIDDEN_LIST_CLASS =
+  'max-md:fixed max-md:inset-0 max-md:-z-10 max-md:overflow-clip md:hidden [&_*]:![view-transition-name:none]';
+
 type Props = {
   children: ReactNode;
   modal: ReactNode;
@@ -29,8 +33,13 @@ type Props = {
  *   그 화면 effect 가 계속 돈다(거부된 회원 화면의 접근 가드가 replace 를 끝없이 되풀이한다). 뒤로 오면 다시 마운트된다(현행과 같다).
  * - 목록을 숨긴 채 새로 마운트하지 않는다 — 직전 커밋에 마운트돼 있지 않았으면(회원 화면 → 뒤로 체인, 다른 화면에서 뒤로 들어온
  *   인터셉트 엔트리) 인터셉트 동안 렌더하지 않고 목록이 보일 때 새로 마운트한다. 그래서 목록은 늘 목록 주소의 쿼리로 마운트된다.
- * - children 래퍼는 상태와 상관없이 같은 자리에 둔다(래퍼가 바뀌면 목록이 다시 마운트된다). 숨김은 hidden 으로만 — visibility·
- *   position 으로 숨기면 문서 높이가 남고 View Transition 캡처에 들어가 로고 이름(club-logo-<id>)이 겹친다.
+ * - children 래퍼는 상태와 상관없이 같은 자리에 둔다(래퍼가 바뀌면 목록이 다시 마운트된다).
+ * - 숨기는 방식 — 모바일(md 미만)은 display:none 대신 화면에 고정(fixed·inset 0·overflow clip)한 채 레이아웃 크림 배경 뒤(음수 z-index)에
+ *   그려 둔다. display:none 이면 뒤로 오는 순간 sticky 검색 바의 합성층이 새로 만들어지는데, 마침 Safari 가 스와이프 스냅숏을 걷는
+ *   프레임이라 그 층이 덜 그려진 채(흐림만) 보였다. 고정이라 문서 높이에 들어가지 않고, 안쪽 view-transition-name 은 모두 끄며(상세 로고와
+ *   club-logo-<id> 가 겹치면 전환이 건너뛰어진다), inert 로 스크린리더·탭 이동·찾기·포인터에서 뺀다. 가려지는 것은 음수 z-index 가 루트
+ *   쌓임 맥락에서 ClubsLayout(.duing)의 불투명 배경 아래에 그려지기 때문이라, 이 래퍼와 루트 사이에 쌓임 맥락을 만들면 안 된다
+ *   (clubs-native-back.webkit E2E 가 확인). md 이상은 스냅숏 깜박임 보고가 없어 그대로 display:none 이다.
  * - 상세(modal)는 children 래퍼 뒤에 문서 흐름으로 그린다(고정 오버레이 아님 — iOS 문서 스크롤·툴바 접힘 유지).
  * 루트 data-clubs-slot(list·page·intercepted)과 숨은 목록 래퍼의 data-clubs-hidden-list 는 테스트·QA 가 인터셉트와 전체 페이지를
  * 가르는 표식이다. 마지막 자식은 라우트 공지 영역(ClubsRouteAnnouncer)이다.
@@ -55,7 +64,11 @@ export function ClubsSlotFrame({ children, modal }: Props) {
   return (
     <div data-clubs-slot={slotState}>
       {rendersChildren && (
-        <div hidden={keepsHiddenList} data-clubs-hidden-list={keepsHiddenList ? 'true' : undefined}>
+        <div
+          inert={keepsHiddenList}
+          className={keepsHiddenList ? HIDDEN_LIST_CLASS : undefined}
+          data-clubs-hidden-list={keepsHiddenList ? 'true' : undefined}
+        >
           {children}
         </div>
       )}

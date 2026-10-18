@@ -109,7 +109,10 @@ export async function markedCardState(
   return page.evaluate((id) => {
     const marked: unknown = Reflect.get(window, '__clubsMarkedCard');
     if (!(marked instanceof HTMLElement)) return { connected: false, shownAsSameNode: false, insideHiddenList: false };
-    const shown = Array.from(document.querySelectorAll(`a[href="/clubs/${id}"]`)).find((node) => node.getClientRects().length > 0);
+    // 모바일의 숨은 목록은 크림 배경 뒤에 그려 둔 채라 rects 가 있다 — inert 안의 노드는 보이는 카드가 아니다.
+    const shown = Array.from(document.querySelectorAll(`a[href="/clubs/${id}"]`)).find(
+      (node) => node.getClientRects().length > 0 && node.closest('[inert]') === null,
+    );
     return {
       connected: marked.isConnected,
       shownAsSameNode: shown === marked,

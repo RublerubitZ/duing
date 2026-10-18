@@ -162,6 +162,25 @@ function frameRoot(): HTMLElement {
   return root;
 }
 
+/**
+ * 숨겨 유지하는 목록 래퍼의 계약 — display:none(hidden) 대신 모바일은 화면에 고정한 채 레이아웃 크림 배경 뒤(음수 z-index)에 그려 두고,
+ * md 이상은 display:none 이다. inert 로 스크린리더·탭 이동·찾기·포인터에서 빼고, 안쪽의 view-transition-name 은 모두 끈다.
+ * jsdom 은 Tailwind CSS 를 적용하지 않아 실제로 가려졌는지는 웹킷 E2E(clubs-native-back.webkit.spec.ts)가 본다.
+ */
+function expectKeptHidden(listWrapper: HTMLElement | null) {
+  expect(listWrapper).toHaveAttribute('data-clubs-hidden-list', 'true');
+  expect(listWrapper).toHaveAttribute('inert');
+  expect(listWrapper).not.toHaveAttribute('hidden');
+  expect(listWrapper).toHaveClass(
+    'max-md:fixed',
+    'max-md:inset-0',
+    'max-md:-z-10',
+    'max-md:overflow-clip',
+    'md:hidden',
+    '[&_*]:![view-transition-name:none]',
+  );
+}
+
 afterEach(() => {
   cleanup();
   navigationStore.set(LIST);
@@ -206,31 +225,33 @@ describe('ClubsSlotFrame — 판별 매트릭스(스펙 P1 §3.2)', () => {
     },
   );
 
-  it('목록 → 인터셉트 → 상세→상세 → 목록 — 목록을 같은 노드로 숨긴 채 유지하고(hidden), 상세는 그 뒤 문서 흐름에 그린다', () => {
+  it('목록 → 인터셉트 → 상세→상세 → 목록 — 목록을 같은 노드로 숨긴 채 유지하고(모바일은 그려 둔 채 덮기·inert), 상세는 그 뒤 문서 흐름에 그린다', () => {
     navigationStore.set(LIST);
     renderFrame();
     const listNode = screen.getByTestId('list-probe');
+    const listWrapper = listNode.parentElement;
 
     navigateTo(intercepted('5', null));
     expect(frameRoot()).toHaveAttribute('data-clubs-slot', 'intercepted');
     expect(screen.getByTestId('list-probe')).toBe(listNode);
-    expect(listNode).not.toBeVisible();
-    const hiddenWrapper = listNode.closest('[data-clubs-hidden-list]');
-    expect(hiddenWrapper).toHaveAttribute('data-clubs-hidden-list', 'true');
-    expect(hiddenWrapper).toHaveAttribute('hidden');
+    expect(listNode.parentElement).toBe(listWrapper);
+    expectKeptHidden(listWrapper);
     const modal = screen.getByTestId('modal-probe');
     expect(modal).toBeVisible();
     // 고정 오버레이가 아니라 children 래퍼 뒤의 형제 흐름이다.
-    expect((hiddenWrapper?.compareDocumentPosition(modal) ?? 0) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect((listWrapper?.compareDocumentPosition(modal) ?? 0) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
 
     navigateTo(intercepted('6', null));
     expect(screen.getByTestId('modal-probe')).toHaveTextContent('6');
     expect(screen.getByTestId('list-probe')).toBe(listNode);
-    expect(listNode).not.toBeVisible();
+    expectKeptHidden(listWrapper);
 
     navigateTo(LIST);
     expect(frameRoot()).toHaveAttribute('data-clubs-slot', 'list');
     expect(screen.getByTestId('list-probe')).toBe(listNode);
+    expect(listNode.parentElement).toBe(listWrapper);
+    expect(listWrapper).not.toHaveAttribute('inert');
+    expect(listWrapper).not.toHaveAttribute('class');
     expect(listNode).toBeVisible();
     expect(document.querySelector('[data-clubs-hidden-list]')).toBeNull();
     expect(mountCounts.list).toBe(1);
@@ -249,7 +270,7 @@ describe('ClubsSlotFrame — 판별 매트릭스(스펙 P1 §3.2)', () => {
     navigateTo({ ...intercepted('5', null), modalSegments });
     expect(frameRoot()).toHaveAttribute('data-clubs-slot', 'intercepted');
     expect(screen.getByTestId('list-probe')).toBe(listNode);
-    expect(listNode).not.toBeVisible();
+    expectKeptHidden(listNode.parentElement);
     expect(screen.getByTestId('modal-probe')).toBeVisible();
   });
 
@@ -313,7 +334,7 @@ describe('ClubsSlotFrame — 판별 매트릭스(스펙 P1 §3.2)', () => {
     // 그 뒤 인터셉트는 같은 노드로 숨긴다(커밋 뒤 갱신이 두 번 돌아도 같은 값).
     navigateTo(intercepted('6', null));
     expect(screen.getByTestId('list-probe')).toBe(listNode);
-    expect(listNode).not.toBeVisible();
+    expectKeptHidden(listNode.parentElement);
   });
 
   it('라우트 공지 영역은 프레임 루트의 마지막 자식이다 — 같은 커밋에서 상세의 effect 뒤에 돈다(스펙 P1 §3.6)', () => {
