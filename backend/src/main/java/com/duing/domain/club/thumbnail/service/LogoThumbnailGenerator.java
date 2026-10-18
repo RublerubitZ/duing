@@ -3,23 +3,30 @@ package com.duing.domain.club.thumbnail.service;
 import com.duing.domain.club.thumbnail.service.LogoThumbnailResult.Generated;
 import com.duing.domain.club.thumbnail.service.LogoThumbnailResult.SkipReason;
 import com.duing.domain.club.thumbnail.service.LogoThumbnailResult.Skipped;
+import com.duing.domain.club.thumbnail.service.LogoThumbnailResult.UseOriginal;
+import com.duing.domain.club.thumbnail.service.LogoThumbnailResult.UseOriginalReason;
 import com.duing.global.file.FileUploadPolicy;
 import java.awt.Graphics2D;
 import java.awt.RenderingHints;
 import java.awt.color.ColorSpace;
+import java.awt.color.ICC_ColorSpace;
+import java.awt.color.ICC_Profile;
 import java.awt.image.BufferedImage;
 import java.awt.image.Raster;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.Arrays;
 import java.util.Iterator;
+import java.util.zip.InflaterInputStream;
 import javax.imageio.IIOImage;
 import javax.imageio.ImageIO;
 import javax.imageio.ImageReadParam;
 import javax.imageio.ImageReader;
+import javax.imageio.ImageTypeSpecifier;
 import javax.imageio.ImageWriteParam;
 import javax.imageio.ImageWriter;
 import javax.imageio.stream.ImageInputStream;
@@ -31,7 +38,8 @@ import javax.imageio.stream.MemoryCacheImageOutputStream;
  * 동아리 로고 썸네일 생성기(스펙 §4.2) — JDK ImageIO 만 쓴다. 긴 변 {@value #MAX_LONG_SIDE}px·비율 유지, 알파가 있으면 PNG·없으면
  * JPEG(품질 {@value #JPEG_QUALITY}). 디코딩 전에 치수를 읽어 {@value #MAX_SOURCE_PIXELS} 픽셀 초과(프로그레시브·다중 스캔 JPEG 은
  * {@value #MAX_PROGRESSIVE_JPEG_PIXELS})나 긴 변 {@value #MAX_SOURCE_LONG_SIDE}px 초과는 건너뛰고, 그 이하도 목표 크기에 맞춘
- * 서브샘플링으로 읽어 래스터 메모리를 묶는다(운영 JVM 기본 힙, #1465 전례). 축소는 절반씩 줄이다 마지막에 바이큐빅으로 맞춘다. 입출력은
+ * 서브샘플링으로 읽어 래스터 메모리를 묶는다(운영 JVM 기본 힙, #1465 전례). 축소는 절반씩 줄이다 마지막에 바이큐빅으로 맞춘다. 색 프로파일은
+ * 옮기지 않으므로 sRGB 가 아닌 RGB ICC 프로파일이 붙은 원본은 줄이지 않고 원본을 쓴다(디코딩 전 헤더로 정한다). 입출력은
  * 모두 메모리 스트림이라 임시 파일을 쓰지 않는다.
  * 상태가 없어 어느 스레드에서 불러도 되고, 어떤 입력에도 예외를 던지지 않는다.
  */
@@ -50,6 +58,18 @@ public final class LogoThumbnailGenerator {
     public static final long MAX_PROGRESSIVE_JPEG_PIXELS = 8_000_000L;
     static final float JPEG_QUALITY = 0.85f;
     static final int UPRIGHT_ORIENTATION = 1;
+    /** sRGB 판정에 쓰는 색 — 원색 셋(1.0)이 원색·백색점을, 중간 회색(0.5)이 곡선을 드러낸다. */
+    private static final float[][] SRGB_PROBE_COLORS = {{1f, 0f, 0f}, {0f, 1f, 0f}, {0f, 0f, 1f}, {0.5f, 0.5f, 0.5f}};
+    /**
+     * sRGB 와 같다고 보는 XYZ(D50) 차이 상한. JDK 21 실측 — sRGB 계열(JDK 내장, macOS sRGB IEC61966-2.1)은 0.0003 이하이고, 실측한
+     * sRGB 아닌 프로파일은 0.0428(외장 모니터 프로파일) 이상이다 — 원색은 같고 곡선만 다른 BT.709 가 0.045, Display P3 가 0.093.
+     */
+    private static final float SRGB_XYZ_TOLERANCE = 0.01f;
+    /** iCCP 를 풀어 읽는 상한 — 행렬·곡선형 프로파일은 수 KB 다. 넘으면 읽지 못한 것으로 본다(압축 폭탄). */
+    private static final int MAX_ICC_PROFILE_BYTES = 1 << 20;
+    private static final int PNG_SIGNATURE_LENGTH = 8;
+    private static final int PNG_ICCP_CHUNK = 0x69434350;
+    private static final int PNG_IDAT_CHUNK = 0x49444154;
 
     /**
      * JPEG 헤더에서 읽은 것 — Exif Orientation(없으면 1)·프로그레시브 여부·다중 스캔 여부(첫 스캔이 프레임의 일부 성분만 담거나,
@@ -88,6 +108,10 @@ public final class LogoThumbnailGenerator {
                 if (jpegHeader.orientation() != UPRIGHT_ORIENTATION) {
                     return new Skipped(SkipReason.EXIF_ORIENTATION);
                 }
+                // 치수 상한 뒤·디코딩 전 — 헤더만 본다(JPEG 은 이미 읽은 헤더, PNG 는 첫 IDAT 앞 청크). 큰 원본도 래스터를 잡지 않는다.
+                if (hasNonSrgbRgbProfile(source, jpeg, reader)) {
+                    return new UseOriginal(UseOriginalReason.NON_SRGB_PROFILE);
+                }
                 ImageReadParam readParam = reader.getDefaultReadParam();
                 int subsampling = subsamplingFor(longSide);
                 readParam.setSourceSubsampling(subsampling, subsampling, 0, 0);
@@ -108,7 +132,8 @@ public final class LogoThumbnailGenerator {
                 reader.dispose();
             }
         } catch (IOException | RuntimeException decodeFailure) {
-            // CMYK JPEG 는 IIOException("Unsupported Image Type"), 손상 파일은 EOF·zlib 오류 등 — 전부 건너뜀.
+            // 손상 파일(EOF·zlib 오류 등)처럼 리더가 읽지 못하면 전부 건너뜀. CMYK·YCCK JPEG 는 JDK 21 이 디코딩한다(프로파일이 있으면
+            // 그 프로파일로, 없으면 단순 변환으로 — 이때 색은 원본과 다를 수 있다).
             return new Skipped(SkipReason.UNREADABLE);
         }
     }
@@ -120,6 +145,101 @@ public final class LogoThumbnailGenerator {
 
     private static boolean isJpeg(byte[] source) {
         return "image/jpeg".equals(FileUploadPolicy.detectImageContentType(Arrays.copyOf(source, 12)));
+    }
+
+    private static boolean isPng(byte[] source) {
+        return "image/png".equals(FileUploadPolicy.detectImageContentType(Arrays.copyOf(source, 12)));
+    }
+
+    /**
+     * 원본에 sRGB 가 아닌 RGB ICC 프로파일이 붙었는가. JDK 21 실측으로 디코딩 결과의 색 공간은 늘 sRGB 다 — JPEG 리더는 내장 프로파일에서
+     * sRGB 로 바꿔 내주고(넓은 색역이 잘린다), PNG 리더는 iCCP 를 디코딩에 쓰지 않는다. 그래서 헤더에서 읽는다. 회색·CMYK 프로파일은
+     * 대상이 아니고(회색은 지금의 회색 분기로 간다), 없거나 읽지 못하면 sRGB 로 본다(fail-open — 지금처럼 만든다).
+     */
+    private static boolean hasNonSrgbRgbProfile(byte[] source, boolean jpeg, ImageReader reader) {
+        try {
+            ICC_Profile profile = jpeg ? jpegEmbeddedRgbProfile(reader) : pngIccProfile(source);
+            return profile != null && profile.getColorSpaceType() == ColorSpace.TYPE_RGB
+                    && !matchesSrgb(new ICC_ColorSpace(profile));
+        } catch (IOException | RuntimeException unreadableProfile) {
+            return false;
+        }
+    }
+
+    /**
+     * JPEG 리더가 헤더의 APP2 ICC_PROFILE 로 만든 RGB 색 공간 — 형식 목록에 기본 sRGB 와 따로 들어온다(JFIF 유무와 무관하고, 깨진
+     * 프로파일은 리더가 버린다). 메타데이터는 쓰지 않는다 — JFIF 가 없으면 프로파일이 원시 바이트로만 담기고, 마커 순서가 어긋나면 예외다.
+     * shortcut: YCbCr 가 아니라 RGB 로 부호화한 JPEG(Adobe 변환 0 등)은 리더가 프로파일을 목록에 싣지 않아 sRGB 로 본다, 그런 로고가 보이면
+     * APP2 를 직접 읽는다.
+     */
+    private static ICC_Profile jpegEmbeddedRgbProfile(ImageReader reader) throws IOException {
+        for (Iterator<ImageTypeSpecifier> types = reader.getImageTypes(0); types.hasNext(); ) {
+            ColorSpace colorSpace = types.next().getColorModel().getColorSpace();
+            if (colorSpace instanceof ICC_ColorSpace embedded && colorSpace.getType() == ColorSpace.TYPE_RGB
+                    && !colorSpace.isCS_sRGB()) {
+                return embedded.getProfile();
+            }
+        }
+        return null;
+    }
+
+    /**
+     * PNG 의 iCCP 프로파일 — 첫 IDAT 앞 청크만 훑는다(iCCP 는 그 앞에만 온다). JDK 리더의 메타데이터로 읽지 않는다 — iCCP 를 담으려면
+     * ignoreMetadata=false 로 읽어야 하는데, 그러면 zTXt·iTXt 를 청크마다 256KB 까지 풀어 쌓아(청크 수 상한 없음) 힙이 찬다(JDK 21 실측:
+     * 117KB 파일이 +100MB, 876KB 파일이 512MB 힙에서 OOM). PNG 가 아니거나 iCCP 가 없거나 구조가 깨졌으면 null.
+     * shortcut: iCCP 만 본다 — cICP 나 gAMA·cHRM 만 붙은 PNG(드묾 — macOS 스크린숏은 iCCP 를 함께 쓴다)는 sRGB 로 보고 줄인다, 그런
+     * 로고가 보이면 그 청크도 판정한다.
+     */
+    private static ICC_Profile pngIccProfile(byte[] png) throws IOException {
+        if (!isPng(png)) {
+            return null;
+        }
+        ByteBuffer buffer = ByteBuffer.wrap(png);
+        buffer.position(PNG_SIGNATURE_LENGTH);
+        while (buffer.remaining() >= 8) {
+            int length = buffer.getInt();
+            int type = buffer.getInt();
+            int dataStart = buffer.position();
+            if (length < 0 || length > buffer.remaining() - 4 || type == PNG_IDAT_CHUNK) {
+                return null; // 길이 이상(뒤 CRC 4바이트 포함)·이미지 데이터 시작
+            }
+            if (type == PNG_ICCP_CHUNK) {
+                // 데이터는 프로파일 이름·0·압축 방식(0 = zlib)·압축한 프로파일이다.
+                int dataEnd = dataStart + length;
+                int nameEnd = dataStart;
+                while (nameEnd < dataEnd && png[nameEnd] != 0) {
+                    nameEnd++;
+                }
+                if (nameEnd == dataStart || nameEnd + 2 > dataEnd || png[nameEnd + 1] != 0) {
+                    return null;
+                }
+                try (InputStream profileStream = new InflaterInputStream(
+                        new ByteArrayInputStream(png, nameEnd + 2, dataEnd - nameEnd - 2))) {
+                    byte[] profileBytes = profileStream.readNBytes(MAX_ICC_PROFILE_BYTES + 1);
+                    return profileBytes.length > MAX_ICC_PROFILE_BYTES ? null : ICC_Profile.getInstance(profileBytes);
+                }
+            }
+            buffer.position(dataStart + length + 4); // 데이터 + CRC
+        }
+        return null;
+    }
+
+    /**
+     * 프로파일이 sRGB 와 같은 색을 내는가 — 원색 셋과 중간 회색을 XYZ(D50)로 옮겨 JDK 내장 sRGB 와 견준다(원색·백색점·곡선을 함께 본다).
+     * 설명 태그는 쓰지 않는다 — 이름은 만든 곳마다 제각각이고, JDK 의 선형 프로파일 이름도 "linear sRGB" 다.
+     */
+    private static boolean matchesSrgb(ICC_ColorSpace profileSpace) {
+        ColorSpace srgb = ColorSpace.getInstance(ColorSpace.CS_sRGB);
+        for (float[] probe : SRGB_PROBE_COLORS) {
+            float[] actual = profileSpace.toCIEXYZ(probe);
+            float[] expected = srgb.toCIEXYZ(probe);
+            for (int axis = 0; axis < 3; axis++) {
+                if (Math.abs(actual[axis] - expected[axis]) > SRGB_XYZ_TOLERANCE) {
+                    return false;
+                }
+            }
+        }
+        return true;
     }
 
     /** {@link #scanJpegHeader} 의 방향만 — 테스트·가독성용. */

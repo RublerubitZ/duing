@@ -21,11 +21,12 @@ import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 
 /**
- * 프론트(Next.js) 페이지 재생성 요청기 — 백엔드 데이터가 바뀐 공개 페이지를 그 직후 다시 만들게 한다. 호출부는 셋이다:
+ * 프론트(Next.js) 페이지 재생성 요청기 — 백엔드 데이터가 바뀐 공개 페이지를 그 직후 다시 만들게 한다. 호출부는 넷이다:
  * 추천순 정각 셔플에 맞춘 동아리 탐색({@code /clubs} — {@code ClubMetricRefreshJob} 이 {@link #revalidate}),
  * 상세가 바뀐 커밋 뒤의 동아리 상세({@code /clubs/{id}} — 전용 실행기에서 {@link #revalidateWithoutAlert}, #1356),
  * 매일 00:05 진행 중이거나 최근(어제·그제) 마감한 모집이 있는 동아리 상세({@code ClubDetailDailyRevalidationJob} 이
- * {@link #revalidateWithoutAlert}).
+ * {@link #revalidateWithoutAlert}), 기동 뒤 로고 썸네일 백필이 썸네일을 반영한 공개 동아리 상세({@code ClubLogoThumbnailBackfillRunner}
+ * 가 썸네일 실행기 스레드에서 {@link #revalidateWithoutAlert}).
  *
  * <p>흐름: {@code POST /api/internal/revalidate}(Bearer 비밀값) → 2xx 면 1초 뒤 그 페이지를 GET(warm-up).
  * 무효화 뒤 첫 요청이 재생성을 일으키므로 그 요청을 백엔드가 먼저 보내 실제 사용자 요청보다 앞서 재생성을 시작시킨다.

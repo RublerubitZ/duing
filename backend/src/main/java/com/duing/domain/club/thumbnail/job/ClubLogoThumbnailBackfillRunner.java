@@ -6,7 +6,6 @@ import com.duing.domain.club.thumbnail.config.ClubLogoThumbnailAsyncConfig;
 import com.duing.domain.club.thumbnail.service.ClubLogoThumbnailService;
 import com.duing.domain.club.thumbnail.service.LogoThumbnailOutcome;
 import com.duing.global.frontend.FrontendRevalidator;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Executor;
 import lombok.extern.slf4j.Slf4j;
@@ -27,14 +26,16 @@ import org.springframework.stereotype.Component;
  * 다만 연속 {@value #MAX_CONSECUTIVE_FAILURES}회 실패면 저장소 장애로 보고 멈춘다(모든 동아리가 같은 식으로 실패해 동아리 수만큼
  * WARN·타임아웃을 반복할 뿐이다 — 값은 FrontendRevalidator 의 연속 실패 임계와 같다). 다음 기동이 다시 시작한다.
  *
- * <p>종료: 컨텍스트 종료가 시작되면(ContextClosedEvent) 플래그를 세워 두 루프(생성·재생성)가 다음 반복에서 멈춘다 — 실행기는
+ * <p>종료: 컨텍스트 종료가 시작되면(ContextClosedEvent) 플래그를 세워 루프가 다음 동아리 앞에서 멈춘다 — 실행기는
  * 진행 중 작업을 끝까지 기다리는 설정(waitForTasksToCompleteOnShutdown=true, 소멸 단계 2초)이라 인터럽트가 제때 오지 않는다.
  * 어떤 예외도 밖으로 내지 않는다.
  *
- * <p>끝에 썸네일이 새로 생긴 공개(ACTIVE) 동아리의 상세를 한 곳씩 순서대로 다시 만든다 — 트랜잭션 없는 스레드라 이벤트 대신
+ * <p>썸네일이 반영된(STORED) 공개(ACTIVE) 동아리는 다음 동아리로 넘어가기 전에 그 자리에서 상세를 다시 만든다 — 끝에 몰아 하면 그
+ * 사이 종료될 때 이미 썸네일이 생긴 동아리가 재생성에서도, 다음 기동 대상(썸네일 없음)에서도 빠진다. 트랜잭션 없는 스레드라 이벤트 대신
  * {@link FrontendRevalidator#revalidateWithoutAlert} 를 직접 부른다(ClubDetailDailyRevalidationJob 과 같은 방식). 생성 쪽도
  * {@code generateForBackfill} 이라 상세 변경 이벤트를 내지 않는다(이벤트로도 보내면 공개 동아리가 두 번, 비공개 동아리도 렌더되고
- * 재생성 큐(100)가 넘친다). 목록(/clubs)은 정각 재생성, 홈은 ISR 주기에 맡긴다.
+ * 재생성 큐(100)가 넘친다). 요청기는 던지지 않는 계약이지만, 어겨도 생성 집계·연속 실패에 섞이지 않게 재생성만 따로 끊는다.
+ * 목록(/clubs)은 정각 재생성, 홈은 ISR 주기에 맡긴다.
  * {@code duing.club.logo-thumbnail.backfill.enabled=true} 에서만 등록된다(운영 기본 활성).
  */
 @Slf4j
@@ -90,8 +91,8 @@ public class ClubLogoThumbnailBackfillRunner {
         int generated = 0;
         int skipped = 0;
         int failed = 0;
+        int revalidated = 0;
         int consecutiveFailures = 0;
-        List<Long> publicClubIdsToRevalidate = new ArrayList<>();
         for (int index = 0; index < targets.size(); index++) {
             if (shouldStop()) {
                 log.warn("[로고 썸네일 백필] 종료 중 — 남은 {}곳 건너뜀", targets.size() - index);
@@ -103,8 +104,9 @@ public class ClubLogoThumbnailBackfillRunner {
                 consecutiveFailures = 0;
                 if (outcome == LogoThumbnailOutcome.STORED) {
                     generated++;
-                    if (target.getStatus().isPubliclyVisible()) {
-                        publicClubIdsToRevalidate.add(target.getId());
+                    // 종료 신호가 와 있어도 만든 동아리의 재생성은 마친다 — 다음 기동은 이 동아리를 다시 집지 않는다.
+                    if (target.getStatus().isPubliclyVisible() && revalidateDetail(target.getId())) {
+                        revalidated++;
                     }
                 } else {
                     skipped++;
@@ -122,16 +124,18 @@ public class ClubLogoThumbnailBackfillRunner {
                 }
             }
         }
-        int revalidated = 0;
-        for (Long clubId : publicClubIdsToRevalidate) {
-            if (shouldStop()) {
-                log.warn("[로고 썸네일 백필] 종료 중 — 상세 재생성 남은 {}곳 건너뜀",
-                        publicClubIdsToRevalidate.size() - revalidated);
-                break;
-            }
-            frontendRevalidator.revalidateWithoutAlert(CLUB_DETAIL_PATH_PREFIX + clubId);
-            revalidated++;
-        }
         log.info("[로고 썸네일 백필] 완료 — 생성 {} · 건너뜀 {} · 실패 {} · 재생성 {}", generated, skipped, failed, revalidated);
+    }
+
+    /** 요청을 마쳤으면 참. 요청기가 계약을 어기고 던져도 여기서 끊는다 — 생성 성공을 실패로 세거나 연속 실패 중단을 일으키지 않는다. */
+    private boolean revalidateDetail(Long clubId) {
+        try {
+            frontendRevalidator.revalidateWithoutAlert(CLUB_DETAIL_PATH_PREFIX + clubId);
+            return true;
+        } catch (RuntimeException revalidationFailure) {
+            log.warn("[로고 썸네일 백필] 상세 재생성 실패 — clubId={}, reason={}",
+                    clubId, revalidationFailure.getClass().getSimpleName());
+            return false;
+        }
     }
 }

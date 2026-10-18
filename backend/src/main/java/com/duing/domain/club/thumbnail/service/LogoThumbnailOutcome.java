@@ -2,7 +2,7 @@ package com.duing.domain.club.thumbnail.service;
 
 /** 한 동아리 썸네일 생성 시도의 결과 — 백필이 생성·건너뜀 집계에 쓴다. 예외(스토리지 장애 등)는 결과가 아니라 호출자가 실패로 센다. */
 public enum LogoThumbnailOutcome {
-    /** 썸네일(또는 작은 원본의 원본 URL)이 동아리에 반영됐다. */
+    /** 썸네일(또는 원본을 그대로 쓰는 경우의 원본 URL)이 동아리에 반영됐다. */
     STORED,
     /** 만들지 않았다 — 자기 스토리지 아님·로고 업로드 객체 아님·객체 없음·형식·치수·EXIF 방향. 썸네일은 NULL 그대로. */
     SKIPPED,
