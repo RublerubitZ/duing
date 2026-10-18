@@ -136,6 +136,19 @@ public final class ImageFixture {
         return profile.getData();
     }
 
+    /**
+     * sRGB 원색·백색점에 순수 감마 곡선을 둔 RGB 프로파일 — sRGB 판정 상한(XYZ 0.01)의 양쪽 경계용. 중간 회색의 차이가 감마 2.2 는
+     * 0.0037(sRGB 로 본다), 2.4 는 0.024(sRGB 아님)다. {@link #displayP3Profile} 처럼 JDK sRGB 사본의 곡선 태그만 바꾼다.
+     */
+    public static byte[] srgbPrimariesWithGamma(double gamma) {
+        ICC_Profile profile = ICC_Profile.getInstance(ICC_Profile.getInstance(ColorSpace.CS_sRGB).getData());
+        byte[] curve = gammaCurveTag(gamma);
+        profile.setData(ICC_Profile.icSigRedTRCTag, curve);
+        profile.setData(ICC_Profile.icSigGreenTRCTag, curve);
+        profile.setData(ICC_Profile.icSigBlueTRCTag, curve);
+        return profile.getData();
+    }
+
     /** SOI 바로 뒤에 APP2(ICC_PROFILE, 조각 1/1)를 끼운다 — 헤더만 있는 JPEG 에도 쓴다. */
     public static byte[] withJpegIccProfile(byte[] jpeg, byte[] profile) {
         byte[] identifier = "ICC_PROFILE\0".getBytes(StandardCharsets.US_ASCII);
@@ -194,6 +207,12 @@ public final class ImageFixture {
     private static byte[] xyzTag(int x, int y, int z) {
         return ByteBuffer.allocate(20).put("XYZ ".getBytes(StandardCharsets.US_ASCII)).putInt(0)
                 .putInt(x).putInt(y).putInt(z).array();
+    }
+
+    /** ICC curveType 태그 — 형식 'curv'·예약 4바이트·항목 수 1·감마(u8Fixed8). */
+    private static byte[] gammaCurveTag(double gamma) {
+        return ByteBuffer.allocate(14).put("curv".getBytes(StandardCharsets.US_ASCII)).putInt(0)
+                .putInt(1).putShort((short) Math.round(gamma * 256)).array();
     }
 
     /** PNG 청크 — 길이·형식·데이터·CRC(형식+데이터). */

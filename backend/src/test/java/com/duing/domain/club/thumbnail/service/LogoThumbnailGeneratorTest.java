@@ -122,6 +122,18 @@ class LogoThumbnailGeneratorTest {
     }
 
     @Test
+    @DisplayName("sRGB 판정 상한(XYZ 0.01)의 양쪽 경계 — sRGB 원색에 감마 2.2 곡선(차이 0.0037)은 sRGB 로 보고 줄이고, 2.4 곡선(0.024)은 원본을 쓴다")
+    void srgbToleranceBoundary() {
+        byte[] gamma22 = ImageFixture.srgbPrimariesWithGamma(2.2);
+        byte[] gamma24 = ImageFixture.srgbPrimariesWithGamma(2.4);
+
+        assertThat(LogoThumbnailGenerator.generate(ImageFixture.withPngIccProfile(ImageFixture.png(800, 600, true), gamma22)))
+                .isInstanceOf(Generated.class);
+        assertThat(LogoThumbnailGenerator.generate(ImageFixture.withPngIccProfile(ImageFixture.png(800, 600, true), gamma24)))
+                .isEqualTo(new UseOriginal(UseOriginalReason.NON_SRGB_PROFILE));
+    }
+
+    @Test
     @DisplayName("색 프로파일은 치수 상한 뒤·디코딩 전에 헤더만 보고 정한다 — 픽셀 데이터가 없어도 원본 사용이 되고, 상한을 넘으면 프로파일과 무관하게 건너뛴다")
     void profileIsCheckedFromHeaderAfterSizeLimits() {
         byte[] displayP3 = ImageFixture.displayP3Profile();
