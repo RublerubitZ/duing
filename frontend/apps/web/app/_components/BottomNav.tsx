@@ -12,7 +12,7 @@
 // 데스크탑은 기존 상단 HomeNav/ExploreNav 유지(이 바는 md:hidden).
 
 // 탭 전환은 View Transition 을 태우지 않는다(next/link) — 전역 크로스페이드는 전체 뷰포트를
-// 스냅샷 이중 페인트해 유지되는 헤더·탭바·로고까지 깜빡여 보이게 한다(목록→상세 모핑 전용).
+// 스냅샷 이중 페인트해 유지되는 헤더·탭바·로고까지 깜빡여 보이게 한다(목록→상세 전진 전용 — 데스크탑 모핑·모바일 push).
 import Link from 'next/link';
 
 import { cn } from '@/app/_lib/cn';

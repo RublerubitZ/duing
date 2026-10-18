@@ -1,7 +1,7 @@
 'use client';
 
 // GNB 탭 이동은 View Transition 제외(next/link) — 병렬 탭 전환에 전역 크로스페이드를 돌리면
-// 화면 전체가 재구성되는 것처럼 깜빡인다. VT 는 목록→상세(로고 모핑) 전진 내비에만 쓴다.
+// 화면 전체가 재구성되는 것처럼 깜빡인다. VT 는 목록→상세 전진 내비에만 쓴다(데스크탑 로고 모핑·모바일 push).
 import Link from 'next/link';
 
 import { cn } from '@/app/_lib/cn';

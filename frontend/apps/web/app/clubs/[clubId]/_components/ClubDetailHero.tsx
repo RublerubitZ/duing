@@ -37,7 +37,7 @@ export function ClubDetailHero({ club, recruitmentDisplayStatus }: Props) {
   ).filter((part): part is string => typeof part === 'string' && part.length > 0);
   const initial = club.name.trim().charAt(0);
   // 로고박스 배경 — 로고 유무와 상관없이 카드/리스트와 같은 시그니처 색. 로고가 있으면 이미지가 덮지만, 썸네일 디코딩 전
-  // 한 프레임이 생겨도 목록과 같은 색이라 모핑 중 초록(ink) 상자로 튀지 않는다(iOS 깜빡임 P0 §5).
+  // 한 프레임이 생겨도 목록과 같은 색이라 (데스크탑) 모핑 중 초록(ink) 상자로 튀지 않는다(iOS 깜빡임 P0 §5). 모바일은 push 라 모핑이 없다.
   const logoColor = pickColor(club.id);
   const logoBoxBackground = `linear-gradient(135deg, ${logoColor} 0%, ${logoColor}CC 100%)`;
   const isAuthenticated = useSeededAuthStatus() === 'authenticated';
@@ -226,7 +226,7 @@ export function ClubDetailHero({ club, recruitmentDisplayStatus }: Props) {
               )}
               style={{
                 background: logoBoxBackground,
-                // 공유요소 전환 — 목록 카드 로고에서 모핑되어 들어온다(모바일 히어로).
+                // 공유요소 전환 이름(모바일 히어로) — 모바일 전환은 push 라 지금은 globals.css 가 꺼 둔다.
                 viewTransitionName: `club-logo-${club.id}`,
               }}
             >
