@@ -59,7 +59,7 @@ test('인터셉트 상세 동안 목록은 크림 배경 뒤에 덮여 있다 �
       canvasOpaque: getComputedStyle(canvas).backgroundColor.startsWith('rgb('),
       canvasCoversViewport: canvasRect.top <= 0 && canvasRect.bottom >= window.innerHeight,
       // 래퍼 안 크림 막(after:) — 그려지고(content), 검색 바(z-40) 위이며, 불투명하다.
-      coverDrawn: coverStyle.content !== 'none',
+      coverDrawn: coverStyle.content === '""',
       coverAboveSearchBar: coverStyle.zIndex === '50',
       coverOpaque: coverStyle.backgroundColor.startsWith('rgb('),
     };
