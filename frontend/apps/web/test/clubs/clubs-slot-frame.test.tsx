@@ -163,8 +163,8 @@ function frameRoot(): HTMLElement {
 }
 
 /**
- * 숨겨 유지하는 목록 래퍼의 계약 — display:none(hidden) 대신 모바일은 화면에 고정한 채 레이아웃 크림 배경 뒤(음수 z-index)에 그려 두고,
- * md 이상은 display:none 이다. inert 로 스크린리더·탭 이동·찾기·포인터에서 빼고, 안쪽의 view-transition-name 은 모두 끈다.
+ * 숨겨 유지하는 목록 래퍼의 계약 — display:none(hidden) 대신 모바일은 화면에 고정한 채 레이아웃 크림 배경 뒤(음수 z-index)에 그려 두고
+ * (그 위를 불투명 크림 막이 덮는다), md 이상은 display:none 이다. inert 로 스크린리더·탭 이동·찾기·포인터에서 빼고, 안쪽의 view-transition-name 은 모두 끈다.
  * jsdom 은 Tailwind CSS 를 적용하지 않아 실제로 가려졌는지는 웹킷 E2E(clubs-native-back.webkit.spec.ts)가 본다.
  */
 function expectKeptHidden(listWrapper: HTMLElement | null) {
@@ -178,6 +178,11 @@ function expectKeptHidden(listWrapper: HTMLElement | null) {
     'max-md:overflow-clip',
     'md:hidden',
     '[&_*]:![view-transition-name:none]',
+    // 바운스로 레이아웃 배경 바깥이 드러날 때 목록 대신 보이는 불투명 크림 막.
+    'max-md:after:absolute',
+    'max-md:after:inset-0',
+    'max-md:after:z-50',
+    'max-md:after:bg-cream',
   );
 }
 

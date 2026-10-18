@@ -12,8 +12,10 @@ import { ClubsRouteAnnouncer } from './ClubsRouteAnnouncer';
 const PASSTHROUGH_SEGMENT = '(passthrough)';
 
 // 숨겨 유지하는 목록 — 모바일은 크림 배경 뒤에 그려 둔 채 덮고 md 이상은 display:none, 안쪽 view-transition-name 은 끈다(아래 문서 주석).
+// after: 는 목록 위를 덮는 불투명 크림 막이다 — 바운스로 레이아웃 배경 바깥이 드러나도 목록 대신 크림이 보인다(검색 바 z-40 위).
 const HIDDEN_LIST_CLASS =
-  'max-md:fixed max-md:inset-0 max-md:-z-10 max-md:overflow-clip md:hidden [&_*]:![view-transition-name:none]';
+  'max-md:fixed max-md:inset-0 max-md:-z-10 max-md:overflow-clip md:hidden [&_*]:![view-transition-name:none] ' +
+  'max-md:after:absolute max-md:after:inset-0 max-md:after:z-50 max-md:after:bg-cream';
 
 type Props = {
   children: ReactNode;
@@ -39,7 +41,9 @@ type Props = {
  *   프레임이라 그 층이 덜 그려진 채(흐림만) 보였다. 고정이라 문서 높이에 들어가지 않고, 안쪽 view-transition-name 은 모두 끄며(상세 로고와
  *   club-logo-<id> 가 겹치면 전환이 건너뛰어진다), inert 로 스크린리더·탭 이동·찾기·포인터에서 뺀다. 가려지는 것은 음수 z-index 가 루트
  *   쌓임 맥락에서 ClubsLayout(.duing)의 불투명 배경 아래에 그려지기 때문이라, 이 래퍼와 루트 사이에 쌓임 맥락을 만들면 안 된다
- *   (clubs-native-back.webkit E2E 가 확인). md 이상은 스냅숏 깜박임 보고가 없어 그대로 display:none 이다.
+ *   (clubs-native-back.webkit E2E 가 확인). 다만 상세 맨 아래에서 세게 튕기면 바운스가 .duing 바깥을 드러내 고정된 목록이 비쳤다
+ *   (시뮬레이터 녹화) — 그래서 래퍼 안에 목록을 덮는 불투명 크림 막(after:)을 둔다. 목록은 그 아래에서 계속 그려진다.
+ *   md 이상은 스냅숏 깜박임 보고가 없어 그대로 display:none 이다.
  * - 상세(modal)는 children 래퍼 뒤에 문서 흐름으로 그린다(고정 오버레이 아님 — iOS 문서 스크롤·툴바 접힘 유지).
  * 루트 data-clubs-slot(list·page·intercepted)과 숨은 목록 래퍼의 data-clubs-hidden-list 는 테스트·QA 가 인터셉트와 전체 페이지를
  * 가르는 표식이다. 마지막 자식은 라우트 공지 영역(ClubsRouteAnnouncer)이다.
