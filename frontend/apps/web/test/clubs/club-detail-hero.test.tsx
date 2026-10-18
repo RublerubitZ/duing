@@ -380,6 +380,14 @@ describe('ClubDetailHero — 로고 박스(썸네일·배경, iOS 깜빡임 P0 �
     }
   });
 
+  it('데스크탑 히어로 로고만 club-logo-<id> 이름을 갖는다 — 목록 카드에서 모핑해 들어오는 짝이고, 모바일 히어로는 push 라 이름이 없다', () => {
+    const { container } = render(<ClubDetailHero club={baseClub} />);
+    const desktopLogoBox = requireElement(container, 'div.md\\:block div.h-\\[140px\\]');
+    const mobileLogoBox = requireElement(container, 'div.md\\:hidden div.h-20');
+    expect(desktopLogoBox.style.getPropertyValue('view-transition-name')).toBe(`club-logo-${baseClub.id}`);
+    expect(mobileLogoBox.style.getPropertyValue('view-transition-name')).toBe('');
+  });
+
   it('썸네일 URL 이 있으면 데스크탑·모바일 히어로 로고 모두 썸네일을 즉시(eager·sync) 그린다 — 목록과 같은 URL 이라 캐시가 이어지고 데스크탑은 모핑도 이어진다', () => {
     const { container } = render(
       <ClubDetailHero club={{ ...baseClub, logoUrl: LOGO, logoThumbnailUrl: THUMBNAIL }} />,
