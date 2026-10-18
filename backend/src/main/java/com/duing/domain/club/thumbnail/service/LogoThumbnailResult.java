@@ -27,7 +27,7 @@ public sealed interface LogoThumbnailResult {
     enum SkipReason {
         /** ImageIO 가 읽는 형식이 아니다(WebP 등). */
         UNSUPPORTED_FORMAT,
-        /** 디코딩 실패(손상 파일 등 — CMYK·YCCK JPEG 도 JDK 21 이 디코딩하므로 형식만으로는 여기 오지 않는다). */
+        /** 디코딩 실패(손상 파일, JDK 가 못 읽는 JPEG 변형(산술 부호화·12비트) 등. CMYK·YCCK JPEG 는 JDK 21 이 디코딩한다). */
         UNREADABLE,
         /** 치수가 상한(픽셀 수 베이스라인 2,500만·프로그레시브·다중 스캔 JPEG 800만, 긴 변 16,384px)을 넘는다 — 디코딩 전에 끊는다. */
         TOO_MANY_PIXELS,
