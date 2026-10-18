@@ -132,7 +132,8 @@ public final class LogoThumbnailGenerator {
                 reader.dispose();
             }
         } catch (IOException | RuntimeException decodeFailure) {
-            // CMYK JPEG 는 IIOException("Unsupported Image Type"), 손상 파일은 EOF·zlib 오류 등 — 전부 건너뜀.
+            // 프로파일 없는 CMYK JPEG 는 IIOException("Unsupported Image Type")(프로파일이 붙은 CMYK 는 JDK 21 이 그 프로파일로 디코딩해
+            // 썸네일이 된다), 손상 파일은 EOF·zlib 오류 등 — 전부 건너뜀.
             return new Skipped(SkipReason.UNREADABLE);
         }
     }
@@ -186,6 +187,8 @@ public final class LogoThumbnailGenerator {
      * PNG 의 iCCP 프로파일 — 첫 IDAT 앞 청크만 훑는다(iCCP 는 그 앞에만 온다). JDK 리더의 메타데이터로 읽지 않는다 — iCCP 를 담으려면
      * ignoreMetadata=false 로 읽어야 하는데, 그러면 zTXt·iTXt 를 청크마다 256KB 까지 풀어 쌓아(청크 수 상한 없음) 힙이 찬다(JDK 21 실측:
      * 117KB 파일이 +100MB, 876KB 파일이 512MB 힙에서 OOM). PNG 가 아니거나 iCCP 가 없거나 구조가 깨졌으면 null.
+     * shortcut: iCCP 만 본다 — cICP 나 gAMA·cHRM 만 붙은 PNG(드묾 — macOS 스크린숏은 iCCP 를 함께 쓴다)는 sRGB 로 보고 줄인다, 그런
+     * 로고가 보이면 그 청크도 판정한다.
      */
     private static ICC_Profile pngIccProfile(byte[] png) throws IOException {
         if (!isPng(png)) {

@@ -17,7 +17,8 @@ import org.springframework.web.client.RestClient;
  * 여유를 더한 값이다. 이 계산은 요청 1건에 경로 1개라는 전제다({@link FrontendRevalidator} 는 항상 하나만 보낸다) —
  * 라우트는 경로별 사전 확인을 순차로 돌므로 경로를 묶어 보내게 되면 이 상한도 다시 정한다. 호출은 정각 스케줄
  * 스레드(시간당 1회)·매일 00:05 상세 재생성 잡({@code ClubDetailDailyRevalidationJob})의 스케줄 스레드와 동아리 상세
- * 재생성 전용 실행기({@link FrontendRevalidationAsyncConfig}, 단일 스레드)에서만 나가 요청 스레드 예산과 무관하다.
+ * 재생성 전용 실행기({@link FrontendRevalidationAsyncConfig}, 단일 스레드), 기동 뒤 로고 썸네일 백필({@code ClubLogoThumbnailBackfillRunner}
+ * — 썸네일 실행기 스레드에서 동아리마다 순차)에서만 나가 요청 스레드 예산과 무관하다.
  * 비활성(주소·비밀값 없음)일 때도 빈은 만들어 두되 더미 로컬 주소를 준다 — FrontendRevalidator 가 먼저 걸러
  * 절대 호출되지 않는다.
  */
