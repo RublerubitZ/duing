@@ -1,6 +1,6 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 
-import { blockViewBeacons, gotoList, visibleCards } from './clubs-native-back.helpers';
+import { blockViewBeacons, gotoList, readCardClubId, visibleCards } from './clubs-native-back.helpers';
 
 /**
  * 동아리 상세 진입 전환(globals.css View Transitions) — md 이상은 크로스페이드 + 로고 모핑, 모바일은 화면 전체 push 라 로고의
@@ -11,12 +11,14 @@ test.beforeEach(async ({ page }) => {
   await blockViewBeacons(page);
 });
 
-async function readCardLogoTransition(page: Parameters<typeof gotoList>[0]) {
+async function readCardLogoTransition(page: Page) {
   await gotoList(page);
   const card = visibleCards(page).first();
-  const logo = card.locator('[aria-label$=" 로고"]').first();
-  const clubId = Number((await card.getAttribute('href'))?.split('/').pop());
-  const transitionName = await logo.evaluate((node) => getComputedStyle(node).getPropertyValue('view-transition-name'));
+  const clubId = await readCardClubId(card);
+  const transitionName = await card
+    .locator('[aria-label$=" 로고"]')
+    .first()
+    .evaluate((node) => getComputedStyle(node).getPropertyValue('view-transition-name'));
   return { clubId, transitionName };
 }
 

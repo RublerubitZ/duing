@@ -369,7 +369,7 @@ describe('ClubDetailHero — 로고 박스(썸네일·배경, iOS 깜빡임 P0 �
   it.each([
     ['로고가 있어도', LOGO],
     ['로고가 없어도', null],
-  ])('%s 로고 박스 배경은 목록과 같은 시그니처 색 그라데이션이다 — 모핑 중 초록(ink) 상자가 비치지 않게', (_case, logoUrl) => {
+  ])('%s 로고 박스 배경은 목록과 같은 시그니처 색 그라데이션이다 — 디코딩 전 한 프레임·(데스크탑) 모핑 중 초록(ink) 상자가 비치지 않게', (_case, logoUrl) => {
     const { container } = render(<ClubDetailHero club={{ ...baseClub, logoUrl }} />);
 
     for (const logoBox of logoBoxes(container)) {
@@ -380,7 +380,7 @@ describe('ClubDetailHero — 로고 박스(썸네일·배경, iOS 깜빡임 P0 �
     }
   });
 
-  it('썸네일 URL 이 있으면 데스크탑·모바일 히어로 로고 모두 썸네일을 즉시(eager·sync) 그린다 — 목록과 같은 URL 이라 캐시·모핑이 이어진다', () => {
+  it('썸네일 URL 이 있으면 데스크탑·모바일 히어로 로고 모두 썸네일을 즉시(eager·sync) 그린다 — 목록과 같은 URL 이라 캐시가 이어지고 데스크탑은 모핑도 이어진다', () => {
     const { container } = render(
       <ClubDetailHero club={{ ...baseClub, logoUrl: LOGO, logoThumbnailUrl: THUMBNAIL }} />,
     );
