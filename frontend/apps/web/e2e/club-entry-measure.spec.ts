@@ -54,7 +54,7 @@ const PREFETCH_SETTLE_MS = 2000;
 const TRANSITION_SETTLE_TIMEOUT_MS = 1500;
 // 앱 전환 애니메이션은 데스크탑 180ms·모바일 push 320ms(globals.css ::view-transition-*). 애니메이션 도중 이름 붙은 요소가 사라지면
 // ready 거부·콘솔 문구 없이 전환만 일찍 끝난다(합성 페이지 교정: 크로미엄·웹킷 모두). 그래서 ready→finished 가 이보다 짧으면 도중 중단으로
-// 센다(추정). 모바일은 더 길어 이 기준으로는 늦은 중단을 놓칠 수 있다.
+// 센다(추정). 모바일은 루트 말고 이름 붙은 요소가 없어 이 중단 자체가 생기지 않는다 — 기준은 데스크탑·develop 비교 빌드(180ms 모핑)용이다.
 const MID_ANIMATION_ABORT_MS = 170;
 // 시행 결과에 싣는 중단 문구 수 상한(문구는 모을 때 이미 160자로 자른다).
 const ABORT_MESSAGE_LIMIT = 5;

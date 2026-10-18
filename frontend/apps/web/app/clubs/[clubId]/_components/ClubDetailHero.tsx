@@ -226,8 +226,7 @@ export function ClubDetailHero({ club, recruitmentDisplayStatus }: Props) {
               )}
               style={{
                 background: logoBoxBackground,
-                // 공유요소 전환 이름(모바일 히어로) — 모바일 전환은 push 라 지금은 globals.css 가 꺼 둔다.
-                viewTransitionName: `club-logo-${club.id}`,
+                // 공유요소 전환 이름(club-logo-<id>)은 달지 않는다 — 모바일 히어로이고, 모바일 전환은 화면 전체 push 다(globals.css).
               }}
             >
               <ClubLogo logoUrl={club.logoUrl} thumbnailUrl={club.logoThumbnailUrl}>
