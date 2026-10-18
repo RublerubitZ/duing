@@ -27,52 +27,38 @@ test('목록 → 인터셉트 상세(탭) → 뒤로 — 카드 노드가 그대
   await assertListKeptAcrossDetail(page, (card) => card.tap());
 });
 
-// 모바일 숨은 목록은 display:none 대신 크림 배경 뒤(음수 z-index)에 그려 둔 채 덮는다(ClubsSlotFrame) — 가려지는 전제는 래퍼와 루트 사이
-// 조상이 쌓임 맥락을 만들지 않고 레이아웃 루트(.duing)가 불투명 배경으로 화면을 덮는 것이다. 조상에 transform 등이 생기면 목록이 비친다.
-test('인터셉트 상세 동안 목록은 크림 배경 뒤에 덮여 있다 — inert·조상 쌓임 맥락 없음·불투명 배경', async ({ page }) => {
+// 모바일 숨은 목록은 display:none 대신 크림 배경 뒤(음수 z-index)에 그려 둔 채 덮는다(ClubsSlotFrame) — 래퍼와 루트 사이 조상이 쌓임
+// 맥락을 만들면(transform·isolation 등) 목록이 상세 뒤로 비친다. 속성을 나열하지 않고 화면 가운데에서 칠한 순서로 직접 확인한다.
+test('인터셉트 상세 동안 목록은 크림 배경 뒤에 덮여 있다 — inert·전환 이름 끔·가림', async ({ page }) => {
   await gotoList(page);
   await visibleCards(page).first().tap();
   await waitForInterceptedDetail(page);
 
+  const hiddenList = page.locator('[data-clubs-hidden-list]');
+  await expect(hiddenList).toHaveAttribute('inert', '');
+  await expect(hiddenList).toHaveCSS('position', 'fixed');
+  // 숨은 목록 안 로고는 전환 이름이 없다 — 상세 로고와 club-logo-<id> 가 겹치면 전환이 건너뛰어진다.
+  await expect(hiddenList.locator('[aria-label$=" 로고"]').first()).toHaveCSS('view-transition-name', 'none');
+
   const coverage = await page.evaluate(() => {
-    const hiddenList = document.querySelector('[data-clubs-hidden-list]');
-    if (!(hiddenList instanceof HTMLElement)) return null;
-    const stackingAncestors: string[] = [];
-    for (let ancestor = hiddenList.parentElement; ancestor && ancestor !== document.documentElement; ancestor = ancestor.parentElement) {
-      const style = getComputedStyle(ancestor);
-      const createsStackingContext =
-        (style.position !== 'static' && style.zIndex !== 'auto') ||
-        style.transform !== 'none' ||
-        style.filter !== 'none' ||
-        style.opacity !== '1' ||
-        style.isolation === 'isolate' ||
-        style.mixBlendMode !== 'normal' ||
-        style.perspective !== 'none' ||
-        style.clipPath !== 'none' ||
-        /transform|opacity|filter|perspective/.test(style.willChange) ||
-        /paint|layout|strict|content/.test(style.contain);
-      if (createsStackingContext) stackingAncestors.push(`${ancestor.tagName.toLowerCase()}.${ancestor.className}`);
-    }
-    const canvas = hiddenList.closest('.duing');
-    const hiddenListStyle = getComputedStyle(hiddenList);
+    const list = document.querySelector('[data-clubs-hidden-list]');
+    const canvas = list?.closest('.duing');
+    if (!(list instanceof HTMLElement) || !(canvas instanceof HTMLElement)) return null;
+    // inert 요소는 히트 테스트에서 빠지므로 재는 동안만 뗀다. elementsFromPoint 는 위에 칠한 것부터 돌려준다.
+    list.inert = false;
+    const paintStack = document.elementsFromPoint(window.innerWidth / 2, window.innerHeight / 2);
+    list.inert = true;
+    const firstListIndex = paintStack.findIndex((element) => list.contains(element));
+    const canvasIndex = paintStack.indexOf(canvas);
+    const canvasRect = canvas.getBoundingClientRect();
     return {
-      inert: hiddenList.inert,
-      position: hiddenListStyle.position,
-      behindCanvas: Number(hiddenListStyle.zIndex) < 0,
-      stackingAncestors,
+      listUnderCanvas: firstListIndex !== -1 && canvasIndex !== -1 && canvasIndex < firstListIndex,
       // 계산된 배경색이 rgb(...) 면 불투명, rgba(...) 면 반투명이다.
-      canvasOpaque: canvas !== null && getComputedStyle(canvas).backgroundColor.startsWith('rgb('),
-      canvasCoversViewport: canvas !== null && canvas.getBoundingClientRect().height >= window.innerHeight,
+      canvasOpaque: getComputedStyle(canvas).backgroundColor.startsWith('rgb('),
+      canvasCoversViewport: canvasRect.top <= 0 && canvasRect.bottom >= window.innerHeight,
     };
   });
-  expect(coverage).toEqual({
-    inert: true,
-    position: 'fixed',
-    behindCanvas: true,
-    stackingAncestors: [],
-    canvasOpaque: true,
-    canvasCoversViewport: true,
-  });
+  expect(coverage).toEqual({ listUnderCanvas: true, canvasOpaque: true, canvasCoversViewport: true });
 });
 
 describeScrollRestoration();

@@ -29,13 +29,21 @@ export async function blockViewBeacons(page: Page): Promise<void> {
   );
 }
 
-/** 지금 폭에서 보이는 동아리 카드 링크(데스크탑 그리드·모바일 리스트 중 보이는 쪽). */
+// 숨은 목록 밖 — 모바일의 숨은 목록은 크림 배경 뒤에 그려 둔 채(inert)라 Playwright 의 :visible 에 잡힌다(가림·inert 를 보지 않는다).
+const OUTSIDE_HIDDEN_LIST = '[data-clubs-slot] > :not([data-clubs-hidden-list])';
+
+/** 지금 폭에서 보이는 동아리 카드 링크(데스크탑 그리드·모바일 리스트 중 보이는 쪽). 숨은 목록 안의 카드는 뺀다. */
 export function visibleCards(page: Page): Locator {
-  return page.locator('a[href^="/clubs/"]:visible');
+  return page.locator(`${OUTSIDE_HIDDEN_LIST} a[href^="/clubs/"]:visible`);
 }
 
 export function visibleCard(page: Page, clubId: number): Locator {
-  return page.locator(`a[href="/clubs/${clubId}"]:visible`).first();
+  return page.locator(`${OUTSIDE_HIDDEN_LIST} a[href="/clubs/${clubId}"]:visible`).first();
+}
+
+/** 인터셉트 상세의 히어로 제목(h1) — 숨은 목록의 모바일 제목('동아리 탐색' h1)은 뺀다. */
+export function interceptedDetailHeading(page: Page): Locator {
+  return page.locator(`[data-clubs-slot="intercepted"] > :not([data-clubs-hidden-list]) h1:visible`);
 }
 
 export async function readCardClubId(card: Locator): Promise<number> {
@@ -70,7 +78,7 @@ export async function gotoList(page: Page, query = ''): Promise<void> {
 
 /** 인터셉트 상세가 다 그려질 때까지 — 히어로 이름(h1)이 보이고 상세·대표 활동 스켈레톤이 없다. */
 export async function waitForInterceptedDetail(page: Page): Promise<void> {
-  await expect(page.locator('[data-clubs-slot="intercepted"] h1:visible')).toBeVisible({ timeout: ROUTE_TIMEOUT_MS });
+  await expect(interceptedDetailHeading(page)).toBeVisible({ timeout: ROUTE_TIMEOUT_MS });
   await expect(page.getByRole('status', { name: DETAIL_SKELETON_LABEL })).toHaveCount(0, { timeout: ROUTE_TIMEOUT_MS });
   await expect(page.getByRole('status', { name: HERO_ACTIVITY_SKELETON_LABEL })).toHaveCount(0, { timeout: ROUTE_TIMEOUT_MS });
 }
