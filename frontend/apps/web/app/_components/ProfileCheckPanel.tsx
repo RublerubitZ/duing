@@ -25,10 +25,11 @@ export function ProfileCheckBody({ status, titleRef }: ProfileCheckBodyProps) {
       <p className="text-[13px] font-semibold text-ink">
         {formatSemesterLabel(status.semesterYear, status.semesterTerm)}
       </p>
+      {/* 제목·문구는 운영진 자유 입력이다 — 한글은 어절 단위로 접고(break-keep), 공백 없는 긴 줄은 글자 단위로 쪼개 넘침을 막는다. */}
       <DialogTitle
         ref={titleRef}
         tabIndex={-1}
-        className="mt-1.5 text-[22px] font-bold leading-[1.35] tracking-[-0.02em] text-ink-deep outline-none"
+        className="mt-1.5 break-keep text-[22px] font-bold leading-[1.35] tracking-[-0.02em] text-ink-deep outline-none [overflow-wrap:anywhere]"
       >
         {status.title}
       </DialogTitle>
@@ -59,7 +60,7 @@ export function ProfileCheckBody({ status, titleRef }: ProfileCheckBodyProps) {
         <dt className={LABEL_CLASS}>전공</dt>
         <dd className={VALUE_CLASS}>{status.major ?? '—'}</dd>
       </dl>
-      <DialogDescription className="mt-5 whitespace-pre-line text-[15px] leading-[1.6] text-charcoal-2">
+      <DialogDescription className="mt-5 whitespace-pre-line break-keep text-[15px] leading-[1.6] text-charcoal-2 [overflow-wrap:anywhere]">
         {status.message}
       </DialogDescription>
     </>

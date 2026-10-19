@@ -112,6 +112,22 @@ async function settle(state: ServerState, statusRequests: number) {
   });
 }
 
+/** 뒤로가기 1회. jsdom 의 traversal 은 태스크 큐에 실리므로 popstate 발화 자체를 기다린다(back-dismiss-overlays 와 같은 하네스). */
+async function pressBack() {
+  // 엔트리를 물지 않은 상태에서 back() 하면 popstate 가 영원히 안 와 타임아웃으로 끝난다 — 먼저 단언한다.
+  expect(window.history.state.__overlayId).toEqual(expect.any(Number));
+  const popped = new Promise<void>((resolve) => {
+    window.addEventListener('popstate', () => resolve(), { once: true });
+  });
+  await act(async () => {
+    window.history.back();
+    await popped;
+  });
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  });
+}
+
 beforeAll(() => server.listen({ onUnhandledRequest: 'error' }));
 beforeEach(() => {
   useAuthStore.setState({ status: 'authenticated', isVerified: true, user: null });
@@ -332,6 +348,31 @@ describe('ProfileCheckPrompt — 확인', () => {
     expect(within(dialog).getByRole('button', { name: '3학년이 맞아요' })).toBeEnabled();
   });
 
+  it('열린 동안 재조회가 pending:false 를 가져와도 팝업을 내리지 않는다 — 열린 뒤에는 연 순간의 상태로 그린다', async () => {
+    const state = createState('SOPHOMORE', 'JUNIOR');
+    serve(state);
+    server.use(
+      http.put(`${BASE}/users/me/profile-check`, () => {
+        // 이 요청은 실패했지만 그 사이 다른 기기가 확인했다 — 실패 뒤 재조회는 pending:false 를 받는다.
+        state.status = { pending: false };
+        return HttpResponse.json({ ok: false, data: null, message: '일시적인 오류가 발생했습니다.' }, { status: 500 });
+      }),
+    );
+    const user = userEvent.setup();
+
+    renderPrompt();
+    await user.click(await screen.findByRole('button', { name: '3학년이 맞아요' }));
+    // 실패도 상태를 다시 받는다(훅 onSettled) — 그 응답(pending:false)이 반영될 때까지 기다린다.
+    await waitFor(() => expect(state.statusRequests).toBe(2));
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    });
+
+    const dialog = screen.getByRole('dialog', { name: TITLE });
+    expect(within(dialog).getByRole('alert')).toHaveTextContent('일시적인 오류가 발생했습니다.');
+    expect(within(dialog).getByText('2026학년도 1학기')).toBeInTheDocument();
+  });
+
   it('전송 중에는 Esc 로 닫히지 않고, 끝나면 닫힌다', async () => {
     const state = createState('SOPHOMORE', 'JUNIOR');
     let releasePut: () => void = () => undefined;
@@ -365,6 +406,41 @@ describe('ProfileCheckPrompt — 확인', () => {
     await act(async () => {
       releasePut();
     });
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: TITLE })).toBeNull());
+  });
+
+  // 뒤로가기는 busy 가 막는 Esc·스크림·스와이프와 달리 onOpenChange(false) 로 오므로 팝업 쪽 가드가 따로 막아야 한다(D5).
+  it('전송 중에는 뒤로가기로도 닫히지 않고, 끝나면 확인 토스트와 함께 닫힌다', async () => {
+    stubViewport(false);
+    const state = createState('SOPHOMORE', 'JUNIOR');
+    let releasePut: () => void = () => undefined;
+    let putReached = false;
+    serve(state);
+    server.use(
+      http.put(`${BASE}/users/me/profile-check`, async () => {
+        await new Promise<void>((resolve) => {
+          releasePut = resolve;
+          putReached = true;
+        });
+        state.me = { ...state.me, grade: 'JUNIOR' };
+        state.status = { pending: false };
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+    const user = userEvent.setup();
+
+    renderPrompt();
+    await user.click(await screen.findByRole('button', { name: '3학년이 맞아요' }));
+    await waitFor(() => expect(putReached).toBe(true));
+
+    await pressBack();
+
+    expect(screen.getByRole('dialog', { name: TITLE })).toBeInTheDocument();
+
+    await act(async () => {
+      releasePut();
+    });
+    expect(await screen.findByText('정보를 확인했어요.')).toBeInTheDocument();
     await waitFor(() => expect(screen.queryByRole('dialog', { name: TITLE })).toBeNull());
   });
 });
@@ -405,6 +481,30 @@ describe('ProfileCheckPrompt — 숨김', () => {
     first.unmount();
     renderPrompt();
     await settle(state, 2);
+
+    expect(screen.queryByText(TITLE)).toBeNull();
+  });
+
+  it('확인에 성공했으면 상태가 아직 pending 으로 와도 같은 문서에서는 다시 띄우지 않는다', async () => {
+    const state = createState('SOPHOMORE', 'JUNIOR');
+    serve(state);
+    server.use(
+      http.put(`${BASE}/users/me/profile-check`, () => {
+        // 상태는 그대로 둔다 — 재조회가 늦거나 실패해 캐시에 pending:true 가 남은 / ↔ /me 재마운트를 흉내 낸다.
+        state.me = { ...state.me, grade: 'JUNIOR' };
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+    const user = userEvent.setup();
+
+    const first = renderPrompt();
+    await user.click(await screen.findByRole('button', { name: '3학년이 맞아요' }));
+    expect(await screen.findByText('정보를 확인했어요.')).toBeInTheDocument();
+    await waitFor(() => expect(state.statusRequests).toBe(2));
+
+    first.unmount();
+    renderPrompt();
+    await settle(state, 3);
 
     expect(screen.queryByText(TITLE)).toBeNull();
   });

@@ -25,7 +25,11 @@ function makeWrapper(queryClient: QueryClient) {
 }
 
 function newQueryClient() {
-  return new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
+  // 앱 기본값(apps/web/app/providers.tsx 의 staleTime 30초)과 맞춘다 — 훅이 내 정보를 staleTime 0 으로 다시 받지 않으면
+  // 캐시의 옛 학년으로 판정하게 되는데, 기본값 0 인 클라이언트에서는 그 회귀가 드러나지 않는다.
+  return new QueryClient({
+    defaultOptions: { queries: { retry: false, staleTime: 30_000 }, mutations: { retry: false } },
+  });
 }
 
 const pendingStatus: ProfileCheckStatus = {
