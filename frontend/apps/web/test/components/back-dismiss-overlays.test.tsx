@@ -1,4 +1,4 @@
-import { act, render } from '@testing-library/react';
+import { act, fireEvent, render } from '@testing-library/react';
 import { useState } from 'react';
 import { afterEach, describe, expect, it } from 'vitest';
 
@@ -72,6 +72,44 @@ describe('Radix 오버레이 뒤로가기 닫기', () => {
     await pressBack();
 
     expect(queryByText('필터')).toBeNull();
+  });
+
+  // 정보 확인 팝업(시트) 위에 프로필 수정 다이얼로그를 겹쳐 여는 흐름 — 뒤로가기는 위에서부터 하나씩 닫는다.
+  it('시트 위에 겹쳐 연 다이얼로그에서 뒤로가기는 다이얼로그만 닫고, 한 번 더 누르면 시트가 닫힌다', async () => {
+    function Host() {
+      const [sheetOpen, setSheetOpen] = useState(true);
+      const [dialogOpen, setDialogOpen] = useState(false);
+      return (
+        <>
+          <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
+            <SheetContent side="bottom">
+              <SheetTitle>정보 확인</SheetTitle>
+              <button type="button" onClick={() => setDialogOpen(true)}>
+                정보 수정하기
+              </button>
+            </SheetContent>
+          </Sheet>
+          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+            <DialogContent>
+              <DialogTitle>프로필 수정</DialogTitle>
+            </DialogContent>
+          </Dialog>
+        </>
+      );
+    }
+
+    const { getByRole, queryByText } = render(<Host />);
+    fireEvent.click(getByRole('button', { name: '정보 수정하기' }));
+    expect(queryByText('프로필 수정')).not.toBeNull();
+
+    await pressBack();
+
+    expect(queryByText('프로필 수정')).toBeNull();
+    expect(queryByText('정보 확인')).not.toBeNull();
+
+    await pressBack();
+
+    expect(queryByText('정보 확인')).toBeNull();
   });
 
   it('닫힌 Dialog 는 히스토리 엔트리를 잡지 않는다', async () => {
