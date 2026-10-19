@@ -39,6 +39,7 @@ test('인터셉트 상세 동안 목록은 크림 배경 뒤에 덮여 있다 �
   await expect(hiddenList).toHaveAttribute('inert', '');
   await expect(hiddenList).toHaveCSS('position', 'fixed');
   // 숨은 목록 안에서 인라인 전환 이름(club-logo-<id>)을 단 로고도 계산값은 none 이다 — 상세 로고와 이름이 겹치면 전환이 건너뛰어진다.
+  // 지금 이름을 단 로고는 데스크탑 그리드 카드(이 폭에서 display:none)뿐이라, 규칙이 인라인 이름을 이기는지 보는 방어 단언이다.
   await expect(hiddenList.locator('[style*="club-logo-"]').first()).toHaveCSS('view-transition-name', 'none');
 
   const coverage = await page.evaluate(() => {
