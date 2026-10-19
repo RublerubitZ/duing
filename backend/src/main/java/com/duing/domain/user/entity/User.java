@@ -198,6 +198,14 @@ public class User extends BaseEntity {
         }
     }
 
+    /**
+     * 학기 정보 확인에서 사용자가 수락한 학년으로 바꾼다 — 이름·단과대학·전공은 건드리지 않는다
+     * (확인하지 않은 정보를 바꾸지 않는다). @DynamicUpdate 라 grade(와 감사 updated_at) 컬럼만 UPDATE 된다.
+     */
+    public void changeGrade(Grade grade) {
+        this.grade = grade;
+    }
+
     /** 비밀번호 해시를 교체한다. 인코딩은 호출 측(서비스)에서 책임진다. */
     public void changePassword(String newPasswordHash) {
         this.passwordHash = newPasswordHash;
