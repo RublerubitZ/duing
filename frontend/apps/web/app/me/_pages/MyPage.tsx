@@ -11,6 +11,7 @@ import {
 } from '@duing/hooks';
 
 import { HomeNav } from '@/app/_components/HomeNav';
+import { ProfileCheckPrompt } from '@/app/_components/ProfileCheckPrompt';
 
 import { partitionApplications } from '../_lib/partitionApplications';
 import {
@@ -233,6 +234,8 @@ export function MyPage() {
         {/* 마지막 섹션이 탭 클릭 시 충분히 스크롤될 수 있도록 하는 스페이서 */}
         <div aria-hidden className="shrink-0" style={{ height: 420 }} />
       </div>
+      {/* 로그인 기본 착지점(/me)에서도 정보 확인 팝업을 띄운다(스펙 D4) — 포털이라 위치는 레이아웃에 영향이 없다. */}
+      <ProfileCheckPrompt />
     </div>
   );
 }
