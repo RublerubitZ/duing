@@ -26,6 +26,8 @@ export const adminQueryKeys = {
   all: ['admin'] as const,
   // 사이드바 뱃지 — 각 도메인 처리 뮤테이션이 성공하면 이 키만 무효화해 뱃지를 즉시 줄인다.
   pendingCounts: () => ['admin', 'pending-counts'] as const,
+  // 학기별 사용자 정보 확인 팝업 — 설정·현황이 한 응답이라 파라미터 축이 없다. 저장 성공 시 이 키만 무효화한다.
+  profileCheck: () => [...adminQueryKeys.all, 'profile-check'] as const,
   clubsAll: ['admin', 'clubs'] as const,
   // 시설 예약 오픈일(총동연) — 오픈일 변경 성공 시 이 접두사 전체를 무효화한다.
   facilitiesAll: ['admin', 'facilities'] as const,
