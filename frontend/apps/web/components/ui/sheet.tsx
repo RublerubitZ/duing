@@ -76,12 +76,21 @@ type SheetContentProps = React.ComponentPropsWithoutRef<typeof SheetPrimitive.Co
   side?: SheetSide;
   /** 내장 X 닫기 버튼 숨김 — 자체 핸들/적용 버튼으로 닫는 바텀시트 등에 사용. */
   hideClose?: boolean;
+  /**
+   * "요청이 나갔고 아직 안 끝났다" — true 면 ESC·바깥 탭·아래로 스와이프 닫기를 막는다(DialogContent busy #912 와 같은 의미).
+   * 스와이프는 끌어내린 위치를 남긴 채 닫기 콜백을 부르므로 콜백에서 거부하면 패널이 어긋난 채 남는다 — 그래서 제스처를 끈다.
+   * 뒤로가기 닫기는 여기서 막지 않는다 — 호출처 onOpenChange 가 busy 중 false 를 무시한다(엔트리는 유지된다).
+   */
+  busy?: boolean;
 };
 
 const SheetContent = React.forwardRef<
   React.ComponentRef<typeof SheetPrimitive.Content>,
   SheetContentProps
->(function SheetContent({ side = 'left', className, children, hideClose = false, ...props }, ref) {
+>(function SheetContent(
+  { side = 'left', className, children, hideClose = false, busy, onEscapeKeyDown, onPointerDownOutside, ...props },
+  ref,
+) {
   const { open, dismiss } = React.useContext(SheetDismissContext);
   const contentRef = React.useRef<HTMLDivElement | null>(null);
   // forwardRef 로 받은 ref 와 훅이 쓸 로컬 ref 를 합친다(둘 다 채워야 한다).
@@ -94,7 +103,7 @@ const SheetContent = React.forwardRef<
     [ref],
   );
   useSwipeDismiss(contentRef, {
-    enabled: side === 'bottom' && open && dismiss !== null,
+    enabled: side === 'bottom' && open && dismiss !== null && busy !== true,
     onDismiss: dismiss ?? (() => undefined),
   });
 
@@ -103,6 +112,16 @@ const SheetContent = React.forwardRef<
       <SheetOverlay />
       <SheetPrimitive.Content
         ref={composeContentRef}
+        // 전송 중임을 영역 상태로 표기한다 — 넘기지 않은 시트에는 속성을 붙이지 않는다(기존 시트 무변화).
+        aria-busy={busy}
+        onEscapeKeyDown={(event) => {
+          if (busy) event.preventDefault();
+          onEscapeKeyDown?.(event);
+        }}
+        onPointerDownOutside={(event) => {
+          if (busy) event.preventDefault();
+          onPointerDownOutside?.(event);
+        }}
         className={cn(
           'fixed z-50 overflow-y-auto bg-card font-body tracking-body shadow-3 border-line transition ease-in-out data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:duration-300 data-[state=open]:duration-400 motion-reduce:!animate-none',
           SIDE_CLASSES[side],

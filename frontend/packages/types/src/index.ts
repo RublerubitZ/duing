@@ -32,3 +32,4 @@ export * from './facilitySubmission';
 export * from './federationFaq';
 export * from './federationInquiry';
 export * from './datetime';
+export * from './profileCheck';

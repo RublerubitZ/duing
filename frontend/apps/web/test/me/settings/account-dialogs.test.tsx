@@ -10,7 +10,7 @@ import { setStorage } from '@duing/storage';
 import { useAuthStore } from '@duing/stores';
 
 import { ToastProvider } from '@/app/_components/toast/ToastProvider';
-import { ProfileEditDialog } from '@/app/me/settings/_components/ProfileEditDialog';
+import { ProfileEditDialog } from '@/app/_components/ProfileEditDialog';
 import { PasswordChangeDialog } from '@/app/me/settings/_components/PasswordChangeDialog';
 import { WithdrawAccountDialog } from '@/app/me/settings/_components/WithdrawAccountDialog';
 
@@ -402,5 +402,65 @@ describe('WithdrawAccountDialog', () => {
     await user.click(screen.getByRole('button', { name: '탈퇴하기' }));
 
     await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('회원 탈퇴 중'));
+  });
+});
+
+// 정보 확인 팝업이 "정보 수정하기" 저장 성공을 확인 완료로 받아 닫는다 — 실패·취소에는 부르지 않아야 한다.
+describe('ProfileEditDialog 저장 콜백', () => {
+  it('저장에 성공하면 닫기 직전에 onSaved 를 한 번 부른다', async () => {
+    server.use(http.patch(`${BASE}/users/me`, ok204));
+    const user = userEvent.setup();
+    const onClose = vi.fn();
+    const onSaved = vi.fn();
+    renderWithProviders(
+      <ProfileEditDialog
+        open
+        onClose={onClose}
+        onSaved={onSaved}
+        currentName="홍길동"
+        currentGrade="JUNIOR"
+        currentCollege="IT_ENGINEERING"
+        currentMajor="컴퓨터정보공학부"
+      />,
+    );
+
+    await user.click(screen.getByRole('button', { name: '저장' }));
+
+    await waitFor(() => expect(onClose).toHaveBeenCalled());
+    expect(onSaved).toHaveBeenCalledTimes(1);
+    expect(onSaved.mock.invocationCallOrder[0] ?? Number.POSITIVE_INFINITY).toBeLessThan(
+      onClose.mock.invocationCallOrder[0] ?? Number.NEGATIVE_INFINITY,
+    );
+  });
+
+  it('저장에 실패하면 onSaved 를 부르지 않고 열린 채 오류를 보여 준다', async () => {
+    server.use(
+      http.patch(`${BASE}/users/me`, () =>
+        HttpResponse.json(
+          { ok: false, data: null, message: '전공 학과는 50자 이하여야 합니다.' },
+          { status: 400 },
+        ),
+      ),
+    );
+    const user = userEvent.setup();
+    const onClose = vi.fn();
+    const onSaved = vi.fn();
+    renderWithProviders(
+      <ProfileEditDialog
+        open
+        onClose={onClose}
+        onSaved={onSaved}
+        currentName="홍길동"
+        currentGrade="JUNIOR"
+        currentCollege="IT_ENGINEERING"
+        currentMajor="컴퓨터정보공학부"
+      />,
+    );
+
+    await user.click(screen.getByRole('button', { name: '저장' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('전공 학과는 50자 이하여야 합니다.');
+    expect(onSaved).not.toHaveBeenCalled();
+    expect(onClose).not.toHaveBeenCalled();
   });
 });

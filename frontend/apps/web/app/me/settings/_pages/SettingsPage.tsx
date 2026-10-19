@@ -12,12 +12,12 @@ import { clearOperatorLocalState } from '@/app/_lib/operatorLocalState';
 import { toRoute } from '@/app/_lib/route';
 import { ConfirmDialog } from '@/app/_components/ConfirmDialog';
 import { HomeNav } from '@/app/_components/HomeNav';
+import { ProfileEditDialog } from '@/app/_components/ProfileEditDialog';
 import { useToast } from '@/app/_components/toast/ToastProvider';
 import { ArrowRight } from '@/components/duing/Icon';
 import { SparkleFull } from '@/components/duing/Sparkle';
 
 import { MyPageHeader } from '../../_components/MyPageHeader';
-import { ProfileEditDialog } from '../_components/ProfileEditDialog';
 import { SessionListCard } from '../_components/SessionListCard';
 import { PasswordChangeDialog } from '../_components/PasswordChangeDialog';
 import { PhoneChangeDialog } from '../_components/PhoneChangeDialog';

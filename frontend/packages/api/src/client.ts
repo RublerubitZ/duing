@@ -57,6 +57,8 @@ import type {
   UpdateRecruitmentPayload,
   SignupPayload,
   UpdateProfilePayload,
+  ProfileCheckStatus,
+  ConfirmProfileCheckPayload,
   ChangePasswordPayload,
   StartPhoneVerificationPayload,
   PhoneVerificationSession,
@@ -219,6 +221,9 @@ export type DuingApiClient = {
     sessions(): Promise<MySession[]>;
     revokeSession(sessionId: number): Promise<void>;
     logoutAllSessions(): Promise<void>;
+    /** 학기별 정보 확인 팝업 상태 — 띄울 게 없어도 200 + { pending: false }. */
+    profileCheck(): Promise<ProfileCheckStatus>;
+    confirmProfileCheck(payload: ConfirmProfileCheckPayload): Promise<void>;
   };
   clubs: {
     list(params?: ClubSearchParams): Promise<PageResponse<ClubSummary>>;
@@ -885,6 +890,8 @@ export function createApiClient(options: CreateApiClientOptions): DuingApiClient
       revokeSession: (sessionId) => jsonVoid(http.delete(`users/me/sessions/${sessionId}`)),
       logoutAllSessions: () =>
         jsonVoid(http.delete('users/me/sessions', { timeout: REQUEST_TIMEOUT_MS.logoutRevoke })),
+      profileCheck: () => jsonOk<ProfileCheckStatus>(http.get('users/me/profile-check')),
+      confirmProfileCheck: (payload) => jsonVoid(http.put('users/me/profile-check', { json: payload })),
     },
     clubs: {
       list: (params) =>
