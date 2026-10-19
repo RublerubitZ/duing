@@ -26,7 +26,7 @@ public class GeneralAdminProfileCheckService implements AdminProfileCheckService
     public AdminProfileCheckQuery get() {
         Semester today = Semester.current(clock);
         Optional<ProfileCheckSetting> setting = settingRepository.findById(ProfileCheckSetting.SINGLETON_ID);
-        // 통계 기준은 켤 때 기록된 학기 — 학기가 지나도 지난 학기 최종치를 보여 준다(9/1 에 수치가 조용히 바뀌지 않게).
+        // 통계 기준은 켤 때 기록된 학기 — 학기가 지나도 오늘 학기로 갈아타지 않고 그 학기 기록을 센다(9/1 에 기준 학기가 조용히 바뀌지 않게). 모수는 지금의 회원이라 최종치로 고정되지는 않는다.
         Semester statsSemester = setting.flatMap(ProfileCheckSetting::recordedSemester).orElse(today);
         return new AdminProfileCheckQuery(
                 setting.map(found -> found.isActiveIn(today)).orElse(false),

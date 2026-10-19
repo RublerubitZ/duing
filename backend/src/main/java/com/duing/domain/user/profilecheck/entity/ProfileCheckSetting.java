@@ -74,7 +74,7 @@ public class ProfileCheckSetting {
 
     /**
      * 운영진 저장. 켜면 오늘 학기를 기록한다(이미 같으면 같은 값). 끄면 학기 기록은 그대로 둔다 —
-     * 운영진 화면이 지난 학기 통계를 계속 보여 준다.
+     * 운영진 화면이 지난 학기 기록 기준의 통계를 계속 보여 준다(모수는 지금의 회원).
      */
     public void update(String title, String message, boolean enabled, Semester today, Long actorId, Instant updatedAt) {
         this.title = title;

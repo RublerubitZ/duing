@@ -39,13 +39,8 @@ public class ProfileCheckStatsRepositoryImpl implements ProfileCheckStatsReposit
                         user.deletedAt.isNull()
                 )
                 .fetchOne();
-        if (counts == null) {
-            return new ProfileCheckCounts(0, 0);
-        }
-        Long targetCount = counts.get(user.count());
-        Long confirmedCount = counts.get(profileCheckConfirmation.id.count());
         return new ProfileCheckCounts(
-                targetCount == null ? 0 : targetCount,
-                confirmedCount == null ? 0 : confirmedCount);
+                counts.get(user.count()),
+                counts.get(profileCheckConfirmation.id.count()));
     }
 }

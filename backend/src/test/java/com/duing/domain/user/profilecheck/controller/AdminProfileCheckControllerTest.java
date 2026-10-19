@@ -189,7 +189,9 @@ class AdminProfileCheckControllerTest extends IntegrationTestBase {
         withoutEnabled.put("title", "안내");
         withoutEnabled.put("message", "문구");
 
-        saveSetting(admin, withoutEnabled).statusCode(HttpStatus.BAD_REQUEST.value());
+        saveSetting(admin, withoutEnabled)
+                .statusCode(HttpStatus.BAD_REQUEST.value())
+                .body("message", equalTo("enabled: 노출 여부는 필수 입력값입니다."));
 
         assertThat(settingRepository.count()).isZero();
     }
