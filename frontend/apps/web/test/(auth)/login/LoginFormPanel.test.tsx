@@ -11,6 +11,7 @@ import { setStorage } from '@duing/storage';
 import { useAuthStore } from '@duing/stores';
 
 import { LoginFormPanel } from '@/app/(auth)/login/_components/LoginFormPanel';
+import { PROFILE_CHECK_SNOOZE_KEY } from '@/app/_lib/profileCheckSnooze';
 
 // LoginForm 은 useRouter 뿐 아니라 useSearchParams(next 파라미터)도 사용한다 —
 // ManagePage.test.tsx / faq-page.test.tsx 와 동일하게 둘 다 모킹해야 한다.
@@ -309,5 +310,55 @@ describe('LoginFormPanel', () => {
 
     expect(await screen.findByText('학번 또는 비밀번호가 올바르지 않습니다.')).toBeInTheDocument();
     expect(screen.queryByText(/studentId:/)).not.toBeInTheDocument();
+  });
+});
+
+// 새로 로그인하면 정보 확인 팝업의 "나중에" 숨김을 푼다(스펙 D5) — 실패한 로그인은 건드리지 않는다.
+describe('LoginFormPanel — 정보 확인 팝업 숨김 해제', () => {
+  afterEach(() => {
+    window.localStorage.removeItem(PROFILE_CHECK_SNOOZE_KEY);
+  });
+
+  function seedSnooze() {
+    window.localStorage.setItem(
+      PROFILE_CHECK_SNOOZE_KEY,
+      JSON.stringify({ userId: TEST_USER.id, semesterYear: 2026, semesterTerm: 1, until: Date.now() + 60_000 }),
+    );
+  }
+
+  it('로그인에 성공하면 하드 이동 전에 숨김을 지운다', async () => {
+    seedSnooze();
+    server.use(
+      http.post(`${BASE}/auth/web/login`, () =>
+        HttpResponse.json({ ok: true, data: { user: TEST_USER }, message: null }),
+      ),
+    );
+    const user = userEvent.setup();
+    renderLoginForm();
+
+    await user.type(screen.getByLabelText('학번'), '20240001');
+    await user.type(screen.getByLabelText('비밀번호'), 'password1234');
+    await user.click(screen.getByRole('button', { name: '로그인' }));
+
+    await waitFor(() => expect(hardReplaceSpy).toHaveBeenCalledWith('/me'));
+    expect(window.localStorage.getItem(PROFILE_CHECK_SNOOZE_KEY)).toBeNull();
+  });
+
+  it('로그인에 실패하면 숨김을 그대로 둔다', async () => {
+    seedSnooze();
+    server.use(
+      http.post(`${BASE}/auth/web/login`, () =>
+        HttpResponse.json({ ok: false, data: null, message: 'Invalid credentials' }, { status: 401 }),
+      ),
+    );
+    const user = userEvent.setup();
+    renderLoginForm();
+
+    await user.type(screen.getByLabelText('학번'), '20240001');
+    await user.type(screen.getByLabelText('비밀번호'), 'wrongpassword');
+    await user.click(screen.getByRole('button', { name: '로그인' }));
+
+    expect(await screen.findByText('학번 또는 비밀번호가 올바르지 않습니다.')).toBeInTheDocument();
+    expect(window.localStorage.getItem(PROFILE_CHECK_SNOOZE_KEY)).not.toBeNull();
   });
 });
