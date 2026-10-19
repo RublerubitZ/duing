@@ -153,6 +153,10 @@ class ProfileCheckControllerTest extends IntegrationTestBase {
         assertThat(saved.getMajor()).isEqualTo("컴퓨터정보공학부");
         assertThat(isRecorded(sophomore, 2026, 1)).isTrue();
         status(sophomore).body("data.pending", equalTo(false));
+
+        // 다른 탭에 열려 있던 팝업이 옛 제안(3학년)으로 확인을 보내도 이미 확인한 학기라 4학년으로 오르지 않는다.
+        confirm(sophomore, 2026, 1, "JUNIOR").statusCode(HttpStatus.NO_CONTENT.value());
+        assertThat(gradeOf(sophomore)).isEqualTo(Grade.JUNIOR);
     }
 
     @Test
@@ -195,8 +199,12 @@ class ProfileCheckControllerTest extends IntegrationTestBase {
                 .header(HttpHeaders.AUTHORIZATION, bearer(requester))
                 .contentType(ContentType.JSON)
                 .body(bodyWithOtherUser)
-                .when().put(PATH);
+                .when().put(PATH)
+                .then()
+                .statusCode(HttpStatus.NO_CONTENT.value());
 
+        assertThat(gradeOf(requester)).isEqualTo(Grade.JUNIOR);
+        assertThat(isRecorded(requester, 2026, 1)).isTrue();
         assertThat(gradeOf(other)).isEqualTo(Grade.SOPHOMORE);
         assertThat(isRecorded(other, 2026, 1)).isFalse();
     }

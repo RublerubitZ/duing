@@ -27,7 +27,7 @@ public interface ProfileCheckApi {
 
     @Operation(summary = "내 정보 확인",
             description = "이번 학기 정보 확인을 기록한다. grade 를 보내면 서버 제안 학년과 같을 때만 그 학년으로 바꾼다(아니면 400). "
-                    + "이미 확인한 학기면 아무 것도 바꾸지 않고 204, 팝업이 꺼졌거나 학기가 다르면 409 PROFILE_CHECK_CLOSED.")
+                    + "이미 확인한 학기면 아무 것도 바꾸지 않고 204, 팝업이 꺼졌거나 학기가 다르거나 운영진·졸업생 등 확인 대상이 아니면 409 PROFILE_CHECK_CLOSED.")
     @SecurityRequirement(name = "BearerAuth")
     @PutMapping("/users/me/profile-check")
     ResponseEntity<Void> confirmProfileCheck(
