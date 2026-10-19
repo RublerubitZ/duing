@@ -133,6 +133,8 @@ class AdminProfileCheckControllerTest extends IntegrationTestBase {
                 .body("data.semesterTerm", equalTo(1))
                 .body("data.confirmedCount", equalTo(1));
         assertThat(confirmationRepository.count()).isEqualTo(1);
+        ProfileCheckSetting setting = settingRepository.findById(ProfileCheckSetting.SINGLETON_ID).orElseThrow();
+        assertThat(setting.recordedSemester()).contains(THIS_SEMESTER);
     }
 
     @Test
