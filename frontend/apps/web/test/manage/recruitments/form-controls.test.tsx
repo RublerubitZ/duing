@@ -2,9 +2,9 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
 import {
   FormSegment,
-  FormSwitch,
   SettingRow,
 } from '@/app/manage/clubs/[clubId]/recruitments/_components/form-controls';
+import { FormSwitch } from '@/app/_components/FormSwitch';
 
 describe('FormSegment', () => {
   const options = [

@@ -4,6 +4,7 @@ import {
   ClipboardList,
   FileSearch,
   Globe,
+  GraduationCap,
   HelpCircle,
   Landmark,
   LayoutDashboard,
@@ -157,6 +158,14 @@ export const ADMIN_SECTIONS: AdminSection[] = [
     description: '회원 검색과 강제 로그아웃 등 계정 조치를 처리합니다.',
     group: '커뮤니티 운영',
     icon: UserCog,
+  },
+  {
+    // 아이콘은 학년을 뜻하는 GraduationCap — UserCog(회원 관리)·Users(동아리 관리)와 작은 크기에서 겹쳐 읽히지 않게.
+    href: '/admin/profile-check',
+    title: '정보 확인 팝업',
+    description: '학기 초 사용자 학년·전공 확인 팝업의 노출·문구와 확인 현황',
+    group: '커뮤니티 운영',
+    icon: GraduationCap,
   },
   {
     href: '/admin/promotion-requests',

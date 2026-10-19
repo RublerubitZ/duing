@@ -188,6 +188,10 @@ export {
   useDeleteFeeAuditCommentMutation,
 } from './adminFees';
 export {
+  useAdminProfileCheckQuery,
+  useUpdateAdminProfileCheckMutation,
+} from './adminProfileCheck';
+export {
   useSubmitReportMutation,
   useAdminReportListQuery,
   useAdminReportDetailQuery,

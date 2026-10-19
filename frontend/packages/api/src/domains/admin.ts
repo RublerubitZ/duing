@@ -104,6 +104,8 @@ import type {
   AdminCrawlReservationParams,
   AdminFacility,
   UpdateFacilityBookingOpenDatePayload,
+  AdminProfileCheck,
+  UpdateAdminProfileCheckPayload,
 } from '@duing/types';
 import { REQUEST_TIMEOUT_MS, cleanParams } from '../http';
 
@@ -329,6 +331,13 @@ export type AdminApi = {
     overview(): Promise<BankMatchingOverview>;
     // PUT /admin/clubs/{clubId}/bank-matching — 동아리 자동매칭 허용/해제.
     setActive(clubId: number, active: boolean): Promise<void>;
+  };
+  // === 학기별 사용자 정보 확인 팝업(총동연) ===
+  profileCheck: {
+    // GET /admin/profile-check — 설정 + 확인 현황(설정 행이 없으면 서버가 기본 문구·OFF 로 채운다).
+    get(): Promise<AdminProfileCheck>;
+    // PUT /admin/profile-check — 제목·문구·노출 여부 저장(204). 켜면 오늘의 학기가 대상이 된다.
+    update(payload: UpdateAdminProfileCheckPayload): Promise<void>;
   };
 };
 
@@ -678,6 +687,10 @@ export function createAdminApi(deps: {
         jsonOk<BankMatchingOverview>(http.get('admin/clubs/bank-matching')),
       setActive: (clubId, active) =>
         jsonVoid(http.put(`admin/clubs/${clubId}/bank-matching`, { json: { active } })),
+    },
+    profileCheck: {
+      get: () => jsonOk<AdminProfileCheck>(http.get('admin/profile-check')),
+      update: (payload) => jsonVoid(http.put('admin/profile-check', { json: payload })),
     },
   };
 }
