@@ -14,6 +14,8 @@ import com.duing.domain.user.entity.UserStatus;
 import com.duing.domain.user.entity.VerificationPurpose;
 import com.duing.domain.user.exception.PhoneVerificationException;
 import com.duing.domain.user.exception.UserException;
+import com.duing.domain.user.profilecheck.entity.Semester;
+import com.duing.domain.user.profilecheck.service.ProfileCheckConfirmationRecorder;
 import com.duing.domain.user.repository.AdminUserActionLogRepository;
 import com.duing.domain.user.repository.UserRepository;
 import com.duing.domain.user.service.dto.command.ChangePasswordCommand;
@@ -82,6 +84,8 @@ public class GeneralUserService implements UserService {
     private final ApplicationEventPublisher eventPublisher;
     private final ClubMemberCommandService clubMemberCommandService;
     private final JoinRequestService joinRequestService;
+    // 학기 중 프로필 저장·가입을 그 학기 정보 확인으로 기록한다(학기별 정보 확인 팝업 — 학년 이중 상승 방지).
+    private final ProfileCheckConfirmationRecorder profileCheckConfirmationRecorder;
     private final ReservedNamePolicy reservedNamePolicy = new ReservedNamePolicy();
 
     private static final int MAX_FAILED_LOGIN_ATTEMPTS = 5;
@@ -145,6 +149,9 @@ public class GeneralUserService implements UserService {
             // 23505 로 트랜잭션이 aborted 라 세션 소비 등 후속 작업은 불가능하다(#921).
             throw new UserException.DuplicateAccountException();
         }
+        // 학기 중 가입은 그 학기 정보 확인으로 기록한다 — 막 입력한 정보에 확인 팝업을 띄우지 않는다.
+        // 학기는 이 가입의 단일 now(서울 벽시계) 날짜로 정한다.
+        profileCheckConfirmationRecorder.record(userId, Semester.of(now.toLocalDate()));
         phoneVerificationSessionManager.consume(verifiedSession, userId, clientIp, userAgent);
         // 운영 모니터링 — 커밋 후 Slack 으로 간다. 이름·학번·UserId 만 싣는다(전화번호·비밀번호 제외).
         eventPublisher.publishEvent(new UserRegisteredEvent(userId, user.getStudentId(), user.getName(), now));
@@ -297,6 +304,9 @@ public class GeneralUserService implements UserService {
         String previousName = user.getName();
         user.updateProfile(updateProfileCommand.name(), updateProfileCommand.grade(),
                 updateProfileCommand.college(), updateProfileCommand.major());
+        // 학기 중 프로필 저장은 ON/OFF 와 무관하게 그 학기 정보 확인으로 기록한다 — 이미 새 학년으로 고친 사람에게
+        // 확인 팝업이 +1 을 다시 제안해 학년이 두 번 오르는 경로를 막는다. 같은 트랜잭션이라 저장이 실패하면 기록도 없다.
+        profileCheckConfirmationRecorder.record(user.getId(), Semester.current(clock));
         // 회장 이름은 동아리 상세 정보 탭("동아리 회장")의 서버 HTML 에 실린다 — 이름이 실제로 바뀌었을 때만, 이 회원이
         // 이끄는 동아리마다 커밋 뒤 상세 재생성을 요청한다(#1388). 학년·전공만 바꾼 저장은 상세에 보이지 않는다.
         if (!Objects.equals(previousName, user.getName())) {
