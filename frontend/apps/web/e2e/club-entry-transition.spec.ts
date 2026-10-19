@@ -48,10 +48,13 @@ async function readRootTransitionAnimationNames(page: Page): Promise<string[]> {
   });
 }
 
-/** 동아리 레이아웃 안에서 지금 그려지는(rects 가 있는) 요소에 붙은 전환 이름들. */
+/**
+ * 문서에서 지금 그려지는(rects 가 있는) 요소에 붙은 전환 이름들 — 동아리 슬롯(data-clubs-slot) 밖의 상단 내비(ExploreNav)·
+ * 하단 탭바·포털도 본다. html 만 뺀다(UA 기본 이름 root 를 달고 있다).
+ */
 async function renderedTransitionNames(page: Page): Promise<string[]> {
   return page.evaluate(() =>
-    Array.from(document.querySelectorAll('[data-clubs-slot] *'))
+    Array.from(document.querySelectorAll('body, body *'))
       .filter((element) => element.getClientRects().length > 0)
       .map((element) => getComputedStyle(element).getPropertyValue('view-transition-name'))
       .filter((transitionName) => transitionName !== 'none'),
@@ -84,6 +87,8 @@ test.describe('모바일(390)', () => {
     const clubName = await readCardClubName(card);
     await card.click();
     await expect(detailHeading(page, clubName)).toBeVisible({ timeout: ROUTE_TIMEOUT_MS });
+    // 인터셉트 상세로 열렸는지 — 전체 페이지로 열리면 숨은 목록이 없어 아래 단언이 숨은 목록을 보지 않고 통과한다.
+    await expect(page.locator('[data-clubs-slot="intercepted"]')).toHaveCount(1);
     expect(await renderedTransitionNames(page)).toEqual([]);
   });
 });
