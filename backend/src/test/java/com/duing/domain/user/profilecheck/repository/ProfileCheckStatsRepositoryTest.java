@@ -78,6 +78,23 @@ class ProfileCheckStatsRepositoryTest extends IntegrationTestBase {
     }
 
     @Test
+    @DisplayName("같은 해 다른 학기나 다른 해 같은 학기의 기록은 이번 학기 확인으로 세지 않는다")
+    void doesNotCountSemesterSharingOnlyYearOrTerm() {
+        User confirmedOtherSemestersOnly = saveStudent(Grade.SOPHOMORE);
+        User confirmedThisSemester = saveStudent(Grade.JUNIOR);
+        // 두 기록은 이번 학기(2026-1)와 연도·학기 중 하나만 다르다 — 조인 조건 하나가 빠지면 확인 완료로 섞인다.
+        confirm(confirmedOtherSemestersOnly, new Semester(2026, Semester.SECOND_TERM));
+        confirm(confirmedOtherSemestersOnly, new Semester(2025, Semester.FIRST_TERM));
+        confirm(confirmedThisSemester, THIS_SEMESTER);
+
+        ProfileCheckCounts counts = statsRepository.countTargetsAndConfirmed(THIS_SEMESTER);
+
+        assertThat(counts.targetCount()).isEqualTo(2);
+        assertThat(counts.confirmedCount()).isEqualTo(1);
+        assertThat(counts.unconfirmedCount()).isEqualTo(1);
+    }
+
+    @Test
     @DisplayName("대상자가 없으면 대상·확인 완료·미확인이 모두 0 이다")
     void zeroWhenNoTargets() {
         userRepository.save(UserFixture.admin());
