@@ -71,6 +71,7 @@ export {
   useRecruitmentStatsFunnelQuery,
 } from './stats';
 export { userQueryKeys } from './userQueryKeys';
+export { useProfileCheckQuery, useConfirmProfileCheckMutation } from './profileCheck';
 export { clubQueryKeys } from './clubQueryKeys';
 export {
   clubHeroActivitiesQueryOptions,
