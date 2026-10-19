@@ -15,7 +15,8 @@ import { ButtonSpinner } from '@/components/loading/Spinner';
 const TITLE_MAX_LENGTH = 50;
 const MESSAGE_MAX_LENGTH = 300;
 const SAVE_FALLBACK_MESSAGE = '저장하지 못했어요. 잠시 후 다시 시도해 주세요.';
-const FIELD_CLASS = 'w-full rounded-md border border-line bg-paper px-3.5 py-2 text-[14px]';
+const FIELD_CLASS =
+  'w-full rounded-md border border-line bg-paper px-3.5 py-2 text-[14px] focus-visible:border-ink focus-visible:outline-none';
 
 type SettingsDraft = Partial<Pick<AdminProfileCheck, 'title' | 'message' | 'enabled'>>;
 

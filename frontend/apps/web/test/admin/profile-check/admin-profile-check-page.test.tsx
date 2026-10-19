@@ -60,6 +60,7 @@ function saveButton() {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mockMutate.mockReset();
   mockMutationState.isPending = false;
   givenProfileCheck(makeProfileCheck());
 });
