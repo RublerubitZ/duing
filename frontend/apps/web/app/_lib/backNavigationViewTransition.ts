@@ -6,6 +6,7 @@
 // popstate 에는 View Transition 을 쓰지 않는다 — next-view-transitions 의 popstate 처리는 패치로 뺐다(frontend/patches).
 // 그 처리는 새 화면 렌더를 스크린샷 뒤로 미뤄, 그 사이 브라우저 스크롤 복원이 떠나는 화면에 적용됐다(목록 위치 상실·
 // 떠나는 화면 튐, 2026-10-13 운영 실측). 그래서 마커도 전환 수명이 아니라 경로 커밋에 묶는다.
+// 같은 popstate 에서 진행 중인 앞으로 이동 전환(모바일 push)은 끊는다 — 아래 skipActiveViewTransition.
 
 import { usePathname } from 'next/navigation';
 import { useEffect } from 'react';
@@ -43,6 +44,23 @@ export function isBackNavigationPending(): boolean {
   );
 }
 
+/**
+ * 진행 중인 View Transition 을 끊는다 — 앞으로 이동 전환(모바일 push 0.32초) 도중 뒤로 가면, 끊지 않은 전환이 남은 push 를
+ * 마저 재생해 돌아온 목록(라이브 new 의사 요소)이 오른쪽에서 밀려 들어온다. 진행 중 전환은 document.activeViewTransition 으로만
+ * 읽는다(startViewTransition 은 감싸지 않는다 — 앞으로 이동 전환은 next-view-transitions 가 원래 함수로 연다).
+ * ponytail: activeViewTransition 이 없는 브라우저(크롬 141 이하·삼성 인터넷 29 이하·Safari/iOS 26.1 이하·Firefox 146 이하)는
+ * 지금처럼 끝까지 재생된다 — iOS 스와이프 백은 손을 뗀 뒤에야 popstate 가 나므로(시뮬레이터 관측) 전환과 겹치는 경우는 드물
+ * 것으로 본다(콜드 진입은 업데이트 대기만큼 전환 창이 길어진다). 실측되면 패치에서 전환 객체를 보관해 끊는다.
+ */
+function skipActiveViewTransition() {
+  const activeTransition: unknown = Reflect.get(document, 'activeViewTransition');
+  if (typeof ViewTransition !== 'undefined' && activeTransition instanceof ViewTransition) {
+    // 애니메이션 전에 끊으면 ready 가 AbortError 로 거부된다 — 직접 낸 중단이 unhandled rejection 소음이 되지 않게 삼킨다.
+    activeTransition.ready.catch(() => {});
+    activeTransition.skipTransition();
+  }
+}
+
 /** popstate 에 마커를 세우는 리스너를 단다(한 번만). SSR 에서는 아무것도 하지 않는다. */
 export function installBackNavigationViewTransitionGuard() {
   if (installed) return;
@@ -58,6 +76,7 @@ export function installBackNavigationViewTransitionGuard() {
     // (닫고 곧바로 카드 탭)이 뒤로 가기로 읽혀 그 화면의 등장 연출이 빠진다.
     // 죽은 엔트리 자동 스킵의 두 번째 hop 도 이 경우라, 첫 hop 이 세운 마커를 건드리지 않고 그대로 둔다.
     if (isOverlayOnlyTraversal()) return;
+    skipActiveViewTransition();
     document.documentElement.setAttribute(BACK_NAVIGATION_ATTRIBUTE, '');
     if (failsafeTimer !== null) window.clearTimeout(failsafeTimer);
     failsafeTimer = window.setTimeout(clearBackNavigationMarker, FAILSAFE_CLEAR_MS);
