@@ -4,6 +4,8 @@ public record UpdateProfileCheckSettingCommand(
         Long actorId,
         String title,
         String message,
-        boolean enabled
+        boolean enabled,
+        Integer currentSemesterYear,
+        Integer currentSemesterTerm
 ) {
 }

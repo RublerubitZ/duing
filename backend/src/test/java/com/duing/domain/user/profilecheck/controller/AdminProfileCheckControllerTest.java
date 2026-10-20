@@ -229,6 +229,74 @@ class AdminProfileCheckControllerTest extends IntegrationTestBase {
     }
 
     @Test
+    @DisplayName("켜는 저장인데 화면이 본 학기가 오늘 학기와 다르면 409 PROFILE_CHECK_SEMESTER_CHANGED 이고 설정은 그대로다")
+    void turningOnFromAnotherSemesterScreenIsRejected() {
+        saveSetting(admin, body("A", "문구", false)).statusCode(HttpStatus.NO_CONTENT.value());
+
+        // 학기만 다른 화면과 연도만 다른 화면 — 오늘은 2026학년도 1학기다.
+        saveSetting(admin, body("B", "문구", true, 2026, Semester.SECOND_TERM))
+                .statusCode(HttpStatus.CONFLICT.value())
+                .body("code", equalTo("PROFILE_CHECK_SEMESTER_CHANGED"))
+                .body("message", equalTo("학기가 바뀌었습니다. 최신 설정을 확인한 뒤 다시 저장해 주세요."));
+        saveSetting(admin, body("B", "문구", true, 2025, Semester.FIRST_TERM))
+                .statusCode(HttpStatus.CONFLICT.value())
+                .body("code", equalTo("PROFILE_CHECK_SEMESTER_CHANGED"));
+
+        ProfileCheckSetting setting = settingRepository.findById(ProfileCheckSetting.SINGLETON_ID).orElseThrow();
+        assertThat(setting.isEnabled()).isFalse();
+        assertThat(setting.recordedSemester()).isEmpty();
+        assertThat(setting.getTitle()).isEqualTo("A");
+    }
+
+    @Test
+    @DisplayName("설정을 저장한 적이 없을 때 첫 저장이 학기 대조에 걸리면 행이 남지 않는다")
+    void rejectedFirstSaveLeavesNoRow() {
+        saveSetting(admin, body("B", "문구", true, 2026, Semester.SECOND_TERM))
+                .statusCode(HttpStatus.CONFLICT.value())
+                .body("code", equalTo("PROFILE_CHECK_SEMESTER_CHANGED"));
+
+        assertThat(settingRepository.count()).isZero();
+    }
+
+    @Test
+    @DisplayName("켜는 저장이 오늘 학기를 보내면 저장된다")
+    void turningOnFromTodaySemesterScreenIsSaved() {
+        saveSetting(admin, body("안내", "문구", true, 2026, Semester.FIRST_TERM))
+                .statusCode(HttpStatus.NO_CONTENT.value());
+
+        ProfileCheckSetting setting = settingRepository.findById(ProfileCheckSetting.SINGLETON_ID).orElseThrow();
+        assertThat(setting.isEnabled()).isTrue();
+        assertThat(setting.recordedSemester()).contains(THIS_SEMESTER);
+    }
+
+    @Test
+    @DisplayName("끄는 저장은 학기를 대조하지 않는다")
+    void turningOffSkipsSemesterCheck() {
+        saveSetting(admin, body("안내", "문구", false, 2026, Semester.SECOND_TERM))
+                .statusCode(HttpStatus.NO_CONTENT.value());
+    }
+
+    @Test
+    @DisplayName("학기 필드를 보내지 않는 옛 콘솔의 저장도 그대로 된다")
+    void saveWithoutSemesterFieldsIsNotChecked() {
+        saveSetting(admin, body("안내", "문구", true)).statusCode(HttpStatus.NO_CONTENT.value());
+
+        ProfileCheckSetting setting = settingRepository.findById(ProfileCheckSetting.SINGLETON_ID).orElseThrow();
+        assertThat(setting.isEnabled()).isTrue();
+        assertThat(setting.recordedSemester()).contains(THIS_SEMESTER);
+    }
+
+    @Test
+    @DisplayName("학기 값이 1·2 가 아니면 400 이다")
+    void invalidCurrentSemesterTermIsRejected() {
+        saveSetting(admin, body("안내", "문구", true, 2026, 3))
+                .statusCode(HttpStatus.BAD_REQUEST.value())
+                .body("message", equalTo("currentSemesterTerm: 학기는 1 또는 2 여야 합니다."));
+
+        assertThat(settingRepository.count()).isZero();
+    }
+
+    @Test
     @DisplayName("일반 학생은 설정을 조회하거나 바꿀 수 없다(403)")
     void studentCannotReadOrChange() {
         User student = saveStudent(Grade.SOPHOMORE);
@@ -264,6 +332,15 @@ class AdminProfileCheckControllerTest extends IntegrationTestBase {
         requestBody.put("title", title);
         requestBody.put("message", message);
         requestBody.put("enabled", enabled);
+        return requestBody;
+    }
+
+    /** 화면이 GET 에서 받은 오늘 학기를 함께 보내는 콘솔의 저장. */
+    private Map<String, Object> body(String title, String message, boolean enabled,
+                                     int currentSemesterYear, int currentSemesterTerm) {
+        Map<String, Object> requestBody = body(title, message, enabled);
+        requestBody.put("currentSemesterYear", currentSemesterYear);
+        requestBody.put("currentSemesterTerm", currentSemesterTerm);
         return requestBody;
     }
 

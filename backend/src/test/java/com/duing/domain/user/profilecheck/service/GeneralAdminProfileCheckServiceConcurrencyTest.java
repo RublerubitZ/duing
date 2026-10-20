@@ -58,13 +58,13 @@ class GeneralAdminProfileCheckServiceConcurrencyTest extends IntegrationTestBase
                 executor.submit(() -> {
                     start.await();
                     adminProfileCheckService.update(
-                            new UpdateProfileCheckSettingCommand(firstAdmin.getId(), "첫 제목", "첫 문구", true));
+                            new UpdateProfileCheckSettingCommand(firstAdmin.getId(), "첫 제목", "첫 문구", true, null, null));
                     return null;
                 }),
                 executor.submit(() -> {
                     start.await();
                     adminProfileCheckService.update(
-                            new UpdateProfileCheckSettingCommand(secondAdmin.getId(), "둘째 제목", "둘째 문구", false));
+                            new UpdateProfileCheckSettingCommand(secondAdmin.getId(), "둘째 제목", "둘째 문구", false, null, null));
                     return null;
                 }));
         start.countDown();

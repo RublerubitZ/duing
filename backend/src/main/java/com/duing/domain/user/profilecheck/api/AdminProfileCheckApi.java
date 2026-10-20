@@ -26,7 +26,10 @@ public interface AdminProfileCheckApi {
 
     @Operation(summary = "정보 확인 팝업 설정 저장",
             description = "제목·문구·노출 여부를 저장한다. 켜면 오늘 학기가 대상 학기로 기록되고, 학기가 바뀌면 노출이 자동으로 멈춘다. "
-                    + "끄더라도 사용자 확인 기록은 지우지 않는다.")
+                    + "끄더라도 사용자 확인 기록은 지우지 않는다. "
+                    + "화면이 GET 에서 받은 오늘 학기(currentSemesterYear·currentSemesterTerm)를 보내면, 켜는 저장에서 서버의 오늘 학기와 "
+                    + "다를 때 409(PROFILE_CHECK_SEMESTER_CHANGED)로 저장하지 않는다 — 학기 경계를 넘겨 열어 둔 화면이 새 학기 팝업을 "
+                    + "시작하지 않게. 보내지 않으면 대조하지 않는다.")
     @PutMapping("/admin/profile-check")
     ResponseEntity<Void> updateProfileCheck(
             @Valid @RequestBody UpdateProfileCheckSettingRequest request,

@@ -26,6 +26,18 @@ public class ProfileCheckException extends ApplicationException {
     }
 
     /**
+     * 화면을 그린 뒤 학기가 바뀐 운영진 화면의 켜는 저장. 처음 불러온 노출 여부(켜짐)를 그대로 보내면 아무도 다시 켜지 않았는데
+     * 새 학기 팝업이 시작되므로(원 스펙 D7) 저장하지 않는다. 아무 것도 바꾸지 않는다 — 콘솔은 코드로 분기해 최신 설정을 다시 받는다.
+     */
+    public static class ProfileCheckSemesterChangedException extends ProfileCheckException {
+        private static final String MESSAGE = "학기가 바뀌었습니다. 최신 설정을 확인한 뒤 다시 저장해 주세요.";
+
+        public ProfileCheckSemesterChangedException() {
+            super(MESSAGE, HttpStatus.CONFLICT, "PROFILE_CHECK_SEMESTER_CHANGED");
+        }
+    }
+
+    /**
      * 서버 제안값이 아닌 학년으로 확인하려는 요청. 앱 화면에서는 생기지 않는다 — 학년이 바뀌는 경로(프로필 저장·가입)는
      * 모두 그 학기 확인 기록을 남겨 확인 요청이 멱등 분기에서 끝난다.
      */
