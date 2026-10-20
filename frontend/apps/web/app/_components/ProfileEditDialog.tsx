@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useId, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 
 import { ApiError } from '@duing/api';
 import { useUpdateProfileMutation } from '@duing/hooks';
@@ -44,6 +44,7 @@ export function ProfileEditDialog({
   const [college, setCollege] = useState<College | ''>(currentCollege ?? '');
   const [major, setMajor] = useState(currentMajor ?? '');
   const [error, setError] = useState<string | null>(null);
+  const titleRef = useRef<HTMLHeadingElement>(null);
 
   // 열릴 때마다 현재 값으로 초기화한다. college 부재 시 '' 로 시드한다.
   useEffect(() => {
@@ -120,9 +121,21 @@ export function ProfileEditDialog({
       }}
     >
       {/* 별도 설명 문구가 없는 폼 다이얼로그 — Description 연결을 명시적으로 해제한다(Radix a11y 경고 억제).
-          375 폭에서 패널이 화면 끝에 붙지 않게 좌우 1rem 을 남긴다(관리자 다이얼로그들과 같은 폭 가드). */}
-      <DialogContent busy={updateMutation.isPending} aria-describedby={undefined} className="w-[calc(100%-2rem)]">
-        <DialogTitle>프로필 수정</DialogTitle>
+          375 폭에서 패널이 화면 끝에 붙지 않게 좌우 1rem 을 남긴다(관리자 다이얼로그들과 같은 폭 가드).
+          열릴 때는 이름 칸이 아니라 제목에 초점을 둔다 — 모바일에서 키보드가 곧바로 올라와 아래 버튼을 가리지 않게 하고,
+          이름이 통째로 선택된 채 열려 실수 입력에 지워지지 않게 한다(정보 확인 팝업과 같은 방식). */}
+      <DialogContent
+        busy={updateMutation.isPending}
+        aria-describedby={undefined}
+        className="w-[calc(100%-2rem)]"
+        onOpenAutoFocus={(event) => {
+          event.preventDefault();
+          titleRef.current?.focus();
+        }}
+      >
+        <DialogTitle ref={titleRef} tabIndex={-1} className="outline-none">
+          프로필 수정
+        </DialogTitle>
         {/* 검증은 JS(userNameSchema/majorSchema)로 친절한 한글 메시지를 노출한다.
             CollegeSelect 의 native required 가 빈 값일 때 submit 을 막지 않도록 noValidate. */}
         <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-4">
