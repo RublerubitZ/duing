@@ -8,6 +8,7 @@ import * as React from 'react';
 import * as SheetPrimitive from '@radix-ui/react-dialog';
 
 import { useBackDismiss } from '@/app/_lib/backDismiss';
+import { startedOnClosingLayer } from '@/app/_lib/closingLayerTap';
 import { cn } from '@/app/_lib/cn';
 import { useSwipeDismiss } from '@/app/_lib/useSwipeDismiss';
 import { X } from '@/components/duing/Icon';
@@ -118,8 +119,10 @@ const SheetContent = React.forwardRef<
           if (busy) event.preventDefault();
           onEscapeKeyDown?.(event);
         }}
+        // 닫히는 다이얼로그에서 시작한 탭(겹친 수정 창의 "취소" 등)은 바깥 탭으로 받지 않는다 — closingLayerTap 주석 참조.
         onPointerDownOutside={(event) => {
-          if (busy) event.preventDefault();
+          if (busy || startedOnClosingLayer(event.detail.originalEvent.target))
+            event.preventDefault();
           onPointerDownOutside?.(event);
         }}
         className={cn(

@@ -12,6 +12,7 @@ import * as React from 'react';
 import * as DialogPrimitive from '@radix-ui/react-dialog';
 
 import { useBackDismiss } from '@/app/_lib/backDismiss';
+import { startedOnClosingLayer } from '@/app/_lib/closingLayerTap';
 import { cn } from '@/app/_lib/cn';
 
 // 열려 있는 동안 뒤로가기(안드로이드 버튼·제스처, iOS 엣지 스와이프, 브라우저 뒤로가기)를 흡수해
@@ -62,6 +63,8 @@ const DialogOverlay = React.forwardRef<
  *
  * <p>미전달 시 동작은 이전과 완전히 같다. 잠금이 안 풀리는 상황은 구조적으로 없다 —
  * API 클라이언트가 분류별 타임아웃을 걸고 오프라인은 즉시 실패하므로 pending 은 반드시 풀린다.
+ *
+ * <p>닫히는 다이얼로그에서 시작한 탭(겹친 수정 창의 "취소" 등)은 바깥 탭으로 받지 않는다 — closingLayerTap 주석 참조.
  */
 type DialogContentProps = React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content> & {
   busy?: boolean;
@@ -89,7 +92,8 @@ const DialogContent = React.forwardRef<
           onEscapeKeyDown?.(event);
         }}
         onPointerDownOutside={(event) => {
-          if (busy) event.preventDefault();
+          if (busy || startedOnClosingLayer(event.detail.originalEvent.target))
+            event.preventDefault();
           onPointerDownOutside?.(event);
         }}
         className={cn(
