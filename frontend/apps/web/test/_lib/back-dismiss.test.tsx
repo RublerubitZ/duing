@@ -1056,4 +1056,106 @@ describe('사용자 조작 전 기록 미루기', () => {
     // 같은 URL 이어도 실제 페이지 이동이다 — 전환 억제 신호(와 URL 되돌리기)를 켜면 안 된다.
     expect(observed).toEqual([false]);
   });
+
+  it('조작 전 뒤로가기에서 닫기를 거부한 오버레이는 다시 미뤄 두었다가 첫 조작 때 기록을 1개만 쌓는다', async () => {
+    const { queryByTestId } = render(<Overlay name="a" refuseClose />);
+
+    // 조작 전이라 우리 엔트리가 없다 — 뒤로가기는 이전 페이지(센티넬)로 가는 실제 이동이고, 오버레이는 닫기를 거부한다.
+    await pressBack();
+    expect(window.history.state).toEqual({ marker: 'prev' });
+    expect(closeSpy).toHaveBeenCalledTimes(1);
+    expect(queryByTestId('overlay-a')).not.toBeNull();
+
+    // 앞쪽 페이지 엔트리가 잘려 나가 history.length 로는 셀 수 없다 — 쌓은 수는 pushState 호출로 센다.
+    const pushStateSpy = vi.spyOn(window.history, 'pushState');
+    activated = true;
+    fireEvent.pointerUp(document.body);
+    expect(pushStateSpy).toHaveBeenCalledTimes(1);
+    pushStateSpy.mockRestore();
+    expect(window.history.state).toEqual({
+      marker: 'prev',
+      __overlayToken: expect.any(String),
+      __overlayId: expect.any(Number),
+    });
+  });
+
+  it('조작 전에 닫힌 오버레이도 skip 플래그를 소진해, 뒤에 쌓인 오버레이의 회수 뒤로가기를 막지 않는다', async () => {
+    // 쌓지 않은 오버레이라 회수할 기록은 없지만, 걸린 skip 플래그는 이 닫힘이 써 버려야 한다.
+    const deferredOverlay = render(<Overlay name="a" />);
+    skipNextOverlayReclaim();
+    deferredOverlay.unmount();
+    await settle();
+
+    // 플래그가 남았다면 활성화 뒤 연 b 의 코드 닫힘이 회수를 건너뛰어 죽은 엔트리를 남긴다.
+    activated = true;
+    const pushedOverlay = render(<Overlay name="b" />);
+    expect(window.history.state.__overlayId).toEqual(expect.any(Number));
+    const backSpy = vi.spyOn(window.history, 'back');
+    pushedOverlay.unmount();
+    await settle();
+
+    expect(backSpy).toHaveBeenCalledTimes(1);
+    backSpy.mockRestore();
+    expect(window.history.state).toEqual({ marker: 'page' });
+  });
+
+  // backDismiss 가 듣는 활성화 입력 6종 — 리스너를 건 만큼 떼는지 본다.
+  const activationEventTypes = [
+    'pointerdown',
+    'mousedown',
+    'pointerup',
+    'touchend',
+    'keydown',
+    'click',
+  ];
+
+  // window 에 건·뗀 리스너 호출 중 활성화 입력 6종만 추린다 — 테스트 헬퍼의 popstate 리스너는 종류가 달라 걸러진다.
+  function activationListenerCalls(calls: ReadonlyArray<readonly [string, unknown, unknown?]>) {
+    return calls.filter(([type]) => activationEventTypes.includes(type));
+  }
+
+  it('조작 전 열기는 활성화 감지 리스너 6종을 capture 로 걸고, 조작 전 닫힘·조작 전 뒤로가기·첫 조작은 같은 6종을 뗀다', async () => {
+    const addListenerSpy = vi.spyOn(window, 'addEventListener');
+    const removeListenerSpy = vi.spyOn(window, 'removeEventListener');
+    // 한 단계에서 건 6종과 뗀 6종이 짝인지 본다 — 리스너나 capture 가 어긋나면 떼어지지 않고 남는다.
+    function expectListenersAddedThenRemoved() {
+      const added = activationListenerCalls(addListenerSpy.mock.calls);
+      const removed = activationListenerCalls(removeListenerSpy.mock.calls);
+      const listener = added.at(0)?.[1];
+      expect(listener).toEqual(expect.any(Function));
+      expect(added).toHaveLength(activationEventTypes.length);
+      expect(added).toEqual(
+        expect.arrayContaining(
+          activationEventTypes.map((type) => [type, listener, { capture: true, passive: true }]),
+        ),
+      );
+      expect(removed).toHaveLength(activationEventTypes.length);
+      expect(removed).toEqual(
+        expect.arrayContaining(
+          activationEventTypes.map((type) => [type, listener, { capture: true }]),
+        ),
+      );
+      addListenerSpy.mockClear();
+      removeListenerSpy.mockClear();
+    }
+
+    // 조작 전에 코드로 닫힘(언마운트).
+    const closedByCode = render(<Overlay name="a" />);
+    closedByCode.unmount();
+    expectListenersAddedThenRemoved();
+
+    // 조작 전 뒤로가기 — 미룬 오버레이만 닫히는 실제 페이지 이동.
+    render(<Overlay name="b" />);
+    await pressBack();
+    expectListenersAddedThenRemoved();
+
+    // 첫 조작 — 미룬 기록을 쌓으며 감지를 끈다.
+    render(<Overlay name="c" />);
+    activated = true;
+    fireEvent.pointerUp(document.body);
+    expectListenersAddedThenRemoved();
+
+    addListenerSpy.mockRestore();
+    removeListenerSpy.mockRestore();
+  });
 });
