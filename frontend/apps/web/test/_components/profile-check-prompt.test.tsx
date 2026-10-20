@@ -6,7 +6,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { setupServer } from 'msw/node';
 import { http, HttpResponse } from 'msw';
 import { createApiClient } from '@duing/api';
-import { ApiClientProvider } from '@duing/hooks';
+import { ApiClientProvider, userQueryKeys } from '@duing/hooks';
 import { useAuthStore } from '@duing/stores';
 import type { Grade, ProfileCheckStatus, User } from '@duing/types';
 
@@ -85,10 +85,40 @@ function stubViewport(desktop: boolean) {
   });
 }
 
-function renderPrompt(extra?: ReactNode) {
-  const queryClient = new QueryClient({
-    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+// 폭이 768px 을 넘나드는 화면 회전 — 판정값을 바꾸고 등록된 change 리스너를 부른다. 처음은 모바일 폭이다.
+function stubRotatableViewport() {
+  let desktop = false;
+  const listeners = new Set<() => void>();
+  Object.defineProperty(window, 'matchMedia', {
+    configurable: true,
+    writable: true,
+    value: (query: string) => ({
+      get matches() {
+        return query === '(min-width: 768px)' ? desktop : false;
+      },
+      media: query,
+      onchange: null,
+      addListener: () => undefined,
+      removeListener: () => undefined,
+      addEventListener: (_type: string, listener: () => void) => listeners.add(listener),
+      removeEventListener: (_type: string, listener: () => void) => listeners.delete(listener),
+      dispatchEvent: () => false,
+    }),
   });
+  return {
+    rotateToDesktop: () => {
+      desktop = true;
+      listeners.forEach((listener) => listener());
+    },
+  };
+}
+
+function renderPrompt(
+  extra?: ReactNode,
+  queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+  }),
+) {
   return render(
     <QueryClientProvider client={queryClient}>
       <ApiClientProvider client={apiClient}>
@@ -213,6 +243,81 @@ describe('ProfileCheckPrompt — 띄우지 않는 경우', () => {
 
     expect(screen.queryByText(TITLE)).toBeNull();
   });
+
+  it('캐시의 pending:true 를 다시 받는 중이면 기다렸다가 받은 값으로 정한다 — 그사이 확인됐으면 띄우지 않는다', async () => {
+    const state = createState('SOPHOMORE', 'JUNIOR');
+    // 설정 화면에서 프로필을 저장해 서버는 이 학기를 확인으로 기록했지만, 팝업 상태 키는 무효화만 돼(구독자 없음)
+    // 캐시에 pending:true 가 남은 채 마이페이지로 돌아온 경우다(앱 기본값 staleTime 30초).
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false, staleTime: 30_000 }, mutations: { retry: false } },
+    });
+    queryClient.setQueryData(userQueryKeys.profileCheck(), state.status);
+    await queryClient.invalidateQueries({ queryKey: userQueryKeys.profileCheck() });
+    state.status = { pending: false };
+    let releaseStatus: () => void = () => undefined;
+    serve(state);
+    server.use(
+      http.get(`${BASE}/users/me/profile-check`, async () => {
+        state.statusRequests += 1;
+        await new Promise<void>((resolve) => {
+          releaseStatus = resolve;
+        });
+        return HttpResponse.json({ ok: true, data: state.status, message: null });
+      }),
+    );
+
+    renderPrompt(undefined, queryClient);
+    // 다시 받는 중 — 내 정보는 도착했고 캐시에는 아직 pending:true 가 있다.
+    await settle(state, 1);
+    expect(screen.queryByText(TITLE)).toBeNull();
+
+    await act(async () => {
+      releaseStatus();
+    });
+    await waitFor(() => expect(queryClient.getQueryData(userQueryKeys.profileCheck())).toEqual({ pending: false }));
+    expect(screen.queryByText(TITLE)).toBeNull();
+  });
+
+  it('캐시의 pending:true 를 다시 받다 실패하면(500) 그 캐시로 정하지 않는다 — 조회 실패는 띄우지 않는다', async () => {
+    const state = createState('SOPHOMORE', 'JUNIOR');
+    // 훅의 재시도 정책(500 은 1회 재시도)이 기본 지연(1초) 없이 바로 끝나게 한다.
+    const queryClient = new QueryClient({
+      defaultOptions: {
+        queries: { retry: false, retryDelay: 0, staleTime: 30_000 },
+        mutations: { retry: false },
+      },
+    });
+    queryClient.setQueryData(userQueryKeys.profileCheck(), state.status);
+    await queryClient.invalidateQueries({ queryKey: userQueryKeys.profileCheck() });
+    let releaseStatus: () => void = () => undefined;
+    const statusGate = new Promise<void>((resolve) => {
+      releaseStatus = resolve;
+    });
+    serve(state);
+    server.use(
+      http.get(`${BASE}/users/me/profile-check`, async () => {
+        state.statusRequests += 1;
+        await statusGate;
+        return HttpResponse.json({ ok: false, data: null, message: '일시적인 오류가 발생했습니다.' }, { status: 500 });
+      }),
+    );
+
+    renderPrompt(undefined, queryClient);
+    // 실패하기 전(다시 받는 중) — 내 정보는 도착했고 캐시에는 pending:true 가 있다.
+    await settle(state, 1);
+    expect(screen.queryByText(TITLE)).toBeNull();
+
+    await act(async () => {
+      releaseStatus();
+    });
+    await waitFor(() => expect(queryClient.getQueryState(userQueryKeys.profileCheck())?.status).toBe('error'));
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    });
+    // 실패해도 TanStack 은 옛 데이터를 남긴다 — 그 pending:true 로 띄우지 않는다(스펙 §7.1 fail-closed).
+    expect(queryClient.getQueryData(userQueryKeys.profileCheck())).toEqual(state.status);
+    expect(screen.queryByText(TITLE)).toBeNull();
+  });
 });
 
 describe('ProfileCheckPrompt — 표시', () => {
@@ -263,6 +368,57 @@ describe('ProfileCheckPrompt — 표시', () => {
     expect(within(dialog).getByRole('button', { name: '현재 정보가 맞아요' })).toBeInTheDocument();
     expect(within(dialog).getByText('학년').nextElementSibling).toHaveTextContent(/^4학년$/);
     expect(within(dialog).queryByText('→')).toBeNull();
+  });
+});
+
+describe('ProfileCheckPrompt — 화면 회전', () => {
+  it('모바일 폭에서 시트로 띄운 뒤 폭이 768px 을 넘어도 시트를 그대로 둔다', async () => {
+    const viewport = stubRotatableViewport();
+    const state = createState('SOPHOMORE', 'JUNIOR');
+    serve(state);
+    const user = userEvent.setup();
+
+    renderPrompt();
+    expect(await screen.findByRole('dialog', { name: TITLE })).toHaveClass('rounded-t-xl');
+
+    await act(async () => {
+      viewport.rotateToDesktop();
+    });
+    expect(screen.getByRole('dialog', { name: TITLE })).toHaveClass('rounded-t-xl');
+
+    // 팝업이 다시 그려져도(수정 창을 열었다 닫음) 띄울 때 정한 시트다.
+    await user.click(screen.getByRole('button', { name: '정보 수정하기' }));
+    const editDialog = await screen.findByRole('dialog', { name: '프로필 수정' });
+    await user.click(within(editDialog).getByRole('button', { name: '취소' }));
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: '프로필 수정' })).toBeNull());
+    const popup = screen.getByRole('dialog', { name: TITLE });
+    expect(popup).toHaveClass('rounded-t-xl');
+    expect(popup).not.toHaveClass('max-w-[420px]');
+  });
+
+  it('수정 창을 연 채 화면을 돌려도 수정 창이 맨 위에서 가려지지 않고 입력 포커스를 지킨다', async () => {
+    const viewport = stubRotatableViewport();
+    const state = createState('SOPHOMORE', 'JUNIOR');
+    serve(state);
+    const user = userEvent.setup();
+
+    renderPrompt();
+    await user.click(await screen.findByRole('button', { name: '정보 수정하기' }));
+    const editDialog = await screen.findByRole('dialog', { name: '프로필 수정' });
+    const majorInput = within(editDialog).getByPlaceholderText('학과명 입력 (예: 컴퓨터정보공학부)');
+    await user.click(majorInput);
+
+    await act(async () => {
+      viewport.rotateToDesktop();
+    });
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    });
+
+    // 컨테이너가 바뀌어 팝업이 새로 열리면 수정 창 위에 겹쳐 수정 창을 aria-hidden 으로 가리고 포커스를 가져간다.
+    expect(screen.getByRole('dialog', { name: '프로필 수정' })).toBe(editDialog);
+    expect(editDialog.closest('[aria-hidden="true"]')).toBeNull();
+    expect(document.activeElement).toBe(majorInput);
   });
 });
 
@@ -544,13 +700,27 @@ describe('ProfileCheckPrompt — 정보 수정하기', () => {
     const editDialog = await screen.findByRole('dialog', { name: '프로필 수정' });
     // 팝업은 닫히지 않고 아래에 그대로 있다(수정 다이얼로그가 위에 겹친다).
     expect(screen.getByText(TITLE)).toBeInTheDocument();
+    // 제안이 있으면 학년은 제안 학년으로 채운다 — 전공만 고쳐 저장해도 옛 학년으로 확인 완료되지 않게.
+    expect(within(editDialog).getByLabelText('학년')).toHaveValue('JUNIOR');
 
     await user.click(within(editDialog).getByRole('button', { name: '저장' }));
 
     expect(await screen.findByText('프로필을 수정했어요.')).toBeInTheDocument();
     await waitFor(() => expect(screen.queryByText(TITLE)).toBeNull());
     expect(screen.queryByRole('dialog', { name: '프로필 수정' })).toBeNull();
-    expect(patchedBody).toMatchObject({ name: '홍길동', grade: 'SOPHOMORE', college: 'IT_ENGINEERING' });
+    expect(patchedBody).toMatchObject({ name: '홍길동', grade: 'JUNIOR', college: 'IT_ENGINEERING' });
+  });
+
+  it('제안이 없으면 수정 다이얼로그 학년은 현재 학년이다', async () => {
+    const state = createState('SENIOR', null);
+    serve(state);
+    const user = userEvent.setup();
+
+    renderPrompt();
+    await user.click(await screen.findByRole('button', { name: '정보 수정하기' }));
+
+    const editDialog = await screen.findByRole('dialog', { name: '프로필 수정' });
+    expect(within(editDialog).getByLabelText('학년')).toHaveValue('SENIOR');
   });
 
   it('수정 다이얼로그를 취소하면 팝업으로 돌아온다', async () => {

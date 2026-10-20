@@ -9,6 +9,7 @@ import { useAuthStore } from '@duing/stores';
 import type { ProfileCheckStatus, User } from '@duing/types';
 import { ApiClientProvider } from '../src/api-context';
 import { useConfirmProfileCheckMutation, useProfileCheckQuery } from '../src/profileCheck';
+import { shouldRetryQuery } from '../src/retry';
 import { userQueryKeys } from '../src/userQueryKeys';
 
 const BASE = 'http://localhost:8080/api/v1';
@@ -84,6 +85,24 @@ describe('useProfileCheckQuery', () => {
     const { result } = renderHook(() => useProfileCheckQuery(), { wrapper: makeWrapper(newQueryClient()) });
 
     await waitFor(() => expect(result.current.data).toEqual(pendingStatus));
+  });
+
+  it('백엔드가 없으면(404 — FE 선배포·BE 롤백 중) 다시 요청하지 않는다', async () => {
+    useAuthStore.setState({ status: 'authenticated', isVerified: true, user: null });
+    let statusRequests = 0;
+    server.use(
+      http.get(`${BASE}/users/me/profile-check`, () => {
+        statusRequests += 1;
+        return HttpResponse.json({ ok: false, data: null, message: '찾을 수 없습니다.' }, { status: 404 });
+      }),
+    );
+    // 앱의 전역 재시도 정책(providers.tsx)으로 돌린다 — 대기 없이 재시도하게 해 두 번째 요청이 나가면 바로 드러나게 한다.
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: shouldRetryQuery, retryDelay: 0 } } });
+
+    const { result } = renderHook(() => useProfileCheckQuery(), { wrapper: makeWrapper(queryClient) });
+
+    await waitFor(() => expect(result.current.isError).toBe(true));
+    expect(statusRequests).toBe(1);
   });
 });
 
@@ -206,6 +225,29 @@ describe('useConfirmProfileCheckMutation', () => {
     });
 
     expect(queryClient.getQueryState(userQueryKeys.profileCheck())?.isInvalidated).toBe(true);
+  });
+
+  it('확인이 실패하면 내 정보를 무효화한다 — 시간 초과여도 서버는 학년을 올리고 커밋했을 수 있다', async () => {
+    server.use(
+      http.put(`${BASE}/users/me/profile-check`, () =>
+        HttpResponse.json({ ok: false, data: null, message: '일시적인 오류입니다.' }, { status: 500 }),
+      ),
+    );
+    const queryClient = newQueryClient();
+    queryClient.setQueryData(userQueryKeys.me(), meWithGrade('SOPHOMORE'));
+    queryClient.setQueryData(userQueryKeys.myClubs(), []);
+    const { result } = renderHook(() => useConfirmProfileCheckMutation(), { wrapper: makeWrapper(queryClient) });
+
+    await act(async () => {
+      await expect(
+        result.current.mutateAsync({ semesterYear: 2026, semesterTerm: 1, grade: 'JUNIOR' }),
+      ).rejects.toMatchObject({ status: 500 });
+    });
+
+    // 서버가 학년을 올렸을 수 있으니 다음 구독(설정 화면의 학년 표시·프로필 수정 창)이 다시 받는다 — 옛 학년으로 저장해 되돌리지 않게.
+    expect(queryClient.getQueryState(userQueryKeys.me())?.isInvalidated).toBe(true);
+    // 내 정보 키 아래의 다른 쿼리까지 다시 받지는 않는다(exact).
+    expect(queryClient.getQueryState(userQueryKeys.myClubs())?.isInvalidated).toBe(false);
   });
 
   it('팝업 상태 키는 내 정보 키 아래라 프로필 수정의 접두 무효화에 같이 걸린다', () => {

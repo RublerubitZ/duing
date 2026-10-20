@@ -189,9 +189,11 @@ export {
   useDeleteFeeAuditCommentMutation,
 } from './adminFees';
 export {
+  ProfileCheckSemesterChangedError,
   useAdminProfileCheckQuery,
   useUpdateAdminProfileCheckMutation,
 } from './adminProfileCheck';
+export type { UpdateAdminProfileCheckVariables } from './adminProfileCheck';
 export {
   useSubmitReportMutation,
   useAdminReportListQuery,

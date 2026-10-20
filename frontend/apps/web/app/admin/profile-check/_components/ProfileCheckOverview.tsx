@@ -4,7 +4,8 @@ import { formatSemesterLabel } from '@/app/_lib/semesterLabel';
 
 /**
  * 노출 상태·대상 학기·확인 현황. 통계는 서버의 기준 학기(켤 때 기록된 학기, 없으면 오늘의 학기) 값이다.
- * 기록된 학기가 오늘의 학기와 다르면 지난 학기에 켜 둔 팝업이 학기가 바뀌어 멈춘 상태다 — 그 학기의 최종치를 그대로 보여 준다.
+ * 기록된 학기가 오늘의 학기와 다르면 지난 학기에 켜 둔 팝업이 학기가 바뀌어 멈춘 상태다 — 그 학기의 확인 기록을 계속 세지만
+ * 모수는 지금의 회원이라 최종치로 고정되지는 않는다(그 뒤 가입자도 그 학기 미확인으로 잡힌다).
  */
 export function ProfileCheckOverview({ profileCheck }: { profileCheck: AdminProfileCheck }) {
   const semesterLabel = formatSemesterLabel(profileCheck.semesterYear, profileCheck.semesterTerm);

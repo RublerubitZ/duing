@@ -3,7 +3,8 @@ import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { ApiError, NETWORK_ERROR_MESSAGE } from '@duing/api';
-import type { AdminProfileCheck, UpdateAdminProfileCheckPayload } from '@duing/types';
+import { ProfileCheckSemesterChangedError, type UpdateAdminProfileCheckVariables } from '@duing/hooks';
+import type { AdminProfileCheck } from '@duing/types';
 
 // 훅 반환값을 케이스별로 통째로 지정한다(레포 관행 — bank-matching-clubs.test.tsx).
 type ProfileCheckQueryResult = {
@@ -16,16 +17,21 @@ type MutateOptions = { onSuccess?: () => void; onError?: (error: unknown) => voi
 
 const mockProfileCheckQuery = vi.fn<() => ProfileCheckQueryResult>();
 const mockRefetch = vi.fn();
-const mockMutate = vi.fn<(payload: UpdateAdminProfileCheckPayload, options?: MutateOptions) => void>();
+const mockMutate = vi.fn<(variables: UpdateAdminProfileCheckVariables, options?: MutateOptions) => void>();
 const mockMutationState = { isPending: false };
 
-vi.mock('@duing/hooks', () => ({
-  useAdminProfileCheckQuery: () => ({ refetch: mockRefetch, ...mockProfileCheckQuery() }),
-  useUpdateAdminProfileCheckMutation: () => ({
-    mutate: mockMutate,
-    isPending: mockMutationState.isPending,
-  }),
-}) satisfies Partial<Record<keyof typeof import('@duing/hooks'), unknown>>);
+// 학기 변경 오류는 화면이 instanceof 로 가르므로 진짜 클래스를 그대로 내보낸다.
+vi.mock('@duing/hooks', async (importOriginal) => {
+  const actualHooks = await importOriginal<typeof import('@duing/hooks')>();
+  return {
+    ProfileCheckSemesterChangedError: actualHooks.ProfileCheckSemesterChangedError,
+    useAdminProfileCheckQuery: () => ({ refetch: mockRefetch, ...mockProfileCheckQuery() }),
+    useUpdateAdminProfileCheckMutation: () => ({
+      mutate: mockMutate,
+      isPending: mockMutationState.isPending,
+    }),
+  } satisfies Partial<Record<keyof typeof import('@duing/hooks'), unknown>>;
+});
 
 const mockAddToast = vi.fn();
 vi.mock('@/app/_components/toast/ToastProvider', () => ({
@@ -213,7 +219,11 @@ describe('AdminProfileCheckPage — 설정 저장', () => {
     await user.click(saveButton());
 
     expect(mockMutate).toHaveBeenCalledTimes(1);
-    expect(mockMutate.mock.calls[0]?.[0]).toEqual({ title: '새 제목', message: '문구', enabled: false });
+    // 화면이 그려질 때의 오늘 학기를 늘 함께 넘긴다 — 훅은 켜는 저장일 때만 저장 직전 서버의 오늘 학기와 견준다(이 저장은 끄기).
+    expect(mockMutate.mock.calls[0]?.[0]).toEqual({
+      payload: { title: '새 제목', message: '문구', enabled: false },
+      expectedSemester: { currentSemesterYear: 2027, currentSemesterTerm: 1 },
+    });
     expect(mockAddToast).toHaveBeenCalledWith('저장했어요.');
     // 초안을 비워 서버 값(훅 mock 의 그대로인 값)으로 돌아간다 — 실제로는 재조회가 끝난 뒤의 새 값이다.
     expect(titleInput).toHaveValue('제목');
@@ -232,6 +242,11 @@ describe('AdminProfileCheckPage — 설정 저장', () => {
       '네트워크 단절은 정규화 문구',
       new ApiError(0, NETWORK_ERROR_MESSAGE, undefined, 'NETWORK'),
       NETWORK_ERROR_MESSAGE,
+    ],
+    [
+      '화면을 그린 뒤 학기가 바뀌었으면 다시 불러왔다는 안내',
+      new ProfileCheckSemesterChangedError(),
+      '학기가 바뀌어 최신 설정을 다시 불러왔어요. 확인한 뒤 다시 저장해 주세요.',
     ],
   ])('저장에 실패하면 입력을 남긴 채 저장 버튼 위에 알린다 — %s', async (_caseName, error, expected) => {
     mockMutate.mockImplementation((_payload, options) => options?.onError?.(error));
