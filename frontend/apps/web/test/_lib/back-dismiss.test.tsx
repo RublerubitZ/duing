@@ -1,5 +1,5 @@
-import { act, cleanup, render } from '@testing-library/react';
-import { useState } from 'react';
+import { act, cleanup, fireEvent, render } from '@testing-library/react';
+import { StrictMode, useState } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
@@ -879,5 +879,181 @@ describe('이동 예약(navigationPending)', () => {
     markNavigationPending();
     expect(listener).toHaveBeenCalledTimes(2);
     clearNavigationPending();
+  });
+});
+
+// 페이지가 뜨자마자 저절로 열린 오버레이 — WebKit 은 사용자 조작 없이 쌓인 기록을 스와이프 백에서 건너뛰므로,
+// 조작 전에는 기록을 미뤘다가 첫 조작 때 쌓는다.
+describe('사용자 조작 전 기록 미루기', () => {
+  // navigator.userActivation 흉내 — jsdom 에는 이 API 가 없어(그때는 지금처럼 바로 쌓는다) 직접 심는다.
+  let activated = false;
+
+  beforeEach(() => {
+    closeSpy.mockClear();
+    window.history.replaceState({ marker: 'prev' }, '', '/test-page');
+    window.history.pushState({ marker: 'page' }, '', '/test-page');
+    activated = false;
+    Object.defineProperty(window.navigator, 'userActivation', {
+      configurable: true,
+      value: {
+        get hasBeenActive() {
+          return activated;
+        },
+        get isActive() {
+          return activated;
+        },
+      },
+    });
+  });
+
+  afterEach(async () => {
+    cleanup();
+    await settle();
+    Reflect.deleteProperty(window.navigator, 'userActivation');
+  });
+
+  it('사용자 조작 전에 열린 오버레이는 기록을 쌓지 않는다', () => {
+    const lengthBefore = window.history.length;
+    const { queryByTestId } = render(<Overlay name="a" />);
+
+    expect(queryByTestId('overlay-a')).not.toBeNull();
+    expect(window.history.state).toEqual({ marker: 'page' });
+    expect(window.history.length).toBe(lengthBefore);
+  });
+
+  it('첫 조작 때 미뤄 둔 기록을 쌓고, 그 뒤 뒤로가기는 오버레이만 닫는다', async () => {
+    const { queryByTestId } = render(<Overlay name="a" />);
+    expect(window.history.state).toEqual({ marker: 'page' });
+
+    activated = true;
+    fireEvent.pointerUp(document.body);
+    expect(window.history.state).toEqual({
+      marker: 'page',
+      __overlayToken: expect.any(String),
+      __overlayId: expect.any(Number),
+    });
+
+    await pressBack();
+
+    expect(closeSpy).toHaveBeenCalledTimes(1);
+    expect(queryByTestId('overlay-a')).toBeNull();
+    expect(window.history.state).toEqual({ marker: 'page' });
+  });
+
+  it('조작 전에 닫힌 오버레이는 회수 뒤로가기를 하지 않고, 그 뒤 조작해도 기록이 늘지 않는다', async () => {
+    const backSpy = vi.spyOn(window.history, 'back');
+    const lengthBefore = window.history.length;
+    const { unmount } = render(<Overlay name="a" />);
+    unmount();
+    await settle();
+
+    // 쌓지 않은 엔트리라 되돌릴 기록이 없다 — 여기서 back() 하면 이전 페이지로 튕긴다.
+    expect(backSpy).not.toHaveBeenCalled();
+    backSpy.mockRestore();
+
+    activated = true;
+    fireEvent.pointerUp(document.body);
+    expect(window.history.length).toBe(lengthBefore);
+    expect(window.history.state).toEqual({ marker: 'page' });
+  });
+
+  it('활성화를 주지 않는 입력(Esc 키)으로는 쌓지 않고, 그 뒤 실제 조작에서 쌓는다', () => {
+    render(<Overlay name="a" />);
+
+    // 판정은 브라우저 몫이다 — 이벤트가 와도 활성화가 없으면 쌓지 않는다.
+    fireEvent.keyDown(document.body, { key: 'Escape' });
+    expect(window.history.state).toEqual({ marker: 'page' });
+
+    activated = true;
+    fireEvent.pointerUp(document.body);
+    expect(window.history.state.__overlayId).toEqual(expect.any(Number));
+  });
+
+  it('조작 전에 연 오버레이 둘은 첫 조작 때 열린 순서대로 쌓인다', async () => {
+    const { queryByTestId } = render(
+      <>
+        <Overlay name="a" />
+        <Overlay name="b" />
+      </>,
+    );
+    expect(window.history.state).toEqual({ marker: 'page' });
+
+    activated = true;
+    fireEvent.pointerUp(document.body);
+
+    await pressBack();
+    expect(closeSpy.mock.calls.flat()).toEqual(['b']);
+    expect(queryByTestId('overlay-a')).not.toBeNull();
+    expect(queryByTestId('overlay-b')).toBeNull();
+
+    await pressBack();
+    expect(closeSpy.mock.calls.flat()).toEqual(['b', 'a']);
+    expect(queryByTestId('overlay-a')).toBeNull();
+    expect(window.history.state).toEqual({ marker: 'page' });
+  });
+
+  it('활성화된 뒤 열리는 오버레이는 바로 쌓는다', () => {
+    activated = true;
+    const lengthBefore = window.history.length;
+    render(<Overlay name="a" />);
+
+    expect(window.history.state.__overlayId).toEqual(expect.any(Number));
+    expect(window.history.length).toBe(lengthBefore + 1);
+  });
+
+  it('듣는 이벤트 없이 활성화된 뒤(예: iframe) 새 오버레이를 열면 미룬 것부터 순서대로 쌓는다', async () => {
+    function LowerThenUpper({ upperOpen }: { upperOpen: boolean }) {
+      return (
+        <>
+          <Overlay name="a" />
+          {upperOpen ? <Overlay name="b" /> : null}
+        </>
+      );
+    }
+
+    const { rerender, queryByTestId } = render(<LowerThenUpper upperOpen={false} />);
+    expect(window.history.state).toEqual({ marker: 'page' });
+
+    // iframe 안 조작처럼 우리가 듣는 이벤트 없이 활성화만 생긴 뒤, 이벤트가 아닌 상태 변경으로 b 를 연다.
+    activated = true;
+    rerender(<LowerThenUpper upperOpen />);
+
+    await pressBack();
+    expect(closeSpy.mock.calls.flat()).toEqual(['b']);
+    expect(queryByTestId('overlay-a')).not.toBeNull();
+    expect(queryByTestId('overlay-b')).toBeNull();
+    // a 의 엔트리 위에 앉아 있어야 다음 뒤로가기가 a 몫이 된다.
+    expect(window.history.state.__overlayId).toEqual(expect.any(Number));
+  });
+
+  it('StrictMode 의 이중 effect 에도 조작 전에 연 오버레이는 첫 조작 때 기록을 정확히 1개 쌓는다', () => {
+    const lengthBefore = window.history.length;
+    render(
+      <StrictMode>
+        <Overlay name="a" />
+      </StrictMode>,
+    );
+    expect(window.history.length).toBe(lengthBefore);
+
+    activated = true;
+    fireEvent.pointerUp(document.body);
+    expect(window.history.length).toBe(lengthBefore + 1);
+  });
+
+  it('조작 전 뒤로가기는 페이지 뒤로가기라 미룬 오버레이를 닫되, 오버레이 전용 이동으로 보지 않는다', async () => {
+    const { queryByTestId } = render(<Overlay name="a" />);
+    const observed: boolean[] = [];
+    // 모듈 리스너보다 나중에 등록되므로 모듈이 판정을 마친 뒤에 실행된다.
+    const probe = () => observed.push(isOverlayOnlyTraversal());
+    window.addEventListener('popstate', probe);
+    await pressBack();
+    window.removeEventListener('popstate', probe);
+
+    // 쌓은 기록이 없어 이전 페이지(센티넬)까지 내려갔다 — 오버레이는 닫힌다.
+    expect(window.history.state).toEqual({ marker: 'prev' });
+    expect(closeSpy).toHaveBeenCalledWith('a');
+    expect(queryByTestId('overlay-a')).toBeNull();
+    // 같은 URL 이어도 실제 페이지 이동이다 — 전환 억제 신호(와 URL 되돌리기)를 켜면 안 된다.
+    expect(observed).toEqual([false]);
   });
 });
