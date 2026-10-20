@@ -734,6 +734,8 @@ describe('ProfileCheckPrompt — 정보 수정하기', () => {
     await user.click(within(editDialog).getByRole('button', { name: '취소' }));
 
     await waitFor(() => expect(screen.queryByRole('dialog', { name: '프로필 수정' })).toBeNull());
-    expect(screen.getByRole('dialog', { name: TITLE })).toBeInTheDocument();
+    const popup = screen.getByRole('dialog', { name: TITLE });
+    expect(popup).toBeInTheDocument();
+    await waitFor(() => expect(within(popup).getByRole('button', { name: '정보 수정하기' })).toHaveFocus());
   });
 });
