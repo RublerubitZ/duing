@@ -1,11 +1,11 @@
 import type { ReactNode } from 'react';
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { setupServer } from 'msw/node';
-import { http, HttpResponse } from 'msw';
-import { createApiClient, NETWORK_ERROR_MESSAGE } from '@duing/api';
+import { delay, http, HttpResponse } from 'msw';
+import { createApiClient, NETWORK_ERROR_MESSAGE, REQUEST_TIMEOUT_MS, TIMEOUT_ERROR_MESSAGE } from '@duing/api';
 import { ApiClientProvider, userQueryKeys } from '@duing/hooks';
 import { useAuthStore } from '@duing/stores';
 import type { Grade, ProfileCheckStatus, User } from '@duing/types';
@@ -513,6 +513,35 @@ describe('ProfileCheckPrompt — 확인', () => {
 
     const dialog = screen.getByRole('dialog', { name: TITLE });
     expect(await within(dialog).findByRole('alert')).toHaveTextContent(expectedMessage);
+    expect(within(dialog).getByRole('button', { name: '3학년이 맞아요' })).toBeEnabled();
+  });
+
+  // 위 표의 한 행으로 두지 않는다 — 응답이 오지 않아 ky 의 요청 시간 상한(기본 10초)을 넘겨야 api 계층이 TIMEOUT 으로
+  // 정규화한다. 실제로 10초를 기다리지 않게 클릭부터 상한까지만 가짜 시계로 흘린다(그 밖의 행은 실제 시계 그대로).
+  it('그 밖의 실패는 팝업 안에 오류를 보여 주고 닫지 않는다 — 시간 초과는 정규화 문구', async () => {
+    const state = createState('SOPHOMORE', 'JUNIOR');
+    serve(state);
+    server.use(
+      http.put(`${BASE}/users/me/profile-check`, async () => {
+        await delay('infinite');
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+
+    renderPrompt();
+    const confirmButton = await screen.findByRole('button', { name: '3학년이 맞아요' });
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    try {
+      fireEvent.click(confirmButton);
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(REQUEST_TIMEOUT_MS.default);
+      });
+    } finally {
+      vi.useRealTimers();
+    }
+
+    const dialog = screen.getByRole('dialog', { name: TITLE });
+    expect(await within(dialog).findByRole('alert')).toHaveTextContent(TIMEOUT_ERROR_MESSAGE);
     expect(within(dialog).getByRole('button', { name: '3학년이 맞아요' })).toBeEnabled();
   });
 
