@@ -3,7 +3,7 @@
 import { useId, useState, type FormEvent } from 'react';
 
 import { ApiError } from '@duing/api';
-import { useUpdateAdminProfileCheckMutation } from '@duing/hooks';
+import { ProfileCheckSemesterChangedError, useUpdateAdminProfileCheckMutation } from '@duing/hooks';
 import type { AdminProfileCheck } from '@duing/types';
 
 import { ConsoleCard } from '@/app/admin/_components/ConsoleCard';
@@ -15,13 +15,18 @@ import { ButtonSpinner } from '@/components/loading/Spinner';
 const TITLE_MAX_LENGTH = 50;
 const MESSAGE_MAX_LENGTH = 300;
 const SAVE_FALLBACK_MESSAGE = '저장하지 못했어요. 잠시 후 다시 시도해 주세요.';
+const SEMESTER_CHANGED_MESSAGE = '학기가 바뀌어 최신 설정을 다시 불러왔어요. 확인한 뒤 다시 저장해 주세요.';
 const FIELD_CLASS =
   'w-full rounded-md border border-line bg-paper px-3.5 py-2 text-[14px] focus-visible:border-ink focus-visible:outline-none';
 
 type SettingsDraft = Partial<Pick<AdminProfileCheck, 'title' | 'message' | 'enabled'>>;
 
 // 400 은 서버 검증 문구, 네트워크·타임아웃은 api 계층이 정규화한 문구를 그대로 쓴다. 5xx 등 나머지와 빈 문구는 폴백.
+// 학기가 바뀌었으면 저장하지 않고 최신 설정이 다시 그려졌으니 확인한 뒤 다시 저장하라고 알린다(초안은 남는다).
 function saveErrorMessage(error: unknown): string {
+  if (error instanceof ProfileCheckSemesterChangedError) {
+    return SEMESTER_CHANGED_MESSAGE;
+  }
   if (
     error instanceof ApiError &&
     (error.status === 400 || error.code === 'NETWORK' || error.code === 'TIMEOUT')
@@ -63,7 +68,14 @@ export function ProfileCheckSettingsForm({ profileCheck }: { profileCheck: Admin
     event.preventDefault();
     setSaveError(null);
     updateMutation.mutate(
-      { title: title.trim(), message: message.trim(), enabled },
+      {
+        payload: { title: title.trim(), message: message.trim(), enabled },
+        // 노출 여부는 처음 불러온 값일 수 있다 — 학기 경계를 넘겨 열어 둔 화면이면 훅이 저장하지 않는다(스펙 D7).
+        expectedSemester: {
+          currentSemesterYear: profileCheck.currentSemesterYear,
+          currentSemesterTerm: profileCheck.currentSemesterTerm,
+        },
+      },
       {
         onSuccess: () => {
           setDraft({});

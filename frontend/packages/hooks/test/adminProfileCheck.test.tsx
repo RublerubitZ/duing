@@ -8,6 +8,7 @@ import { createApiClient } from '@duing/api';
 import type { AdminProfileCheck, UpdateAdminProfileCheckPayload } from '@duing/types';
 import { ApiClientProvider } from '../src/api-context';
 import {
+  ProfileCheckSemesterChangedError,
   useAdminProfileCheckQuery,
   useUpdateAdminProfileCheckMutation,
 } from '../src/adminProfileCheck';
@@ -38,16 +39,19 @@ const PROFILE_CHECK: AdminProfileCheck = {
   unconfirmedCount: 6,
 };
 
-// 저장 뒤 재조회가 끝났는지를 GET 도달 횟수로 본다.
-let getRequestCount = 0;
+// 서버가 돌려줄 설정 — 학기 경계를 넘기는 테스트가 바꾼다.
+let serverProfileCheck: AdminProfileCheck = PROFILE_CHECK;
+// 요청 순서 — 저장 직전 확인용 GET 과 저장 뒤 재조회 GET 이 PUT 앞뒤로 오는지 본다.
+let requestLog: string[] = [];
 let lastPutBody: unknown = null;
 
 const server = setupServer(
   http.get('*/admin/profile-check', () => {
-    getRequestCount += 1;
-    return HttpResponse.json({ ok: true, message: null, data: PROFILE_CHECK });
+    requestLog.push('GET');
+    return HttpResponse.json({ ok: true, message: null, data: serverProfileCheck });
   }),
   http.put('*/admin/profile-check', async ({ request }) => {
+    requestLog.push('PUT');
     lastPutBody = await request.json();
     return new HttpResponse(null, { status: 204 });
   }),
@@ -56,10 +60,25 @@ const server = setupServer(
 beforeAll(() => server.listen({ onUnhandledRequest: 'error' }));
 afterEach(() => {
   server.resetHandlers();
-  getRequestCount = 0;
+  serverProfileCheck = PROFILE_CHECK;
+  requestLog = [];
   lastPutBody = null;
 });
 afterAll(() => server.close());
+
+function renderSettingsHooks() {
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+  });
+  const rendered = renderHook(
+    () => ({
+      profileCheckQuery: useAdminProfileCheckQuery(),
+      updateMutation: useUpdateAdminProfileCheckMutation(),
+    }),
+    { wrapper: makeWrapper(queryClient) },
+  );
+  return { queryClient, ...rendered };
+}
 
 describe('useAdminProfileCheckQuery', () => {
   it('설정과 확인 현황을 그대로 돌려준다', async () => {
@@ -78,34 +97,51 @@ describe('useAdminProfileCheckQuery', () => {
 });
 
 describe('useUpdateAdminProfileCheckMutation', () => {
-  it('저장하면 제목·문구·노출 여부를 PUT 하고, 설정을 다시 받은 뒤에 끝난다', async () => {
-    const queryClient = new QueryClient({
-      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
-    });
-    const { result } = renderHook(
-      () => ({
-        profileCheckQuery: useAdminProfileCheckQuery(),
-        updateMutation: useUpdateAdminProfileCheckMutation(),
-      }),
-      { wrapper: makeWrapper(queryClient) },
-    );
+  it('학기가 그대로면 저장 직전에 설정을 다시 받아 확인한 뒤 PUT 하고, 설정을 다시 받은 뒤에 끝난다', async () => {
+    const { result } = renderSettingsHooks();
     await waitFor(() => expect(result.current.profileCheckQuery.isSuccess).toBe(true));
-    expect(getRequestCount).toBe(1);
+    expect(requestLog).toEqual(['GET']);
 
     const payload: UpdateAdminProfileCheckPayload = {
       title: '새 제목',
       message: '새 문구',
       enabled: true,
     };
-    // act 는 끝나기 전에 남은 작업을 흘려보내 기다리지 않은 재조회도 마치므로, 저장 Promise 가 풀린 순간의 GET 횟수를 잡는다.
-    let getRequestCountAtSave = 0;
+    // act 는 끝나기 전에 남은 작업을 흘려보내 기다리지 않은 재조회도 마치므로, 저장 Promise 가 풀린 순간의 요청 기록을 잡는다.
+    let requestLogAtSave: string[] = [];
     await act(async () => {
-      await result.current.updateMutation.mutateAsync(payload);
-      getRequestCountAtSave = getRequestCount;
+      await result.current.updateMutation.mutateAsync({
+        payload,
+        expectedSemester: { currentSemesterYear: 2027, currentSemesterTerm: 1 },
+      });
+      requestLogAtSave = [...requestLog];
     });
 
     expect(lastPutBody).toEqual(payload);
-    // 무효화를 기다리므로 저장이 끝난 시점에 재조회가 이미 끝나 있다 — 화면이 이 뒤에 초안을 비워도 옛 값이 비치지 않는다.
-    expect(getRequestCountAtSave).toBe(2);
+    // 처음 GET → 저장 직전 확인용 GET → PUT → 재조회 GET. 무효화를 기다리므로 저장이 끝난 시점에 재조회가 이미 끝나 있다 —
+    // 화면이 이 뒤에 초안을 비워도 옛 값이 비치지 않는다.
+    expect(requestLogAtSave).toEqual(['GET', 'GET', 'PUT', 'GET']);
+  });
+
+  it('화면을 그린 뒤 학기가 바뀌었으면 PUT 하지 않고 전용 오류로 끝나며, 다시 받은 설정이 캐시를 갱신한다', async () => {
+    serverProfileCheck = { ...PROFILE_CHECK, enabled: true };
+    const { queryClient, result } = renderSettingsHooks();
+    await waitFor(() => expect(result.current.profileCheckQuery.isSuccess).toBe(true));
+    // 8/31 에 켜 둔 화면을 9/1 에 저장한다 — 서버의 오늘 학기는 2학기가 됐고 1학기 팝업은 기간이 끝나 꺼졌다.
+    serverProfileCheck = { ...PROFILE_CHECK, enabled: false, currentSemesterTerm: 2 };
+
+    await act(async () => {
+      await expect(
+        result.current.updateMutation.mutateAsync({
+          payload: { title: PROFILE_CHECK.title, message: '고친 문구', enabled: true },
+          expectedSemester: { currentSemesterYear: 2027, currentSemesterTerm: 1 },
+        }),
+      ).rejects.toBeInstanceOf(ProfileCheckSemesterChangedError);
+    });
+
+    // enabled:true 가 가면 아무도 다시 켜지 않았는데 서버가 새 학기 팝업을 시작한다(스펙 D7).
+    expect(requestLog).toEqual(['GET', 'GET']);
+    expect(lastPutBody).toBeNull();
+    expect(queryClient.getQueryData(adminQueryKeys.profileCheck())).toEqual(serverProfileCheck);
   });
 });
