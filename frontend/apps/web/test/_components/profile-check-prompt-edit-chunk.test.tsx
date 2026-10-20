@@ -1,6 +1,6 @@
 import { Component, type ReactNode } from 'react';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import { act, cleanup, render, screen, within } from '@testing-library/react';
+import { cleanup, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { setupServer } from 'msw/node';
@@ -144,12 +144,9 @@ describe('ProfileCheckPrompt — 수정 창 청크를 받지 못할 때(운영 n
       </PageErrorBoundary>,
     );
     const popup = await screen.findByRole('dialog', { name: TITLE });
-    // 닫힌 채 미리 그려 둔 수정 창이 청크를 받다 실패할 때까지 기다린다.
-    await act(async () => {
-      await new Promise((resolve) => setTimeout(resolve, 50));
-    });
+    // 닫힌 채 미리 그려 둔 수정 창이 청크를 받다 실패할 때까지 기다린다 — 고정 대기는 전체 실행 부하에서 모자랄 수 있다.
+    await waitFor(() => expect(captureException).toHaveBeenCalledTimes(1));
     expect(screen.queryByText('페이지 오류 화면')).toBeNull();
-    expect(captureException).toHaveBeenCalledTimes(1);
 
     await user.click(within(popup).getByRole('button', { name: '정보 수정하기' }));
 

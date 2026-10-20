@@ -219,7 +219,7 @@ describe('AdminProfileCheckPage — 설정 저장', () => {
     await user.click(saveButton());
 
     expect(mockMutate).toHaveBeenCalledTimes(1);
-    // 화면이 그려질 때의 오늘 학기를 함께 넘긴다 — 저장 직전 서버의 오늘 학기와 다르면 훅이 저장하지 않는다.
+    // 화면이 그려질 때의 오늘 학기를 늘 함께 넘긴다 — 훅은 켜는 저장일 때만 저장 직전 서버의 오늘 학기와 견준다(이 저장은 끄기).
     expect(mockMutate.mock.calls[0]?.[0]).toEqual({
       payload: { title: '새 제목', message: '문구', enabled: false },
       expectedSemester: { currentSemesterYear: 2027, currentSemesterTerm: 1 },
