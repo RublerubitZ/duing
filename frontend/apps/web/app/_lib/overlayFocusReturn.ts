@@ -16,7 +16,7 @@ type AutoFocusHandlers = {
 };
 
 // container 는 그 열림의 FocusScope 컨테이너(열림·닫힘 이벤트의 target)다 — 같은 창이 빠르게 다시 열리는 경합(동작 줄이기)
-// 에서 옛 닫힘이 새 열림의 기억으로 되돌리지 않게 짝을 맞춘다.
+// 에서 옛 닫힘이 새 열림의 기억으로 되돌리면 포커스가 다시 열린 창 뒤의 요소로 갈 수 있어, 짝이 맞을 때만 되돌린다.
 type RememberedFocus = { container: EventTarget | null; element: HTMLElement };
 
 // 포커스만으로는 입력 UI 를 띄우지 않는 input type — 나머지(text·search·email·number·date 등)는 띄울 수 있다.
@@ -39,7 +39,8 @@ const INPUT_TYPES_WITHOUT_INPUT_UI = new Set([
 export function opensInputUiOnFocus(element: Element): boolean {
   if (element instanceof HTMLTextAreaElement || element instanceof HTMLSelectElement) return true;
   if (element instanceof HTMLInputElement) return !INPUT_TYPES_WITHOUT_INPUT_UI.has(element.type);
-  return element instanceof HTMLElement && element.isContentEditable;
+  // isContentEditable 이 없는 환경(jsdom 29)에서도 boolean 을 돌려준다.
+  return element instanceof HTMLElement && element.isContentEditable === true;
 }
 
 /** DialogContent·SheetContent 가 Radix Content 에 넘길 열림·닫힘 자동 포커스 핸들러 — 소비처 핸들러를 감싼다. */
@@ -65,6 +66,7 @@ export function useOverlayFocusReturn({ onOpenAutoFocus, onCloseAutoFocus }: Aut
       if (
         remembered !== null &&
         remembered.container === event.target &&
+        // 사라진 자리로는 막지 않는다 — Trigger 가 있으면 Radix 가 Trigger 로 되돌린다.
         remembered.element.isConnected &&
         (activeElement === null || activeElement === document.body) &&
         !opensInputUiOnFocus(remembered.element)

@@ -12,12 +12,6 @@ function inputOfType(type: string): HTMLInputElement {
   return input;
 }
 
-// jsdom 29 미구현 — isContentEditable 이 없어(undefined) 브라우저가 돌려줄 값을 메운다.
-function withContentEditable(element: HTMLElement, editable: boolean): HTMLElement {
-  Object.defineProperty(element, 'isContentEditable', { value: editable });
-  return element;
-}
-
 describe('opensInputUiOnFocus', () => {
   it.each(['text', 'search', 'email', 'password', 'number', 'date'])('%s input 은 true', (type) => {
     expect(opensInputUiOnFocus(inputOfType(type))).toBe(true);
@@ -34,13 +28,13 @@ describe('opensInputUiOnFocus', () => {
   it('contenteditable div 는 true', () => {
     const editable = document.createElement('div');
     editable.setAttribute('contenteditable', 'true');
+    // jsdom 29 미구현 — isContentEditable 이 없어(undefined) 브라우저가 돌려줄 값을 메운다.
+    Object.defineProperty(editable, 'isContentEditable', { value: true });
 
-    expect(opensInputUiOnFocus(withContentEditable(editable, true))).toBe(true);
+    expect(opensInputUiOnFocus(editable)).toBe(true);
   });
 
   it.each(['button', 'a', 'h2'])('%s 는 false', (tagName) => {
-    const element = withContentEditable(document.createElement(tagName), false);
-
-    expect(opensInputUiOnFocus(element)).toBe(false);
+    expect(opensInputUiOnFocus(document.createElement(tagName))).toBe(false);
   });
 });
