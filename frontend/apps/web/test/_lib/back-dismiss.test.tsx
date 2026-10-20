@@ -1158,4 +1158,34 @@ describe('사용자 조작 전 기록 미루기', () => {
     addListenerSpy.mockRestore();
     removeListenerSpy.mockRestore();
   });
+
+  it('조작 전에 연 오버레이 둘 중 하나가 조작 전에 닫혀도 감지를 유지해, 첫 조작 때 남은 것만 쌓는다', async () => {
+    render(<Overlay name="a" />);
+    expect(window.history.state).toEqual({ marker: 'page' });
+    const upperOverlay = render(<Overlay name="b" />);
+    expect(window.history.state).toEqual({ marker: 'page' });
+
+    // b 만 코드로 닫는다 — 쌓지 않았으니 회수 back() 은 없고, 아직 미룬 a 가 있어 감지는 켜 둔다.
+    const backSpy = vi.spyOn(window.history, 'back');
+    upperOverlay.unmount();
+    await settle();
+    expect(backSpy).not.toHaveBeenCalled();
+    backSpy.mockRestore();
+
+    const pushStateSpy = vi.spyOn(window.history, 'pushState');
+    activated = true;
+    fireEvent.pointerUp(document.body);
+    expect(pushStateSpy).toHaveBeenCalledTimes(1);
+    pushStateSpy.mockRestore();
+    expect(window.history.state).toEqual({
+      marker: 'page',
+      __overlayToken: expect.any(String),
+      __overlayId: expect.any(Number),
+    });
+
+    // 쌓인 엔트리는 남은 a 의 것이다 — 뒤로가기 1회에 a 가 닫히고 페이지 엔트리로 돌아온다.
+    await pressBack();
+    expect(closeSpy.mock.calls.flat()).toEqual(['a']);
+    expect(window.history.state).toEqual({ marker: 'page' });
+  });
 });
