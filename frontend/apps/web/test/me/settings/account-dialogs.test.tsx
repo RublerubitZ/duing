@@ -66,6 +66,27 @@ function renderWithProviders(ui: React.ReactElement) {
 }
 
 describe('ProfileEditDialog', () => {
+  it('열리면 이름 칸이 아니라 제목에 초점을 두고, Tab 한 번이면 이름 칸이다 — 모바일에서 키보드가 곧바로 올라오지 않게', async () => {
+    const user = userEvent.setup();
+    renderWithProviders(
+      <ProfileEditDialog
+        open
+        onClose={vi.fn()}
+        currentName="홍길동"
+        currentGrade="JUNIOR"
+        currentCollege="IT_ENGINEERING"
+        currentMajor="컴퓨터정보공학부"
+      />,
+    );
+
+    await waitFor(() => expect(screen.getByRole('heading', { name: '프로필 수정' })).toHaveFocus());
+    expect(screen.getByDisplayValue('홍길동')).not.toHaveFocus();
+    expect(screen.getByDisplayValue('컴퓨터정보공학부')).not.toHaveFocus();
+
+    await user.tab();
+    expect(screen.getByDisplayValue('홍길동')).toHaveFocus();
+  });
+
   it('유효한 값이면 PATCH 후 닫고 토스트를 띄운다', async () => {
     server.use(http.patch(`${BASE}/users/me`, ok204));
     const user = userEvent.setup();
