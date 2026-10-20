@@ -2,7 +2,11 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { selectIsAuthenticated, useAuthStore } from '@duing/stores';
 import type { ConfirmProfileCheckPayload, ProfileCheckStatus, User } from '@duing/types';
 import { useApiClient } from './api-context';
+import { retryUnlessStatuses } from './retry';
 import { userQueryKeys } from './userQueryKeys';
+
+// 404 는 API 가 아직 없다는 뜻이다(FE 선배포·BE 롤백 중) — 다시 물어도 같아 방문마다 요청·WARN 이 두 배가 될 뿐이다.
+const retryUnlessNotFound = retryUnlessStatuses(404);
 
 /** 학기별 정보 확인 팝업 상태 — 로그인 상태일 때만 조회한다(useMeQuery 와 같은 게이트). */
 export function useProfileCheckQuery() {
@@ -12,6 +16,7 @@ export function useProfileCheckQuery() {
     queryKey: userQueryKeys.profileCheck(),
     queryFn: () => client.users.profileCheck(),
     enabled: isAuthenticated,
+    retry: retryUnlessNotFound,
   });
 }
 
@@ -42,6 +47,11 @@ export function useConfirmProfileCheckMutation() {
         void queryClient.invalidateQueries({ queryKey: userQueryKeys.me() });
         return 'confirmed';
       }
+    },
+    // 실패해도(시간 초과 등) 서버는 학년을 올리고 커밋했을 수 있다 — 옛 학년이 "정보 수정하기" 시드로 쓰여 저장 때
+    // 학년을 되돌리지 않게 내 정보를 다시 받게 한다. 같은 접두의 다른 쿼리(팝업 상태는 아래에서, 내 동아리 등)는 건드리지 않는다.
+    onError: () => {
+      void queryClient.invalidateQueries({ queryKey: userQueryKeys.me(), exact: true });
     },
     // 성공·실패(기간 종료 409 포함) 모두 서버의 최신 팝업 상태로 다시 맞춘다.
     onSettled: () => {
