@@ -274,10 +274,7 @@ describe('ProfileCheckPrompt — 띄우지 않는 경우', () => {
     await act(async () => {
       releaseStatus();
     });
-    await act(async () => {
-      await new Promise((resolve) => setTimeout(resolve, 20));
-    });
-    expect(queryClient.getQueryData(userQueryKeys.profileCheck())).toEqual({ pending: false });
+    await waitFor(() => expect(queryClient.getQueryData(userQueryKeys.profileCheck())).toEqual({ pending: false }));
     expect(screen.queryByText(TITLE)).toBeNull();
   });
 

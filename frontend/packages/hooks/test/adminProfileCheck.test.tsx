@@ -13,6 +13,7 @@ import {
   useUpdateAdminProfileCheckMutation,
 } from '../src/adminProfileCheck';
 import { adminQueryKeys } from '../src/adminQueryKeys';
+import { shouldRetryQuery } from '../src/retry';
 
 const apiClient = createApiClient({ baseUrl: 'http://localhost:8080/api/v1' });
 
@@ -66,10 +67,11 @@ afterEach(() => {
 });
 afterAll(() => server.close());
 
-function renderSettingsHooks() {
-  const queryClient = new QueryClient({
+function renderSettingsHooks(
+  queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
-  });
+  }),
+) {
   const rendered = renderHook(
     () => ({
       profileCheckQuery: useAdminProfileCheckQuery(),
@@ -143,5 +145,59 @@ describe('useUpdateAdminProfileCheckMutation', () => {
     expect(requestLog).toEqual(['GET', 'GET']);
     expect(lastPutBody).toBeNull();
     expect(queryClient.getQueryData(adminQueryKeys.profileCheck())).toEqual(serverProfileCheck);
+  });
+
+  it('끄는 저장은 학기가 바뀌었어도 확인 조회 없이 PUT 하고, 설정을 다시 받은 뒤에 끝난다', async () => {
+    serverProfileCheck = { ...PROFILE_CHECK, enabled: true };
+    const { result } = renderSettingsHooks();
+    await waitFor(() => expect(result.current.profileCheckQuery.isSuccess).toBe(true));
+    // 8/31 에 켜 둔 화면에서 9/1 에 끈다 — 끄기는 학기를 기록하지 않아(서버가 학기 칸을 그대로 둔다) 막을 이유가 없다.
+    serverProfileCheck = { ...PROFILE_CHECK, enabled: false, currentSemesterTerm: 2 };
+    const payload: UpdateAdminProfileCheckPayload = {
+      title: PROFILE_CHECK.title,
+      message: PROFILE_CHECK.message,
+      enabled: false,
+    };
+
+    let requestLogAtSave: string[] = [];
+    await act(async () => {
+      await result.current.updateMutation.mutateAsync({
+        payload,
+        expectedSemester: { currentSemesterYear: 2027, currentSemesterTerm: 1 },
+      });
+      requestLogAtSave = [...requestLog];
+    });
+
+    expect(lastPutBody).toEqual(payload);
+    // 처음 GET → PUT → 재조회 GET — 확인용 GET 이 없고, 재조회가 끝난 뒤에 저장이 끝난다.
+    expect(requestLogAtSave).toEqual(['GET', 'PUT', 'GET']);
+  });
+
+  it('켜는 저장의 확인 조회가 실패하면 다시 시도하지 않고 PUT 없이 바로 끝난다', async () => {
+    // 앱 전역 재시도 정책(providers.tsx)으로 돌린다 — 대기 없이 재시도하게 해 두 번째 요청이 나가면 바로 드러나게 한다.
+    const { result } = renderSettingsHooks(
+      new QueryClient({
+        defaultOptions: { queries: { retry: shouldRetryQuery, retryDelay: 0 }, mutations: { retry: false } },
+      }),
+    );
+    await waitFor(() => expect(result.current.profileCheckQuery.isSuccess).toBe(true));
+    server.use(
+      http.get('*/admin/profile-check', () => {
+        requestLog.push('GET');
+        return HttpResponse.json({ ok: false, data: null, message: '일시적인 오류입니다.' }, { status: 500 });
+      }),
+    );
+
+    await act(async () => {
+      await expect(
+        result.current.updateMutation.mutateAsync({
+          payload: { title: PROFILE_CHECK.title, message: '고친 문구', enabled: true },
+          expectedSemester: { currentSemesterYear: 2027, currentSemesterTerm: 1 },
+        }),
+      ).rejects.toMatchObject({ status: 500 });
+    });
+
+    expect(requestLog).toEqual(['GET', 'GET']);
+    expect(lastPutBody).toBeNull();
   });
 });

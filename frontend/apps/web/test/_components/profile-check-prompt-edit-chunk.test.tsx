@@ -29,6 +29,8 @@ vi.mock('next/dynamic', async () => {
 vi.mock('@/app/_components/ProfileEditDialog', () => {
   throw new Error('Loading chunk app/_components/ProfileEditDialog failed.');
 });
+const captureException = vi.fn();
+vi.mock('@sentry/nextjs', () => ({ captureException: (...args: unknown[]) => captureException(...args) }));
 
 const BASE = 'http://localhost:8080/api/v1';
 const TITLE = '새 학기, 내 정보를 확인해 주세요.';
@@ -73,6 +75,7 @@ class PageErrorBoundary extends Component<{ children: ReactNode }, { crashed: bo
 
 beforeAll(() => server.listen({ onUnhandledRequest: 'error' }));
 beforeEach(() => {
+  captureException.mockClear();
   useAuthStore.setState({ status: 'authenticated', isVerified: true, user: null });
 });
 afterEach(() => {
@@ -83,10 +86,14 @@ afterEach(() => {
 afterAll(() => server.close());
 
 describe('loadProfileEditDialog', () => {
-  it('import 가 실패해도 reject 하지 않고 같은 props 를 받는 대체 컴포넌트로 끝난다', async () => {
-    await expect(
-      loadProfileEditDialog(() => Promise.reject(new Error('Loading chunk failed.'))),
-    ).resolves.toBe(ProfileEditDialogUnavailable);
+  it('import 가 실패해도 reject 하지 않고 같은 props 를 받는 대체 컴포넌트로 끝나며, 실패는 Sentry 로 보고한다', async () => {
+    const chunkError = new Error('Loading chunk failed.');
+
+    await expect(loadProfileEditDialog(() => Promise.reject(chunkError))).resolves.toBe(
+      ProfileEditDialogUnavailable,
+    );
+    // 삼킨 실패도 남긴다 — 예전에는 페이지 오류 화면(global-error·RouteErrorView)이 보고했다.
+    expect(captureException).toHaveBeenCalledWith(chunkError);
   });
 });
 
@@ -142,6 +149,7 @@ describe('ProfileCheckPrompt — 수정 창 청크를 받지 못할 때(운영 n
       await new Promise((resolve) => setTimeout(resolve, 50));
     });
     expect(screen.queryByText('페이지 오류 화면')).toBeNull();
+    expect(captureException).toHaveBeenCalledTimes(1);
 
     await user.click(within(popup).getByRole('button', { name: '정보 수정하기' }));
 

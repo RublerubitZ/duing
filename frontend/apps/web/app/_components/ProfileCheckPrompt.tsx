@@ -1,5 +1,6 @@
 'use client';
 
+import * as Sentry from '@sentry/nextjs';
 import dynamic from 'next/dynamic';
 import { useEffect, useRef, useState, type ComponentProps, type ComponentType } from 'react';
 
@@ -41,7 +42,11 @@ export function loadProfileEditDialog(
 ): Promise<ComponentType<ProfileEditDialogProps>> {
   return importDialog().then(
     (dialogModule) => dialogModule.ProfileEditDialog,
-    () => ProfileEditDialogUnavailable,
+    (error: unknown) => {
+      // 삼킨 실패도 Sentry 로 남긴다 — 예전에는 페이지 오류 화면(global-error·RouteErrorView)이 보고했다.
+      Sentry.captureException(error);
+      return ProfileEditDialogUnavailable;
+    },
   );
 }
 
