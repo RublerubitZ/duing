@@ -232,13 +232,14 @@ export function ProfileCheckPrompt() {
         </Dialog>
       )}
       {/* 팝업 위에 겹쳐 연다(팝업은 열린 채) — 저장 성공은 서버가 확인으로 기록하므로 팝업을 바로 닫는다.
-          띄우기로 정한 순간부터 닫힌 채로 그려 청크를 미리 받아 둔다 — "정보 수정하기" 를 누르면 지연 없이 열린다. */}
+          띄우기로 정한 순간부터 닫힌 채로 그려 청크를 미리 받아 둔다 — "정보 수정하기" 를 누르면 지연 없이 열린다.
+          학년은 제안 학년으로 채운다 — 현재 학년으로 열면 전공만 고쳐 저장해도 옛 학년으로 이번 학기 확인이 끝난다. */}
       <ProfileEditDialogLazy
         open={editOpen}
         onClose={() => setEditOpen(false)}
         onSaved={closeForDocument}
         currentName={me.name}
-        currentGrade={me.grade}
+        currentGrade={shownStatus.suggestedGrade ?? me.grade}
         currentCollege={me.college}
         currentMajor={me.major}
       />

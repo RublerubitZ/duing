@@ -700,13 +700,27 @@ describe('ProfileCheckPrompt — 정보 수정하기', () => {
     const editDialog = await screen.findByRole('dialog', { name: '프로필 수정' });
     // 팝업은 닫히지 않고 아래에 그대로 있다(수정 다이얼로그가 위에 겹친다).
     expect(screen.getByText(TITLE)).toBeInTheDocument();
+    // 제안이 있으면 학년은 제안 학년으로 채운다 — 전공만 고쳐 저장해도 옛 학년으로 확인 완료되지 않게.
+    expect(within(editDialog).getByLabelText('학년')).toHaveValue('JUNIOR');
 
     await user.click(within(editDialog).getByRole('button', { name: '저장' }));
 
     expect(await screen.findByText('프로필을 수정했어요.')).toBeInTheDocument();
     await waitFor(() => expect(screen.queryByText(TITLE)).toBeNull());
     expect(screen.queryByRole('dialog', { name: '프로필 수정' })).toBeNull();
-    expect(patchedBody).toMatchObject({ name: '홍길동', grade: 'SOPHOMORE', college: 'IT_ENGINEERING' });
+    expect(patchedBody).toMatchObject({ name: '홍길동', grade: 'JUNIOR', college: 'IT_ENGINEERING' });
+  });
+
+  it('제안이 없으면 수정 다이얼로그 학년은 현재 학년이다', async () => {
+    const state = createState('SENIOR', null);
+    serve(state);
+    const user = userEvent.setup();
+
+    renderPrompt();
+    await user.click(await screen.findByRole('button', { name: '정보 수정하기' }));
+
+    const editDialog = await screen.findByRole('dialog', { name: '프로필 수정' });
+    expect(within(editDialog).getByLabelText('학년')).toHaveValue('SENIOR');
   });
 
   it('수정 다이얼로그를 취소하면 팝업으로 돌아온다', async () => {
