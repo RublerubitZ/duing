@@ -1,6 +1,6 @@
 import { act, fireEvent, render } from '@testing-library/react';
 import { useState } from 'react';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { clearNavigationPending } from '@/app/_lib/backDismiss';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
@@ -122,6 +122,78 @@ describe('Radix 오버레이 뒤로가기 닫기', () => {
       </Dialog>,
     );
 
+    expect(window.history.state).toEqual({ marker: 'page' });
+  });
+});
+
+// 정보 확인 팝업처럼 페이지가 뜨자마자 저절로 열린 시트 — 조작 전에는 기록을 미뤘다가 첫 조작 때 쌓는다.
+describe('사용자 조작 전에 저절로 열린 오버레이', () => {
+  // navigator.userActivation 흉내 — jsdom 에는 이 API 가 없다.
+  let activated = false;
+
+  beforeEach(() => {
+    activated = false;
+    Object.defineProperty(window.navigator, 'userActivation', {
+      configurable: true,
+      value: {
+        get hasBeenActive() {
+          return activated;
+        },
+        get isActive() {
+          return activated;
+        },
+      },
+    });
+  });
+
+  afterEach(() => {
+    Reflect.deleteProperty(window.navigator, 'userActivation');
+  });
+
+  it('조작 전에 열린 시트는 첫 조작 때 기록을 쌓고, 그 위에 연 다이얼로그부터 뒤로가기로 닫힌다', async () => {
+    function Host() {
+      const [sheetOpen, setSheetOpen] = useState(true);
+      const [dialogOpen, setDialogOpen] = useState(false);
+      return (
+        <>
+          <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
+            <SheetContent side="bottom">
+              <SheetTitle>정보 확인</SheetTitle>
+              <button type="button" onClick={() => setDialogOpen(true)}>
+                정보 수정하기
+              </button>
+            </SheetContent>
+          </Sheet>
+          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+            <DialogContent>
+              <DialogTitle>프로필 수정</DialogTitle>
+            </DialogContent>
+          </Dialog>
+        </>
+      );
+    }
+
+    window.history.replaceState({ marker: 'page' }, '');
+    const { getByRole, queryByText } = render(<Host />);
+    expect(queryByText('정보 확인')).not.toBeNull();
+    // 조작 전에 저절로 열린 시트는 기록을 쌓지 않는다.
+    expect(window.history.state).toEqual({ marker: 'page' });
+
+    // 첫 조작(터치를 떼는 순간 활성화) — 미뤄 둔 시트 기록을 먼저 쌓고, 이어진 click 이 다이얼로그를 연다.
+    activated = true;
+    const editButton = getByRole('button', { name: '정보 수정하기' });
+    fireEvent.pointerUp(editButton);
+    fireEvent.click(editButton);
+    expect(queryByText('프로필 수정')).not.toBeNull();
+
+    await pressBack();
+
+    expect(queryByText('프로필 수정')).toBeNull();
+    expect(queryByText('정보 확인')).not.toBeNull();
+
+    await pressBack();
+
+    expect(queryByText('정보 확인')).toBeNull();
     expect(window.history.state).toEqual({ marker: 'page' });
   });
 });
