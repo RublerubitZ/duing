@@ -19,7 +19,7 @@ public interface ProfileCheckApi {
 
     @Operation(summary = "내 정보 확인 팝업 조회",
             description = "지금 나에게 띄울 팝업이 있으면 pending=true 와 학기·문구·현재 정보·제안 학년을 반환한다. "
-                    + "팝업이 꺼졌거나 학기가 지났거나 이번 학기에 이미 확인했으면(프로필 저장·가입 포함) pending=false 다.")
+                    + "팝업이 꺼졌거나 학기가 지났거나 운영진·졸업생 등 확인 대상이 아니거나 이번 학기에 이미 확인했으면(프로필 저장·가입 포함) pending=false 다.")
     @SecurityRequirement(name = "BearerAuth")
     @GetMapping("/users/me/profile-check")
     ResponseEntity<ApiResponse<ProfileCheckStatusResponse>> getProfileCheck(
