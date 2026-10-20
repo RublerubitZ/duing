@@ -81,7 +81,6 @@ type SheetContentProps = React.ComponentPropsWithoutRef<typeof SheetPrimitive.Co
    * "요청이 나갔고 아직 안 끝났다" — true 면 ESC·바깥 탭·아래로 스와이프 닫기를 막는다(DialogContent busy #912 와 같은 의미).
    * 스와이프는 끌어내린 위치를 남긴 채 닫기 콜백을 부르므로 콜백에서 거부하면 패널이 어긋난 채 남는다 — 그래서 제스처를 끈다.
    * 뒤로가기 닫기는 여기서 막지 않는다 — 호출처 onOpenChange 가 busy 중 false 를 무시한다(엔트리는 유지된다).
-   * 닫히는 다이얼로그에서 시작한 탭(겹친 수정 창의 "취소" 등)은 바깥 탭으로 받지 않는다 — closingLayerTap 주석 참조.
    */
   busy?: boolean;
 };
@@ -120,6 +119,7 @@ const SheetContent = React.forwardRef<
           if (busy) event.preventDefault();
           onEscapeKeyDown?.(event);
         }}
+        // 닫히는 다이얼로그에서 시작한 탭(겹친 수정 창의 "취소" 등)은 바깥 탭으로 받지 않는다 — closingLayerTap 주석 참조.
         onPointerDownOutside={(event) => {
           if (busy || startedOnClosingLayer(event.detail.originalEvent.target))
             event.preventDefault();

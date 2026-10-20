@@ -20,6 +20,7 @@ type HarnessProps = {
   upper: UpperKind;
   upperOpen: boolean;
   seenPrevented: boolean[];
+  upperSeenPrevented: boolean[];
   onLowerOpenChange: (open: boolean) => void;
   onUpperOpenChange: (open: boolean) => void;
 };
@@ -52,13 +53,17 @@ function LowerLayer({ lower, seenPrevented, onLowerOpenChange }: HarnessProps) {
   );
 }
 
-function UpperLayer({ upper, upperOpen, onUpperOpenChange }: HarnessProps) {
+function UpperLayer({ upper, upperOpen, upperSeenPrevented, onUpperOpenChange }: HarnessProps) {
   if (upper === 'none') return null;
   if (upper === 'shared') {
     // 공용 Dialog 는 jsdom 에 애니메이션이 없어 닫으면 바로 빠진다 — 떨어진 노드 경로.
+    // 이 래퍼의 판정도 아래와 같은 방식으로 upperSeenPrevented 에 쌓는다((f′) 가 본다).
     return (
       <Dialog open={upperOpen} onOpenChange={onUpperOpenChange}>
-        <DialogContent aria-describedby={undefined}>
+        <DialogContent
+          aria-describedby={undefined}
+          onPointerDownOutside={(event) => upperSeenPrevented.push(event.defaultPrevented)}
+        >
           <DialogTitle>정보 수정</DialogTitle>
           <button type="button">취소</button>
         </DialogContent>
@@ -102,19 +107,26 @@ async function flushOutsideListener() {
 // 한 번에 마운트하면 아래의 hideOthers 가 위 포털까지 aria-hidden 으로 덮어 "취소" 질의가 던진다.
 async function renderLayers(lower: LowerKind, upper: UpperKind) {
   const seenPrevented: boolean[] = [];
+  const upperSeenPrevented: boolean[] = [];
   const onLowerOpenChange = vi.fn();
   const onUpperOpenChange = vi.fn();
-  const baseProps = { lower, seenPrevented, onLowerOpenChange, onUpperOpenChange };
+  const baseProps = {
+    lower,
+    seenPrevented,
+    upperSeenPrevented,
+    onLowerOpenChange,
+    onUpperOpenChange,
+  };
   const { rerender } = render(<Harness {...baseProps} upper="none" upperOpen={false} />);
   await flushOutsideListener();
   rerender(<Harness {...baseProps} upper={upper} upperOpen />);
   await flushOutsideListener();
   const closeUpper = () => rerender(<Harness {...baseProps} upper={upper} upperOpen={false} />);
-  return { seenPrevented, onLowerOpenChange, onUpperOpenChange, closeUpper };
+  return { seenPrevented, upperSeenPrevented, onLowerOpenChange, onUpperOpenChange, closeUpper };
 }
 
-// 순서 흉내 — jsdom 의 fireEvent 는 act 안이라 React 가 리스너 사이에서 다시 그리지 않아, "취소"를 그대로
-// click 하면 결함이 재현되지 않는다(단언이 공허해진다). 그래서 브라우저 순서를 단계로 나눈다.
+// 순서 흉내 — jsdom 에서 "취소"를 fireEvent 로 그대로 click 하면 결함이 재현되지 않았다(단언이 공허해진다).
+// act 안에서는 리스너 사이 재렌더가 일어나지 않는 것으로 보인다. 그래서 브라우저 순서를 단계로 나눈다.
 // pointerdown(touch) 으로 아래 레이어가 document click 리스너를 걸고, "취소" onClick 과 그 렌더가 먼저 끝난
 // 상태(위 닫힘)를 만든 뒤, 호출부가 click 을 쏘면 그 리스너가 원래 pointerdown 대상으로 판정한다.
 function touchCancelWhileUpperCloses(closeUpper: () => void): HTMLElement {
@@ -187,6 +199,24 @@ describe('겹친 오버레이 — 닫히는 위 다이얼로그에서 시작한 
     fireEvent.pointerDown(scrim, { pointerType: 'touch', button: 0 });
     fireEvent.click(scrim);
 
+    expect(onUpperOpenChange).toHaveBeenCalledWith(false);
+    expect(onLowerOpenChange).not.toHaveBeenCalled();
+  });
+
+  // (f) 의 위는 원시 Dialog 라 래퍼 가드를 타지 않는다. 여기서는 위가 공용 래퍼일 때 가드가 그 레이어 자신의 진짜
+  // 바깥 탭을 잘못 막지 않는지 고정한다 — develop 래퍼에서도 통과하는 회귀 울타리다. 공용 DialogContent 의 스크림은
+  // 잡을 손잡이가 없어, 스크림처럼 열린 모달의 바깥인 document.body 를 터치한다(아래 시트는 위가 열려 있어 판정을 건너뛴다).
+  it('(f′) 위가 공용 다이얼로그여도 열린 위 레이어의 바깥(스크림)을 터치하면 위만 닫히고 아래는 남는다', async () => {
+    const { upperSeenPrevented, onLowerOpenChange, onUpperOpenChange } = await renderLayers(
+      'sheet',
+      'shared',
+    );
+
+    fireEvent.pointerDown(document.body, { pointerType: 'touch', button: 0 });
+    fireEvent.click(document.body);
+
+    expect(upperSeenPrevented).toEqual([false]);
+    expect(onUpperOpenChange).toHaveBeenCalledTimes(1);
     expect(onUpperOpenChange).toHaveBeenCalledWith(false);
     expect(onLowerOpenChange).not.toHaveBeenCalled();
   });

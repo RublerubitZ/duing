@@ -6,10 +6,10 @@
 const CLOSING_DIALOG_SELECTOR =
   '[role="dialog"][data-state="closed"], [role="alertdialog"][data-state="closed"]';
 
-/** 닫히는 중이거나 이미 DOM 에서 빠진 다이얼로그에서 시작한 이벤트인가. */
+/** 닫히는 중인 다이얼로그, 또는 이미 DOM 에서 빠진 노드(다이얼로그에 한정되지 않음)에서 시작한 이벤트인가. */
 export function startedOnClosingLayer(target: EventTarget | null): boolean {
   if (!(target instanceof Node)) return false;
-  // 닫힘 애니메이션 없이(동작 줄이기·jsdom) 이미 빠진 레이어.
+  // 이미 DOM 에서 빠진 노드 — 다이얼로그에 한정되지 않는다(애니메이션 없이 닫힌 레이어·동기적으로 언마운트된 요소 모두).
   if (!target.isConnected) return true;
   const element = target instanceof Element ? target : target.parentElement;
   if (element === null) return false; // document 노드 등
