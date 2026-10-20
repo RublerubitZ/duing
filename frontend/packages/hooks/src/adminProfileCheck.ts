@@ -46,7 +46,11 @@ export function useUpdateAdminProfileCheckMutation() {
       } catch (error) {
         if (error instanceof ApiError && error.code === 'PROFILE_CHECK_SEMESTER_CHANGED') {
           // 최신 설정을 받아 화면을 새 학기로 다시 그린 뒤에 알린다(입력 초안은 화면이 지킨다).
-          await queryClient.invalidateQueries({ queryKey: adminQueryKeys.profileCheck() });
+          // 재조회가 실패하면 화면은 옛 학기 그대로라 "다시 불러왔어요" 대신 그 실패를 그대로 낸다(기본값은 실패를 삼킨다).
+          await queryClient.invalidateQueries(
+            { queryKey: adminQueryKeys.profileCheck() },
+            { throwOnError: true },
+          );
           throw new ProfileCheckSemesterChangedError();
         }
         throw error;

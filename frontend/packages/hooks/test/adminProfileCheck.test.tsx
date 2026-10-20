@@ -14,6 +14,7 @@ import {
   type UpdateAdminProfileCheckVariables,
 } from '../src/adminProfileCheck';
 import { adminQueryKeys } from '../src/adminQueryKeys';
+import { shouldRetryQuery } from '../src/retry';
 
 const apiClient = createApiClient({ baseUrl: 'http://localhost:8080/api/v1' });
 
@@ -167,7 +168,58 @@ describe('useUpdateAdminProfileCheckMutation', () => {
     expect(rejection).toBeInstanceOf(ProfileCheckSemesterChangedError);
     // 처음 GET → 거절된 PUT → 최신 설정 재조회 GET. 화면은 알림을 받기 전에 이미 새 학기로 다시 그려진다.
     expect(requestLogAtReject).toEqual(['GET', 'PUT', 'GET']);
+    // 캐시 단언이 `void invalidateQueries` 를 잡는 유일한 단언이다(GET 핸들러가 catch 보다 먼저 돈다).
     expect(cachedAtReject).toEqual(serverProfileCheck);
+  });
+
+  it('학기 바뀜(409) 뒤 설정 재조회가 실패하면 학기 바뀜 오류가 아니라 그 실패(ApiError)로 끝난다', async () => {
+    // 앱 전역 재시도 정책(providers.tsx)으로 돌린다 — 재시도를 거친 재조회 실패도 그대로 나가는지 본다(대기 없이 재시도).
+    const { result } = renderSettingsHooks(
+      new QueryClient({
+        defaultOptions: {
+          queries: { retry: shouldRetryQuery, retryDelay: 0 },
+          mutations: { retry: false },
+        },
+      }),
+    );
+    await waitFor(() => expect(result.current.profileCheckQuery.isSuccess).toBe(true));
+    server.use(
+      http.put('*/admin/profile-check', () => {
+        requestLog.push('PUT');
+        return HttpResponse.json(
+          {
+            ok: false,
+            data: null,
+            message: '학기가 바뀌었습니다. 최신 설정을 확인한 뒤 다시 저장해 주세요.',
+            code: 'PROFILE_CHECK_SEMESTER_CHANGED',
+          },
+          { status: 409 },
+        );
+      }),
+      http.get('*/admin/profile-check', () => {
+        requestLog.push('GET');
+        return HttpResponse.json(
+          { ok: false, data: null, message: '일시적인 오류입니다.' },
+          { status: 500 },
+        );
+      }),
+    );
+
+    let rejection: unknown = null;
+    await act(async () => {
+      try {
+        await result.current.updateMutation.mutateAsync({
+          payload: { title: PROFILE_CHECK.title, message: '고친 문구', enabled: true },
+          expectedSemester: { currentSemesterYear: 2027, currentSemesterTerm: 1 },
+        });
+      } catch (error) {
+        rejection = error;
+      }
+    });
+    // 화면은 옛 학기 그대로라 "다시 불러왔어요" 가 아니라 실패 안내가 맞다(폼은 ApiError 에 폴백 문구를 보인다).
+    expect(rejection).not.toBeInstanceOf(ProfileCheckSemesterChangedError);
+    expect(rejection).toBeInstanceOf(ApiError);
+    expect(rejection).toMatchObject({ status: 500 });
   });
 
   it('그 밖의 실패(500)는 그대로 ApiError 이고 설정을 다시 받지 않는다', async () => {
@@ -176,7 +228,10 @@ describe('useUpdateAdminProfileCheckMutation', () => {
     server.use(
       http.put('*/admin/profile-check', () => {
         requestLog.push('PUT');
-        return HttpResponse.json({ ok: false, data: null, message: '일시적인 오류입니다.' }, { status: 500 });
+        return HttpResponse.json(
+          { ok: false, data: null, message: '일시적인 오류입니다.' },
+          { status: 500 },
+        );
       }),
     );
 
