@@ -24,9 +24,19 @@ import { useEffect, useRef, useState } from 'react';
 // 기억 없이(점프로) 연속 죽은 엔트리 n개 아래로 내려왔으면 B 까지 forward n+1회다 — 첫 착지는 back 스킵되며 기억되고,
 // 중간 엔트리는 wentForward 로 앉는다.
 //
+// 사용자 조작 전 기록 미루기 — iOS 에서 페이지가 뜨자마자 저절로 열린 시트(학기별 정보 확인 팝업)는 화면을 만진
+// 뒤에도 스와이프 백이 시트를 닫지 않고 시트와 그 페이지를 건너뛰어 이전 페이지로 갔다. WebKit(main 소스 기준)은
+// 제스처 처리 중도 아니고 마지막 활성화가 10초 안도 아닐 때 pushState 로 쌓인 항목에 표시를 달고, 그 항목에서의
+// 스와이프 백·뒤로 버튼은 그것과 그 아래 페이지까지 건너뛴다(그 페이지가 탭의 첫 항목이면 최근 WebKit 은 그 페이지로
+// 갈 수 있다 — iOS 26.5 시뮬레이터에서 그랬고, 옛 WebKit 은 뒤로 갈 곳이 없을 수 있다). 그래서 조작 전에 열린
+// 오버레이는 기록을 미뤘다가 첫 활성화 이벤트를 처리하는 도중에 쌓는다 — 위의 "열려 있는 동안 엔트리 1개" 는 조작
+// 전에는 0개가 되고, 스택은 늘 전부 쌓였거나 전부 미뤄져 있다. 대가로 조작 전 뒤로가기는 오버레이가 아니라 페이지
+// 뒤로가기가 된다(탭의 첫 항목이면 iOS Safari 에서는 뒤로 버튼이 꺼졌고, 다른 환경에서는 탭이나 앱 내 브라우저를
+// 떠나는 것으로 이어질 수 있다 — 팝업은 다시 들어오면 또 뜬다). 남는 구멍은 hasUserActivation 의 ponytail 주석 참조.
+//
 // 설계·엣지 케이스 근거: docs/superpowers/specs/2026-08-03-overlay-back-close-design.md
 
-type OverlayEntry = { id: number; close: () => void };
+type OverlayEntry = { id: number; close: () => void; pushed: boolean };
 
 // 문서 1회 토큰 — 새로고침 이전 문서가 남긴 엔트리와 ID 가 겹치는 것을 막는다.
 const DOCUMENT_TOKEN = Math.random().toString(36).slice(2, 10);
@@ -178,6 +188,64 @@ function withMarker(marker: { __overlayToken?: string; __overlayId?: number }): 
   return { ...base, ...marker };
 }
 
+// 문서가 사용자 조작(지속 활성화)을 받았는가. WebKit(main 소스 기준)은 제스처 처리 중도 아니고 마지막 활성화가 10초
+// 넘게 지난 pushState 항목에 "조작 없이 JS 가 만든 항목" 표시를 달고, 그 항목에서의 스와이프 백·뒤로 버튼은 그것과
+// 그 아래 페이지까지 건너뛴다(iOS 시뮬레이터 실측: 저절로 뜬 시트에서 스와이프 백이 시트를 닫지 않고 이전 페이지로
+// 갔다). 그래서 조작 전에 열린 오버레이는 기록을 미뤘다가 첫 활성화 이벤트를 처리하는 도중에 쌓는다. 판정할 수 없는
+// 환경(API 없음 — jsdom·오래된 브라우저)은 지금처럼 바로 쌓는다.
+// ponytail: 지속 활성화라 마지막 조작 뒤 10초가 지나 제스처 밖에서 쌓으면(느린 조회 뒤 뜬 오버레이·전송 중 닫기 거부 뒤 재등록) 여전히
+// 표시가 붙을 수 있다. 일시 활성화(isActive)로 좁히려면 쌓은·미룬 엔트리가 섞이는 상태를 다시 설계해야 해 후속으로 둔다.
+function hasUserActivation(): boolean {
+  if (typeof navigator === 'undefined' || !('userActivation' in navigator)) return true;
+  return navigator.userActivation.hasBeenActive;
+}
+
+// 활성화를 주는 입력(HTML: 마우스는 누를 때, 터치는 뗄 때, 키보드는 Esc 외)과 그 뒤의 click — 받는 즉시 미룬 기록을 쌓는다.
+const ACTIVATION_EVENT_TYPES = [
+  'pointerdown',
+  'mousedown',
+  'pointerup',
+  'touchend',
+  'keydown',
+  'click',
+] as const;
+let listeningForActivation = false;
+
+function pushEntry(entry: OverlayEntry) {
+  window.history.pushState(
+    withMarker({ __overlayToken: DOCUMENT_TOKEN, __overlayId: entry.id }),
+    '',
+  );
+  entry.pushed = true;
+  currentMarkerId = entry.id;
+  currentHref = window.location.href;
+}
+
+// 미룬 엔트리를 스택 순서대로 쌓는다 — 스택은 늘 "전부 쌓였거나 전부 미뤄짐" 이라 기록 순서가 스택 순서와 같다.
+function pushDeferredEntries() {
+  if (!hasUserActivation()) return; // Esc 처럼 활성화를 주지 않는 입력 — 그때 쌓으면 미룬 보람이 없다.
+  stopListeningForActivation();
+  for (const entry of stack) {
+    if (!entry.pushed) pushEntry(entry);
+  }
+}
+
+function startListeningForActivation() {
+  if (listeningForActivation) return;
+  listeningForActivation = true;
+  for (const type of ACTIVATION_EVENT_TYPES) {
+    window.addEventListener(type, pushDeferredEntries, { capture: true, passive: true });
+  }
+}
+
+function stopListeningForActivation() {
+  if (!listeningForActivation) return;
+  listeningForActivation = false;
+  for (const type of ACTIVATION_EVENT_TYPES) {
+    window.removeEventListener(type, pushDeferredEntries, { capture: true });
+  }
+}
+
 function handlePopState() {
   // 사용자 traversal·우리 회수 back() 모두 진행 중 이동 예약을 무효화한다(#1139).
   clearNavigationPending();
@@ -221,14 +289,16 @@ function handlePopState() {
     : canSkip || satOnForwardDeadEntry
       ? []
       : stack.splice(0);
+  if (!stack.some((entry) => !entry.pushed)) stopListeningForActivation();
 
   // 이 popstate 가 우리 몫이고 페이지(pathname·hash)가 그대로면 "오버레이 전용 이동" 신호를 켠다 — 뒤이어 실행될
   // 뒤로가기 마커 리스너가 읽고 마커를 세우지 않는다. 리스너 등록 순서상 이 핸들러가 먼저 실행되므로 플래그가
   // 제때 보인다. 같은 태스크가 끝나면 해제한다.
   // forward 로 죽은 마커에 앉는 착지도 아래 페이지와 URL 이 같으므로 포함한다.
   // 아래 leftHref 복원도 함께 켜지는데, back 방향 착지와 대칭이라 의도된 동작이다.
+  // 쌓지 않은 엔트리만 닫힌 popstate 는 실제 페이지 이동이라 오버레이 전용 이동이 아니다.
   const overlayTraversal =
-    dismissed.length > 0 || isSelfTraversal || canSkip || satOnForwardDeadEntry;
+    dismissed.some((entry) => entry.pushed) || isSelfTraversal || canSkip || satOnForwardDeadEntry;
   const stayedOnSamePage = isSamePageAs(leftHref);
   overlayOnlyTraversal = overlayTraversal && stayedOnSamePage;
   if (overlayOnlyTraversal) {
@@ -360,6 +430,8 @@ export function installBackDismiss() {
  * 오버레이가 열려 있는 동안 뒤로가기(안드로이드 버튼·제스처, iOS 엣지 스와이프, 브라우저 뒤로가기)를
  * 흡수해 페이지 이동 대신 이 오버레이만 닫는다.
  *
+ * <p>사용자 조작 전에 열린 오버레이는 첫 조작 때 기록을 쌓으므로, 그 전의 뒤로가기는 페이지 뒤로가기다(머리 주석 참조).
+ *
  * @param open 오버레이 표시 여부. 마운트 자체가 열림인 컴포넌트는 `true` 를 넘긴다.
  * @param onClose 뒤로가기로 닫을 때 호출할 콜백. 없으면(닫을 수 없는 다이얼로그) 아무것도 하지 않는다.
  */
@@ -387,15 +459,13 @@ export function useBackDismiss(open: boolean, onClose?: (() => void) | null): vo
         setConsumedGeneration((current) => current + 1);
         onCloseRef.current?.();
       },
+      pushed: false,
     };
     nextOverlayId += 1;
     stack.push(entry);
-    window.history.pushState(
-      withMarker({ __overlayToken: DOCUMENT_TOKEN, __overlayId: entry.id }),
-      '',
-    );
-    currentMarkerId = entry.id;
-    currentHref = window.location.href;
+    // 조작 뒤면 미룬 것부터 스택 순서대로 다 쌓고(이 엔트리가 마지막), 조작 전이면 첫 조작 때 쌓는다.
+    if (hasUserActivation()) pushDeferredEntries();
+    else startListeningForActivation();
 
     return () => {
       // skip 플래그는 닫힘이 popstate 에 선점당한 경우(index === -1)에도 반드시 소진한다 — 여기서
@@ -406,6 +476,9 @@ export function useBackDismiss(open: boolean, onClose?: (() => void) | null): vo
       if (index === -1) return; // popstate 가 이미 소비했다 — 히스토리도 이미 정리됐다.
       const wasTop = index === stack.length - 1;
       stack.splice(index, 1);
+      if (!stack.some((other) => !other.pushed)) stopListeningForActivation();
+      // 쌓지 않은 엔트리 — 회수할 기록이 없다.
+      if (!entry.pushed) return;
       // 이 닫힘이 내비게이션과 겹친다고 소비처가 표시했거나(skip) 진입점이 이동을 예약해 뒀으면(navigationPending),
       // 회수 back() 을 건너뛰고 죽은 엔트리로 남긴다(내비게이션이 우리 엔트리 위에 쌓는 새 엔트리를 back() 이
       // 되돌려 이동을 삼키는 것을 막는다). 중간 오버레이는 히스토리를 건드리지 않는다 — 그 엔트리는 죽은

@@ -83,6 +83,20 @@ function isUserBusyElsewhere(): boolean {
   return document.querySelector('[role="dialog"][data-state="open"]') !== null;
 }
 
+const CONFIRM_FALLBACK_MESSAGE = '확인에 실패했어요. 잠시 후 다시 시도해 주세요.';
+
+// 400 은 서버 검증 문구, 네트워크·타임아웃은 api 계층이 정규화한 문구를 그대로 쓴다. 5xx·게이트웨이 오류 등 나머지와 빈 문구는
+// 폴백 — 배포 중 502 에 "요청 실패 (502)" 가 그대로 보이지 않게(총동연 화면 saveErrorMessage 와 같은 규칙).
+function confirmErrorMessage(error: unknown): string {
+  if (
+    error instanceof ApiError &&
+    (error.status === 400 || error.code === 'NETWORK' || error.code === 'TIMEOUT')
+  ) {
+    return error.message.trim() || CONFIRM_FALLBACK_MESSAGE;
+  }
+  return CONFIRM_FALLBACK_MESSAGE;
+}
+
 // 띄우기로 정한 순간의 상태(띄우지 않기로 했으면 null). 확인·저장 뒤 재조회가 pending:false 를 가져와도 패널을 이 값으로
 // 계속 그려 닫힘 애니메이션이 끝까지 돈다 — 서버 상태는 여는 판정에만 쓴다. 시트·다이얼로그도 이때 한 번 정한다 — 열린 채
 // 화면을 돌려 768px 을 넘나들 때 컨테이너가 바뀌면 팝업이 새로 열려 위에 겹친 수정 창을 가리고 포커스(키보드)를 빼앗는다.
@@ -180,9 +194,7 @@ export function ProfileCheckPrompt() {
             addToast('지금은 정보 확인 기간이 아니에요.');
             return;
           }
-          setErrorMessage(
-            error instanceof ApiError ? error.message : '확인에 실패했어요. 잠시 후 다시 시도해 주세요.',
-          );
+          setErrorMessage(confirmErrorMessage(error));
         },
       },
     );
@@ -252,6 +264,7 @@ export function ProfileCheckPrompt() {
           onSaved={closeForDocument}
           currentName={me.name}
           currentGrade={shownStatus.suggestedGrade ?? me.grade}
+          gradeFromSuggestion={shownStatus.suggestedGrade !== null && shownStatus.suggestedGrade !== me.grade}
           currentCollege={me.college}
           currentMajor={me.major}
         />

@@ -268,6 +268,23 @@ describe('ProfileEditDialog', () => {
     expect(capturedBody).toMatchObject({ grade: 'SENIOR' });
   });
 
+  // 설정 화면의 "학년" 행은 현재 학년이라, 창에 다른 학년이 보이는 이유를 화면 낭독기 사용자도 함께 듣게 한다.
+  it('제안 학년으로 채운 수정 창은 학년 칸 아래에 안내를 보이고 학년 칸이 그 안내를 가리킨다', () => {
+    renderWithProviders(
+      <ProfileEditDialog open onClose={vi.fn()} currentName="홍길동" currentGrade="JUNIOR" gradeFromSuggestion />,
+    );
+
+    const hint = screen.getByText('새 학기 학년으로 채웠어요. 다르면 바꿔 주세요.');
+    expect(screen.getByLabelText('학년')).toHaveAttribute('aria-describedby', hint.id);
+  });
+
+  it('그렇지 않으면 안내가 없다', () => {
+    renderWithProviders(<ProfileEditDialog open onClose={vi.fn()} currentName="홍길동" currentGrade="JUNIOR" />);
+
+    expect(screen.queryByText('새 학기 학년으로 채웠어요. 다르면 바꿔 주세요.')).toBeNull();
+    expect(screen.getByLabelText('학년')).not.toHaveAttribute('aria-describedby');
+  });
+
   // 취소 버튼만 pending 으로 막고 ESC 를 열어두면 작성 중이던 값이 저장 도중에 사라진다(#830).
   // 폼 다이얼로그의 busy 배선이 빠지면 이 단언이 깨진다.
   it('저장 중에는 ESC 로 닫히지 않는다', async () => {

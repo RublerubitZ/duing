@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 
 import { ApiError } from '@duing/api';
 import { useUpdateProfileMutation } from '@duing/hooks';
@@ -20,6 +20,8 @@ type Props = {
   onSaved?: () => void;
   currentName: string;
   currentGrade: Grade;
+  /** 학년 칸을 현재 학년이 아니라 정보 확인의 제안 학년으로 채웠으면 true — 칸 아래에 그 사실을 알린다. */
+  gradeFromSuggestion?: boolean;
   currentCollege?: College;
   currentMajor?: string;
 };
@@ -30,11 +32,13 @@ export function ProfileEditDialog({
   onSaved,
   currentName,
   currentGrade,
+  gradeFromSuggestion,
   currentCollege,
   currentMajor,
 }: Props) {
   const { addToast } = useToast();
   const updateMutation = useUpdateProfileMutation();
+  const gradeHintId = useId();
   const [name, setName] = useState(currentName);
   const [grade, setGrade] = useState<Grade>(currentGrade);
   const [college, setCollege] = useState<College | ''>(currentCollege ?? '');
@@ -146,7 +150,17 @@ export function ProfileEditDialog({
           </label>
           <div className="flex flex-col gap-1.5">
             <label htmlFor="profile-grade" className="text-[13px] font-semibold text-charcoal-2">학년</label>
-            <GradeSelect id="profile-grade" value={grade} onChange={setGrade} />
+            <GradeSelect
+              id="profile-grade"
+              value={grade}
+              onChange={setGrade}
+              ariaDescribedBy={gradeFromSuggestion ? gradeHintId : undefined}
+            />
+            {gradeFromSuggestion && (
+              <p id={gradeHintId} className="text-[12px] text-charcoal-2">
+                새 학기 학년으로 채웠어요. 다르면 바꿔 주세요.
+              </p>
+            )}
           </div>
           <div className="flex flex-col gap-1.5">
             <label htmlFor="profile-college" className="text-[13px] font-semibold text-charcoal-2">단과대학</label>

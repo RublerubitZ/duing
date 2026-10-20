@@ -1,11 +1,11 @@
 import type { ReactNode } from 'react';
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { setupServer } from 'msw/node';
-import { http, HttpResponse } from 'msw';
-import { createApiClient } from '@duing/api';
+import { delay, http, HttpResponse } from 'msw';
+import { createApiClient, NETWORK_ERROR_MESSAGE, REQUEST_TIMEOUT_MS, TIMEOUT_ERROR_MESSAGE } from '@duing/api';
 import { ApiClientProvider, userQueryKeys } from '@duing/hooks';
 import { useAuthStore } from '@duing/stores';
 import type { Grade, ProfileCheckStatus, User } from '@duing/types';
@@ -22,6 +22,8 @@ const BASE = 'http://localhost:8080/api/v1';
 const TITLE = '새 학기, 내 정보를 확인해 주세요.';
 const MESSAGE =
   '새 학기가 시작되었습니다!\n\n현재 등록된 학년과 전공 및 재학 상태가 올바른지 확인해 주세요.';
+const CONFIRM_FALLBACK = '확인에 실패했어요. 잠시 후 다시 시도해 주세요.';
+const GRADE_HINT = '새 학기 학년으로 채웠어요. 다르면 바꿔 주세요.';
 const server = setupServer();
 const apiClient = createApiClient({ baseUrl: BASE, authTransport: 'cookie' });
 
@@ -486,21 +488,60 @@ describe('ProfileCheckPrompt — 확인', () => {
     expect(screen.queryByRole('alert')).toBeNull();
   });
 
-  it('그 밖의 실패는 팝업 안에 오류를 보여 주고 닫지 않는다', async () => {
+  // 배포 중 502 에 "요청 실패 (502)" 가 그대로 보이지 않게 — 400 만 서버 문구, 네트워크·타임아웃은 api 계층의 정규화 문구.
+  it.each<[string, () => Response, string]>([
+    [
+      '5xx 는 서버 문구 대신 폴백',
+      () => HttpResponse.json({ ok: false, data: null, message: '일시적인 오류가 발생했습니다.' }, { status: 500 }),
+      CONFIRM_FALLBACK,
+    ],
+    ['게이트웨이 오류(502·본문 없음)는 폴백', () => new HttpResponse(null, { status: 502 }), CONFIRM_FALLBACK],
+    [
+      '400 은 서버 검증 문구',
+      () => HttpResponse.json({ ok: false, data: null, message: '확인할 수 없는 학년입니다.' }, { status: 400 }),
+      '확인할 수 없는 학년입니다.',
+    ],
+    ['네트워크 오류는 정규화 문구', () => HttpResponse.error(), NETWORK_ERROR_MESSAGE],
+  ])('그 밖의 실패는 팝업 안에 오류를 보여 주고 닫지 않는다 — %s', async (_label, respond, expectedMessage) => {
     const state = createState('SOPHOMORE', 'JUNIOR');
     serve(state);
-    server.use(
-      http.put(`${BASE}/users/me/profile-check`, () =>
-        HttpResponse.json({ ok: false, data: null, message: '일시적인 오류가 발생했습니다.' }, { status: 500 }),
-      ),
-    );
+    server.use(http.put(`${BASE}/users/me/profile-check`, respond));
     const user = userEvent.setup();
 
     renderPrompt();
     await user.click(await screen.findByRole('button', { name: '3학년이 맞아요' }));
 
     const dialog = screen.getByRole('dialog', { name: TITLE });
-    expect(await within(dialog).findByRole('alert')).toHaveTextContent('일시적인 오류가 발생했습니다.');
+    expect(await within(dialog).findByRole('alert')).toHaveTextContent(expectedMessage);
+    expect(within(dialog).getByRole('button', { name: '3학년이 맞아요' })).toBeEnabled();
+  });
+
+  // 위 표의 한 행으로 두지 않는다 — 응답이 오지 않아 ky 의 요청 시간 상한(기본 10초)을 넘겨야 api 계층이 TIMEOUT 으로
+  // 정규화한다. 실제로 10초를 기다리지 않게 클릭부터 상한까지만 가짜 시계로 흘린다(그 밖의 행은 실제 시계 그대로).
+  it('그 밖의 실패는 팝업 안에 오류를 보여 주고 닫지 않는다 — 시간 초과는 정규화 문구', async () => {
+    const state = createState('SOPHOMORE', 'JUNIOR');
+    serve(state);
+    server.use(
+      http.put(`${BASE}/users/me/profile-check`, async () => {
+        await delay('infinite');
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+
+    renderPrompt();
+    const confirmButton = await screen.findByRole('button', { name: '3학년이 맞아요' });
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    try {
+      fireEvent.click(confirmButton);
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(REQUEST_TIMEOUT_MS.default);
+      });
+    } finally {
+      vi.useRealTimers();
+    }
+
+    const dialog = screen.getByRole('dialog', { name: TITLE });
+    expect(await within(dialog).findByRole('alert')).toHaveTextContent(TIMEOUT_ERROR_MESSAGE);
     expect(within(dialog).getByRole('button', { name: '3학년이 맞아요' })).toBeEnabled();
   });
 
@@ -525,7 +566,7 @@ describe('ProfileCheckPrompt — 확인', () => {
     });
 
     const dialog = screen.getByRole('dialog', { name: TITLE });
-    expect(within(dialog).getByRole('alert')).toHaveTextContent('일시적인 오류가 발생했습니다.');
+    expect(within(dialog).getByRole('alert')).toHaveTextContent(CONFIRM_FALLBACK);
     expect(within(dialog).getByText('2026학년도 1학기')).toBeInTheDocument();
   });
 
@@ -711,7 +752,20 @@ describe('ProfileCheckPrompt — 정보 수정하기', () => {
     expect(patchedBody).toMatchObject({ name: '홍길동', grade: 'JUNIOR', college: 'IT_ENGINEERING' });
   });
 
-  it('제안이 없으면 수정 다이얼로그 학년은 현재 학년이다', async () => {
+  it('수정 다이얼로그에 제안 학년 안내가 보이고 학년 칸이 그 안내를 가리킨다', async () => {
+    const state = createState('SOPHOMORE', 'JUNIOR');
+    serve(state);
+    const user = userEvent.setup();
+
+    renderPrompt();
+    await user.click(await screen.findByRole('button', { name: '정보 수정하기' }));
+
+    const editDialog = await screen.findByRole('dialog', { name: '프로필 수정' });
+    const hint = within(editDialog).getByText(GRADE_HINT);
+    expect(within(editDialog).getByLabelText('학년')).toHaveAttribute('aria-describedby', hint.id);
+  });
+
+  it('제안이 없으면 수정 다이얼로그 학년은 현재 학년이고 안내가 없다', async () => {
     const state = createState('SENIOR', null);
     serve(state);
     const user = userEvent.setup();
@@ -721,6 +775,7 @@ describe('ProfileCheckPrompt — 정보 수정하기', () => {
 
     const editDialog = await screen.findByRole('dialog', { name: '프로필 수정' });
     expect(within(editDialog).getByLabelText('학년')).toHaveValue('SENIOR');
+    expect(within(editDialog).queryByText(GRADE_HINT)).toBeNull();
   });
 
   it('수정 다이얼로그를 취소하면 팝업으로 돌아온다', async () => {
@@ -734,6 +789,8 @@ describe('ProfileCheckPrompt — 정보 수정하기', () => {
     await user.click(within(editDialog).getByRole('button', { name: '취소' }));
 
     await waitFor(() => expect(screen.queryByRole('dialog', { name: '프로필 수정' })).toBeNull());
-    expect(screen.getByRole('dialog', { name: TITLE })).toBeInTheDocument();
+    const popup = screen.getByRole('dialog', { name: TITLE });
+    expect(popup).toBeInTheDocument();
+    await waitFor(() => expect(within(popup).getByRole('button', { name: '정보 수정하기' })).toHaveFocus());
   });
 });

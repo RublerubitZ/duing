@@ -8,7 +8,9 @@ import * as React from 'react';
 import * as SheetPrimitive from '@radix-ui/react-dialog';
 
 import { useBackDismiss } from '@/app/_lib/backDismiss';
+import { startedOnClosingLayer } from '@/app/_lib/closingLayerTap';
 import { cn } from '@/app/_lib/cn';
+import { useOverlayFocusReturn } from '@/app/_lib/overlayFocusReturn';
 import { useSwipeDismiss } from '@/app/_lib/useSwipeDismiss';
 import { X } from '@/components/duing/Icon';
 
@@ -88,7 +90,18 @@ const SheetContent = React.forwardRef<
   React.ComponentRef<typeof SheetPrimitive.Content>,
   SheetContentProps
 >(function SheetContent(
-  { side = 'left', className, children, hideClose = false, busy, onEscapeKeyDown, onPointerDownOutside, ...props },
+  {
+    side = 'left',
+    className,
+    children,
+    hideClose = false,
+    busy,
+    onOpenAutoFocus,
+    onCloseAutoFocus,
+    onEscapeKeyDown,
+    onPointerDownOutside,
+    ...props
+  },
   ref,
 ) {
   const { open, dismiss } = React.useContext(SheetDismissContext);
@@ -106,6 +119,7 @@ const SheetContent = React.forwardRef<
     enabled: side === 'bottom' && open && dismiss !== null && busy !== true,
     onDismiss: dismiss ?? (() => undefined),
   });
+  const focusReturn = useOverlayFocusReturn({ onOpenAutoFocus, onCloseAutoFocus });
 
   return (
     <SheetPortal>
@@ -114,12 +128,17 @@ const SheetContent = React.forwardRef<
         ref={composeContentRef}
         // 전송 중임을 영역 상태로 표기한다 — 넘기지 않은 시트에는 속성을 붙이지 않는다(기존 시트 무변화).
         aria-busy={busy}
+        // 닫히면 열기 직전 포커스로 되돌린다(앱은 Trigger 를 쓰지 않음 — overlayFocusReturn 주석 참조).
+        onOpenAutoFocus={focusReturn.onOpenAutoFocus}
+        onCloseAutoFocus={focusReturn.onCloseAutoFocus}
         onEscapeKeyDown={(event) => {
           if (busy) event.preventDefault();
           onEscapeKeyDown?.(event);
         }}
+        // 닫히는 다이얼로그에서 시작한 탭(겹친 수정 창의 "취소" 등)은 바깥 탭으로 받지 않는다 — closingLayerTap 주석 참조.
         onPointerDownOutside={(event) => {
-          if (busy) event.preventDefault();
+          if (busy || startedOnClosingLayer(event.detail.originalEvent.target))
+            event.preventDefault();
           onPointerDownOutside?.(event);
         }}
         className={cn(

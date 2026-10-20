@@ -12,7 +12,9 @@ import * as React from 'react';
 import * as DialogPrimitive from '@radix-ui/react-dialog';
 
 import { useBackDismiss } from '@/app/_lib/backDismiss';
+import { startedOnClosingLayer } from '@/app/_lib/closingLayerTap';
 import { cn } from '@/app/_lib/cn';
+import { useOverlayFocusReturn } from '@/app/_lib/overlayFocusReturn';
 
 // 열려 있는 동안 뒤로가기(안드로이드 버튼·제스처, iOS 엣지 스와이프, 브라우저 뒤로가기)를 흡수해
 // 페이지 이동 대신 이 다이얼로그만 닫는다. 호출처는 기존과 동일한 props 를 쓴다.
@@ -49,7 +51,8 @@ const DialogOverlay = React.forwardRef<
  *
  * <p>닫힘 정책(#912): 유휴 시 ESC·바깥 클릭 모두 닫힘 허용, busy 중만 차단. 호출처가 인라인
  * `onPointerDownOutside={(e) => e.preventDefault()}` 를 복붙하지 말고 `busy` 를 넘긴다(예외: 양자택일
- * 모달 DraftResumeDialog 1곳만 항상 차단).
+ * 모달 DraftResumeDialog 1곳만 항상 차단). 닫히면 열기 직전 포커스로 되돌린다(앱은 Trigger 를 쓰지 않음 —
+ * overlayFocusReturn 주석 참조).
  *
  * <p>취소 버튼만 `disabled={isPending}` 로 막고 ESC·바깥 클릭은 열어두면 같은 모달에서
  * 버튼으로는 못 닫는데 키보드로는 닫힌다. 사용자는 "취소됐다"고 이해하지만 요청은 그대로 진행돼,
@@ -62,6 +65,8 @@ const DialogOverlay = React.forwardRef<
  *
  * <p>미전달 시 동작은 이전과 완전히 같다. 잠금이 안 풀리는 상황은 구조적으로 없다 —
  * API 클라이언트가 분류별 타임아웃을 걸고 오프라인은 즉시 실패하므로 pending 은 반드시 풀린다.
+ *
+ * <p>닫히는 다이얼로그에서 시작한 탭(겹친 수정 창의 "취소" 등)은 바깥 탭으로 받지 않는다 — closingLayerTap 주석 참조.
  */
 type DialogContentProps = React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content> & {
   busy?: boolean;
@@ -71,9 +76,19 @@ const DialogContent = React.forwardRef<
   React.ComponentRef<typeof DialogPrimitive.Content>,
   DialogContentProps
 >(function DialogContent(
-  { className, children, busy, onEscapeKeyDown, onPointerDownOutside, ...props },
+  {
+    className,
+    children,
+    busy,
+    onOpenAutoFocus,
+    onCloseAutoFocus,
+    onEscapeKeyDown,
+    onPointerDownOutside,
+    ...props
+  },
   ref,
 ) {
+  const focusReturn = useOverlayFocusReturn({ onOpenAutoFocus, onCloseAutoFocus });
   return (
     <DialogPortal>
       <DialogOverlay />
@@ -84,12 +99,15 @@ const DialogContent = React.forwardRef<
         // role="status" 리전을 두고 전송 중 문구를 넣는다(#914). 버튼 안에 감싸면 button 자식은
         // presentational 이라 리전이 무효이고 접근 이름까지 오염된다. 여기서는 표기까지만 한다.
         aria-busy={busy}
+        onOpenAutoFocus={focusReturn.onOpenAutoFocus}
+        onCloseAutoFocus={focusReturn.onCloseAutoFocus}
         onEscapeKeyDown={(event) => {
           if (busy) event.preventDefault();
           onEscapeKeyDown?.(event);
         }}
         onPointerDownOutside={(event) => {
-          if (busy) event.preventDefault();
+          if (busy || startedOnClosingLayer(event.detail.originalEvent.target))
+            event.preventDefault();
           onPointerDownOutside?.(event);
         }}
         className={cn(
