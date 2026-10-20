@@ -297,6 +297,33 @@ class AdminProfileCheckControllerTest extends IntegrationTestBase {
     }
 
     @Test
+    @DisplayName("학기 값을 하나만 보낸 켜는 저장은 대조하지 않고 저장된다")
+    void saveWithOnlyOneSemesterFieldIsNotChecked() {
+        // 둘 다 와야 화면이 본 학기다 — 하나만 오면 오늘(2026학년도 1학기)과 다른 값이어도 대조하지 않는다.
+        Map<String, Object> termOnly = body("안내", "문구", true);
+        termOnly.put("currentSemesterTerm", Semester.SECOND_TERM);
+        Map<String, Object> yearOnly = body("안내", "문구", true);
+        yearOnly.put("currentSemesterYear", 2025);
+
+        saveSetting(admin, termOnly).statusCode(HttpStatus.NO_CONTENT.value());
+        saveSetting(admin, yearOnly).statusCode(HttpStatus.NO_CONTENT.value());
+
+        ProfileCheckSetting setting = settingRepository.findById(ProfileCheckSetting.SINGLETON_ID).orElseThrow();
+        assertThat(setting.isEnabled()).isTrue();
+        assertThat(setting.recordedSemester()).contains(THIS_SEMESTER);
+    }
+
+    @Test
+    @DisplayName("학기 값이 0 이면 400 이다")
+    void zeroCurrentSemesterTermIsRejected() {
+        saveSetting(admin, body("안내", "문구", true, 2026, 0))
+                .statusCode(HttpStatus.BAD_REQUEST.value())
+                .body("message", equalTo("currentSemesterTerm: 학기는 1 또는 2 여야 합니다."));
+
+        assertThat(settingRepository.count()).isZero();
+    }
+
+    @Test
     @DisplayName("일반 학생은 설정을 조회하거나 바꿀 수 없다(403)")
     void studentCannotReadOrChange() {
         User student = saveStudent(Grade.SOPHOMORE);
