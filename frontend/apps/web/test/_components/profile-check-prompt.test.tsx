@@ -280,6 +280,47 @@ describe('ProfileCheckPrompt — 띄우지 않는 경우', () => {
     expect(queryClient.getQueryData(userQueryKeys.profileCheck())).toEqual({ pending: false });
     expect(screen.queryByText(TITLE)).toBeNull();
   });
+
+  it('캐시의 pending:true 를 다시 받다 실패하면(500) 그 캐시로 정하지 않는다 — 조회 실패는 띄우지 않는다', async () => {
+    const state = createState('SOPHOMORE', 'JUNIOR');
+    // 훅의 재시도 정책(500 은 1회 재시도)이 기본 지연(1초) 없이 바로 끝나게 한다.
+    const queryClient = new QueryClient({
+      defaultOptions: {
+        queries: { retry: false, retryDelay: 0, staleTime: 30_000 },
+        mutations: { retry: false },
+      },
+    });
+    queryClient.setQueryData(userQueryKeys.profileCheck(), state.status);
+    await queryClient.invalidateQueries({ queryKey: userQueryKeys.profileCheck() });
+    let releaseStatus: () => void = () => undefined;
+    const statusGate = new Promise<void>((resolve) => {
+      releaseStatus = resolve;
+    });
+    serve(state);
+    server.use(
+      http.get(`${BASE}/users/me/profile-check`, async () => {
+        state.statusRequests += 1;
+        await statusGate;
+        return HttpResponse.json({ ok: false, data: null, message: '일시적인 오류가 발생했습니다.' }, { status: 500 });
+      }),
+    );
+
+    renderPrompt(undefined, queryClient);
+    // 실패하기 전(다시 받는 중) — 내 정보는 도착했고 캐시에는 pending:true 가 있다.
+    await settle(state, 1);
+    expect(screen.queryByText(TITLE)).toBeNull();
+
+    await act(async () => {
+      releaseStatus();
+    });
+    await waitFor(() => expect(queryClient.getQueryState(userQueryKeys.profileCheck())?.status).toBe('error'));
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    });
+    // 실패해도 TanStack 은 옛 데이터를 남긴다 — 그 pending:true 로 띄우지 않는다(스펙 §7.1 fail-closed).
+    expect(queryClient.getQueryData(userQueryKeys.profileCheck())).toEqual(state.status);
+    expect(screen.queryByText(TITLE)).toBeNull();
+  });
 });
 
 describe('ProfileCheckPrompt — 표시', () => {

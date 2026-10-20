@@ -95,11 +95,13 @@ export function ProfileCheckPrompt() {
   const userId = me?.id ?? null;
   const pendingStatus = statusQuery.data?.pending === true ? statusQuery.data : null;
   const isStatusFetching = statusQuery.isFetching;
+  const isStatusError = statusQuery.isError;
 
   // 띄울지는 사용자·학기가 갖춰진 첫 순간 한 번만 정한다 — 숨김(나중에·이 문서에서 닫음)과 여는 순간 가드.
   // 다시 받는 중이면 기다린다 — 무효화만 된 캐시의 pending:true(다른 화면에서 프로필을 저장해 이미 확인됨)로 정하지 않는다.
+  // 다시 받다 실패해도 남은 옛 데이터로 정하지 않는다 — 조회 실패는 띄우지 않는다(스펙 §7.1 fail-closed).
   useEffect(() => {
-    if (userId === null || pendingStatus === null || isStatusFetching) return;
+    if (userId === null || pendingStatus === null || isStatusFetching || isStatusError) return;
     const { semesterYear, semesterTerm } = pendingStatus;
     const key = `${userId}:${semesterYear}-${semesterTerm}`;
     setDecision((previous) =>
@@ -114,7 +116,7 @@ export function ProfileCheckPrompt() {
             isMobileViewport: readIsMobileViewport(),
           },
     );
-  }, [userId, pendingStatus, isStatusFetching]);
+  }, [userId, pendingStatus, isStatusFetching, isStatusError]);
 
   // 통째로 내리는 건 로그아웃(캐시 비움)뿐이다 — 닫힌 시트·다이얼로그도 마운트해 둬야 닫힘 애니메이션이 끝까지 돈다.
   if (me === undefined || decision === null) return null;
