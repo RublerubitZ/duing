@@ -19,8 +19,10 @@ import io.restassured.RestAssured;
 import io.restassured.http.ContentType;
 import io.restassured.response.ValidatableResponse;
 import java.sql.Timestamp;
+import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.HashMap;
 import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
@@ -64,6 +66,9 @@ class ProfileCheckControllerTest extends IntegrationTestBase {
 
     @Autowired
     private JdbcTemplate jdbcTemplate;
+
+    @Autowired
+    private Clock clock;
 
     private User admin;
 
@@ -293,6 +298,60 @@ class ProfileCheckControllerTest extends IntegrationTestBase {
     }
 
     @Test
+    @DisplayName("1월에 학년을 바꾼 기존 회원은 1학기 팝업에서 학년 제안을 받지 않고, 제안 학년으로 확인하면 400 이다")
+    void gradeChangedInJanuaryGetsNoSuggestion() {
+        turnOn();
+        User sophomore = saveStudent(Grade.SOPHOMORE);
+        jdbcTemplate.update("UPDATE users SET grade_changed_at = '2026-01-10T03:00:00Z' WHERE id = ?", sophomore.getId());
+
+        status(sophomore)
+                .body("data.pending", equalTo(true))
+                .body("data.suggestedGrade", nullValue());
+        confirm(sophomore, 2026, 1, "JUNIOR").statusCode(HttpStatus.BAD_REQUEST.value());
+
+        assertThat(gradeOf(sophomore)).isEqualTo(Grade.SOPHOMORE);
+        assertThat(isRecorded(sophomore, 2026, 1)).isFalse();
+    }
+
+    @Test
+    @DisplayName("지난 9월에 학년을 바꾼 회원은 1학기 제안을 그대로 받는다")
+    void gradeChangedLastSeptemberKeepsSuggestion() {
+        turnOn();
+        User sophomore = saveStudent(Grade.SOPHOMORE);
+        jdbcTemplate.update("UPDATE users SET grade_changed_at = '2025-09-10T03:00:00Z' WHERE id = ?", sophomore.getId());
+
+        status(sophomore)
+                .body("data.pending", equalTo(true))
+                .body("data.suggestedGrade", equalTo("JUNIOR"));
+    }
+
+    @Test
+    @DisplayName("프로필 저장으로 학년이 바뀔 때만 바꾼 시각이 갱신되고, 같은 학년 저장은 기존 기록을 덮지 않는다")
+    void profileSaveRecordsGradeChangeOnlyWhenGradeChanges() {
+        User sophomore = saveStudent(Grade.SOPHOMORE);
+        assertThat(gradeChangedAtOf(sophomore)).isEqualTo(UserFixture.PAST_GRADE_CHANGE);
+
+        patchProfile(sophomore, "{\"name\":\"수정이름\",\"grade\":\"SOPHOMORE\"}")
+                .statusCode(HttpStatus.NO_CONTENT.value());
+        assertThat(gradeChangedAtOf(sophomore)).isEqualTo(UserFixture.PAST_GRADE_CHANGE);
+
+        patchProfile(sophomore, "{\"name\":\"수정이름\",\"grade\":\"JUNIOR\"}")
+                .statusCode(HttpStatus.NO_CONTENT.value());
+        assertThat(gradeChangedAtOf(sophomore)).isEqualTo(clock.instant());
+    }
+
+    @Test
+    @DisplayName("팝업 확인으로 학년을 올리면 바꾼 시각이 남는다")
+    void confirmingSuggestionRecordsGradeChange() {
+        turnOn();
+        User sophomore = saveStudent(Grade.SOPHOMORE);
+
+        confirm(sophomore, 2026, 1, "JUNIOR").statusCode(HttpStatus.NO_CONTENT.value());
+
+        assertThat(gradeChangedAtOf(sophomore)).isEqualTo(clock.instant());
+    }
+
+    @Test
     @DisplayName("4학년은 제안 없이 현재 정보 그대로 확인하고 학년은 바뀌지 않는다")
     void seniorConfirmsWithoutChange() {
         turnOn();
@@ -356,7 +415,7 @@ class ProfileCheckControllerTest extends IntegrationTestBase {
 
     private User saveStudentSignedUpAt(Grade grade, LocalDateTime signedUpAt) {
         User student = UserFixture.unique();
-        student.changeGrade(grade);
+        student.changeGrade(grade, UserFixture.PAST_GRADE_CHANGE);
         User saved = userRepository.save(student);
         jdbcTemplate.update("UPDATE users SET created_at = ? WHERE id = ?", Timestamp.valueOf(signedUpAt), saved.getId());
         return saved;
@@ -408,8 +467,22 @@ class ProfileCheckControllerTest extends IntegrationTestBase {
         return confirmBody;
     }
 
+    private ValidatableResponse patchProfile(User user, String jsonBody) {
+        return RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, bearer(user))
+                .contentType(ContentType.JSON)
+                .body(jsonBody)
+                .when().patch("/api/v1/users/me")
+                .then();
+    }
+
     private Grade gradeOf(User user) {
         return userRepository.findById(user.getId()).orElseThrow().getGrade();
+    }
+
+    private Instant gradeChangedAtOf(User user) {
+        return jdbcTemplate.queryForObject(
+                "SELECT grade_changed_at FROM users WHERE id = ?", OffsetDateTime.class, user.getId()).toInstant();
     }
 
     private boolean isRecorded(User user, int semesterYear, int semesterTerm) {

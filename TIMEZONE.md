@@ -147,6 +147,7 @@ Du-ing 전체(backend/frontend/DB)의 날짜·시간 처리 정책. 2026-07 타�
    - schedule 필드는 naive 유지(또는 date+time 분리) — 마이그레이션 대상 아님
    - **제외 대상**: `admin_user_action_log.created_at` — 신규 테이블이라 처음부터 `timestamptz` + 엔티티 `Instant`. 백필·변환 대상이 아니다.
    - **제외 대상**: `recertification_round`·`recertification_request` — 쓰는 코드가 없는 고아 테이블(알려진 이슈 4). 백필하지 말고 별도 DROP 과제로 넘긴다.
+   - **제외 대상**: `users.grade_changed_at`(V135) — 처음부터 `timestamptz` + 엔티티 `Instant`. users 의 나머지 시각과 달리 백필·변환 대상이 아니다.
 2. BaseEntity·seoul 저장 코드의 Instant 전환 + TimeMapper 제거를 같은 릴리스에서.
 3. 백업 리허설 필수. 앱 릴리스와 마이그레이션 릴리스 분리 원칙(자동 롤백 호환성) 준수.
 4. **환경 분기는 Flyway placeholder 로 가드한다.** +9h 왜곡은 JVM=UTC 인 운영에만 쌓였고 dev/local(JVM=KST)의 같은 컬럼은 이미 정합이라, 모든 환경에 백필을 돌리면 개발 DB 가 오히려 −9h 로 오염된다. 그래서 V112·V113 은 `WHERE ${apply_tz_backfill}` 형태로 쓰고, 공통 `application.yml`·테스트 `application.yml` 은 `"false"`(no-op), `application-prod.yml` 만 `"true"` 로 둔다(레포 첫 placeholder 사용). Flyway 체크섬은 치환 전 원문 기준이라 환경 간 불일치가 생기지 않고, placeholder 를 정의하지 않은 환경은 부팅 단계에서 즉시 실패해 조용한 누락이 없다.

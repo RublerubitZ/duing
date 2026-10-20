@@ -56,7 +56,7 @@ class ProfileCheckRecordRollbackTest extends IntegrationTestBase {
     @DisplayName("확인 기록을 남기다 실패하면 같은 트랜잭션의 프로필 변경도 되돌아간다")
     void failedRecordRollsBackProfileChange() {
         User student = UserFixture.unique();
-        student.changeGrade(Grade.SOPHOMORE);
+        student.changeGrade(Grade.SOPHOMORE, UserFixture.PAST_GRADE_CHANGE);
         student = userRepository.save(student);
         String nameBefore = student.getName();
         doThrow(new IllegalStateException("기록 실패")).when(confirmationRecorder).record(anyLong(), any(Semester.class));

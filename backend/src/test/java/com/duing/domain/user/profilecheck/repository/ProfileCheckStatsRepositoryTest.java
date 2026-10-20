@@ -108,7 +108,7 @@ class ProfileCheckStatsRepositoryTest extends IntegrationTestBase {
 
     private User saveStudent(Grade grade) {
         User student = UserFixture.unique();
-        student.updateProfile(student.getName(), grade, null, null);
+        student.updateProfile(student.getName(), grade, null, null, UserFixture.PAST_GRADE_CHANGE);
         return userRepository.save(student);
     }
 
