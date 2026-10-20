@@ -14,6 +14,7 @@ import {
   loadProfileEditDialog,
   ProfileCheckPrompt,
   ProfileEditDialogUnavailable,
+  ProfileEditUnavailableContext,
 } from '@/app/_components/ProfileCheckPrompt';
 import { ToastProvider } from '@/app/_components/toast/ToastProvider';
 
@@ -98,24 +99,27 @@ describe('loadProfileEditDialog', () => {
 });
 
 describe('ProfileEditDialogUnavailable', () => {
-  it('닫힌 채로는 아무것도 하지 않고, 열리면 새로고침을 안내한 뒤 onClose 를 한 번 불러 팝업으로 돌아간다', () => {
+  it('닫힌 채로는 아무것도 하지 않고, 열리면 팝업 패널에 새로고침 안내를 올린 뒤 onClose 를 한 번 불러 팝업으로 돌아간다', () => {
     const onClose = vi.fn();
+    const showInPanel = vi.fn();
     const { rerender } = render(
-      <ToastProvider>
+      <ProfileEditUnavailableContext.Provider value={showInPanel}>
         <ProfileEditDialogUnavailable open={false} onClose={onClose} currentName="홍길동" currentGrade="SOPHOMORE" />
-      </ToastProvider>,
+      </ProfileEditUnavailableContext.Provider>,
     );
     // 팝업은 띄우기로 정한 순간부터 수정 창을 닫힌 채 그려 둔다 — 그때는 조용해야 한다.
-    expect(screen.queryByText(LOAD_FAILED_MESSAGE)).toBeNull();
+    expect(showInPanel).not.toHaveBeenCalled();
     expect(onClose).not.toHaveBeenCalled();
 
+    // 청크 실패 전에 눌렀든 뒤에 눌렀든 대체 컴포넌트가 열린 채 그려지는 순간 한 번 안내한다.
     rerender(
-      <ToastProvider>
+      <ProfileEditUnavailableContext.Provider value={showInPanel}>
         <ProfileEditDialogUnavailable open onClose={onClose} currentName="홍길동" currentGrade="SOPHOMORE" />
-      </ToastProvider>,
+      </ProfileEditUnavailableContext.Provider>,
     );
 
-    expect(screen.getByText(LOAD_FAILED_MESSAGE)).toBeInTheDocument();
+    expect(showInPanel).toHaveBeenCalledWith(LOAD_FAILED_MESSAGE);
+    expect(showInPanel).toHaveBeenCalledTimes(1);
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 });
@@ -150,7 +154,10 @@ describe('ProfileCheckPrompt — 수정 창 청크를 받지 못할 때(운영 n
 
     await user.click(within(popup).getByRole('button', { name: '정보 수정하기' }));
 
-    expect(await screen.findByText(LOAD_FAILED_MESSAGE)).toBeInTheDocument();
+    // 안내는 토스트가 아니라 팝업 패널 안 오류 문구다 — 모달이 열린 동안 바깥 토스트는 스크린리더가 못 읽고,
+    // 모바일에서 시트 버튼 자리를 덮어 누르면 바깥 클릭으로 팝업이 닫힌다.
+    expect(await within(popup).findByRole('alert')).toHaveTextContent(LOAD_FAILED_MESSAGE);
+    expect(screen.getAllByText(LOAD_FAILED_MESSAGE)).toHaveLength(1);
     expect(screen.getByRole('dialog', { name: TITLE })).toBeInTheDocument();
     expect(screen.queryByRole('dialog', { name: '프로필 수정' })).toBeNull();
     expect(screen.getByText('홈 화면')).toBeInTheDocument();

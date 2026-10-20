@@ -2,7 +2,7 @@
 
 import * as Sentry from '@sentry/nextjs';
 import dynamic from 'next/dynamic';
-import { useEffect, useRef, useState, type ComponentProps, type ComponentType } from 'react';
+import { createContext, useContext, useEffect, useRef, useState, type ComponentProps, type ComponentType } from 'react';
 
 import { ApiError } from '@duing/api';
 import { useConfirmProfileCheckMutation, useMeQuery, useProfileCheckQuery } from '@duing/hooks';
@@ -24,14 +24,21 @@ type ProfileEditDialogProps = ComponentProps<typeof ProfileEditDialog>;
 
 const EDIT_DIALOG_LOAD_FAILED_MESSAGE = '수정 화면을 불러오지 못했어요. 새로고침한 뒤 다시 시도해 주세요.';
 
-/** 수정 창 청크를 받지 못했을 때 그 자리에 그린다 — 열리면 새로고침을 안내하고 곧바로 팝업으로 돌아간다(팝업·페이지는 그대로). */
+/** 팝업 패널의 오류 문구 칸으로 가는 통로 — 팝업이 자기 setErrorMessage 를 건넨다. */
+export const ProfileEditUnavailableContext = createContext<(message: string) => void>(() => undefined);
+
+/**
+ * 수정 창 청크를 받지 못했을 때 그 자리에 그린다 — 열리면 팝업 패널에 새로고침을 안내하고 곧바로 팝업으로 돌아간다(팝업·페이지는
+ * 그대로). 토스트는 쓰지 않는다 — 모달이 열린 동안 바깥 토스트는 스크린리더가 못 읽고, 모바일에서 시트 버튼 자리를 덮어 누르면
+ * 바깥 클릭으로 팝업이 닫힌다.
+ */
 export function ProfileEditDialogUnavailable({ open, onClose }: ProfileEditDialogProps) {
-  const { addToast } = useToast();
+  const showInPanel = useContext(ProfileEditUnavailableContext);
   useEffect(() => {
     if (!open) return;
-    addToast(EDIT_DIALOG_LOAD_FAILED_MESSAGE, { variant: 'error' });
+    showInPanel(EDIT_DIALOG_LOAD_FAILED_MESSAGE);
     onClose();
-  }, [open, onClose, addToast]);
+  }, [open, onClose, showInPanel]);
   return null;
 }
 
@@ -234,15 +241,17 @@ export function ProfileCheckPrompt() {
       {/* 팝업 위에 겹쳐 연다(팝업은 열린 채) — 저장 성공은 서버가 확인으로 기록하므로 팝업을 바로 닫는다.
           띄우기로 정한 순간부터 닫힌 채로 그려 청크를 미리 받아 둔다 — "정보 수정하기" 를 누르면 지연 없이 열린다.
           학년은 제안 학년으로 채운다 — 현재 학년으로 열면 전공만 고쳐 저장해도 옛 학년으로 이번 학기 확인이 끝난다. */}
-      <ProfileEditDialogLazy
-        open={editOpen}
-        onClose={() => setEditOpen(false)}
-        onSaved={closeForDocument}
-        currentName={me.name}
-        currentGrade={shownStatus.suggestedGrade ?? me.grade}
-        currentCollege={me.college}
-        currentMajor={me.major}
-      />
+      <ProfileEditUnavailableContext.Provider value={setErrorMessage}>
+        <ProfileEditDialogLazy
+          open={editOpen}
+          onClose={() => setEditOpen(false)}
+          onSaved={closeForDocument}
+          currentName={me.name}
+          currentGrade={shownStatus.suggestedGrade ?? me.grade}
+          currentCollege={me.college}
+          currentMajor={me.major}
+        />
+      </ProfileEditUnavailableContext.Provider>
     </>
   );
 }
