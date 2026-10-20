@@ -4,16 +4,16 @@ import { act, renderHook, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { setupServer } from 'msw/node';
 import { http, HttpResponse } from 'msw';
-import { createApiClient } from '@duing/api';
-import type { AdminProfileCheck, UpdateAdminProfileCheckPayload } from '@duing/types';
+import { ApiError, createApiClient } from '@duing/api';
+import type { AdminProfileCheck } from '@duing/types';
 import { ApiClientProvider } from '../src/api-context';
 import {
   ProfileCheckSemesterChangedError,
   useAdminProfileCheckQuery,
   useUpdateAdminProfileCheckMutation,
+  type UpdateAdminProfileCheckVariables,
 } from '../src/adminProfileCheck';
 import { adminQueryKeys } from '../src/adminQueryKeys';
-import { shouldRetryQuery } from '../src/retry';
 
 const apiClient = createApiClient({ baseUrl: 'http://localhost:8080/api/v1' });
 
@@ -42,7 +42,7 @@ const PROFILE_CHECK: AdminProfileCheck = {
 
 // 서버가 돌려줄 설정 — 학기 경계를 넘기는 테스트가 바꾼다.
 let serverProfileCheck: AdminProfileCheck = PROFILE_CHECK;
-// 요청 순서 — 저장 직전 확인용 GET 과 저장 뒤 재조회 GET 이 PUT 앞뒤로 오는지 본다.
+// 요청 순서 — 저장이 PUT 하나이고, 저장 뒤(또는 학기 바뀜 거절 뒤) 재조회 GET 이 PUT 뒤에 오는지 본다.
 let requestLog: string[] = [];
 let lastPutBody: unknown = null;
 
@@ -99,12 +99,12 @@ describe('useAdminProfileCheckQuery', () => {
 });
 
 describe('useUpdateAdminProfileCheckMutation', () => {
-  it('학기가 그대로면 저장 직전에 설정을 다시 받아 확인한 뒤 PUT 하고, 설정을 다시 받은 뒤에 끝난다', async () => {
+  it('켜는 저장은 화면이 본 학기를 함께 보내 PUT 하나로 저장하고, 설정을 다시 받은 뒤에 끝난다', async () => {
     const { result } = renderSettingsHooks();
     await waitFor(() => expect(result.current.profileCheckQuery.isSuccess).toBe(true));
     expect(requestLog).toEqual(['GET']);
 
-    const payload: UpdateAdminProfileCheckPayload = {
+    const payload: UpdateAdminProfileCheckVariables['payload'] = {
       title: '새 제목',
       message: '새 문구',
       enabled: true,
@@ -119,85 +119,82 @@ describe('useUpdateAdminProfileCheckMutation', () => {
       requestLogAtSave = [...requestLog];
     });
 
-    expect(lastPutBody).toEqual(payload);
-    // 처음 GET → 저장 직전 확인용 GET → PUT → 재조회 GET. 무효화를 기다리므로 저장이 끝난 시점에 재조회가 이미 끝나 있다 —
+    // 서버가 저장과 같은 순간에 오늘 학기와 견주도록 화면이 본 학기를 본문에 함께 싣는다.
+    expect(lastPutBody).toEqual({ ...payload, currentSemesterYear: 2027, currentSemesterTerm: 1 });
+    // 처음 GET → PUT → 재조회 GET. 저장 직전 확인 조회가 없고, 무효화를 기다리므로 저장이 끝난 시점에 재조회가 이미 끝나 있다 —
     // 화면이 이 뒤에 초안을 비워도 옛 값이 비치지 않는다.
-    expect(requestLogAtSave).toEqual(['GET', 'GET', 'PUT', 'GET']);
+    expect(requestLogAtSave).toEqual(['GET', 'PUT', 'GET']);
   });
 
-  it('화면을 그린 뒤 학기가 바뀌었으면 PUT 하지 않고 전용 오류로 끝나며, 다시 받은 설정이 캐시를 갱신한다', async () => {
+  it('서버가 학기 바뀜(409)으로 거절하면 최신 설정을 다시 받은 뒤 ProfileCheckSemesterChangedError 다', async () => {
     serverProfileCheck = { ...PROFILE_CHECK, enabled: true };
     const { queryClient, result } = renderSettingsHooks();
     await waitFor(() => expect(result.current.profileCheckQuery.isSuccess).toBe(true));
     // 8/31 에 켜 둔 화면을 9/1 에 저장한다 — 서버의 오늘 학기는 2학기가 됐고 1학기 팝업은 기간이 끝나 꺼졌다.
     serverProfileCheck = { ...PROFILE_CHECK, enabled: false, currentSemesterTerm: 2 };
-
-    await act(async () => {
-      await expect(
-        result.current.updateMutation.mutateAsync({
-          payload: { title: PROFILE_CHECK.title, message: '고친 문구', enabled: true },
-          expectedSemester: { currentSemesterYear: 2027, currentSemesterTerm: 1 },
-        }),
-      ).rejects.toBeInstanceOf(ProfileCheckSemesterChangedError);
-    });
-
-    // enabled:true 가 가면 아무도 다시 켜지 않았는데 서버가 새 학기 팝업을 시작한다(스펙 D7).
-    expect(requestLog).toEqual(['GET', 'GET']);
-    expect(lastPutBody).toBeNull();
-    expect(queryClient.getQueryData(adminQueryKeys.profileCheck())).toEqual(serverProfileCheck);
-  });
-
-  it('끄는 저장은 학기가 바뀌었어도 확인 조회 없이 PUT 하고, 설정을 다시 받은 뒤에 끝난다', async () => {
-    serverProfileCheck = { ...PROFILE_CHECK, enabled: true };
-    const { result } = renderSettingsHooks();
-    await waitFor(() => expect(result.current.profileCheckQuery.isSuccess).toBe(true));
-    // 8/31 에 켜 둔 화면에서 9/1 에 끈다 — 끄기는 학기를 기록하지 않아(서버가 학기 칸을 그대로 둔다) 막을 이유가 없다.
-    serverProfileCheck = { ...PROFILE_CHECK, enabled: false, currentSemesterTerm: 2 };
-    const payload: UpdateAdminProfileCheckPayload = {
-      title: PROFILE_CHECK.title,
-      message: PROFILE_CHECK.message,
-      enabled: false,
-    };
-
-    let requestLogAtSave: string[] = [];
-    await act(async () => {
-      await result.current.updateMutation.mutateAsync({
-        payload,
-        expectedSemester: { currentSemesterYear: 2027, currentSemesterTerm: 1 },
-      });
-      requestLogAtSave = [...requestLog];
-    });
-
-    expect(lastPutBody).toEqual(payload);
-    // 처음 GET → PUT → 재조회 GET — 확인용 GET 이 없고, 재조회가 끝난 뒤에 저장이 끝난다.
-    expect(requestLogAtSave).toEqual(['GET', 'PUT', 'GET']);
-  });
-
-  it('켜는 저장의 확인 조회가 실패하면 다시 시도하지 않고 PUT 없이 바로 끝난다', async () => {
-    // 앱 전역 재시도 정책(providers.tsx)으로 돌린다 — 대기 없이 재시도하게 해 두 번째 요청이 나가면 바로 드러나게 한다.
-    const { result } = renderSettingsHooks(
-      new QueryClient({
-        defaultOptions: { queries: { retry: shouldRetryQuery, retryDelay: 0 }, mutations: { retry: false } },
+    server.use(
+      http.put('*/admin/profile-check', () => {
+        requestLog.push('PUT');
+        return HttpResponse.json(
+          {
+            ok: false,
+            data: null,
+            message: '학기가 바뀌었습니다. 최신 설정을 확인한 뒤 다시 저장해 주세요.',
+            code: 'PROFILE_CHECK_SEMESTER_CHANGED',
+          },
+          { status: 409 },
+        );
       }),
     );
+
+    // 거부되는 순간의 기록·캐시를 잡는다 — act 는 끝나기 전에 남은 재조회를 흘려보내, act 뒤에 보면 무효화를 기다리지 않는
+    // 구현도 통과한다.
+    let rejection: unknown = null;
+    let requestLogAtReject: string[] = [];
+    let cachedAtReject: unknown = undefined;
+    await act(async () => {
+      try {
+        await result.current.updateMutation.mutateAsync({
+          payload: { title: PROFILE_CHECK.title, message: '고친 문구', enabled: true },
+          expectedSemester: { currentSemesterYear: 2027, currentSemesterTerm: 1 },
+        });
+      } catch (error) {
+        rejection = error;
+        requestLogAtReject = [...requestLog];
+        cachedAtReject = queryClient.getQueryData(adminQueryKeys.profileCheck());
+      }
+    });
+    expect(rejection).toBeInstanceOf(ProfileCheckSemesterChangedError);
+    // 처음 GET → 거절된 PUT → 최신 설정 재조회 GET. 화면은 알림을 받기 전에 이미 새 학기로 다시 그려진다.
+    expect(requestLogAtReject).toEqual(['GET', 'PUT', 'GET']);
+    expect(cachedAtReject).toEqual(serverProfileCheck);
+  });
+
+  it('그 밖의 실패(500)는 그대로 ApiError 이고 설정을 다시 받지 않는다', async () => {
+    const { result } = renderSettingsHooks();
     await waitFor(() => expect(result.current.profileCheckQuery.isSuccess).toBe(true));
     server.use(
-      http.get('*/admin/profile-check', () => {
-        requestLog.push('GET');
+      http.put('*/admin/profile-check', () => {
+        requestLog.push('PUT');
         return HttpResponse.json({ ok: false, data: null, message: '일시적인 오류입니다.' }, { status: 500 });
       }),
     );
 
+    let rejection: unknown = null;
+    let requestLogAtReject: string[] = [];
     await act(async () => {
-      await expect(
-        result.current.updateMutation.mutateAsync({
+      try {
+        await result.current.updateMutation.mutateAsync({
           payload: { title: PROFILE_CHECK.title, message: '고친 문구', enabled: true },
           expectedSemester: { currentSemesterYear: 2027, currentSemesterTerm: 1 },
-        }),
-      ).rejects.toMatchObject({ status: 500 });
+        });
+      } catch (error) {
+        rejection = error;
+        requestLogAtReject = [...requestLog];
+      }
     });
-
-    expect(requestLog).toEqual(['GET', 'GET']);
-    expect(lastPutBody).toBeNull();
+    expect(rejection).toBeInstanceOf(ApiError);
+    expect(rejection).toMatchObject({ status: 500 });
+    expect(requestLogAtReject).toEqual(['GET', 'PUT']);
   });
 });

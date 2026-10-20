@@ -336,7 +336,7 @@ export type AdminApi = {
   profileCheck: {
     // GET /admin/profile-check — 설정 + 확인 현황(설정 행이 없으면 서버가 기본 문구·OFF 로 채운다).
     get(): Promise<AdminProfileCheck>;
-    // PUT /admin/profile-check — 제목·문구·노출 여부 저장(204). 켜면 오늘의 학기가 대상이 된다.
+    // PUT /admin/profile-check — 제목·문구·노출 여부 저장(204). 켜면 오늘의 학기가 대상이 된다. 화면이 본 학기와 서버의 오늘 학기가 다르면 켜는 저장은 409.
     update(payload: UpdateAdminProfileCheckPayload): Promise<void>;
   };
 };
