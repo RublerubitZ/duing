@@ -1,6 +1,8 @@
 package com.duing.domain.user.profilecheck.controller.dto.request;
 
 import com.duing.domain.user.profilecheck.service.dto.command.UpdateProfileCheckSettingCommand;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
@@ -16,7 +18,14 @@ public record UpdateProfileCheckSettingRequest(
 
         // 누락을 false 로 채우면 문구만 고치려던 저장이 팝업을 끈다 — 박스 타입 + @NotNull 로 400.
         @NotNull(message = "노출 여부는 필수 입력값입니다.")
-        Boolean enabled
+        Boolean enabled,
+
+        // 화면이 GET 에서 받은 "오늘 학기" — 켜는 저장이면 서버의 오늘 학기와 대조한다(다르면 409). 옛 콘솔은 보내지 않는다(선택).
+        Integer currentSemesterYear,
+
+        @Min(value = 1, message = "학기는 1 또는 2 여야 합니다.")
+        @Max(value = 2, message = "학기는 1 또는 2 여야 합니다.")
+        Integer currentSemesterTerm
 ) {
     // 앞뒤 공백은 저장 전에 제거한다 — 역직렬화 직후(검증 전) 실행되므로 @NotBlank·@Size 도 strip 값 기준이다.
     public UpdateProfileCheckSettingRequest {
@@ -29,6 +38,7 @@ public record UpdateProfileCheckSettingRequest(
     }
 
     public UpdateProfileCheckSettingCommand toCommand(Long actorId) {
-        return new UpdateProfileCheckSettingCommand(actorId, title, message, enabled);
+        return new UpdateProfileCheckSettingCommand(
+                actorId, title, message, enabled, currentSemesterYear, currentSemesterTerm);
     }
 }

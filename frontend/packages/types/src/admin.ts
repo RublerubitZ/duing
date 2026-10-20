@@ -534,4 +534,7 @@ export type UpdateAdminProfileCheckPayload = {
   title: string;
   message: string;
   enabled: boolean;
+  /** 화면이 GET 에서 받은 오늘 학기 — 서버가 켜는 저장에서 오늘 학기와 대조해 다르면 409(PROFILE_CHECK_SEMESTER_CHANGED). */
+  currentSemesterYear: number;
+  currentSemesterTerm: number;
 };

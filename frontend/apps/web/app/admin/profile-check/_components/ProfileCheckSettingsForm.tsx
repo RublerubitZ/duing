@@ -70,7 +70,7 @@ export function ProfileCheckSettingsForm({ profileCheck }: { profileCheck: Admin
     updateMutation.mutate(
       {
         payload: { title: title.trim(), message: message.trim(), enabled },
-        // 노출 여부는 처음 불러온 값일 수 있다 — 켜는 저장인데 학기 경계를 넘겨 열어 둔 화면이면 훅이 저장하지 않는다(스펙 D7).
+        // 노출 여부는 처음 불러온 값일 수 있다 — 켜는 저장인데 학기 경계를 넘겨 열어 둔 화면이면 서버가 저장하지 않는다(409, 스펙 D7).
         expectedSemester: {
           currentSemesterYear: profileCheck.currentSemesterYear,
           currentSemesterTerm: profileCheck.currentSemesterTerm,

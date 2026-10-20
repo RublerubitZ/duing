@@ -2,6 +2,7 @@ package com.duing.domain.user.profilecheck.service;
 
 import com.duing.domain.user.profilecheck.entity.ProfileCheckSetting;
 import com.duing.domain.user.profilecheck.entity.Semester;
+import com.duing.domain.user.profilecheck.exception.ProfileCheckException;
 import com.duing.domain.user.profilecheck.repository.ProfileCheckSettingRepository;
 import com.duing.domain.user.profilecheck.repository.ProfileCheckStatsRepositoryCustom;
 import com.duing.domain.user.profilecheck.service.dto.command.UpdateProfileCheckSettingCommand;
@@ -40,12 +41,26 @@ public class GeneralAdminProfileCheckService implements AdminProfileCheckService
     @Override
     @Transactional
     public void update(UpdateProfileCheckSettingCommand command) {
+        // 오늘 학기는 한 번만 계산해 대조와 기록에 같이 쓴다 — 시계를 두 번 읽으면 그 사이(3/1·9/1 0시)가 새 틈이 된다.
+        Semester today = Semester.current(clock);
+        // 선삽입보다 먼저 대조한다 — 설정 행이 없을 때의 409 도 행을 만들지 않는다. 끄기는 학기를 기록하지 않아 대조하지 않는다.
+        if (command.enabled() && isRenderedInAnotherSemester(command, today)) {
+            throw new ProfileCheckException.ProfileCheckSemesterChangedException();
+        }
         // 행이 없을 때 FOR UPDATE 는 아무것도 잠그지 않는다 — 선삽입(ON CONFLICT DO NOTHING) 뒤 행잠금으로 첫 저장 경합을 줄 세운다.
         settingRepository.insertIfAbsent(ProfileCheckSetting.SINGLETON_ID,
                 ProfileCheckSetting.DEFAULT_TITLE, ProfileCheckSetting.DEFAULT_MESSAGE, command.actorId());
         ProfileCheckSetting setting = settingRepository.findByIdForUpdate(ProfileCheckSetting.SINGLETON_ID)
                 .orElseThrow(() -> new IllegalStateException("profile_check_setting 선삽입 뒤에 행이 없습니다."));
         setting.update(command.title(), command.message(), command.enabled(),
-                Semester.current(clock), command.actorId(), Instant.now(clock));
+                today, command.actorId(), Instant.now(clock));
+    }
+
+    // 화면이 본 학기를 보내지 않은 요청(옛 콘솔)은 대조하지 않는다 — 옛 콘솔은 저장 직전 GET 으로 스스로 막는다.
+    private static boolean isRenderedInAnotherSemester(UpdateProfileCheckSettingCommand command, Semester today) {
+        if (command.currentSemesterYear() == null || command.currentSemesterTerm() == null) {
+            return false;
+        }
+        return command.currentSemesterYear() != today.year() || command.currentSemesterTerm() != today.term();
     }
 }
