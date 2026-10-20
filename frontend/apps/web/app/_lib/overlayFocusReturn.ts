@@ -68,6 +68,8 @@ export function useOverlayFocusReturn({ onOpenAutoFocus, onCloseAutoFocus }: Aut
         remembered.container === event.target &&
         // 사라진 자리로는 막지 않는다 — Trigger 가 있으면 Radix 가 Trigger 로 되돌린다.
         remembered.element.isConnected &&
+        // 다른 모달이 열려 가려진 자리(Radix hideOthers 의 aria-hidden 아래)로는 되돌리지 않는다 — 포커스가 그 창 뒤로 간다.
+        remembered.element.closest('[aria-hidden="true"]') === null &&
         (activeElement === null || activeElement === document.body) &&
         !opensInputUiOnFocus(remembered.element)
       ) {

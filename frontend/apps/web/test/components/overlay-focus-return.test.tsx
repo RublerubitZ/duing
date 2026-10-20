@@ -172,6 +172,45 @@ function StackedPage({ Overlay }: { Overlay: ComponentType<OverlayProps> }) {
   );
 }
 
+// 넘겨주기 — 매개 래퍼 창 A 안의 "다음"이 A 를 닫고 같은 처리에서 다른 래퍼 인스턴스의 Dialog B 를 연다.
+// B 소비처는 열림 자동 포커스를 막기만 한다(포커스를 옮기지 않음).
+function HandoffPage({
+  Overlay,
+  onCloseAutoFocus,
+}: {
+  Overlay: ComponentType<OverlayProps>;
+  onCloseAutoFocus: (event: Event) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [nextOpen, setNextOpen] = useState(false);
+  return (
+    <>
+      <button type="button" onClick={() => setOpen(true)}>
+        열기
+      </button>
+      <Overlay open={open} onOpenChange={setOpen} onCloseAutoFocus={onCloseAutoFocus}>
+        <button
+          type="button"
+          onClick={() => {
+            setOpen(false);
+            setNextOpen(true);
+          }}
+        >
+          다음
+        </button>
+      </Overlay>
+      <Dialog open={nextOpen} onOpenChange={setNextOpen}>
+        <DialogContent
+          aria-describedby={undefined}
+          onOpenAutoFocus={(event) => event.preventDefault()}
+        >
+          <DialogTitle>다음 창</DialogTitle>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
+
 // 키보드(Enter·Space)나 포커스를 옮기는 클릭으로 연다 — 열기 직전 포커스가 그 버튼이다.
 function focusAndClick(element: HTMLElement) {
   element.focus();
@@ -361,15 +400,18 @@ describe.each([
   // 고치기 전에도 통과하는 울타리 — 같은 창이 닫히자마자 같은 처리 안에서 다시 열리면 옛 닫힘(setTimeout(0))이 새 열림 뒤에
   // 온다. 컨테이너 짝(지키는 것 5)이 없으면 그 닫힘이 새 열림의 기억(열기 버튼)으로 되돌려, 포커스가 다시 열린 모달 뒤의
   // 요소로 간다(되돌리지 않음보다 나쁨). 소비처가 열림 자동 포커스를 막기만 해 포커스가 창 안으로 들어가지 않고, 옛 닫힘
-  // 전에 포커스가 body 로 빠져야 지키는 것 2 가 먼저 막지 않는다 — 그래서 열기 버튼을 blur 한다.
+  // 전에 포커스가 body 로 빠져야 지키는 것 2 가 먼저 막지 않는다 — 그래서 열기 버튼을 blur 한다. 페이지는 aria-live 영역에
+  // 둔다 — Radix hideOthers 는 aria-live 를 가리지 않아, 가려진 자리 확인((l))이 먼저 막지 않고 컨테이너 짝만 이 경합을 막는다.
   it('(k) 같은 창이 닫히자마자 다시 열리면 옛 닫힘은 새 열림의 기억으로 되돌리지 않는다', async () => {
     const closeSpy = vi.fn();
     render(
-      <Page
-        Overlay={Overlay}
-        onOpenAutoFocus={(event) => event.preventDefault()}
-        onCloseAutoFocus={closeSpy}
-      />,
+      <div aria-live="polite">
+        <Page
+          Overlay={Overlay}
+          onOpenAutoFocus={(event) => event.preventDefault()}
+          onCloseAutoFocus={closeSpy}
+        />
+      </div>,
     );
     const opener = screen.getByRole('button', { name: '열기' });
 
@@ -381,6 +423,23 @@ describe.each([
 
     await waitFor(() => expect(closeSpy).toHaveBeenCalledTimes(1));
     expect(screen.getByRole('dialog')).toBeInTheDocument();
+    expect(document.activeElement).toBe(document.body);
+  });
+
+  // 고치기 전에도 통과하는 울타리 — 창이 닫히며 같은 처리에서 다른 창(B)을 열고 B 가 포커스를 옮기지 않으면, 닫히는 순간
+  // 포커스가 body 라 지키는 것 2 가 막지 못한다. 그때 열기 버튼은 열린 B 가 가린(Radix hideOthers 의 aria-hidden 아래) 자리라,
+  // 되돌리면 포커스가 열려 있는 모달 B 뒤로 간다 — 가려진 자리로는 되돌리지 않는다.
+  it('(l) 닫히며 다른 창을 열면, 그 창에 가려진 열기 버튼으로 되돌리지 않는다', async () => {
+    const closeSpy = vi.fn();
+    render(<HandoffPage Overlay={Overlay} onCloseAutoFocus={closeSpy} />);
+    const opener = screen.getByRole('button', { name: '열기' });
+
+    focusAndClick(opener);
+    expectFocusInsideDialog();
+    fireEvent.click(screen.getByRole('button', { name: '다음' }));
+
+    await waitFor(() => expect(closeSpy).toHaveBeenCalledTimes(1));
+    expect(screen.getByRole('dialog', { name: '다음 창' })).toBeInTheDocument();
     expect(document.activeElement).toBe(document.body);
   });
 });
