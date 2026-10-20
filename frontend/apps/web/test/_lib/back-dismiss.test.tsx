@@ -1188,4 +1188,23 @@ describe('사용자 조작 전 기록 미루기', () => {
     expect(closeSpy.mock.calls.flat()).toEqual(['a']);
     expect(window.history.state).toEqual({ marker: 'page' });
   });
+
+  it('조작 전에 페이지 엔트리의 state·주소가 바뀌어도, 첫 조작 때 쌓는 기록은 그때의 state 를 싣는다', async () => {
+    render(<Overlay name="a" />);
+    // 조작 전 쿼리 동기화·refresh 흉내 — 미룬 동안에는 페이지 엔트리에 그대로 들어간다.
+    window.history.replaceState({ marker: 'page2', __NA: true }, '', '/test-page?q=2');
+
+    activated = true;
+    fireEvent.pointerUp(document.body);
+    expect(window.history.state).toEqual({
+      marker: 'page2',
+      __NA: true,
+      __overlayToken: expect.any(String),
+      __overlayId: expect.any(Number),
+    });
+
+    await pressBack();
+    expect(window.history.state).toEqual({ marker: 'page2', __NA: true });
+    expect(window.location.search).toBe('?q=2');
+  });
 });
