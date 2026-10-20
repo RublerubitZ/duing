@@ -49,7 +49,8 @@ public class GeneralProfileCheckService implements ProfileCheckService {
                 user.getGrade(),
                 user.getCollege(),
                 user.getMajor(),
-                ProfileCheckPolicy.suggestedGrade(user.getGrade(), user.getCreatedAt(), today));
+                ProfileCheckPolicy.suggestedGrade(
+                        user.getGrade(), user.getCreatedAt(), user.getGradeChangedAt(), today));
     }
 
     @Override
@@ -71,11 +72,12 @@ public class GeneralProfileCheckService implements ProfileCheckService {
             throw new ProfileCheckException.ProfileCheckClosedException();
         }
         if (command.grade() != null) {
-            Grade suggestedGrade = ProfileCheckPolicy.suggestedGrade(user.getGrade(), user.getCreatedAt(), today);
+            Grade suggestedGrade = ProfileCheckPolicy.suggestedGrade(
+                    user.getGrade(), user.getCreatedAt(), user.getGradeChangedAt(), today);
             if (command.grade() != suggestedGrade) {
                 throw new ProfileCheckException.InvalidProfileCheckGradeException();
             }
-            user.changeGrade(command.grade());
+            user.changeGrade(command.grade(), clock.instant());
         }
         confirmationRecorder.record(user.getId(), today);
     }

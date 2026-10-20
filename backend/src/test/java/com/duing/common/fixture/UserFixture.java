@@ -4,10 +4,17 @@ import com.duing.domain.user.entity.College;
 import com.duing.domain.user.entity.Grade;
 import com.duing.domain.user.entity.User;
 import com.duing.domain.user.entity.UserRole;
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.concurrent.atomic.AtomicLong;
 
 public final class UserFixture {
+
+    /**
+     * 학년을 바꾼 시각이 필요한 픽스처용 — 2026-01-01(서울) 이전이라 1학기 학년 제안을 막지 않는다(grade_changed_at 함정).
+     * 제안을 기대하는 테스트는 이 값을 쓰고, 겨울방학 예외를 보는 테스트만 그 이후 시각을 쓴다.
+     */
+    public static final Instant PAST_GRADE_CHANGE = Instant.parse("2025-09-01T03:00:00Z");
 
     // studentId 가 호출마다 유일하도록 nanoTime 기반 시퀀스를 둔다(기존 인라인 saveUser 전례).
     private static final AtomicLong SEQUENCE = new AtomicLong(System.nanoTime());

@@ -303,7 +303,7 @@ public class GeneralUserService implements UserService {
                 .orElseThrow(UserException.UserNotFoundException::new);
         String previousName = user.getName();
         user.updateProfile(updateProfileCommand.name(), updateProfileCommand.grade(),
-                updateProfileCommand.college(), updateProfileCommand.major());
+                updateProfileCommand.college(), updateProfileCommand.major(), clock.instant());
         // 학기 중 프로필 저장은 ON/OFF 와 무관하게 그 학기 정보 확인으로 기록한다 — 이미 새 학년으로 고친 사람에게
         // 확인 팝업이 +1 을 다시 제안해 학년이 두 번 오르는 경로를 막는다. 같은 트랜잭션이라 저장이 실패하면 기록도 없다.
         profileCheckConfirmationRecorder.record(user.getId(), Semester.current(clock));

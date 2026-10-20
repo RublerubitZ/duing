@@ -7,6 +7,7 @@ import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.Table;
 import java.time.Duration;
+import java.time.Instant;
 import java.time.LocalDateTime;
 import lombok.AccessLevel;
 import lombok.Builder;
@@ -82,6 +83,13 @@ public class User extends BaseEntity {
     /** 관리자 내부 메모 — 사용자에게 절대 노출하지 않는다(ADMIN 전용 응답에만 포함). */
     @Column(name = "admin_note", columnDefinition = "TEXT")
     private String adminNote;
+
+    /**
+     * 학년이 실제로 바뀐 마지막 시각(V135). 1학기 학년 제안이 그해 1월 1일(서울) 이후 바꾼 회원을 뺀다 — 1~2월에 미리 올린
+     * 학년에 3월 팝업이 한 학년을 더 올리라고 권하지 않게. null 은 기록 없음(기존 회원·가입 뒤 학년 미변경).
+     */
+    @Column(name = "grade_changed_at")
+    private Instant gradeChangedAt;
 
     @Builder(access = AccessLevel.PRIVATE)
     private User(
@@ -183,12 +191,12 @@ public class User extends BaseEntity {
 
     /**
      * 프로필(이름·학년·단과대학·전공)을 수정한다. 학번·전화번호는 변경 대상이 아니다(번호 변경은 MO 재인증 필요).
-     * 학년·단과대학·전공은 선택값으로, null 전달 시 각각 기존 값을 유지한다.
+     * 학년·단과대학·전공은 선택값으로, null 전달 시 각각 기존 값을 유지한다. 학년이 실제로 바뀌면 {@code now} 를 남긴다.
      */
-    public void updateProfile(String name, Grade grade, College college, String major) {
+    public void updateProfile(String name, Grade grade, College college, String major, Instant now) {
         this.name = name;
         if (grade != null) {       // 학년은 선택 — 전달되지 않으면(null) 기존 값을 유지한다
-            this.grade = grade;
+            changeGrade(grade, now);
         }
         if (college != null) {     // 단과대학은 선택 — 전달되지 않으면(null) 기존 값을 유지한다
             this.college = college;
@@ -199,11 +207,16 @@ public class User extends BaseEntity {
     }
 
     /**
-     * 학기 정보 확인에서 사용자가 수락한 학년으로 바꾼다 — 이름·단과대학·전공은 건드리지 않는다
-     * (확인하지 않은 정보를 바꾸지 않는다). @DynamicUpdate 라 grade(와 감사 updated_at) 컬럼만 UPDATE 된다.
+     * 학년을 바꾼다 — 이름·단과대학·전공은 건드리지 않는다(학기 정보 확인의 학년 올림은 확인하지 않은 정보를 바꾸지 않는다).
+     * 값이 실제로 바뀔 때만 바꾼 시각을 남긴다 — 수정 창은 늘 학년을 함께 보내므로, 같은 학년 저장이 시각을 찍으면
+     * 1~2월에 전공만 고친 회원까지 3월 제안을 잃는다. @DynamicUpdate 라 바뀐 칼럼만 UPDATE 된다.
      */
-    public void changeGrade(Grade grade) {
+    public void changeGrade(Grade grade, Instant now) {
+        if (this.grade == grade) {
+            return;
+        }
         this.grade = grade;
+        this.gradeChangedAt = now;
     }
 
     /** 비밀번호 해시를 교체한다. 인코딩은 호출 측(서비스)에서 책임진다. */

@@ -122,7 +122,7 @@ class ProfileCheckRecordingTest extends IntegrationTestBase {
 
     private User saveStudent(Grade grade) {
         User student = UserFixture.unique();
-        student.changeGrade(grade);
+        student.changeGrade(grade, UserFixture.PAST_GRADE_CHANGE);
         return userRepository.save(student);
     }
 

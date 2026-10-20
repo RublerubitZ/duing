@@ -64,7 +64,7 @@ class UserDynamicUpdateRaceTest extends IntegrationTestBase {
 
         Future<?> renameOutcome = executor.submit(() -> transactionTemplate.executeWithoutResult(transactionStatus -> {
             User unlockedUser = userRepository.findById(target.getId()).orElseThrow();
-            unlockedUser.updateProfile(UPDATED_NAME, null, null, null);
+            unlockedUser.updateProfile(UPDATED_NAME, null, null, null, UserFixture.PAST_GRADE_CHANGE);
             loadedWithoutLock.countDown();
             awaitOrThrow(suspendCommitted);
         }));
