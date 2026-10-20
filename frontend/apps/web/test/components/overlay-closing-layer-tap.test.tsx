@@ -13,7 +13,7 @@ import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
  * 차단이 풀린 아래 레이어가 그 탭을 바깥 탭으로 받았다.
  */
 type LowerKind = 'sheet' | 'dialog';
-type UpperKind = 'none' | 'raw' | 'shared';
+type UpperKind = 'none' | 'raw' | 'shared' | 'conditional';
 
 type HarnessProps = {
   lower: LowerKind;
@@ -56,7 +56,8 @@ function LowerLayer({ lower, seenPrevented, onLowerOpenChange }: HarnessProps) {
 function UpperLayer({ upper, upperOpen, upperSeenPrevented, onUpperOpenChange }: HarnessProps) {
   if (upper === 'none') return null;
   if (upper === 'shared') {
-    // 공용 Dialog 는 jsdom 에 애니메이션이 없어 닫으면 바로 빠진다 — 떨어진 노드 경로.
+    // 공용 Dialog 는 jsdom 에 애니메이션이 없어 닫으면 바로 빠진다. Presence 로 내려간 레이어라 떨어져도
+    // data-state="closed" 가 남아 헬퍼의 closest 줄로도 잡힌다(떨어진 노드 분기는 (c′) 가 고정한다).
     // 이 래퍼의 판정도 아래와 같은 방식으로 upperSeenPrevented 에 쌓는다((f′) 가 본다).
     return (
       <Dialog open={upperOpen} onOpenChange={onUpperOpenChange}>
@@ -64,6 +65,19 @@ function UpperLayer({ upper, upperOpen, upperSeenPrevented, onUpperOpenChange }:
           aria-describedby={undefined}
           onPointerDownOutside={(event) => upperSeenPrevented.push(event.defaultPrevented)}
         >
+          <DialogTitle>정보 수정</DialogTitle>
+          <button type="button">취소</button>
+        </DialogContent>
+      </Dialog>
+    );
+  }
+  if (upper === 'conditional') {
+    // 열린 채 조건부로 언마운트되는 위 레이어 — 관리자 예약 상세의 처리 확인 창 모양
+    // (`{activeAction !== null && <BookingActionDialog open … />}`).
+    if (!upperOpen) return null;
+    return (
+      <Dialog open onOpenChange={onUpperOpenChange}>
+        <DialogContent aria-describedby={undefined}>
           <DialogTitle>정보 수정</DialogTitle>
           <button type="button">취소</button>
         </DialogContent>
@@ -173,6 +187,23 @@ describe('겹친 오버레이 — 닫히는 위 다이얼로그에서 시작한 
     expect(onLowerOpenChange).not.toHaveBeenCalled();
   });
 
+  // 떨어진 노드 분기를 직접 고정한다 — 떨어진 서브트리가 data-state="open" 으로 남아 closest 줄로는 못 잡는다.
+  // (c) 는 closest 줄로도 잡혀 이 분기를 지켜 주지 못한다.
+  it('(c′) 아래 시트는 열린 채 언마운트된 위 공용 다이얼로그의 "취소" 탭으로 닫히지 않는다', async () => {
+    const { seenPrevented, onLowerOpenChange, closeUpper } = await renderLayers(
+      'sheet',
+      'conditional',
+    );
+
+    const cancel = touchCancelWhileUpperCloses(closeUpper);
+    expect(cancel.isConnected).toBe(false);
+    expect(cancel.closest('[role="dialog"]')).toHaveAttribute('data-state', 'open');
+    fireEvent.click(document.body);
+
+    expect(seenPrevented).toEqual([true]);
+    expect(onLowerOpenChange).not.toHaveBeenCalled();
+  });
+
   it('(d) 위 레이어가 없으면 아래 시트 바깥 터치로 닫힌다', async () => {
     const { seenPrevented, onLowerOpenChange } = await renderLayers('sheet', 'none');
 
@@ -204,7 +235,7 @@ describe('겹친 오버레이 — 닫히는 위 다이얼로그에서 시작한 
   });
 
   // (f) 의 위는 원시 Dialog 라 래퍼 가드를 타지 않는다. 여기서는 위가 공용 래퍼일 때 가드가 그 레이어 자신의 진짜
-  // 바깥 탭을 잘못 막지 않는지 고정한다 — develop 래퍼에서도 통과하는 회귀 울타리다. 공용 DialogContent 의 스크림은
+  // 바깥 탭을 잘못 막지 않는지 고정한다 — 가드가 없는 래퍼에서도 통과하는 회귀 울타리다. 공용 DialogContent 의 스크림은
   // 잡을 손잡이가 없어, 스크림처럼 열린 모달의 바깥인 document.body 를 터치한다(아래 시트는 위가 열려 있어 판정을 건너뛴다).
   it('(f′) 위가 공용 다이얼로그여도 열린 위 레이어의 바깥(스크림)을 터치하면 위만 닫히고 아래는 남는다', async () => {
     const { upperSeenPrevented, onLowerOpenChange, onUpperOpenChange } = await renderLayers(
@@ -219,6 +250,23 @@ describe('겹친 오버레이 — 닫히는 위 다이얼로그에서 시작한 
     expect(onUpperOpenChange).toHaveBeenCalledTimes(1);
     expect(onUpperOpenChange).toHaveBeenCalledWith(false);
     expect(onLowerOpenChange).not.toHaveBeenCalled();
+  });
+
+  // 닫힘 연출 중인 위의 스크림(role 없음)을 다시 탭하면 아래가 닫힌다 — 두 스크림이 겹쳐 있어 의도된 바깥 탭이다(스펙 §5-3).
+  // 문서에 닫히는 다이얼로그가 있어도 탭이 그 안에서 시작하지 않았으면 막지 않는다는 대상 특정성도 함께 고정한다.
+  it('(g) 닫힘 연출 중인 위 다이얼로그의 스크림을 터치하면 아래가 닫힌다', async () => {
+    const { seenPrevented, onLowerOpenChange, closeUpper } = await renderLayers('sheet', 'raw');
+    const scrim = screen.getByTestId('upper-scrim');
+
+    closeUpper();
+    expect(scrim.isConnected).toBe(true);
+    expect(scrim).toHaveAttribute('data-state', 'closed');
+    fireEvent.pointerDown(scrim, { pointerType: 'touch', button: 0 });
+    fireEvent.click(document.body);
+
+    expect(seenPrevented).toEqual([false]);
+    expect(onLowerOpenChange).toHaveBeenCalledTimes(1);
+    expect(onLowerOpenChange).toHaveBeenCalledWith(false);
   });
 
   // 마우스는 pointerdown 즉시 판정해 위가 이미 닫히는 중일 때만 걸린다(사라지는 창을 빠르게 다시 누른 경우).

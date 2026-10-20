@@ -46,6 +46,15 @@ describe('startedOnClosingLayer', () => {
     expect(startedOnClosingLayer(button)).toBe(false);
   });
 
+  // 대상 특정성 — "문서 어딘가에 닫히는 다이얼로그가 있으면 막기"로 넓어지면 그 동안 모든 진짜 바깥 탭이 먹힌다.
+  it('문서에 닫히는 다이얼로그가 붙어 있어도 그 밖에 붙은 요소는 닫히는 레이어로 보지 않는다', () => {
+    mountInLayer({ role: 'dialog', 'data-state': 'closed' });
+    const outsideButton = document.createElement('button');
+    document.body.append(outsideButton);
+
+    expect(startedOnClosingLayer(outsideButton)).toBe(false);
+  });
+
   it('닫히는 다이얼로그 안의 버튼·텍스트 노드는 닫히는 레이어로 본다', () => {
     const button = mountInLayer({ role: 'dialog', 'data-state': 'closed' });
     const label = button.firstChild;
