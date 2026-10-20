@@ -48,7 +48,7 @@ export function useConfirmProfileCheckMutation() {
         return 'confirmed';
       }
     },
-    // 실패해도(시간 초과 등) 서버는 학년을 올리고 커밋했을 수 있다 — 옛 학년이 마이페이지 표시·설정의 프로필 수정 창 시드로 남아
+    // 실패해도(시간 초과 등) 서버는 학년을 올리고 커밋했을 수 있다 — 옛 학년이 설정 화면의 학년 표시·프로필 수정 창 시드로 남아
     // 저장 때 학년을 되돌리지 않게 내 정보를 다시 받게 한다. 같은 접두의 다른 쿼리(팝업 상태는 아래에서, 내 동아리 등)는 건드리지 않는다.
     onError: () => {
       void queryClient.invalidateQueries({ queryKey: userQueryKeys.me(), exact: true });

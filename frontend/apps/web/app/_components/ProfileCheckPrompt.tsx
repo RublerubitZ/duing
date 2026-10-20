@@ -200,7 +200,11 @@ export function ProfileCheckPrompt() {
     isPending,
     errorMessage,
     onConfirm: handleConfirm,
-    onEdit: () => setEditOpen(true),
+    // 앞선 오류 문구는 지운다 — 수정 창을 못 받아 같은 안내를 다시 올릴 때 새 alert 로 그려져야 스크린리더가 다시 읽는다.
+    onEdit: () => {
+      setErrorMessage(null);
+      setEditOpen(true);
+    },
     onSnooze: handleSnooze,
   };
 

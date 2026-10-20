@@ -111,8 +111,22 @@ describe('ProfileEditDialogUnavailable', () => {
     expect(showInPanel).not.toHaveBeenCalled();
     expect(onClose).not.toHaveBeenCalled();
 
-    // 청크 실패 전에 눌렀든 뒤에 눌렀든 대체 컴포넌트가 열린 채 그려지는 순간 한 번 안내한다.
+    // 닫혀 있다가 열리면(청크 실패 뒤에 누른 경우) 한 번 안내한다.
     rerender(
+      <ProfileEditUnavailableContext.Provider value={showInPanel}>
+        <ProfileEditDialogUnavailable open onClose={onClose} currentName="홍길동" currentGrade="SOPHOMORE" />
+      </ProfileEditUnavailableContext.Provider>,
+    );
+
+    expect(showInPanel).toHaveBeenCalledWith(LOAD_FAILED_MESSAGE);
+    expect(showInPanel).toHaveBeenCalledTimes(1);
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('처음부터 열린 채 그려져도(청크를 받기 전에 누른 경우) 한 번 안내하고 onClose 를 한 번 부른다', () => {
+    const onClose = vi.fn();
+    const showInPanel = vi.fn();
+    render(
       <ProfileEditUnavailableContext.Provider value={showInPanel}>
         <ProfileEditDialogUnavailable open onClose={onClose} currentName="홍길동" currentGrade="SOPHOMORE" />
       </ProfileEditUnavailableContext.Provider>,
@@ -156,7 +170,14 @@ describe('ProfileCheckPrompt — 수정 창 청크를 받지 못할 때(운영 n
 
     // 안내는 토스트가 아니라 팝업 패널 안 오류 문구다 — 모달이 열린 동안 바깥 토스트는 스크린리더가 못 읽고,
     // 모바일에서 시트 버튼 자리를 덮어 누르면 바깥 클릭으로 팝업이 닫힌다.
-    expect(await within(popup).findByRole('alert')).toHaveTextContent(LOAD_FAILED_MESSAGE);
+    const firstAlert = await within(popup).findByRole('alert');
+    expect(firstAlert).toHaveTextContent(LOAD_FAILED_MESSAGE);
+    expect(screen.getAllByText(LOAD_FAILED_MESSAGE)).toHaveLength(1);
+
+    // 다시 눌러도 안내는 하나다 — 같은 alert 를 그대로 두면 스크린리더가 다시 읽지 않아 새로 그린다.
+    await user.click(within(popup).getByRole('button', { name: '정보 수정하기' }));
+    await waitFor(() => expect(within(popup).getByRole('alert')).not.toBe(firstAlert));
+    expect(within(popup).getByRole('alert')).toHaveTextContent(LOAD_FAILED_MESSAGE);
     expect(screen.getAllByText(LOAD_FAILED_MESSAGE)).toHaveLength(1);
     expect(screen.getByRole('dialog', { name: TITLE })).toBeInTheDocument();
     expect(screen.queryByRole('dialog', { name: '프로필 수정' })).toBeNull();

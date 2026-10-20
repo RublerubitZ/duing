@@ -244,7 +244,7 @@ describe('useConfirmProfileCheckMutation', () => {
       ).rejects.toMatchObject({ status: 500 });
     });
 
-    // 서버가 학년을 올렸을 수 있으니 다음 구독(마이페이지·설정의 프로필 수정 창)이 다시 받는다 — 옛 학년으로 저장해 되돌리지 않게.
+    // 서버가 학년을 올렸을 수 있으니 다음 구독(설정 화면의 학년 표시·프로필 수정 창)이 다시 받는다 — 옛 학년으로 저장해 되돌리지 않게.
     expect(queryClient.getQueryState(userQueryKeys.me())?.isInvalidated).toBe(true);
     // 내 정보 키 아래의 다른 쿼리까지 다시 받지는 않는다(exact).
     expect(queryClient.getQueryState(userQueryKeys.myClubs())?.isInvalidated).toBe(false);
