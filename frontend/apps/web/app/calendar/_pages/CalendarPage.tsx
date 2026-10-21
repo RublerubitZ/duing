@@ -127,7 +127,7 @@ export function CalendarPage({ renderedTodayIso }: Props) {
   const todayIso = hydrated ? fmt(now.getFullYear(), now.getMonth(), now.getDate()) : renderedTodayIso;
 
   // 보는 달·선택한 날은 사용자가 고르기 전까지 오늘에서 파생한다 — 하이드레이션이 끝나는 렌더에서 effect 없이 실제 오늘로 바뀌고,
-  // 하이드레이션 중에 누른 입력과 엇갈려 덮이거나 쌓이지 않는다. 고른 값만 state 로 둔다.
+  // 하이드레이션 중에 누른 입력과 엇갈려 덮이거나 쌓이지 않는다. 고른 값만 state 로 두고, 날짜나 달을 고르면 그 달에 머문다.
   const [pickedMonth, setPickedMonth] = useState<{ year: number; monthIndex: number } | null>(null);
   const [pickedDate, setPickedDate] = useState<string | null>(null);
   const viewYear = pickedMonth?.year ?? isoYear(todayIso);
@@ -513,8 +513,9 @@ export function CalendarPage({ renderedTodayIso }: Props) {
                   const rowIdx     = Math.floor(i / 7);
 
                   return (
-                    // key 는 날짜 — 하이드레이션 직후 달이 바뀌면 칸을 새로 만들어, 그 사이 누른 칸이 다른 날짜로 바뀐 채 열리지 않게 한다.
-                    <button key={cell.iso} className="cal-cell" aria-current={isToday ? 'date' : undefined} onClick={() => { setPickedDate(cell.iso); setDetailOpen(true); }} style={{
+                    // key 는 날짜 — 하이드레이션 직후 달이 바뀌면 칸을 새로 만들어, 같은 칸(노드)이 다른 날짜로 바뀐 채 눌리지 않게 한다
+                    // (손을 뗀 자리의 새 칸이 눌리는 것까지는 막지 못한다). 날짜를 고르면 보는 달도 그 달로 고정한다.
+                    <button key={cell.iso} className="cal-cell" aria-current={isToday ? 'date' : undefined} onClick={() => { setPickedDate(cell.iso); setPickedMonth({ year: viewYear, monthIndex: viewMonth }); setDetailOpen(true); }} style={{
                       minHeight: detailOpen ? 102 : 120,
                       padding: detailOpen ? 7 : 10,
                       border: 'none', background: 'transparent',

@@ -188,6 +188,7 @@ function invalidCalendarRequests(): string[] {
   });
 }
 
+// 시각은 12:00Z — 브라우저의 오늘은 기기 로컬 날짜라 UTC−12~+11 에서 같은 날이 된다(CI 는 UTC, 개발기는 KST).
 describe('캘린더 — 며칠 묵은 정적 HTML 로도 불일치 없이 하이드레이션하고 그 뒤 실제 오늘을 보인다', () => {
   it('빌드 다음 날 연 경우: 서버 HTML 그대로 하이드레이션하고, 오늘 표시·날짜 패널을 그날로 옮긴다', async () => {
     const result = await hydrateStaticHtml('2026-10-20T12:00:00Z', '2026-10-21T12:00:00Z');
@@ -214,7 +215,7 @@ describe('캘린더 — 며칠 묵은 정적 HTML 로도 불일치 없이 하이
 });
 
 describe('캘린더 — 묵은 HTML 위에서 하이드레이션 중에 누른 입력도 엉뚱한 화면으로 보내지 않는다', () => {
-  it('지난달 HTML 에서 누른 날짜 칸은 다른 날짜를 열지 않는다(누른 날이 화면에서 사라졌으면 열지 않는다)', async () => {
+  it('지난달 HTML 에서 누른 날짜 칸(노드)은 바뀐 달의 다른 날짜로 열리지 않는다 — click 이 같은 노드로 오는 경우', async () => {
     const result = await hydrateStaticHtml('2026-10-31T12:00:00Z', '2026-11-02T12:00:00Z', {
       target: lastCellOfDay('28'),
       pointer: true,
