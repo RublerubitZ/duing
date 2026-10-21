@@ -25,6 +25,7 @@ vi.stubGlobal(
   },
 );
 
+import { toLocalIsoDate } from '@/app/calendar/_lib/localIsoDate';
 import { CalendarPage } from '@/app/calendar/_pages/CalendarPage';
 
 /**
@@ -72,7 +73,7 @@ function renderCalendar() {
   return render(
     <QueryClientProvider client={queryClient}>
       <ApiClientProvider client={apiClient}>
-        <CalendarPage />
+        <CalendarPage renderedTodayIso={toLocalIsoDate(new Date())} />
       </ApiClientProvider>
     </QueryClientProvider>,
   );

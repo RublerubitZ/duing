@@ -26,6 +26,7 @@ import {
 } from '../_lib/calendarMappers';
 import { ACCENT, KIND_ACCENT, KIND_LABEL, KIND_ORDER } from '../_lib/calendarDisplay';
 import { buildUpcoming, resolveUpcomingEmptyState, UPCOMING_WINDOW_DAYS } from '../_lib/upcoming';
+import { toLocalIsoDate } from '../_lib/localIsoDate';
 import { useOperatorAccess } from '../_lib/useOperatorAccess';
 
 import type { CalEvent, EventKind } from '../_types';
@@ -52,6 +53,9 @@ const KR_MONTHS = ['1월','2월','3월','4월','5월','6월','7월','8월','9월
 
 const fmt = (year: number, monthIndex: number, day: number): string =>
   `${year}-${String(monthIndex + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+
+const isoYear = (iso: string): number => Number(iso.slice(0, 4));
+const isoMonthIndex = (iso: string): number => Number(iso.slice(5, 7)) - 1;
 
 const dayOfWeekKR = (iso: string): string => {
   const parts = iso.split('-').map(Number);
@@ -104,12 +108,26 @@ function subscribeToSheetViewport(onChange: () => void) {
   return () => mediaQueryList.removeEventListener('change', onChange);
 }
 
-export function CalendarPage() {
-  const today = new Date();
-  const todayIso = fmt(today.getFullYear(), today.getMonth(), today.getDate());
+type CalendarPageProps = {
+  /** 서버가 이 화면을 그린 날(정적 프리렌더라 빌드한 날). 하이드레이션 프레임을 서버 HTML 과 같게 그리는 데만 쓴다. */
+  renderedTodayIso: string;
+};
 
-  const [viewYear, setViewYear] = useState<number>(today.getFullYear());
-  const [viewMonth, setViewMonth] = useState<number>(today.getMonth()); // 0-indexed
+export function CalendarPage({ renderedTodayIso }: CalendarPageProps) {
+  // 하이드레이션 프레임은 서버 HTML 과 같게 그려야 한다. 서버와 브라우저가 다르게 보는 값이 둘 있다.
+  // 1) 오늘 — /calendar 는 정적 프리렌더라 서버 HTML 의 "오늘"은 빌드한 날이고, 운영 HTML 은 다음 배포까지 며칠씩 묵는다.
+  //    하이드레이션 프레임은 서버가 넘긴 그날로 그리고(달·날짜 패널), 끝나면 보는 사람의 오늘로 옮긴다. 오늘 강조는
+  //    서버·첫 프레임에 그리지 않는다 — 빌드한 날을 오늘로 강조하면 하이드레이션 전까지 틀린 날이 보인다.
+  // 2) 비로그인 배너 — 조건의 meQuery.isLoading 이 하이드레이션 안정적이지 않아 하이드레이션 이후에만 그린다.
+  //    서버에는 me 쿼리 fetch 가 없어 항상 fetchStatus='idle'(isLoading=false) 인데, 클라이언트는 부팅 복원
+  //    (providers 모듈 스코프의 startBootSessionRestore 가 하이드레이션 전에 요청을 띄우고
+  //    AuthSessionBootstrap 이 그걸 me 키에 등록한다)으로 'fetching'(isLoading=true) 인 채로 첫 렌더를 맞는다.
+  //    그래서 서버는 배너를 그리고 클라이언트 첫 렌더는 빼면서 불일치가 났다. 로그인 유도 힌트라 SSR 프레임에 없어도 된다.
+  const hydrated = useHydrated();
+  const todayIso = hydrated ? toLocalIsoDate(new Date()) : renderedTodayIso;
+
+  const [viewYear, setViewYear] = useState<number>(() => isoYear(todayIso));
+  const [viewMonth, setViewMonth] = useState<number>(() => isoMonthIndex(todayIso)); // 0-indexed
   const [activeKinds, setActiveKinds] = useState<Set<EventKind>>(new Set(KIND_ORDER));
   const [selectedDate, setSelectedDate] = useState<string>(todayIso);
   const [detailOpen, setDetailOpen] = useState<boolean>(false);
@@ -117,12 +135,16 @@ export function CalendarPage() {
   const [selectedEvent, setSelectedEvent] = useState<CalEvent | null>(null);
   const [eventDetailOpen, setEventDetailOpen] = useState<boolean>(false);
 
-  // 비로그인 배너는 하이드레이션 이후에만 그린다 — 조건의 meQuery.isLoading 이 하이드레이션 안정적이지 않다.
-  // 서버에는 me 쿼리 fetch 가 없어 항상 fetchStatus='idle'(isLoading=false) 인데, 클라이언트는 부팅 복원
-  // (providers 모듈 스코프의 startBootSessionRestore 가 하이드레이션 전에 요청을 띄우고
-  // AuthSessionBootstrap 이 그걸 me 키에 등록한다)으로 'fetching'(isLoading=true) 인 채로 첫 렌더를 맞는다.
-  // 그래서 서버는 배너를 그리고 클라이언트 첫 렌더는 빼면서 불일치가 났다. 로그인 유도 힌트라 SSR 프레임에 없어도 된다.
-  const hydrated = useHydrated();
+  // 빌드한 날로 하이드레이션했으면 끝나자마자 보는 달·선택한 날을 실제 오늘로 옮긴다(클라이언트 이동은 처음부터 오늘이다).
+  // 하이드레이션 전에 누른 달 이동·날짜(이벤트 재생)는 덮지 않는다 — 서버가 그린 값 그대로인 것만 옮긴다.
+  useEffect(() => {
+    if (!hydrated) return;
+    const actualTodayIso = toLocalIsoDate(new Date());
+    if (actualTodayIso === renderedTodayIso) return;
+    setViewYear((current) => (current === isoYear(renderedTodayIso) ? isoYear(actualTodayIso) : current));
+    setViewMonth((current) => (current === isoMonthIndex(renderedTodayIso) ? isoMonthIndex(actualTodayIso) : current));
+    setSelectedDate((current) => (current === renderedTodayIso ? actualTodayIso : current));
+  }, [hydrated, renderedTodayIso]);
 
   // 모바일에서는 바텀시트, 데스크톱에서는 사이드 패널 — 뷰포트 분기 없이 뒤로가기로 닫는다.
   useBackDismiss(detailOpen, () => setDetailOpen(false));
@@ -500,14 +522,14 @@ export function CalendarPage() {
                   const cellEvents = (eventsByDate[cell.iso] || []).slice().sort(
                     (a, b) => KIND_ORDER.indexOf(a.kind) - KIND_ORDER.indexOf(b.kind),
                   );
-                  const isToday    = cell.iso === todayIso;
+                  const isToday    = hydrated && cell.iso === todayIso;
                   const isSelected = detailOpen && cell.iso === selectedDate;
                   const isSun      = cell.dow === 0;
                   const isSat      = cell.dow === 6;
                   const rowIdx     = Math.floor(i / 7);
 
                   return (
-                    <button key={i} className="cal-cell" onClick={() => { setSelectedDate(cell.iso); setDetailOpen(true); }} style={{
+                    <button key={i} className="cal-cell" aria-current={isToday ? 'date' : undefined} onClick={() => { setSelectedDate(cell.iso); setDetailOpen(true); }} style={{
                       minHeight: detailOpen ? 102 : 120,
                       padding: detailOpen ? 7 : 10,
                       border: 'none', background: 'transparent',
