@@ -18,8 +18,10 @@ import {
   ACTION_ITEM_PREVIEW_COUNT,
   aggregateApplicantTotals,
   buildActionItems,
+  buildClosedRecruitmentItems,
   sortActionItems,
   sortTodaySchedule,
+  type ClosedRecruitmentDashboardInput,
   type RecruitmentDashboardInput,
 } from './dashboardSelectors';
 
@@ -32,10 +34,10 @@ function isActive(recruitment: RecruitmentSummary): boolean {
   return recruitment.status !== 'CLOSED';
 }
 
-/** 카드2: 마감(raw CLOSED) 제외 진행 중 모집 */
-export function useActiveRecruitments(clubId: number | undefined) {
+/** 대시보드 카드들이 공유하는 동아리 모집 목록(마감 포함) — 카드별 필터는 호출부가 건다. */
+function useDashboardRecruitments(clubId: number | undefined) {
   const client = useApiClient();
-  const query = useQuery({
+  return useQuery({
     queryKey: clubId !== undefined ? clubQueryKeys.recruitments(clubId) : ['clubs', undefined, 'recruitments'],
     queryFn: () => {
       if (clubId === undefined) throw new Error('clubId is required');
@@ -44,7 +46,11 @@ export function useActiveRecruitments(clubId: number | undefined) {
     enabled: clubId !== undefined,
     ...DASHBOARD_QUERY_OPTIONS,
   });
+}
 
+/** 카드2: 마감(raw CLOSED) 제외 진행 중 모집 */
+export function useActiveRecruitments(clubId: number | undefined) {
+  const query = useDashboardRecruitments(clubId);
   const data = useMemo(() => query.data?.filter(isActive), [query.data]);
   return { ...query, data };
 }
@@ -89,8 +95,13 @@ export function useClubActionItems(clubId: number | undefined): {
   isError: boolean;
 } {
   const client = useApiClient();
-  const recruitments = useActiveRecruitments(clubId);
-  const list = recruitments.data ?? [];
+  const recruitments = useDashboardRecruitments(clubId);
+  const list = useMemo(() => recruitments.data?.filter(isActive) ?? [], [recruitments.data]);
+  // 마감 모집도 남은 지원의 결과 확정은 열려 있어(#892) 미결만 따로 센다. 외부 폼은 지원서가 없어 뺀다.
+  const closedSelfList = useMemo(
+    () => recruitments.data?.filter((recruitment) => !isActive(recruitment) && recruitment.applicationMode === 'SELF') ?? [],
+    [recruitments.data],
+  );
   const ids = list.map((r) => r.id);
   // 면접 라운드 API는 useInterview=false 모집에서 InterviewNotUsed를 던지므로,
   // 라운드 fan-out은 면접 사용 모집으로만 제한한다.
@@ -106,6 +117,22 @@ export function useClubActionItems(clubId: number | undefined): {
       data: results.map((q) => q.data),
       someLoading: results.some((q) => q.isLoading),
       someError: results.some((q) => q.isError),
+      length: results.length,
+    }),
+  });
+
+  // 쿼리키를 지난 모집 표·모집 상세·통계 화면과 공유해 캐시가 일치한다. 마감 모집은 라운드·대기열을 부르지 않는다.
+  // shortcut: 마감 모집 수만큼 요청이 는다(2026-10 운영 기준 동아리당 최대 5개), 수십 개로 쌓이면 백엔드 집계로 바꾼다.
+  const closedStatsQueries = useQueries({
+    queries: closedSelfList.map((recruitment) => ({
+      queryKey: statsQueryKeys.summary(recruitment.id),
+      queryFn: () => client.stats.summary(recruitment.id),
+      ...DASHBOARD_QUERY_OPTIONS,
+    })),
+    combine: (results) => ({
+      data: results.map((result) => result.data),
+      someLoading: results.some((result) => result.isLoading),
+      someError: results.some((result) => result.isError),
       length: results.length,
     }),
   });
@@ -167,8 +194,12 @@ export function useClubActionItems(clubId: number | undefined): {
       rounds: roundsByRecruitmentId.get(recruitment.id),
       candidateCount: candidateCountByRecruitmentId.get(recruitment.id),
     }));
-    return sortActionItems(buildActionItems(inputs, new Date()));
-  }, [list, statsQueries.data, roundsByRecruitmentId, candidateCountByRecruitmentId]);
+    const closedInputs: ClosedRecruitmentDashboardInput[] = closedSelfList.map((recruitment, index) => ({
+      recruitment,
+      stats: closedStatsQueries.data[index],
+    }));
+    return sortActionItems([...buildActionItems(inputs, new Date()), ...buildClosedRecruitmentItems(closedInputs)]);
+  }, [list, statsQueries.data, roundsByRecruitmentId, candidateCountByRecruitmentId, closedSelfList, closedStatsQueries.data]);
 
   return {
     items,
@@ -181,12 +212,15 @@ export function useClubActionItems(clubId: number | undefined): {
       (interviewRecruitmentIds.length > 0 && roundsQueries.length === 0) ||
       roundsQueries.someLoading ||
       (interviewRecruitmentIds.length > 0 && candidatesQueries.length === 0) ||
-      candidatesQueries.someLoading,
+      candidatesQueries.someLoading ||
+      (closedSelfList.length > 0 && closedStatsQueries.length === 0) ||
+      closedStatsQueries.someLoading,
     isError:
       recruitments.isError ||
       statsQueries.someError ||
       roundsQueries.someError ||
-      candidatesQueries.someError,
+      candidatesQueries.someError ||
+      closedStatsQueries.someError,
   };
 }
 
