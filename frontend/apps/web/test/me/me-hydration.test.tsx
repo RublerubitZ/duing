@@ -124,4 +124,11 @@ describe('me 를 그리는 화면 — 부팅 세션 복원이 본문 하이드�
     expect(result.hydrationWarnings).toEqual([]);
     expect(result.hydratedHtml).toContain('총동연');
   });
+
+  it('총동연 링크: 관리자가 아니면 하이드레이션 뒤에도 붙이지 않는다', async () => {
+    const result = await hydrateAfterSessionRestore(() => <HomeNavAdminLink />, student);
+
+    expect(result.recoverableErrors).toEqual([]);
+    expect(result.hydratedHtml).toBe('');
+  });
 });
