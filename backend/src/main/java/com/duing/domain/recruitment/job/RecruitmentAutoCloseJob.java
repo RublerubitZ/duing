@@ -12,7 +12,7 @@ import org.springframework.stereotype.Component;
 /**
  * 기간 종료 모집 자동 마감 — 매일 00:40(Asia/Seoul) 종료일 다음 날부터 7일이 지났고 남은 심사·면접이 없는 OPEN 모집을
  * 마감한다(조건은 {@link RecruitmentAutoCloseService}). {@code duing.recruitment.auto-close.enabled=true} 에서만 등록된다
- * (운영 기본 활성). 00:40 은 KST 날짜가 바뀐 직후라 그날 하루 화면이 일관되고, 다른 쓰기 잡·백업과 시각이 겹치지 않는다.
+ * (운영 기본 활성). 00:40 은 KST 날짜가 바뀐 직후라 그날 하루 화면이 일관되고, 같은 테이블을 만지는 잡·백업과 시각이 겹치지 않는다.
  *
  * <p>모집마다 서비스의 별도 트랜잭션으로 닫고, 한 모집의 실패는 WARN 만 남기고 다음 모집으로 넘어간다(다음 날 다시 판정).
  * 실패가 1건 이상이면 요약 줄도 INFO 대신 WARN 으로 남긴다(PiiRetentionJob 전례). 후보 조회 실패는 삼키지 않고

@@ -170,8 +170,12 @@ SELECT id, club_id FROM recruitment
 docker compose logs backend | grep 'closed ids'   # RecruitmentAutoCloseJob closed ids=[…]
 ```
 
-2) 플래그 끄기 — `deploy/.env` 에 `DUING_RECRUITMENT_AUTO_CLOSE_ENABLED=false` 를 넣고 `docker compose up -d` 로 반영한다.
-원인을 고친 이미지를 배포한 뒤 줄을 지워 다시 켠다.
+운영진이 열어 두길 원하는 모집이 한두 건뿐이면 1)·3)·4) 로 되돌린 뒤 그 운영진에게 종료일을 연장하게 하는 것으로 충분하다
+(플래그는 그대로 둔다 — 종료일이 연장되면 다음 00:40 에 다시 닫히지 않는다). 다음 00:40 전에 연장되지 않으면 또 닫힌다.
+
+2) 플래그 끄기 — 잡 자체가 잘못 닫았을 때. `deploy/.env` 에 `DUING_RECRUITMENT_AUTO_CLOSE_ENABLED=false` 를 넣고
+`docker compose up -d` 로 반영한다(컨테이너를 다시 만들어 수십 초 동안 API 가 끊긴다). 원인을 고친 이미지를 배포한 뒤 줄을 지워
+다시 켠다. 되돌린 모집이 여전히 조건을 만족하면 다시 켠 다음 00:40 에 또 닫히므로, 다시 켜기 전에 운영진이 종료일을 연장하게 한다.
 
 3) 되돌리기 SQL — `<id 목록>` 에 1) 의 id 를 넣는다. 동아리당 OPEN 모집은 1건만 허용되므로(V38 `uk_recruitment_club_active`)
 그 사이 같은 동아리에 새 모집이 열렸으면 건너뛰고, 그 사이 삭제된 모집은 되살리지 않는다. 바뀐 건수가 1) 보다 적으면 빠진 id 를 확인한다.
