@@ -32,6 +32,7 @@ describe('deep 토큰 글자 대비(WCAG AA 4.5:1) — 밝은 바탕 4종', () =
   it.each([
     ['text-sage-deep', 'bg-sage/10'],
     ['text-sage-deep', 'bg-sage/20'],
+    ['text-warm-deep', 'bg-warm/10'],
     ['text-warm-deep', 'bg-warm/20'],
     ['text-coral-deep', 'bg-coral/5'],
     ['text-coral-deep', 'bg-coral/10'],

@@ -18,6 +18,7 @@ import type {
 } from '@duing/types';
 import type {
   SubmitSuccessionRequestPayload,
+  LatestLeaderSuccessionRequest,
   SubmitReportPayload,
   SubmitPromotionRequestPayload,
   ApiResponse,
@@ -464,6 +465,8 @@ export type DuingApiClient = {
   };
   leaderSuccession: {
     submitRequest(clubId: number, payload: SubmitSuccessionRequestPayload): Promise<number>;
+    /** 현재 사용자가 이 동아리에서 한 가장 최근 승계 요청 1건. 요청한 적이 없으면 null (200 + data:null). */
+    myLatest(clubId: number): Promise<LatestLeaderSuccessionRequest | null>;
   };
   promotionRequests: {
     submit(clubId: number, payload: SubmitPromotionRequestPayload): Promise<number>;
@@ -1230,6 +1233,10 @@ export function createApiClient(options: CreateApiClientOptions): DuingApiClient
       submitRequest: (clubId, payload) =>
         jsonOk<number>(
           http.post(`clubs/${clubId}/leader-succession-requests`, { json: payload }),
+        ),
+      myLatest: (clubId) =>
+        jsonOkNullable<LatestLeaderSuccessionRequest>(
+          http.get(`clubs/${clubId}/leader-succession-requests/me/latest`),
         ),
     },
     promotionRequests: {

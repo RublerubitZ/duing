@@ -4,8 +4,10 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 
 import { useSubmitSuccessionRequestMutation } from '@duing/hooks';
+import { formatDateKst } from '@duing/hooks/datetime';
 import { submitSuccessionRequestSchema } from '@duing/schemas';
 import type { SubmitSuccessionRequestInput } from '@duing/schemas';
+import type { LatestLeaderSuccessionRequest } from '@duing/types';
 
 import { cn } from '@/app/_lib/cn';
 import {
@@ -18,13 +20,17 @@ import {
 import { ButtonSpinner } from '@/components/loading/Spinner';
 import { useToast } from '@/app/_components/toast/ToastProvider';
 
+import { successionRequestStatusChip } from '../_lib/successionRequestStatus';
+
 type Props = {
   clubId: number;
   clubName: string;
+  /** 페이지가 조회해 넘긴 내 최근 요청(없거나 조회 실패면 null) — 모달은 훅을 직접 부르지 않는다. */
+  latestRequest: LatestLeaderSuccessionRequest | null;
   onClose: () => void;
 };
 
-export function SuccessionRequestModal({ clubId, clubName, onClose }: Props) {
+export function SuccessionRequestModal({ clubId, clubName, latestRequest, onClose }: Props) {
   const { addToast } = useToast();
   const submitSuccession = useSubmitSuccessionRequestMutation(clubId);
 
@@ -76,6 +82,8 @@ export function SuccessionRequestModal({ clubId, clubName, onClose }: Props) {
         <DialogDescription className="text-sm text-charcoal-2">
           현재 회장이 장기간 활동이 없을 경우, 운영진이 총동연에 회장 승계를 요청할 수 있습니다. 요청은 총동연 검토 후 처리됩니다.
         </DialogDescription>
+
+        {latestRequest !== null && <LatestRequestCard request={latestRequest} />}
 
         <form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-4">
           {/* 사유 */}
@@ -141,6 +149,33 @@ export function SuccessionRequestModal({ clubId, clubName, onClose }: Props) {
         </form>
       </DialogContent>
     </Dialog>
+  );
+}
+
+function LatestRequestCard({ request }: { request: LatestLeaderSuccessionRequest }) {
+  const { label, badgeClass } = successionRequestStatusChip(request.status);
+  return (
+    <section aria-label="내 최근 승계 요청" className="rounded-md border border-line bg-cream px-4 py-3 text-sm">
+      <span className={cn('inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold', badgeClass)}>{label}</span>
+      <dl className="mt-2 grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-1 text-xs">
+        <dt className="text-charcoal-3">제출일</dt>
+        <dd className="text-charcoal-2">{formatDateKst(request.createdAt)}</dd>
+        {request.handledAt !== null && (
+          <>
+            <dt className="text-charcoal-3">처리일</dt>
+            <dd className="text-charcoal-2">{formatDateKst(request.handledAt)}</dd>
+          </>
+        )}
+        <dt className="text-charcoal-3">요청 사유</dt>
+        <dd className="whitespace-pre-wrap break-words text-charcoal-2">{request.reason}</dd>
+        {request.actionNote ? (
+          <>
+            <dt className="text-charcoal-3">처리 메모</dt>
+            <dd className="whitespace-pre-wrap break-words text-charcoal-2">{request.actionNote}</dd>
+          </>
+        ) : null}
+      </dl>
+    </section>
   );
 }
 

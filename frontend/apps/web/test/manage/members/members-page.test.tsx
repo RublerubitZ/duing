@@ -3,10 +3,10 @@ import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { setupServer } from 'msw/node';
-import { http, HttpResponse } from 'msw';
-import type { ClubMember, ClubMemberRole } from '@duing/types';
+import { delay, http, HttpResponse } from 'msw';
+import type { ClubMember, ClubMemberRole, LatestLeaderSuccessionRequest } from '@duing/types';
 import { createApiClient } from '@duing/api';
-import { ApiClientProvider } from '@duing/hooks';
+import { ApiClientProvider, clubQueryKeys, shouldRetryQuery } from '@duing/hooks';
 
 // useMeQuery 는 인증 상태에서만 실행된다 — 로그인 상태로 고정한다.
 // selectIsAuthenticated 등 나머지 export 는 실제 모듈을 그대로 쓴다(술어 계약이 어긋나지 않게).
@@ -17,6 +17,7 @@ vi.mock('@duing/stores', async (importOriginal) => ({
 }));
 
 import ClubMembersPage from '@/app/manage/clubs/[clubId]/members/page';
+import { ToastProvider } from '@/app/_components/toast/ToastProvider';
 
 const CLUB_ID = 7;
 const VIEWER_ID = 999;
@@ -74,13 +75,19 @@ beforeEach(() => {
   });
 });
 
+const myLatestSuccessionJson = (data: LatestLeaderSuccessionRequest | null) => () =>
+  HttpResponse.json({ ok: true, message: null, data });
+
 function setupHandlers({
   useGeneration,
   myRole = 'LEADER',
+  myLatestSuccessionResponse = myLatestSuccessionJson(null),
 }: {
   useGeneration: boolean;
   myRole?: ClubMemberRole;
+  myLatestSuccessionResponse?: () => Response | Promise<Response>;
 }) {
+  let myLatestSuccessionRequestCount = 0;
   server.use(
     http.get('*/users/me', () =>
       HttpResponse.json({ ok: true, message: null, data: { id: VIEWER_ID, name: '관리자' } }),
@@ -107,13 +114,19 @@ function setupHandlers({
     http.get(`*/clubs/${CLUB_ID}/members`, () =>
       HttpResponse.json({ ok: true, message: null, data: membersFixture }),
     ),
+    http.get(`*/clubs/${CLUB_ID}/leader-succession-requests/me/latest`, () => {
+      myLatestSuccessionRequestCount += 1;
+      return myLatestSuccessionResponse();
+    }),
   );
+  return { myLatestSuccessionRequestCount: () => myLatestSuccessionRequestCount };
 }
 
-function renderPage() {
-  const queryClient = new QueryClient({
+function renderPage(
+  queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
-  });
+  }),
+) {
   // React 19 use(thenable) 가 동기적으로 값을 꺼내가도록 status/value 를 미리 태깅한다
   // (recruitment 상세/목록 페이지 테스트와 동일 패턴).
   const paramsValue = { clubId: String(CLUB_ID) };
@@ -124,7 +137,9 @@ function renderPage() {
   return render(
     <ApiClientProvider client={apiClient}>
       <QueryClientProvider client={queryClient}>
-        <ClubMembersPage params={params} />
+        <ToastProvider>
+          <ClubMembersPage params={params} />
+        </ToastProvider>
       </QueryClientProvider>
     </ApiClientProvider>,
   );
@@ -409,5 +424,251 @@ describe('ClubMembersPage — 부원 초대 진입점', () => {
       'href',
       `/manage/clubs/${CLUB_ID}/members/requests`,
     );
+  });
+});
+
+// 처리 시각 기준 14일(절대시각) 경계 — 2026-10-07T03:00Z + 14×24h = 2026-10-21T03:00Z. 경계 자체는 배지 문구 함수 단위 테스트가 고정한다.
+const SUCCESSION_HANDLED_AT = '2026-10-07T03:00:00Z';
+const JUST_BEFORE_14_DAYS = new Date('2026-10-21T02:59:59.999Z');
+const AT_14_DAYS = new Date('2026-10-21T03:00:00Z');
+const myLatestSuccessionKey = clubQueryKeys.myLatestLeaderSuccessionRequest(CLUB_ID);
+
+function mySuccessionRequest(overrides: Partial<LatestLeaderSuccessionRequest> = {}): LatestLeaderSuccessionRequest {
+  return {
+    requestId: 5,
+    status: 'PENDING',
+    reason: '회장이 두 달째 연락이 닿지 않습니다.',
+    actionNote: null,
+    // KST 자정 직후 — UTC 날짜(10.20)를 그대로 쓰면 하루 어긋난다.
+    createdAt: '2026-10-20T15:30:00Z',
+    handledAt: null,
+    ...overrides,
+  };
+}
+
+// 앱의 전역 재시도 정책(providers.tsx)으로 돌린다 — 대기 없이 재시도하게 해 재시도가 나가면 바로 드러나게 한다.
+function appRetryQueryClient() {
+  return new QueryClient({
+    defaultOptions: { queries: { retry: shouldRetryQuery, retryDelay: 0 }, mutations: { retry: false } },
+  });
+}
+
+async function waitForMyLatestSuccessionStatus(queryClient: QueryClient, status: 'success' | 'error') {
+  await waitFor(() => expect(queryClient.getQueryState(myLatestSuccessionKey)?.status).toBe(status));
+}
+
+const successionButton = () => screen.getByRole('button', { name: '회장 승계 요청' });
+
+// 대기 중 잠금은 disabled 가 아니라 aria-disabled 다 — 활성 판정은 둘 다 없는지로 본다.
+function expectSuccessionButtonActive() {
+  expect(successionButton()).toBeEnabled();
+  expect(successionButton()).not.toHaveAttribute('aria-disabled');
+}
+
+describe('ClubMembersPage — 내 회장 승계 요청 상태(임원)', () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('검토 대기 중이면 KST 제출일을 붙인 배지를 보이고, 버튼은 aria-disabled 로 잠그며 배지를 설명으로 가리킨다', async () => {
+    setupHandlers({
+      useGeneration: false,
+      myRole: 'OFFICER',
+      myLatestSuccessionResponse: myLatestSuccessionJson(mySuccessionRequest({ status: 'PENDING' })),
+    });
+    renderPage();
+
+    expect(await screen.findByText('검토 대기 중 · 2026.10.21 제출')).toBeInTheDocument();
+    expect(successionButton()).toHaveAttribute('aria-disabled', 'true');
+    expect(successionButton()).toHaveAccessibleDescription('검토 대기 중 · 2026.10.21 제출');
+  });
+
+  it('검토 대기 중인 버튼은 Tab 으로 닿지만 눌러도 모달을 열지 않는다', async () => {
+    setupHandlers({
+      useGeneration: false,
+      myRole: 'OFFICER',
+      myLatestSuccessionResponse: myLatestSuccessionJson(mySuccessionRequest({ status: 'PENDING' })),
+    });
+    renderPage();
+    await screen.findByText('검토 대기 중 · 2026.10.21 제출');
+
+    // disabled 였다면 Tab 순서에서 빠져 설명이 들리지 않는다.
+    expect(successionButton()).toBeEnabled();
+    expect(successionButton()).not.toHaveAttribute('tabindex');
+    successionButton().focus();
+    expect(successionButton()).toHaveFocus();
+
+    await userEvent.click(successionButton());
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
+  it.each([
+    ['APPROVED', '승인됨'],
+    ['REJECTED', '거절됨'],
+  ] as const)('%s 처리 후 14일이 안 됐으면 "%s" 배지를 보이고 버튼은 활성이다', async (status, label) => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(JUST_BEFORE_14_DAYS);
+    setupHandlers({
+      useGeneration: false,
+      myRole: 'OFFICER',
+      myLatestSuccessionResponse: myLatestSuccessionJson(
+        mySuccessionRequest({ status, handledAt: SUCCESSION_HANDLED_AT }),
+      ),
+    });
+    renderPage();
+
+    expect(await screen.findByText(label)).toBeInTheDocument();
+    expectSuccessionButtonActive();
+  });
+
+  it('처리 후 정확히 14일이 되면 배지가 사라진다(미만일 때만 보임)', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(AT_14_DAYS);
+    setupHandlers({
+      useGeneration: false,
+      myRole: 'OFFICER',
+      myLatestSuccessionResponse: myLatestSuccessionJson(
+        mySuccessionRequest({ status: 'REJECTED', handledAt: SUCCESSION_HANDLED_AT }),
+      ),
+    });
+    const queryClient = appRetryQueryClient();
+    renderPage(queryClient);
+
+    await waitForMyLatestSuccessionStatus(queryClient, 'success');
+    await screen.findByRole('button', { name: '회장 승계 요청' });
+    expect(screen.queryByText('거절됨')).not.toBeInTheDocument();
+    expectSuccessionButtonActive();
+  });
+
+  it('배지는 줄바꿈되는 헤더 액션 묶음 안에 둔다 — 390 폭에서도 가로로 넘치지 않는다', async () => {
+    setupHandlers({
+      useGeneration: false,
+      myRole: 'OFFICER',
+      myLatestSuccessionResponse: myLatestSuccessionJson(mySuccessionRequest({ status: 'PENDING' })),
+    });
+    renderPage();
+
+    const badge = await screen.findByText('검토 대기 중 · 2026.10.21 제출');
+    expect(badge.parentElement).toHaveClass('flex-wrap');
+    expect(badge.parentElement).toContainElement(successionButton());
+  });
+
+  it('모달을 열면 내 최근 요청을 카드로 넘겨 보여 준다', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(JUST_BEFORE_14_DAYS);
+    setupHandlers({
+      useGeneration: false,
+      myRole: 'OFFICER',
+      myLatestSuccessionResponse: myLatestSuccessionJson(
+        mySuccessionRequest({
+          status: 'REJECTED',
+          handledAt: SUCCESSION_HANDLED_AT,
+          actionNote: '현 회장과 연락이 닿았습니다.',
+        }),
+      ),
+    });
+    renderPage();
+    await screen.findByText('거절됨');
+
+    await userEvent.click(successionButton());
+
+    const card = within(await screen.findByRole('dialog')).getByRole('region', { name: '내 최근 승계 요청' });
+    expect(within(card).getByText('회장이 두 달째 연락이 닿지 않습니다.')).toBeInTheDocument();
+    expect(within(card).getByText('현 회장과 연락이 닿았습니다.')).toBeInTheDocument();
+  });
+});
+
+describe('ClubMembersPage — 내 회장 승계 요청 상태(승인돼 회장이 된 요청자)', () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('승인 후 14일이 안 됐으면 승계 요청 버튼 없이 "승인됨" 배지만 보인다', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(JUST_BEFORE_14_DAYS);
+    setupHandlers({
+      useGeneration: false,
+      myRole: 'LEADER',
+      myLatestSuccessionResponse: myLatestSuccessionJson(
+        mySuccessionRequest({ status: 'APPROVED', handledAt: SUCCESSION_HANDLED_AT }),
+      ),
+    });
+    renderPage();
+
+    expect(await screen.findByText('승인됨')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '회장 승계 요청' })).not.toBeInTheDocument();
+  });
+
+  it.each([
+    ['PENDING', null],
+    ['REJECTED', SUCCESSION_HANDLED_AT],
+  ] as const)('회장에게는 %s 배지를 보이지 않는다', async (status, handledAt) => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(JUST_BEFORE_14_DAYS);
+    setupHandlers({
+      useGeneration: false,
+      myRole: 'LEADER',
+      myLatestSuccessionResponse: myLatestSuccessionJson(mySuccessionRequest({ status, handledAt })),
+    });
+    const queryClient = appRetryQueryClient();
+    renderPage(queryClient);
+
+    await waitForMyLatestSuccessionStatus(queryClient, 'success');
+    await screen.findByRole('heading', { name: '부원 관리' });
+    expect(screen.queryByText(/검토 대기 중/)).not.toBeInTheDocument();
+    expect(screen.queryByText('거절됨')).not.toBeInTheDocument();
+  });
+});
+
+describe('ClubMembersPage — 내 회장 승계 요청 조회 실패는 지금 화면 그대로(fail-open)', () => {
+  it('API 가 없으면(404) 한 번만 묻고 배지 없이 버튼을 활성으로 둔다', async () => {
+    const { myLatestSuccessionRequestCount } = setupHandlers({
+      useGeneration: false,
+      myRole: 'OFFICER',
+      myLatestSuccessionResponse: () =>
+        HttpResponse.json({ ok: false, message: '찾을 수 없습니다.', data: null }, { status: 404 }),
+    });
+    const queryClient = appRetryQueryClient();
+    renderPage(queryClient);
+
+    await waitForMyLatestSuccessionStatus(queryClient, 'error');
+    await screen.findByRole('button', { name: '회장 승계 요청' });
+    expect(myLatestSuccessionRequestCount()).toBe(1);
+    expectSuccessionButtonActive();
+    expect(successionButton()).not.toHaveAttribute('aria-describedby');
+  });
+
+  it('서버 오류(500)면 전역 정책대로 한 번 다시 묻고 배지 없이 버튼을 활성으로 둔다', async () => {
+    const { myLatestSuccessionRequestCount } = setupHandlers({
+      useGeneration: false,
+      myRole: 'OFFICER',
+      myLatestSuccessionResponse: () =>
+        HttpResponse.json({ ok: false, message: '서버 오류', data: null }, { status: 500 }),
+    });
+    const queryClient = appRetryQueryClient();
+    renderPage(queryClient);
+
+    await waitForMyLatestSuccessionStatus(queryClient, 'error');
+    await screen.findByRole('button', { name: '회장 승계 요청' });
+    expect(myLatestSuccessionRequestCount()).toBe(2);
+    expectSuccessionButtonActive();
+    expect(successionButton()).not.toHaveAttribute('aria-describedby');
+  });
+
+  it('응답을 기다리는 동안에도 페이지를 막지 않고 배지 없이 버튼을 활성으로 둔다', async () => {
+    const { myLatestSuccessionRequestCount } = setupHandlers({
+      useGeneration: false,
+      myRole: 'OFFICER',
+      myLatestSuccessionResponse: async () => {
+        await delay('infinite');
+        return HttpResponse.json({ ok: true, message: null, data: mySuccessionRequest({ status: 'PENDING' }) });
+      },
+    });
+    renderPage();
+
+    await screen.findByRole('button', { name: '회장 승계 요청' });
+    expect(myLatestSuccessionRequestCount()).toBe(1);
+    expect(screen.queryByText(/검토 대기 중/)).not.toBeInTheDocument();
+    expectSuccessionButtonActive();
   });
 });
