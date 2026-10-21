@@ -12,6 +12,7 @@ import {
 
 import { HomeNav } from '@/app/_components/HomeNav';
 import { ProfileCheckPrompt } from '@/app/_components/ProfileCheckPrompt';
+import { useHydrated } from '@/app/_lib/useHydrated';
 
 import { partitionApplications } from '../_lib/partitionApplications';
 import {
@@ -45,8 +46,10 @@ export function MyPage() {
   const myClubsQuery = useMyClubsQuery();
   const favoriteListQuery = useFavoriteListQuery(0, 20);
   const myInquiriesQuery = useMyFederationInquiriesQuery({ page: 0, size: 3 });
+  const hydrated = useHydrated();
 
-  const user = meQuery.data;
+  // 하이드레이션 프레임은 서버처럼 비운다 — 부팅 세션 복원(me 선요청)이 본문보다 먼저 끝나면 첫 렌더가 서버 HTML("—")과 어긋난다.
+  const user = hydrated ? meQuery.data : undefined;
   // 결과 없이 종료된 지원(마감 + 미결)은 더 이상 진행 중이 아니므로 지난 지원으로 내린다.
   const { inProgress: applications, archived: archivedApplications } = useMemo(
     () => partitionApplications(applicationsQuery.data ?? []),
