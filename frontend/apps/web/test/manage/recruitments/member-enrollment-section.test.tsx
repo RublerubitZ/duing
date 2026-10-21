@@ -452,6 +452,40 @@ describe('모집 상세 — 활성 링크 카드', () => {
     expect(screen.queryByText('🟢 활성')).not.toBeInTheDocument();
   });
 
+  it('사용 인원이 최대 인원에 닿으면 만료 전이어도 상태가 인원 마감이다', async () => {
+    setupExternal({ activeCode: joinCode({ usedCount: 30, maxUses: 30 }) });
+
+    renderPage();
+
+    const statusCard = within(await screen.findByLabelText('가입 링크 상태'));
+    expect(statusCard.getByText('인원 마감')).toBeInTheDocument();
+    expect(statusCard.queryByText('🟢 활성')).not.toBeInTheDocument();
+  });
+
+  it('최대 인원에 한 명 모자라면 상태가 활성이다', async () => {
+    setupExternal({ activeCode: joinCode({ usedCount: 29, maxUses: 30 }) });
+
+    renderPage();
+
+    const statusCard = within(await screen.findByLabelText('가입 링크 상태'));
+    expect(statusCard.getByText('🟢 활성')).toBeInTheDocument();
+    expect(statusCard.queryByText('인원 마감')).not.toBeInTheDocument();
+  });
+
+  // 우선순위는 초대 다이얼로그와 같은 만료 → 인원 마감 순서다(총동연 응답 AdminJoinCodeStatus 는 소진을 먼저 본다).
+  it('만료되면서 인원도 다 찬 링크는 상태가 만료다', async () => {
+    setupExternal({
+      status: 'CLOSED',
+      activeCode: joinCode({ joinExpiresAt: PAST_ISO, usedCount: 30, maxUses: 30 }),
+    });
+
+    renderPage();
+
+    const statusCard = within(await screen.findByLabelText('가입 링크 상태'));
+    expect(statusCard.getByText('만료')).toBeInTheDocument();
+    expect(statusCard.queryByText('인원 마감')).not.toBeInTheDocument();
+  });
+
   it('코드·사용 현황과 유출 경고를 보여주고 가입 링크를 복사한다', async () => {
     setupExternal({ activeCode: joinCode() });
 

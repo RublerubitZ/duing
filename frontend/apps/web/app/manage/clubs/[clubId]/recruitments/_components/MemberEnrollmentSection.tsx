@@ -94,6 +94,10 @@ function isExpired(joinCode: JoinCodeSummary): boolean {
   );
 }
 
+function isExhausted(joinCode: JoinCodeSummary): boolean {
+  return joinCode.usedCount >= joinCode.maxUses;
+}
+
 const fieldCls =
   'w-full rounded-md border border-line bg-paper px-3 py-2 text-sm text-charcoal transition-colors placeholder:text-charcoal-3 focus-visible:border-ink focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring';
 
@@ -352,6 +356,7 @@ function ActiveCodeCard({
   const [regenerating, setRegenerating] = useState(false);
 
   const expired = isExpired(joinCode);
+  const exhausted = isExhausted(joinCode);
   const joinLink = joinLinkUrl(joinCode.code);
   const requiresTypedConfirm = !canCreate;
 
@@ -387,7 +392,10 @@ function ActiveCodeCard({
       >
         <div>
           <dt className="text-xs text-charcoal-3">링크 상태</dt>
-          <dd className="mt-0.5 font-semibold text-ink-deep">{expired ? '만료' : '🟢 활성'}</dd>
+          {/* 만료 → 인원 마감 순서는 부원 초대 다이얼로그와 같다 — 만료된 링크는 거절로 인원이 환급돼도 다시 쓸 수 없어 만료가 앞선다. */}
+          <dd className="mt-0.5 font-semibold text-ink-deep">
+            {expired ? '만료' : exhausted ? '인원 마감' : '🟢 활성'}
+          </dd>
         </div>
         <div>
           <dt className="text-xs text-charcoal-3">가입 가능 기간</dt>

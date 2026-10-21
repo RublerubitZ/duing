@@ -385,14 +385,19 @@ function ActiveInviteCard({
           </dd>
         </div>
         <div>
-          <dt className="text-xs text-charcoal-3">누적 신청</dt>
+          <dt className="text-xs text-charcoal-3">사용</dt>
           <dd className="mt-0.5 tabular-nums text-ink-deep">
-            {joinCode.totalRequestCount} / {joinCode.maxUses}명
+            {joinCode.usedCount} / {joinCode.maxUses}명
           </dd>
         </div>
         <div>
           <dt className="text-xs text-charcoal-3">승인 대기</dt>
           <dd className="mt-0.5 tabular-nums text-ink-deep">{joinCode.pendingCount}명</dd>
+        </div>
+        {/* 누적 신청은 거절·재신청까지 센 값이라 정원을 분모로 붙이면 초과로 읽힌다 — 건수만 적는다. */}
+        <div>
+          <dt className="text-xs text-charcoal-3">누적 신청</dt>
+          <dd className="mt-0.5 tabular-nums text-ink-deep">{joinCode.totalRequestCount}건</dd>
         </div>
       </dl>
 
