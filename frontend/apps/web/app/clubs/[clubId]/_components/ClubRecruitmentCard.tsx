@@ -4,6 +4,7 @@ import Link from 'next/link';
 
 import type { MyClubMembership, StudentRecruitmentProjection } from '@duing/types';
 import {
+  RECRUITMENT_DISPLAY_STATUS_LABEL,
   displayStatusLabel,
   recruitmentPeriodLabel,
 } from '../../../_lib/recruitmentDisplay';
@@ -45,11 +46,16 @@ export function ClubRecruitmentCard({ recruitment, clubId, membership, detailChe
     if (!recruitment) return '모집 없음';
     // 마감 당일은 'D-day'(ddayLabel SSOT). 음수 구간은 카운트다운 없이 '모집중' 으로 폴백한다.
     if (status === 'OPEN') {
-      return daysLeft !== null && daysLeft >= 0 ? `모집중 · ${ddayLabel(daysLeft)}` : '모집중';
+      const openLabel = RECRUITMENT_DISPLAY_STATUS_LABEL.OPEN;
+      return daysLeft !== null && daysLeft >= 0
+        ? `${openLabel} · ${ddayLabel(daysLeft)}`
+        : openLabel;
     }
-    if (status === 'ALWAYS_OPEN') return '상시모집';
-    if (status === 'UPCOMING') return `모집예정 · ${recruitment.startDate}부터`;
-    return '모집마감';
+    if (status === 'ALWAYS_OPEN') return RECRUITMENT_DISPLAY_STATUS_LABEL.ALWAYS_OPEN;
+    if (status === 'UPCOMING') {
+      return `${RECRUITMENT_DISPLAY_STATUS_LABEL.UPCOMING} · ${recruitment.startDate}부터`;
+    }
+    return RECRUITMENT_DISPLAY_STATUS_LABEL.CLOSED;
   })();
 
   const heading = (() => {

@@ -4,6 +4,7 @@ import { Link } from 'next-view-transitions';
 
 import { useHeartPop } from '@/app/_lib/useHeartPop';
 import { ClubLogo } from '../../_components/ClubLogo';
+import { RECRUITMENT_DISPLAY_STATUS_LABEL } from '../../_lib/recruitmentDisplay';
 import { toRoute } from '../../_lib/route';
 import { ScopeChip } from './ScopeChip';
 import { CAT_COLORS, clubAffiliationLabel, type Club } from '../_lib/clubs';
@@ -47,12 +48,13 @@ type StatusStyle = {
 };
 
 const STATUS_STYLES: Record<StatusKey, StatusStyle> = {
-  OPEN:        { label: '모집중',    dotColor: '#9DB6A0', chipClass: 'bg-sage-mist text-ink-deep' },
+  OPEN:        { label: RECRUITMENT_DISPLAY_STATUS_LABEL.OPEN,     dotColor: '#9DB6A0', chipClass: 'bg-sage-mist text-ink-deep' },
   // 우측 기간 영역이 "상시모집"을 표기하므로 칩은 모집 가능 상태만 말한다(중복 제거).
-  ALWAYS_OPEN: { label: '모집중',    dotColor: '#9DB6A0', chipClass: 'bg-sage-mist text-ink-deep' },
-  UPCOMING:    { label: '모집예정',  dotColor: '#E8B968', chipClass: 'bg-[#FBEFD7] text-[#8E6620]' },
-  CLOSED:      { label: '모집마감',  dotColor: '#5C645F', chipClass: 'bg-graysoft text-charcoal-2' },
-  NONE:        { label: '모집 없음', dotColor: '#5C645F', chipClass: 'bg-graysoft text-charcoal-2' },
+  ALWAYS_OPEN: { label: RECRUITMENT_DISPLAY_STATUS_LABEL.OPEN,     dotColor: '#9DB6A0', chipClass: 'bg-sage-mist text-ink-deep' },
+  UPCOMING:    { label: RECRUITMENT_DISPLAY_STATUS_LABEL.UPCOMING, dotColor: '#E8B968', chipClass: 'bg-[#FBEFD7] text-[#8E6620]' },
+  CLOSED:      { label: RECRUITMENT_DISPLAY_STATUS_LABEL.CLOSED,   dotColor: '#5C645F', chipClass: 'bg-graysoft text-charcoal-2' },
+  // '모집 없음'은 표시 상태 테이블의 키가 아니라 리터럴로 둔다.
+  NONE:        { label: '모집 없음',                               dotColor: '#5C645F', chipClass: 'bg-graysoft text-charcoal-2' },
 };
 
 /** "2026-08-08" → "8.8" — 앞자리 0 을 떼 달력 표기처럼 읽히게 한다. */

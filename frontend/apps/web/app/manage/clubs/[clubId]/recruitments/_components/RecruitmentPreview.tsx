@@ -2,7 +2,10 @@
 
 import type { BuilderQuestion } from './QuestionBuilder';
 import { MarkdownProse } from '@/components/markdown/MarkdownProse';
-import { recruitmentDaysLeft } from '@/app/_lib/recruitmentDisplay';
+import {
+  RECRUITMENT_DISPLAY_STATUS_LABEL,
+  recruitmentDaysLeft,
+} from '@/app/_lib/recruitmentDisplay';
 
 export type RecruitmentPreviewData = {
   title: string;
@@ -21,11 +24,13 @@ export type RecruitmentPreviewData = {
 };
 
 function statusPillLabel(data: RecruitmentPreviewData): string {
-  if (data.isAlwaysOpen) return '상시모집';
+  if (data.isAlwaysOpen) return RECRUITMENT_DISPLAY_STATUS_LABEL.ALWAYS_OPEN;
   if (!data.startDate || !data.endDate) return '기간 미정';
   const daysLeft = recruitmentDaysLeft(data.endDate);
   if (daysLeft === null) return '미리보기';
-  return daysLeft >= 0 ? `모집중 · D-${daysLeft}` : '모집마감';
+  return daysLeft >= 0
+    ? `${RECRUITMENT_DISPLAY_STATUS_LABEL.OPEN} · D-${daysLeft}`
+    : RECRUITMENT_DISPLAY_STATUS_LABEL.CLOSED;
 }
 
 /** 기간 줄 — 학생 화면의 recruitmentPeriodLabel 과 달리 "아직 안 적음(—)" 상태를 표시해야 한다. */

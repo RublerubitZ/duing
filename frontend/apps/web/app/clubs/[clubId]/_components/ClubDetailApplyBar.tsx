@@ -13,6 +13,7 @@ import { toRoute } from '@/app/_lib/route';
 import { ArrowRight } from '@/components/duing/Icon';
 import { ButtonSpinner } from '@/components/loading/Spinner';
 import { ddayLabel } from '../../../_lib/dday';
+import { RECRUITMENT_DISPLAY_STATUS_LABEL } from '../../../_lib/recruitmentDisplay';
 import { useRecruitmentDaysLeft } from '../../../_lib/useRecruitmentDaysLeft';
 import { useClubApply, type ClubDetailCheck } from '../_lib/useClubApply';
 
@@ -40,17 +41,27 @@ function barLabels(
   switch (recruitment.displayStatus) {
     case 'OPEN': {
       // 마감 당일은 'D-day'(ddayLabel SSOT). 음수 구간은 카운트다운 없이 '모집중' 으로 폴백한다.
+      const openLabel = RECRUITMENT_DISPLAY_STATUS_LABEL.OPEN;
       return {
-        top: daysLeft !== null && daysLeft >= 0 ? `모집중 · ${ddayLabel(daysLeft)}` : '모집중',
+        top:
+          daysLeft !== null && daysLeft >= 0 ? `${openLabel} · ${ddayLabel(daysLeft)}` : openLabel,
         main: `${recruitment.capacity}명 모집중`,
       };
     }
     case 'ALWAYS_OPEN':
-      return { top: '상시모집', main: `${recruitment.capacity}명 모집중` };
+      return {
+        top: RECRUITMENT_DISPLAY_STATUS_LABEL.ALWAYS_OPEN,
+        main: `${recruitment.capacity}명 모집중`,
+      };
     case 'UPCOMING':
-      return { top: '모집 예정', main: `${recruitment.startDate} 시작` };
+      return {
+        top: RECRUITMENT_DISPLAY_STATUS_LABEL.UPCOMING,
+        main: `${recruitment.startDate} 시작`,
+      };
+    // 백엔드가 먼저 배포한 모르는 상태는 마감으로 그린다 — 값을 돌려주지 않으면 구조분해에서 서버 렌더가 깨진다(버튼은 canApply 가 잠근다).
     case 'CLOSED':
-      return { top: '모집 마감', main: '이번 모집은 종료됐어요' };
+    default:
+      return { top: RECRUITMENT_DISPLAY_STATUS_LABEL.CLOSED, main: '이번 모집은 종료됐어요' };
   }
 }
 

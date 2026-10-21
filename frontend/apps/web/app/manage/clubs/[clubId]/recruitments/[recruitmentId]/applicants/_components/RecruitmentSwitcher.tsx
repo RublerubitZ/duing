@@ -4,6 +4,7 @@ import { Fragment } from 'react';
 import Link from 'next/link';
 import { Check, ChevronDown } from 'lucide-react';
 import { useClubRecruitmentsQuery } from '@duing/hooks';
+import { RECRUITMENT_DISPLAY_STATUS_LABEL } from '@/app/_lib/recruitmentDisplay';
 import { toRoute } from '@/app/_lib/route';
 import {
   DropdownMenu,
@@ -105,7 +106,7 @@ export function RecruitmentSwitcher({
                   </span>
                   {group.closed && (
                     <span className="shrink-0 rounded-full bg-graysoft px-1.5 py-px text-[10px] font-bold text-charcoal-3">
-                      마감
+                      {RECRUITMENT_DISPLAY_STATUS_LABEL.CLOSED}
                     </span>
                   )}
                   {recruitment.id === currentRecruitmentId && (

@@ -1,17 +1,9 @@
 import { daysUntilKst, parseKstInstant } from '@duing/hooks/datetime';
 import type { ApplicationMode, RecruitmentDisplayStatus, RecruitmentSummary } from '@duing/types';
 
+/** 학생 화면 상태 라벨 — 아래 표시 상태 테이블을 그대로 읽는다(운영진·총동연 칩과 같은 출처). */
 export function displayStatusLabel(status: RecruitmentDisplayStatus): string {
-  switch (status) {
-    case 'UPCOMING':
-      return '모집예정';
-    case 'OPEN':
-      return '모집중';
-    case 'ALWAYS_OPEN':
-      return '상시모집';
-    case 'CLOSED':
-      return '모집마감';
-  }
+  return RECRUITMENT_DISPLAY_STATUS_LABEL[status];
 }
 
 export function recruitmentPeriodLabel(
@@ -60,11 +52,15 @@ export function recruitmentExpiredOpenNotice(applicationMode: ApplicationMode): 
   return `모집 기간이 끝났지만 아직 마감 전이에요. ${nextStep}`;
 }
 
+/**
+ * 모집 표시 상태 라벨의 단일 출처 — 학생 화면·운영진·총동연 칩이 모두 이 값을 읽는다. 화면에 리터럴 사본을
+ * 두지 말 것. 만료-OPEN 은 운영진·총동연 칩만 '기간 종료'로 덮는다(`recruitmentStatusChip`).
+ */
 export const RECRUITMENT_DISPLAY_STATUS_LABEL: Record<RecruitmentDisplayStatus, string> = {
-  UPCOMING: '예정',
+  UPCOMING: '모집예정',
   OPEN: '모집중',
   ALWAYS_OPEN: '상시모집',
-  CLOSED: '마감',
+  CLOSED: '모집마감',
 };
 
 export const RECRUITMENT_DISPLAY_STATUS_BADGE: Record<RecruitmentDisplayStatus, string> = {

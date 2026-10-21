@@ -15,7 +15,9 @@ describe('총동연 모집 상태 칩', () => {
   });
 
   it('마감된 모집은 운영 개입 대상이 아니다', () => {
-    expect(recruitmentConsoleChip({ status: 'CLOSED', displayStatus: 'CLOSED' }).label).toBe('마감');
+    expect(recruitmentConsoleChip({ status: 'CLOSED', displayStatus: 'CLOSED' }).label).toBe(
+      '모집마감',
+    );
     expect(needsOperatorAttention({ status: 'CLOSED', displayStatus: 'CLOSED' })).toBe(false);
   });
 

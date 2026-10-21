@@ -8,6 +8,7 @@ import type { StudentRecruitmentProjection } from '@duing/types';
 
 import { Sparkle } from '../../../_components/Sparkle';
 import {
+  RECRUITMENT_DISPLAY_STATUS_LABEL,
   displayStatusLabel,
   recruitmentPeriodLabel,
 } from '../../../_lib/recruitmentDisplay';
@@ -37,7 +38,7 @@ export function ClubRecruitmentSummary({ recruitment }: Props) {
   // 카운트다운을 접고 상태 라벨로 폴백한다 — 표기 판정은 displayStatus 가 유일 소스(#896).
   const header =
     status === 'OPEN' && daysLeft !== null && daysLeft >= 0
-      ? `모집중 · ${ddayLabel(daysLeft)}`
+      ? `${RECRUITMENT_DISPLAY_STATUS_LABEL.OPEN} · ${ddayLabel(daysLeft)}`
       : displayStatusLabel(status);
   const end = endLabel(recruitment.endDate);
 

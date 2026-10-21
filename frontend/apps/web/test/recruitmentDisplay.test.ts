@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
+import type { RecruitmentSummary } from '@duing/types';
 import {
+  RECRUITMENT_DISPLAY_STATUS_LABEL,
   displayStatusLabel,
   recruitmentPeriodLabel,
   recruitmentDaysLeft,
@@ -58,5 +60,34 @@ describe('recruitmentStatusChip', () => {
       CLOSED: 'pill pill-outline',
       EXPIRED_OPEN: 'pill pill-warm-outline',
     });
+  });
+});
+
+describe('모집 표시 상태 라벨 — 학생·운영진·총동연이 한 테이블을 읽는다', () => {
+  it('테이블 네 값', () => {
+    expect(RECRUITMENT_DISPLAY_STATUS_LABEL).toEqual({
+      UPCOMING: '모집예정',
+      OPEN: '모집중',
+      ALWAYS_OPEN: '상시모집',
+      CLOSED: '모집마감',
+    });
+  });
+
+  it('운영진·총동연 칩도 학생 화면과 같은 라벨을 쓴다', () => {
+    expect(recruitmentStatusChip({ status: 'OPEN', displayStatus: 'UPCOMING' }).label).toBe(
+      '모집예정',
+    );
+    expect(recruitmentStatusChip({ status: 'CLOSED', displayStatus: 'CLOSED' }).label).toBe(
+      '모집마감',
+    );
+  });
+
+  it('기간이 끝났지만 아직 열린 모집은 운영진 칩 "기간 종료"·학생 라벨 "모집마감"으로 갈린다', () => {
+    const expiredOpen: Pick<RecruitmentSummary, 'status' | 'displayStatus'> = {
+      status: 'OPEN',
+      displayStatus: 'CLOSED',
+    };
+    expect(recruitmentStatusChip(expiredOpen).label).toBe('기간 종료');
+    expect(displayStatusLabel(expiredOpen.displayStatus)).toBe('모집마감');
   });
 });
