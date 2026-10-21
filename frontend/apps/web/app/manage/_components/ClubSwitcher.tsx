@@ -79,6 +79,7 @@ export function ClubSwitcher({ managedClubs, currentClubId, onNavigate }: ClubSw
               <span className="shrink-0 rounded-full bg-sage px-1.5 py-px text-[9.5px] font-extrabold text-ink-deep">
                 {clubMemberRoleLabel(currentClub.myRole)}
               </span>
+              {/* 표시 상태가 아니라 실제로 열린 모집 수(activeRecruitmentCount = 백엔드 effectivelyOpen) 기준이라 상태 라벨 테이블을 쓰지 않는다. */}
               {recruiting && (
                 <span className="shrink-0 rounded-full bg-sage/20 px-1.5 py-px text-[9.5px] font-bold text-sage-soft">
                   모집중
@@ -121,6 +122,7 @@ export function ClubSwitcher({ managedClubs, currentClubId, onNavigate }: ClubSw
                 <span className="block truncate text-[13px] font-bold text-white">{club.clubName}</span>
                 <span className="block text-[11px] text-white/50">
                   {clubMemberRoleLabel(club.myRole)}
+                  {/* 표시 상태가 아니라 실제로 열린 모집 수(activeRecruitmentCount = 백엔드 effectivelyOpen) 기준이라 상태 라벨 테이블을 쓰지 않는다. */}
                   {club.activeRecruitmentCount > 0 && (
                     <>
                       {' · '}
