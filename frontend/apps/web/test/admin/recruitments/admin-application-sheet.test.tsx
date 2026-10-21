@@ -81,6 +81,64 @@ describe('관리자 지원서 열람 시트', () => {
     expect(screen.getByText('상태 변경 이력이 없습니다')).toBeInTheDocument();
   });
 
+  // V103 이 서류심사(UNDER_REVIEW)를 지원 완료로 바꾸며 남긴 "지원 완료 → 지원 완료" 행 — 운영진 화면과 같이 숨긴다.
+  it('이전 상태와 새 상태가 같은 이력(V103 치환 잔재)은 숨기고 다른 이력은 남긴다', () => {
+    render(
+      <AdminApplicationSheetContent
+        detail={makeDetail({
+          statusHistory: [
+            { previousStatus: null, newStatus: 'SUBMITTED', changedAt: '2026-08-01T02:31:00Z' },
+            { previousStatus: 'SUBMITTED', newStatus: 'SUBMITTED', changedAt: '2026-08-02T01:00:00Z' },
+            { previousStatus: 'SUBMITTED', newStatus: 'ACCEPTED', changedAt: '2026-08-03T05:00:00Z' },
+          ],
+        })}
+      />,
+    );
+
+    const timeline = screen.getByRole('list', { name: '상태 변경 이력' });
+    expect(within(timeline).queryByText('지원 완료 → 지원 완료')).toBeNull();
+    expect(within(timeline).getByText('지원 완료')).toBeInTheDocument();
+    expect(within(timeline).getByText('지원 완료 → 합격')).toBeInTheDocument();
+    const visibleRows = within(timeline).getAllByRole('listitem');
+    expect(visibleRows).toHaveLength(2);
+    // 연결선은 보이는 행 기준 — 첫 행에는 있고 마지막 행에는 없다(아래 케이스의 부정 단언이 헛통과하지 않게 하는 대조군)
+    expect(visibleRows[0]?.querySelector('.bg-line')).not.toBeNull();
+    expect(visibleRows[1]?.querySelector('.bg-line')).toBeNull();
+  });
+
+  it('같은 상태 이력만 있으면 상태 변경 이력이 없다고 말한다', () => {
+    render(
+      <AdminApplicationSheetContent
+        detail={makeDetail({
+          statusHistory: [
+            { previousStatus: 'SUBMITTED', newStatus: 'SUBMITTED', changedAt: '2026-08-02T01:00:00Z' },
+          ],
+        })}
+      />,
+    );
+
+    expect(screen.getByText('상태 변경 이력이 없습니다')).toBeInTheDocument();
+    expect(screen.queryByRole('list', { name: '상태 변경 이력' })).toBeNull();
+  });
+
+  it('숨긴 이력이 맨 끝이면 남은 마지막 항목 아래로 연결선을 잇지 않는다', () => {
+    render(
+      <AdminApplicationSheetContent
+        detail={makeDetail({
+          statusHistory: [
+            { previousStatus: null, newStatus: 'SUBMITTED', changedAt: '2026-08-01T02:31:00Z' },
+            { previousStatus: 'SUBMITTED', newStatus: 'SUBMITTED', changedAt: '2026-08-02T01:00:00Z' },
+          ],
+        })}
+      />,
+    );
+
+    const timeline = screen.getByRole('list', { name: '상태 변경 이력' });
+    const lastVisibleRow = within(timeline).getByText('지원 완료').closest('li');
+    expect(lastVisibleRow).not.toBeNull();
+    expect(lastVisibleRow?.querySelector('.bg-line')).toBeNull();
+  });
+
   it('질문과 답변을 짝지어 보여준다', () => {
     render(<AdminApplicationSheetContent detail={makeDetail()} />);
 

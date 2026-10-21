@@ -64,7 +64,7 @@ describe('StatusTimeline', () => {
     expect(screen.getByText(/보류/)).toBeInTheDocument();
   });
 
-  it('이전 상태와 새 상태가 같은 이력(V99 치환 잔재)은 렌더되지 않는다', () => {
+  it('이전 상태와 새 상태가 같은 이력(V103 치환 잔재)은 렌더되지 않는다', () => {
     const selfTransition: ApplicationStatusHistoryItem[] = [
       {
         previousStatus: 'ON_HOLD',
