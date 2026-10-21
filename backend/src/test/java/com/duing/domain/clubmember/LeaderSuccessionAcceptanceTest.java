@@ -275,7 +275,7 @@ class LeaderSuccessionAcceptanceTest extends IntegrationTestBase {
     }
 
     @Test
-    @DisplayName("다른 운영진(다른 임원·현 회장)의 요청은 내 최근 요청 조회에 보이지 않는다")
+    @DisplayName("다른 임원의 요청은 나(임원)와 현 회장 모두의 최근 요청 조회에 보이지 않는다")
     void otherManagersRequestIsNotMine() {
         User otherOfficer = saveUser(UserRole.STUDENT);
         clubMemberRepository.save(ClubMember.of(
