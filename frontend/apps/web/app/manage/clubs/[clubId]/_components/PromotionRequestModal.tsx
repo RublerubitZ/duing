@@ -4,8 +4,10 @@ import { useForm, useController } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 
 import { useSubmitPromotionRequestMutation } from '@duing/hooks';
+import { formatDateKst } from '@duing/hooks/datetime';
 import { submitPromotionRequestSchema } from '@duing/schemas';
 import type { SubmitPromotionRequestInput } from '@duing/schemas';
+import type { LatestPromotionRequest } from '@duing/types';
 
 import { cn } from '@/app/_lib/cn';
 import { ImageUploader } from '@/app/_components/ImageUploader';
@@ -19,16 +21,20 @@ import {
 import { ButtonSpinner } from '@/components/loading/Spinner';
 import { useToast } from '@/app/_components/toast/ToastProvider';
 
+import { promotionRequestStatusChip } from '../_lib/promotionRequestStatus';
+
 type PromotionRequestModalProps = {
   clubId: number;
   clubName: string;
+  /** 페이지가 조회해 넘긴 최근 요청(없거나 조회 실패면 null) — 모달은 훅을 직접 부르지 않는다. */
+  latestRequest: LatestPromotionRequest | null;
   onClose: () => void;
 };
 
 const inputCls =
   'w-full rounded-md border px-4 py-3 text-sm outline-none transition-colors border-line placeholder:text-charcoal-3 focus-visible:border-ink focus-visible:ring-1 focus-visible:ring-ink';
 
-export function PromotionRequestModal({ clubId, clubName, onClose }: PromotionRequestModalProps) {
+export function PromotionRequestModal({ clubId, clubName, latestRequest, onClose }: PromotionRequestModalProps) {
   const { addToast } = useToast();
   const submitPromotion = useSubmitPromotionRequestMutation(clubId);
 
@@ -96,6 +102,8 @@ export function PromotionRequestModal({ clubId, clubName, onClose }: PromotionRe
         <DialogDescription className="text-sm text-charcoal-2">
           총동연에 홍보 배너 게재를 요청합니다. 요청 내용 검토 후 메인 화면에 노출됩니다.
         </DialogDescription>
+
+        {latestRequest !== null && <LatestRequestCard request={latestRequest} />}
 
         <form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-4">
           <div>
@@ -210,6 +218,36 @@ export function PromotionRequestModal({ clubId, clubName, onClose }: PromotionRe
         </form>
       </DialogContent>
     </Dialog>
+  );
+}
+
+function LatestRequestCard({ request }: { request: LatestPromotionRequest }) {
+  const { label, badgeClass } = promotionRequestStatusChip(request.status);
+  return (
+    <section aria-label="최근 홍보 요청" className="rounded-md border border-line bg-cream px-4 py-3 text-sm">
+      <div className="flex items-center gap-2">
+        <span className={cn('inline-flex shrink-0 rounded-full px-2.5 py-0.5 text-xs font-semibold', badgeClass)}>
+          {label}
+        </span>
+        <p className="min-w-0 truncate font-semibold text-ink">{request.title}</p>
+      </div>
+      <dl className="mt-2 grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-1 text-xs">
+        <dt className="text-charcoal-3">제출일</dt>
+        <dd className="text-charcoal-2">{formatDateKst(request.createdAt)}</dd>
+        {request.handledAt !== null && (
+          <>
+            <dt className="text-charcoal-3">처리일</dt>
+            <dd className="text-charcoal-2">{formatDateKst(request.handledAt)}</dd>
+          </>
+        )}
+        {request.actionNote ? (
+          <>
+            <dt className="text-charcoal-3">처리 메모</dt>
+            <dd className="whitespace-pre-wrap break-words text-charcoal-2">{request.actionNote}</dd>
+          </>
+        ) : null}
+      </dl>
+    </section>
   );
 }
 

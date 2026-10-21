@@ -210,6 +210,7 @@ export {
 } from './leaderSuccession';
 export { useAdminClubActivityEventsQuery } from './adminClubActivity';
 export {
+  useLatestPromotionRequestQuery,
   useSubmitPromotionRequestMutation,
   useAdminPromotionRequestListQuery,
   useAdminPromotionRequestDetailQuery,
