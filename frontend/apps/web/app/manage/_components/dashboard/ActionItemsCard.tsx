@@ -21,6 +21,8 @@ function hrefFor(clubId: number, item: ActionItem): `/${string}` {
     case 'INTERVIEW_RESULT_PENDING':
       // 합/불 결정은 지원자 목록에서 처리하므로 지원자 페이지로 이동 (라운드 귀속 정보는 행 텍스트로만 표시)
     case 'APPLICANTS_AWAITING_REVIEW':
+    case 'CLOSED_RECRUITMENT_UNDECIDED':
+      // 마감 모집이면 지원자 화면이 최종 결과 확정 전용으로 열린다
       return `/manage/clubs/${clubId}/recruitments/${item.recruitmentId}/applicants`;
   }
 }

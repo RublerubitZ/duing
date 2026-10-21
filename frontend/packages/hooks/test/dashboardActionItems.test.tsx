@@ -106,7 +106,10 @@ describe('useClubActionItems', () => {
     expect(result.current.preview[0]?.type).toBe('INTERVIEW_ROUND_NEEDED');
   });
 
-  it('모집이 모두 CLOSED이면 액션 아이템 없음', async () => {
+  it('마감 모집에 미결 지원이 남아 있으면 마감 모집 결과 미확정 항목', async () => {
+    // 기본 stats 핸들러(submitted 2 + onHold 3 + interviewPending 0 = 미결 5)를 그대로 쓴다.
+    // 마감 모집은 통계만 요청해야 한다 — 기본 라운드 핸들러가 ASSIGNING 을 돌려주므로
+    // 라운드·대기열을 잘못 부르면 INTERVIEW_* 항목이 생겨 totalCount 가 1을 넘는다.
     server.use(
       http.get('*/clubs/10/recruitments', () =>
         HttpResponse.json({ ok: true, message: null, data: [
@@ -117,8 +120,75 @@ describe('useClubActionItems', () => {
       ),
     );
     const { result } = renderHook(() => useClubActionItems(10), { wrapper: makeWrapper(newQueryClient()) });
+    await waitFor(() => {
+      expect(result.current.isLoading).toBe(false);
+      expect(result.current.totalCount).toBe(1);
+    });
+    expect(result.current.items[0]).toMatchObject({ type: 'CLOSED_RECRUITMENT_UNDECIDED', recruitmentId: 1, count: 5 });
+    expect(result.current.items.some((item) => item.type.startsWith('INTERVIEW_'))).toBe(false);
+    expect(result.current.isError).toBe(false);
+  });
+
+  it('마감 모집 지원이 모두 확정이면 항목 없음', async () => {
+    server.use(
+      http.get('*/clubs/10/recruitments', () =>
+        HttpResponse.json({ ok: true, message: null, data: [
+          { id: 1, clubId: 10, clubName: '두잉', title: '봄 모집', startDate: '2026-06-01', endDate: '2026-06-30',
+            capacity: 20, status: 'CLOSED', displayStatus: 'CLOSED', effectivelyOpen: false,
+            applicationMode: 'SELF', externalFormUrl: null, useInterview: true, targetRole: 'MEMBER' },
+        ] }),
+      ),
+      http.get('*/leader/recruitments/1/stats/summary', () =>
+        HttpResponse.json({ ok: true, message: null, data: { total: 5, submitted: 0, onHold: 0, interviewPending: 0, accepted: 3, rejected: 2, capacity: 20, ratio: 0 } }),
+      ),
+    );
+    const { result } = renderHook(() => useClubActionItems(10), { wrapper: makeWrapper(newQueryClient()) });
     await waitFor(() => expect(result.current.isLoading).toBe(false));
     expect(result.current.totalCount).toBe(0);
     expect(result.current.preview.length).toBe(0);
+    expect(result.current.isError).toBe(false);
+  });
+
+  it('외부 폼 마감 모집은 통계를 요청하지 않는다', async () => {
+    // id 2 의 stats 핸들러를 두지 않는다 — onUnhandledRequest: 'error' 라 요청하면 쿼리가 오류가 된다.
+    server.use(
+      http.get('*/clubs/10/recruitments', () =>
+        HttpResponse.json({ ok: true, message: null, data: [
+          { id: 2, clubId: 10, clubName: '두잉', title: '외부 폼 모집', startDate: '2026-06-01', endDate: '2026-06-30',
+            capacity: 20, status: 'CLOSED', displayStatus: 'CLOSED', effectivelyOpen: false,
+            applicationMode: 'EXTERNAL', externalFormUrl: 'https://forms.gle/x', useInterview: false, targetRole: 'MEMBER' },
+        ] }),
+      ),
+    );
+    const { result } = renderHook(() => useClubActionItems(10), { wrapper: makeWrapper(newQueryClient()) });
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(result.current.isError).toBe(false);
+    expect(result.current.totalCount).toBe(0);
+  });
+
+  it('진행 중 모집과 마감 모집이 섞이면 검토 대기를 먼저, 마감 모집 결과 미확정을 뒤에', async () => {
+    server.use(
+      http.get('*/clubs/10/recruitments', () =>
+        HttpResponse.json({ ok: true, message: null, data: [
+          { id: 1, clubId: 10, clubName: '두잉', title: '일반 모집', startDate: '2026-06-01', endDate: '2026-12-30',
+            capacity: 20, status: 'OPEN', displayStatus: 'OPEN', effectivelyOpen: true,
+            applicationMode: 'SELF', externalFormUrl: null, useInterview: false, targetRole: 'MEMBER' },
+          { id: 3, clubId: 10, clubName: '두잉', title: '지난 모집', startDate: '2026-03-01', endDate: '2026-03-31',
+            capacity: 20, status: 'CLOSED', displayStatus: 'CLOSED', effectivelyOpen: false,
+            applicationMode: 'SELF', externalFormUrl: null, useInterview: false, targetRole: 'MEMBER' },
+        ] }),
+      ),
+      http.get('*/leader/recruitments/3/stats/summary', () =>
+        HttpResponse.json({ ok: true, message: null, data: { total: 1, submitted: 1, onHold: 0, interviewPending: 0, accepted: 0, rejected: 0, capacity: 20, ratio: 0 } }),
+      ),
+    );
+    const { result } = renderHook(() => useClubActionItems(10), { wrapper: makeWrapper(newQueryClient()) });
+    await waitFor(() => {
+      expect(result.current.isLoading).toBe(false);
+      expect(result.current.totalCount).toBe(2);
+    });
+    expect(result.current.preview[0]).toMatchObject({ type: 'APPLICANTS_AWAITING_REVIEW', recruitmentId: 1 });
+    expect(result.current.preview[1]).toMatchObject({ type: 'CLOSED_RECRUITMENT_UNDECIDED', recruitmentId: 3, count: 1 });
+    expect(result.current.isError).toBe(false);
   });
 });

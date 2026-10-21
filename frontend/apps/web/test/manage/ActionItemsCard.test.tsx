@@ -55,6 +55,17 @@ describe('ActionItemsCard', () => {
     expect(link).toHaveAttribute('href', '/manage/clubs/10/recruitments/1/applicants');
   });
 
+  it('마감 모집 결과 미확정은 라벨·맥락과 지원자 페이지 딥링크를 렌더한다', () => {
+    const items: ActionItem[] = [
+      { type: 'CLOSED_RECRUITMENT_UNDECIDED', recruitmentId: 8, recruitmentTitle: '상시 모집', count: 2 },
+    ];
+    mockUse.mockReturnValue({ items, preview: items, totalCount: 1, isLoading: false, isError: false });
+    render(<ActionItemsCard clubId={10} />);
+    const link = screen.getByText('마감 모집 결과 미확정').closest('a');
+    expect(link).toHaveAttribute('href', '/manage/clubs/10/recruitments/8/applicants');
+    expect(screen.getByText('상시 모집 · 2명')).toBeInTheDocument();
+  });
+
   it('업무가 없으면 Empty State', () => {
     mockUse.mockReturnValue({ items: [], preview: [], totalCount: 0, isLoading: false, isError: false });
     render(<ActionItemsCard clubId={10} />);
