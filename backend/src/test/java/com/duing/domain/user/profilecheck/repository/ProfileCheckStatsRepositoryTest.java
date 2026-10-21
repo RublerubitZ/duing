@@ -39,19 +39,19 @@ class ProfileCheckStatsRepositoryTest extends IntegrationTestBase {
         User confirmedSophomore = saveStudent(Grade.SOPHOMORE);
         saveStudent(Grade.ON_LEAVE); // 대상이지만 이 학기 기록이 없다(미확인)
         User confirmedLastSemesterOnly = saveStudent(Grade.JUNIOR);
+        User admin = userRepository.save(UserFixture.admin());
         User graduated = saveStudent(Grade.GRADUATED);
         User suspended = UserFixture.unique();
         suspended.suspend();
         suspended = userRepository.save(suspended);
         User withdrawn = saveStudent(Grade.SENIOR);
-        User admin = userRepository.save(UserFixture.admin());
 
         confirm(confirmedSophomore, THIS_SEMESTER);
+        confirm(admin, THIS_SEMESTER);
         confirm(confirmedLastSemesterOnly, LAST_SEMESTER);
         // 대상 밖 사용자(졸업생·정지·탈퇴)의 이 학기 기록은 확인 완료에 섞이지 않아야 한다.
         confirm(graduated, THIS_SEMESTER);
         confirm(suspended, THIS_SEMESTER);
-        confirm(admin, THIS_SEMESTER);
         confirm(withdrawn, THIS_SEMESTER);
         userRepository.delete(withdrawn);
 

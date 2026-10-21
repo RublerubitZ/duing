@@ -85,6 +85,7 @@ class AdminProfileCheckControllerTest extends IntegrationTestBase {
                 .body("data.currentSemesterTerm", equalTo(1))
                 .body("data.title", equalTo(ProfileCheckSetting.DEFAULT_TITLE))
                 .body("data.message", equalTo(ProfileCheckSetting.DEFAULT_MESSAGE))
+                // 대상 = 저장한 학생 + setUp 의 관리자(총동연도 대상)
                 .body("data.targetCount", equalTo(2))
                 .body("data.confirmedCount", equalTo(0))
                 .body("data.unconfirmedCount", equalTo(2));
@@ -155,6 +156,7 @@ class AdminProfileCheckControllerTest extends IntegrationTestBase {
                 .body("data.semesterTerm", equalTo(2))
                 .body("data.currentSemesterYear", equalTo(2026))
                 .body("data.currentSemesterTerm", equalTo(1))
+                // 대상 = 저장한 학생 2명 + setUp 의 관리자(총동연도 대상)
                 .body("data.targetCount", equalTo(3))
                 .body("data.confirmedCount", equalTo(1))
                 .body("data.unconfirmedCount", equalTo(2));
