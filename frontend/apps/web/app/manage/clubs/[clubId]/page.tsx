@@ -54,24 +54,27 @@ export default function ClubManagePage({
             </span>
           </p>
         )}
-        {/* 대기 중이면 disabled 대신 aria-disabled — 제출 직후 재조회로 잠겨도 포커스가 body 로 빠지지 않고, Tab 으로 닿아 배지 설명이 읽힌다. */}
-        <button
-          type="button"
-          onClick={() => {
-            if (!isPromotionPending) setPromotionOpen(true);
-          }}
-          aria-disabled={isPromotionPending || undefined}
-          aria-describedby={isPromotionPending ? promotionBadgeId : undefined}
-          className="rounded-lg border border-line px-4 py-2 text-sm font-medium text-charcoal-2 hover:border-ink hover:text-ink aria-disabled:cursor-not-allowed aria-disabled:opacity-50 aria-disabled:hover:border-line aria-disabled:hover:text-charcoal-2"
-        >
-          홍보 요청
-        </button>
-        <Link
-          href={toRoute(`/manage/clubs/${currentClubId}/recruitments/new`)}
-          className="rounded-lg bg-ink px-4 py-2 text-sm font-medium text-paper hover:bg-ink-deep"
-        >
-          신규 모집 작성
-        </Link>
+        {/* 버튼 둘은 한 묶음 — 동아리 이름이 길어도 갈라지지 않고 함께 다음 줄로 내려간다. */}
+        <div className="flex shrink-0 items-center gap-2">
+          {/* 대기 중이면 disabled 대신 aria-disabled — 제출 직후 재조회로 잠겨도 포커스가 body 로 빠지지 않고, Tab 으로 닿아 배지 설명이 읽힌다. */}
+          <button
+            type="button"
+            onClick={() => {
+              if (!isPromotionPending) setPromotionOpen(true);
+            }}
+            aria-disabled={isPromotionPending || undefined}
+            aria-describedby={isPromotionPending ? promotionBadgeId : undefined}
+            className="rounded-lg border border-line px-4 py-2 text-sm font-medium text-charcoal-2 hover:border-ink hover:text-ink aria-disabled:cursor-not-allowed aria-disabled:opacity-50 aria-disabled:hover:border-line aria-disabled:hover:text-charcoal-2"
+          >
+            홍보 요청
+          </button>
+          <Link
+            href={toRoute(`/manage/clubs/${currentClubId}/recruitments/new`)}
+            className="rounded-lg bg-ink px-4 py-2 text-sm font-medium text-paper hover:bg-ink-deep"
+          >
+            신규 모집 작성
+          </Link>
+        </div>
       </header>
 
       <DashboardCardGrid clubId={currentClubId} />
