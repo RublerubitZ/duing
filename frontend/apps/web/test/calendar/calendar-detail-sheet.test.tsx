@@ -7,6 +7,7 @@ import { http, HttpResponse } from 'msw';
 
 import { createApiClient } from '@duing/api';
 import { ApiClientProvider } from '@duing/hooks';
+import { todayKstDateString } from '@duing/hooks/datetime';
 import { useAuthStore } from '@duing/stores';
 
 vi.mock('next/navigation', () => ({
@@ -72,7 +73,7 @@ function renderCalendar() {
   return render(
     <QueryClientProvider client={queryClient}>
       <ApiClientProvider client={apiClient}>
-        <CalendarPage />
+        <CalendarPage renderedTodayIso={todayKstDateString(new Date())} />
       </ApiClientProvider>
     </QueryClientProvider>,
   );
