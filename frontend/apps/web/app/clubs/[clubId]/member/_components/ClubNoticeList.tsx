@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useClubNoticeDetailQuery, useClubNoticeListQuery, useRemoveClubNoticeMutation } from '@duing/hooks';
 import type { NoticeCardItem } from '@duing/types';
 import { ConfirmDialog } from '@/app/_components/ConfirmDialog';
+import { scrollToPaginatedListStart } from '@/app/_lib/paginationScroll';
 import { ListRowsSkeleton } from '@/components/loading/Skeleton';
 import { useMembership } from './MembershipContext';
 import { ClubNoticeCard } from './ClubNoticeCard';
@@ -85,7 +86,10 @@ export function ClubNoticeList({ clubId }: Props) {
           <button
             type="button"
             disabled={page === 0}
-            onClick={() => setPage((p) => Math.max(0, p - 1))}
+            onClick={(event) => {
+              setPage((p) => Math.max(0, p - 1));
+              scrollToPaginatedListStart(event.currentTarget);
+            }}
             className="rounded-md border border-line px-3 py-1 text-sm disabled:opacity-40"
           >
             이전
@@ -96,7 +100,10 @@ export function ClubNoticeList({ clubId }: Props) {
           <button
             type="button"
             disabled={!data.hasNext}
-            onClick={() => setPage((p) => p + 1)}
+            onClick={(event) => {
+              setPage((p) => p + 1);
+              scrollToPaginatedListStart(event.currentTarget);
+            }}
             className="rounded-md border border-line px-3 py-1 text-sm disabled:opacity-40"
           >
             다음

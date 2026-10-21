@@ -11,6 +11,7 @@ import {
   useUpdateClubStatusMutation,
 } from '@duing/hooks';
 import type { AdminClubSummary, ClubStatus } from '@duing/types';
+import { scrollToPaginatedListStart } from '@/app/_lib/paginationScroll';
 import { LoadingGate } from '@/components/loading/LoadingGate';
 import { AdminClubCentralClubToggleDialog } from '../_components/AdminClubCentralClubToggleDialog';
 import { AdminClubSecuredTargetToggleDialog } from '../_components/AdminClubSecuredTargetToggleDialog';
@@ -253,7 +254,10 @@ export function AdminClubsListPage() {
             <div className="flex items-center gap-2">
               <button
                 type="button"
-                onClick={() => setPage((current) => Math.max(0, current - 1))}
+                onClick={(event) => {
+                  setPage((current) => Math.max(0, current - 1));
+                  scrollToPaginatedListStart(event.currentTarget);
+                }}
                 disabled={page0Based === 0}
                 className="border-line rounded-md border px-2 py-1 disabled:opacity-40"
               >
@@ -264,7 +268,10 @@ export function AdminClubsListPage() {
               </span>
               <button
                 type="button"
-                onClick={() => setPage((current) => current + 1)}
+                onClick={(event) => {
+                  setPage((current) => current + 1);
+                  scrollToPaginatedListStart(event.currentTarget);
+                }}
                 disabled={!hasNext}
                 className="border-line rounded-md border px-2 py-1 disabled:opacity-40"
               >
