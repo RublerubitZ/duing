@@ -58,10 +58,14 @@ function barLabels(
         top: RECRUITMENT_DISPLAY_STATUS_LABEL.UPCOMING,
         main: `${recruitment.startDate} 시작`,
       };
-    // 백엔드가 먼저 배포한 모르는 상태는 마감으로 그린다 — 값을 돌려주지 않으면 구조분해에서 서버 렌더가 깨진다(버튼은 canApply 가 잠근다).
     case 'CLOSED':
-    default:
       return { top: RECRUITMENT_DISPLAY_STATUS_LABEL.CLOSED, main: '이번 모집은 종료됐어요' };
+    // 백엔드가 먼저 배포한 모르는 상태는 마감으로 그린다 — 값을 돌려주지 않으면 구조분해에서 서버 렌더가 깨진다(버튼은 canApply 가 잠근다).
+    default: {
+      const _exhaustive: never = recruitment.displayStatus;
+      void _exhaustive;
+      return { top: RECRUITMENT_DISPLAY_STATUS_LABEL.CLOSED, main: '이번 모집은 종료됐어요' };
+    }
   }
 }
 
