@@ -181,12 +181,12 @@ describe('운영 홈 — 최근 홍보 요청 상태 배지', () => {
     expectPromotionButtonActive();
   });
 
-  it('모바일(md 미만)에서는 배지를 헤더 아래 줄로 내리고 PC 에서는 버튼 옆에 둔다', async () => {
+  it('lg 미만(모바일·사이드바가 붙는 md 구간)에서는 배지를 헤더 아래 줄로 내리고 lg 이상에서는 버튼 옆에 둔다', async () => {
     setupHandlers(latestJson(latestRequest({ status: 'PENDING' })));
     renderPage();
 
     const badgeRow = (await screen.findByText('검토 대기 중 · 2026.10.21 제출')).parentElement;
-    expect(badgeRow).toHaveClass('order-last', 'basis-full', 'md:order-none', 'md:basis-auto');
+    expect(badgeRow).toHaveClass('order-last', 'basis-full', 'lg:order-none', 'lg:basis-auto');
   });
 
   it('모달을 열면 최근 요청을 카드로 넘겨 보여 준다', async () => {

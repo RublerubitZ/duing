@@ -36,13 +36,13 @@ export default function ClubManagePage({
 
   return (
     <div className="duing mx-auto max-w-5xl px-6 py-8">
-      {/* 배지는 PC 에서 버튼 옆, md 미만에서는 줄을 바꿔 헤더 아래로 — 390 폭에서 제목·버튼 줄을 밀지 않는다. */}
+      {/* 배지는 lg 이상에서 버튼 옆, 그 아래(모바일·사이드바가 붙는 md 구간)에서는 줄을 바꿔 헤더 아래로 — 제목·버튼 줄을 밀지 않는다. */}
       <header className="mb-8 flex flex-wrap items-center gap-2">
         <h1 className="flex-1 text-xl font-bold">
           {currentManagedClub?.clubName ?? '동아리'}
         </h1>
         {latestPromotionRequest && promotionBadgeText !== null && (
-          <p className="order-last basis-full md:order-none md:basis-auto">
+          <p className="order-last basis-full lg:order-none lg:basis-auto">
             <span
               id={promotionBadgeId}
               className={cn(
