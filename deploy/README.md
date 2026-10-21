@@ -176,6 +176,7 @@ docker compose logs backend | grep 'closed ids'   # RecruitmentAutoCloseJob clos
 2) 플래그 끄기 — 잡 자체가 잘못 닫았을 때. `deploy/.env` 에 `DUING_RECRUITMENT_AUTO_CLOSE_ENABLED=false` 를 넣고
 `docker compose up -d` 로 반영한다(컨테이너를 다시 만들어 수십 초 동안 API 가 끊긴다). 원인을 고친 이미지를 배포한 뒤 줄을 지워
 다시 켠다. 되돌린 모집이 여전히 조건을 만족하면 다시 켠 다음 00:40 에 또 닫히므로, 다시 켜기 전에 운영진이 종료일을 연장하게 한다.
+플래그를 오래 끄거나 백엔드만 롤백하면 운영진 화면의 "종료 7일이 지나면 자동으로 마감돼요" 안내가 사실과 달라지므로, 그때는 프론트 안내 문구도 되돌린다.
 
 3) 되돌리기 SQL — `<id 목록>` 에 1) 의 id 를 넣는다. 동아리당 OPEN 모집은 1건만 허용되므로(V38 `uk_recruitment_club_active`)
 그 사이 같은 동아리에 새 모집이 열렸으면 건너뛰고, 그 사이 삭제된 모집은 되살리지 않는다. 바뀐 건수가 1) 보다 적으면 빠진 id 를 확인한다.
