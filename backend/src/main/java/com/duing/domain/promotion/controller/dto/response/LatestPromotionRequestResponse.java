@@ -1,7 +1,7 @@
 package com.duing.domain.promotion.controller.dto.response;
 
 import com.duing.domain.promotion.entity.PromotionRequestStatus;
-import com.duing.domain.promotion.service.dto.query.LatestPromotionRequestQuery;
+import com.duing.domain.promotion.service.dto.query.PromotionRequestLatestQuery;
 import com.duing.global.time.TimeMapper;
 import java.time.Instant;
 
@@ -14,7 +14,7 @@ public record LatestPromotionRequestResponse(
         Instant createdAt,
         Instant handledAt
 ) {
-    public static LatestPromotionRequestResponse from(LatestPromotionRequestQuery query) {
+    public static LatestPromotionRequestResponse from(PromotionRequestLatestQuery query) {
         return new LatestPromotionRequestResponse(
                 query.requestId(), query.status(), query.title(), query.actionNote(),
                 TimeMapper.systemWallClockToInstant(query.createdAt()),

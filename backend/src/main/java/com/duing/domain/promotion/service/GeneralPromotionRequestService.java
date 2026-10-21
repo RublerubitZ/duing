@@ -10,10 +10,10 @@ import com.duing.domain.promotion.exception.PromotionException;
 import com.duing.domain.promotion.repository.PromotionRequestRepository;
 import com.duing.domain.promotion.service.dto.command.CreatePromotionRequestCommand;
 import com.duing.domain.promotion.service.dto.command.ProcessPromotionRequestCommand;
-import com.duing.domain.promotion.service.dto.query.LatestPromotionRequestQuery;
 import com.duing.domain.promotion.service.dto.query.PromotionRequestAdminDetailQuery;
 import com.duing.domain.promotion.service.dto.query.PromotionRequestAdminSearchCondition;
 import com.duing.domain.promotion.service.dto.query.PromotionRequestAdminSummaryQuery;
+import com.duing.domain.promotion.service.dto.query.PromotionRequestLatestQuery;
 import com.duing.domain.user.entity.User;
 import com.duing.domain.user.repository.UserRepository;
 import com.duing.global.constant.AdminLabels;
@@ -85,10 +85,10 @@ public class GeneralPromotionRequestService implements PromotionRequestService {
     }
 
     @Override
-    public Optional<LatestPromotionRequestQuery> findLatest(Long clubId, Long currentUserId) {
+    public Optional<PromotionRequestLatestQuery> findLatest(Long clubId, Long currentUserId) {
         clubAuthService.requireManager(currentUserId, clubId);
         return requestRepository.findFirstByClubIdOrderByIdDesc(clubId)
-                .map(LatestPromotionRequestQuery::from);
+                .map(PromotionRequestLatestQuery::from);
     }
 
     @Override

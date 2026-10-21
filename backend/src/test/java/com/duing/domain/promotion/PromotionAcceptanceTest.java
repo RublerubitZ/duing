@@ -14,6 +14,7 @@ import com.duing.domain.club.entity.Club;
 import com.duing.domain.club.entity.ClubCategory;
 import com.duing.domain.club.repository.ClubRepository;
 import com.duing.domain.clubmember.entity.ClubMember;
+import com.duing.domain.clubmember.entity.ClubMemberRole;
 import com.duing.domain.clubmember.repository.ClubMemberRepository;
 import com.duing.domain.user.entity.College;
 import com.duing.domain.user.entity.Grade;
@@ -178,6 +179,50 @@ class PromotionAcceptanceTest extends IntegrationTestBase {
     }
 
     @Test
+    @DisplayName("요청을 낸 회장이 아니어도 같은 동아리 임원(OFFICER)이면 최근 홍보 요청을 볼 수 있다")
+    void latestRequestVisibleToOfficer() {
+        Long requestId = submitRequest("행사 홍보");
+        User officer = saveUser(UserRole.STUDENT);
+        clubMemberRepository.save(ClubMember.of(
+                clubRepository.findById(clubId).orElseThrow(), officer, ClubMemberRole.OFFICER));
+        String officerToken = jwtTokenProvider.createToken(officer.getId(), officer.getRole().name());
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + officerToken)
+                .when().get(latestRequestPath())
+                .then().statusCode(HttpStatus.OK.value())
+                .body("data.requestId", equalTo(requestId.intValue()));
+    }
+
+    @Test
+    @DisplayName("다른 동아리에 더 최근 요청이 있어도 우리 동아리의 최근 요청만 돌려준다")
+    void latestRequestIgnoresOtherClubsRequests() {
+        Long ownRequestId = submitRequest("우리 동아리 요청");
+        User otherLeader = saveUser(UserRole.STUDENT);
+        Club otherClub = clubRepository.save(Club.create("다른 동아리",
+                ClubCategory.ACADEMIC, null, "설명", null));
+        clubMemberRepository.save(ClubMember.asLeader(otherClub, otherLeader));
+        jdbcTemplate.update("UPDATE club SET status = 'ACTIVE' WHERE id = ?", otherClub.getId());
+        submitRequest(jwtTokenProvider.createToken(otherLeader.getId(), otherLeader.getRole().name()),
+                otherClub.getId(), "다른 동아리 요청");
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
+                .when().get(latestRequestPath())
+                .then().statusCode(HttpStatus.OK.value())
+                .body("data.requestId", equalTo(ownRequestId.intValue()))
+                .body("data.title", equalTo("우리 동아리 요청"));
+    }
+
+    @Test
+    @DisplayName("로그인하지 않은 호출은 URL 레이어에서 401 로 막힌다 — clubs/** GET permitAll 보다 앞선 규칙")
+    void latestRequestUnauthenticated() {
+        RestAssured.given()
+                .when().get(latestRequestPath())
+                .then().statusCode(HttpStatus.UNAUTHORIZED.value());
+    }
+
+    @Test
     @DisplayName("같은 동아리 일반 부원(MEMBER)이 최근 홍보 요청을 조회하면 403")
     void latestRequestForbiddenForSameClubMember() {
         User member = saveUser(UserRole.STUDENT);
@@ -207,7 +252,8 @@ class PromotionAcceptanceTest extends IntegrationTestBase {
         RestAssured.given()
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
                 .when().get(latestRequestPath())
-                .then().statusCode(HttpStatus.FORBIDDEN.value());
+                .then().statusCode(HttpStatus.FORBIDDEN.value())
+                .body("message", equalTo("운영 종료된 동아리입니다."));
     }
 
     private String latestRequestPath() {
@@ -215,11 +261,15 @@ class PromotionAcceptanceTest extends IntegrationTestBase {
     }
 
     private Long submitRequest(String title) {
+        return submitRequest(leaderToken, clubId, title);
+    }
+
+    private Long submitRequest(String requesterToken, Long targetClubId, String title) {
         return RestAssured.given()
-                .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + requesterToken)
                 .contentType(ContentType.JSON)
                 .body(Map.of("title", title, "description", "내용"))
-                .when().post("/api/v1/clubs/" + clubId + "/promotion-requests")
+                .when().post("/api/v1/clubs/" + targetClubId + "/promotion-requests")
                 .then().statusCode(HttpStatus.CREATED.value())
                 .extract().jsonPath().getLong("data");
     }

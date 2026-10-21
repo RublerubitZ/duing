@@ -4,7 +4,7 @@ import com.duing.domain.promotion.entity.PromotionRequest;
 import com.duing.domain.promotion.entity.PromotionRequestStatus;
 import java.time.LocalDateTime;
 
-public record LatestPromotionRequestQuery(
+public record PromotionRequestLatestQuery(
         Long requestId,
         PromotionRequestStatus status,
         String title,
@@ -12,8 +12,8 @@ public record LatestPromotionRequestQuery(
         LocalDateTime createdAt,
         LocalDateTime handledAt
 ) {
-    public static LatestPromotionRequestQuery from(PromotionRequest request) {
-        return new LatestPromotionRequestQuery(
+    public static PromotionRequestLatestQuery from(PromotionRequest request) {
+        return new PromotionRequestLatestQuery(
                 request.getId(), request.getStatus(), request.getTitle(),
                 request.getActionNote(), request.getCreatedAt(), request.getHandledAt());
     }
