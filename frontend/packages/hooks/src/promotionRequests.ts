@@ -1,5 +1,4 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ApiError } from '@duing/api';
 import type {
   AdminPromotionRequestSearchParams,
   ProcessPromotionRequestPayload,
@@ -26,18 +25,13 @@ export function useLatestPromotionRequestQuery(clubId: number) {
 export const useSubmitPromotionRequestMutation = (clubId: number) => {
   const client = useApiClient();
   const queryClient = useQueryClient();
-  const invalidateLatest = () =>
-    queryClient.invalidateQueries({ queryKey: clubQueryKeys.latestPromotionRequest(clubId) });
   return useMutation({
     mutationFn: (payload: SubmitPromotionRequestPayload) =>
       client.promotionRequests.submit(clubId, payload),
-    onSuccess: () => {
-      void invalidateLatest();
-    },
-    // 409 는 다른 운영진이 먼저 낸 요청이 대기 중이라는 뜻 — 다시 받아 곧바로 "검토 대기 중"으로 바꾼다.
-    onError: (error) => {
-      if (error instanceof ApiError && error.status === 409) void invalidateLatest();
-    },
+    // 성공·실패 모두 최근 요청을 다시 받는다 — 409(다른 운영진이 먼저 낸 요청이 대기 중)와
+    // 시간 초과·5xx 인데 서버는 커밋한 경우도 곧바로 "검토 대기 중"으로 맞춰진다.
+    onSettled: () =>
+      queryClient.invalidateQueries({ queryKey: clubQueryKeys.latestPromotionRequest(clubId) }),
   });
 };
 

@@ -4,9 +4,10 @@ import { act, renderHook, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { setupServer } from 'msw/node';
 import { http, HttpResponse } from 'msw';
-import { createApiClient } from '@duing/api';
+import { ApiError, createApiClient } from '@duing/api';
 import type { LatestPromotionRequest } from '@duing/types';
 import { ApiClientProvider } from '../src/api-context';
+import { clubQueryKeys } from '../src/clubQueryKeys';
 import {
   useLatestPromotionRequestQuery,
   useSubmitPromotionRequestMutation,
@@ -91,33 +92,41 @@ describe('useSubmitPromotionRequestMutation — 최근 요청 무효화', () => 
       }),
       http.post(SUBMIT_URL, submitResponse),
     );
+    const queryClient = newQueryClient();
     const { result } = renderHook(
       () => ({
         latest: useLatestPromotionRequestQuery(CLUB_ID),
         submit: useSubmitPromotionRequestMutation(CLUB_ID),
       }),
-      { wrapper: makeWrapper(newQueryClient()) },
+      { wrapper: makeWrapper(queryClient) },
     );
-    return { result, latestRequestCount: () => latestRequests };
+    return {
+      result,
+      latestRequestCount: () => latestRequests,
+      cachedLatest: () => queryClient.getQueryData(clubQueryKeys.latestPromotionRequest(CLUB_ID)),
+    };
   }
 
-  it('제출에 성공하면 최근 요청을 다시 받아 "검토 대기 중"으로 바뀐다', async () => {
-    const { result, latestRequestCount } = renderLatestAndSubmit(() =>
+  // 재조회 promise 를 onSettled 가 돌려줘야 mutateAsync 가 그것까지 기다린다 — 끝난 그 순간의 캐시를 단언한다(act 가 흘리기 전).
+  it('제출에 성공하면 최근 요청을 다시 받은 뒤에 끝나 "검토 대기 중"으로 바뀌어 있다', async () => {
+    const { result, latestRequestCount, cachedLatest } = renderLatestAndSubmit(() =>
       HttpResponse.json({ ok: true, data: 3, message: null }),
     );
     await waitFor(() => expect(result.current.latest.isSuccess).toBe(true));
     expect(result.current.latest.data).toBeNull();
 
+    let latestWhenSubmitResolved: unknown = undefined;
     await act(async () => {
       await result.current.submit.mutateAsync(submitPayload);
+      latestWhenSubmitResolved = cachedLatest();
     });
 
-    await waitFor(() => expect(result.current.latest.data).toEqual(pendingRequest));
     expect(latestRequestCount()).toBe(2);
+    expect(latestWhenSubmitResolved).toEqual(pendingRequest);
   });
 
   it('409(다른 운영진이 먼저 낸 요청이 대기 중)여도 최근 요청을 다시 받는다', async () => {
-    const { result, latestRequestCount } = renderLatestAndSubmit(() =>
+    const { result, latestRequestCount, cachedLatest } = renderLatestAndSubmit(() =>
       HttpResponse.json(
         { ok: false, data: null, message: '이미 처리 대기 중인 홍보 요청이 있습니다.' },
         { status: 409 },
@@ -125,26 +134,33 @@ describe('useSubmitPromotionRequestMutation — 최근 요청 무효화', () => 
     );
     await waitFor(() => expect(result.current.latest.isSuccess).toBe(true));
 
+    let latestWhenSubmitSettled: unknown = undefined;
     await act(async () => {
       await result.current.submit.mutateAsync(submitPayload).catch(() => undefined);
+      latestWhenSubmitSettled = cachedLatest();
     });
 
-    await waitFor(() => expect(result.current.latest.data).toEqual(pendingRequest));
     expect(latestRequestCount()).toBe(2);
+    expect(latestWhenSubmitSettled).toEqual(pendingRequest);
   });
 
-  it('그 밖의 실패(400)는 서버 상태가 바뀌지 않았으니 다시 받지 않는다', async () => {
-    const { result, latestRequestCount } = renderLatestAndSubmit(() =>
-      HttpResponse.json({ ok: false, data: null, message: '제목을 입력해 주세요.' }, { status: 400 }),
+  it('서버 오류(5xx)여도 서버는 커밋했을 수 있어 최근 요청을 다시 받는다', async () => {
+    const { result, latestRequestCount, cachedLatest } = renderLatestAndSubmit(() =>
+      HttpResponse.json({ ok: false, data: null, message: '서버 오류' }, { status: 500 }),
     );
     await waitFor(() => expect(result.current.latest.isSuccess).toBe(true));
 
+    let submitError: unknown = null;
+    let latestWhenSubmitSettled: unknown = undefined;
     await act(async () => {
-      await result.current.submit.mutateAsync(submitPayload).catch(() => undefined);
+      await result.current.submit.mutateAsync(submitPayload).catch((error: unknown) => {
+        submitError = error;
+      });
+      latestWhenSubmitSettled = cachedLatest();
     });
 
-    await waitFor(() => expect(result.current.submit.isError).toBe(true));
-    expect(result.current.latest.isFetching).toBe(false);
-    expect(latestRequestCount()).toBe(1);
+    expect(submitError).toBeInstanceOf(ApiError);
+    expect(latestRequestCount()).toBe(2);
+    expect(latestWhenSubmitSettled).toEqual(pendingRequest);
   });
 });

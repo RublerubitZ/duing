@@ -225,11 +225,11 @@ function LatestRequestCard({ request }: { request: LatestPromotionRequest }) {
   const { label, badgeClass } = promotionRequestStatusChip(request.status);
   return (
     <section aria-label="최근 홍보 요청" className="rounded-md border border-line bg-cream px-4 py-3 text-sm">
-      <div className="flex items-center gap-2">
+      <div className="flex items-start gap-2">
         <span className={cn('inline-flex shrink-0 rounded-full px-2.5 py-0.5 text-xs font-semibold', badgeClass)}>
           {label}
         </span>
-        <p className="min-w-0 truncate font-semibold text-ink">{request.title}</p>
+        <p className="min-w-0 break-words font-semibold text-ink">{request.title}</p>
       </div>
       <dl className="mt-2 grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-1 text-xs">
         <dt className="text-charcoal-3">제출일</dt>

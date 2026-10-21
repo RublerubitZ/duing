@@ -54,12 +54,15 @@ export default function ClubManagePage({
             </span>
           </p>
         )}
+        {/* 대기 중이면 disabled 대신 aria-disabled — 제출 직후 재조회로 잠겨도 포커스가 body 로 빠지지 않고, Tab 으로 닿아 배지 설명이 읽힌다. */}
         <button
           type="button"
-          onClick={() => setPromotionOpen(true)}
-          disabled={isPromotionPending}
+          onClick={() => {
+            if (!isPromotionPending) setPromotionOpen(true);
+          }}
+          aria-disabled={isPromotionPending || undefined}
           aria-describedby={isPromotionPending ? promotionBadgeId : undefined}
-          className="rounded-lg border border-line px-4 py-2 text-sm font-medium text-charcoal-2 hover:border-ink hover:text-ink disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:border-line disabled:hover:text-charcoal-2"
+          className="rounded-lg border border-line px-4 py-2 text-sm font-medium text-charcoal-2 hover:border-ink hover:text-ink aria-disabled:cursor-not-allowed aria-disabled:opacity-50 aria-disabled:hover:border-line aria-disabled:hover:text-charcoal-2"
         >
           홍보 요청
         </button>

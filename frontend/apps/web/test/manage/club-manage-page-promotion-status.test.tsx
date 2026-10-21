@@ -105,14 +105,35 @@ async function waitForLatestStatus(queryClient: QueryClient, status: 'success' |
 
 const promotionButton = () => screen.getByRole('button', { name: '홍보 요청' });
 
+// 대기 중 잠금은 disabled 가 아니라 aria-disabled 다 — 활성 판정은 둘 다 없는지로 본다.
+function expectPromotionButtonActive() {
+  expect(promotionButton()).toBeEnabled();
+  expect(promotionButton()).not.toHaveAttribute('aria-disabled');
+}
+
 describe('운영 홈 — 최근 홍보 요청 상태 배지', () => {
-  it('검토 대기 중이면 KST 제출일을 붙인 배지를 보이고, 버튼은 비활성이며 배지를 설명으로 가리킨다', async () => {
+  it('검토 대기 중이면 KST 제출일을 붙인 배지를 보이고, 버튼은 aria-disabled 로 잠그며 배지를 설명으로 가리킨다', async () => {
     setupHandlers(latestJson(latestRequest({ status: 'PENDING' })));
     renderPage();
 
     expect(await screen.findByText('검토 대기 중 · 2026.10.21 제출')).toBeInTheDocument();
-    expect(promotionButton()).toBeDisabled();
+    expect(promotionButton()).toHaveAttribute('aria-disabled', 'true');
     expect(promotionButton()).toHaveAccessibleDescription('검토 대기 중 · 2026.10.21 제출');
+  });
+
+  it('검토 대기 중인 버튼은 Tab 으로 닿지만 눌러도 모달을 열지 않는다', async () => {
+    setupHandlers(latestJson(latestRequest({ status: 'PENDING' })));
+    renderPage();
+    await screen.findByText('검토 대기 중 · 2026.10.21 제출');
+
+    // disabled 였다면 Tab 순서에서 빠져 설명이 들리지 않는다.
+    expect(promotionButton()).toBeEnabled();
+    expect(promotionButton()).not.toHaveAttribute('tabindex');
+    promotionButton().focus();
+    expect(promotionButton()).toHaveFocus();
+
+    await userEvent.click(promotionButton());
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
 
   it('수락된 지 14일이 안 됐으면 "수락됨" 배지를 보이고 버튼은 활성이다', async () => {
@@ -122,7 +143,7 @@ describe('운영 홈 — 최근 홍보 요청 상태 배지', () => {
     renderPage();
 
     expect(await screen.findByText('수락됨')).toBeInTheDocument();
-    expect(promotionButton()).toBeEnabled();
+    expectPromotionButtonActive();
   });
 
   it('거절된 지 14일이 안 됐으면 "거절됨" 배지를 보이고 버튼은 활성이다', async () => {
@@ -132,7 +153,7 @@ describe('운영 홈 — 최근 홍보 요청 상태 배지', () => {
     renderPage();
 
     expect(await screen.findByText('거절됨')).toBeInTheDocument();
-    expect(promotionButton()).toBeEnabled();
+    expectPromotionButtonActive();
   });
 
   it.each(['ACCEPTED', 'REJECTED'] as const)(
@@ -146,7 +167,7 @@ describe('운영 홈 — 최근 홍보 요청 상태 배지', () => {
       await waitForLatestStatus(queryClient, 'success');
       expect(screen.queryByText('수락됨')).not.toBeInTheDocument();
       expect(screen.queryByText('거절됨')).not.toBeInTheDocument();
-      expect(promotionButton()).toBeEnabled();
+      expectPromotionButtonActive();
     },
   );
 
@@ -157,7 +178,7 @@ describe('운영 홈 — 최근 홍보 요청 상태 배지', () => {
     await waitForLatestStatus(queryClient, 'success');
     expect(latestRequestCount()).toBe(1);
     expect(screen.queryByText(/검토 대기 중/)).not.toBeInTheDocument();
-    expect(promotionButton()).toBeEnabled();
+    expectPromotionButtonActive();
   });
 
   it('모바일(md 미만)에서는 배지를 헤더 아래 줄로 내리고 PC 에서는 버튼 옆에 둔다', async () => {
@@ -194,7 +215,7 @@ describe('운영 홈 — 최근 홍보 요청 조회 실패는 지금 화면 그
 
     await waitForLatestStatus(queryClient, 'error');
     expect(latestRequestCount()).toBe(1);
-    expect(promotionButton()).toBeEnabled();
+    expectPromotionButtonActive();
     expect(promotionButton()).not.toHaveAttribute('aria-describedby');
   });
 
@@ -206,7 +227,7 @@ describe('운영 홈 — 최근 홍보 요청 조회 실패는 지금 화면 그
 
     await waitForLatestStatus(queryClient, 'error');
     expect(latestRequestCount()).toBe(2);
-    expect(promotionButton()).toBeEnabled();
+    expectPromotionButtonActive();
     expect(promotionButton()).not.toHaveAttribute('aria-describedby');
   });
 
@@ -219,6 +240,6 @@ describe('운영 홈 — 최근 홍보 요청 조회 실패는 지금 화면 그
 
     await waitFor(() => expect(latestRequestCount()).toBe(1));
     expect(screen.queryByText(/검토 대기 중/)).not.toBeInTheDocument();
-    expect(promotionButton()).toBeEnabled();
+    expectPromotionButtonActive();
   });
 });
