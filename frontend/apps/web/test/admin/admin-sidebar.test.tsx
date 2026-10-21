@@ -76,6 +76,10 @@ describe('AdminSidebar', () => {
     expect(screen.getByRole('link', { name: '대시보드' })).toHaveAttribute('aria-current', 'page');
     expect(screen.getByRole('link', { name: /동아리 관리/ })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /회원 관리/ })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /정보 확인 팝업/ })).toHaveAttribute(
+      'href',
+      '/admin/profile-check',
+    );
     expect(screen.getByText('커뮤니티 운영')).toBeInTheDocument();
   });
 

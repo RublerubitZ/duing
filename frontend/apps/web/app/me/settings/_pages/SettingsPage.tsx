@@ -4,20 +4,28 @@ import { useState } from 'react';
 
 import Link from 'next/link';
 
-import { useFavoriteListQuery, useLogout, useManagedClubsQuery, useMeQuery, useMyApplicationsQuery } from '@duing/hooks';
-import { COLLEGE_DISPLAY_NAME, GRADE_DISPLAY_NAME, isCollege } from '@duing/types';
+import {
+  useFavoriteListQuery,
+  useLogout,
+  useManagedClubsQuery,
+  useMeQuery,
+  useMyApplicationsQuery,
+  useProfileCheckQuery,
+} from '@duing/hooks';
+import { COLLEGE_DISPLAY_NAME, GRADE_DISPLAY_NAME, isCollege, type Grade } from '@duing/types';
 
 import { skipNextOverlayReclaim } from '@/app/_lib/backDismiss';
 import { clearOperatorLocalState } from '@/app/_lib/operatorLocalState';
 import { toRoute } from '@/app/_lib/route';
+import { useHydrated } from '@/app/_lib/useHydrated';
 import { ConfirmDialog } from '@/app/_components/ConfirmDialog';
 import { HomeNav } from '@/app/_components/HomeNav';
+import { ProfileEditDialog } from '@/app/_components/ProfileEditDialog';
 import { useToast } from '@/app/_components/toast/ToastProvider';
 import { ArrowRight } from '@/components/duing/Icon';
 import { SparkleFull } from '@/components/duing/Sparkle';
 
 import { MyPageHeader } from '../../_components/MyPageHeader';
-import { ProfileEditDialog } from '../_components/ProfileEditDialog';
 import { SessionListCard } from '../_components/SessionListCard';
 import { PasswordChangeDialog } from '../_components/PasswordChangeDialog';
 import { PhoneChangeDialog } from '../_components/PhoneChangeDialog';
@@ -120,10 +128,13 @@ export function SettingsPage() {
   const applicationsQuery = useMyApplicationsQuery();
   const managedClubsQuery = useManagedClubsQuery();
   const favoriteListQuery = useFavoriteListQuery(0, 20);
+  const profileCheckQuery = useProfileCheckQuery();
   const logout = useLogout();
   const { addToast } = useToast();
+  const hydrated = useHydrated();
 
-  const user = meQuery.data;
+  // 하이드레이션 프레임은 서버처럼 비운다 — 부팅 세션 복원(me 선요청)이 본문보다 먼저 끝나면 첫 렌더가 서버 HTML("—")과 어긋난다.
+  const user = hydrated ? meQuery.data : undefined;
   const applyCount = applicationsQuery.data?.length ?? 0;
   const joinedCount = managedClubsQuery.data?.length ?? 0;
   const savedCount = favoriteListQuery.data?.content.length ?? 0;
@@ -136,6 +147,17 @@ export function SettingsPage() {
   // 로그아웃은 관례대로 즉시 실행이라 이 경로만 확인을 받는다.
   const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
   const [logoutPending, setLogoutPending] = useState(false);
+  // "수정"을 누르는 순간의 정보 확인 제안 학년 — 창이 열린 동안 바꾸지 않는다. 수정 창은 열린 동안 학년 prop 이 바뀌면 입력을
+  // 모두 다시 채우므로, 늦게 도착한 조회가 입력 중이던 이름·전공을 지우지 않게 한다. 로딩·실패·꺼짐이면 현재 학년이다.
+  const [suggestedGradeSeed, setSuggestedGradeSeed] = useState<Grade | null>(null);
+
+  const openProfileEdit = () => {
+    // 다시 받는 중·실패면 남은 캐시를 믿지 않는다(팝업과 같은 가드) — 방금 저장해 확인된 학기의 옛 제안으로 채우지 않게.
+    const profileCheck =
+      profileCheckQuery.isFetching || profileCheckQuery.isError ? undefined : profileCheckQuery.data;
+    setSuggestedGradeSeed(profileCheck?.pending === true ? profileCheck.suggestedGrade : null);
+    setProfileOpen(true);
+  };
 
   const handleLogout = async () => {
     setLogoutPending(true);
@@ -187,7 +209,7 @@ export function SettingsPage() {
               action={
                 <button
                   type="button"
-                  onClick={() => setProfileOpen(true)}
+                  onClick={openProfileEdit}
                   disabled={!user}
                   className="btn btn-ghost btn-sm"
                 >
@@ -308,7 +330,8 @@ export function SettingsPage() {
         open={profileOpen}
         onClose={() => setProfileOpen(false)}
         currentName={user?.name ?? ''}
-        currentGrade={user?.grade ?? 'FRESHMAN'}
+        currentGrade={suggestedGradeSeed ?? user?.grade ?? 'FRESHMAN'}
+        gradeFromSuggestion={suggestedGradeSeed !== null && suggestedGradeSeed !== user?.grade}
         currentCollege={user?.college}
         currentMajor={user?.major}
       />

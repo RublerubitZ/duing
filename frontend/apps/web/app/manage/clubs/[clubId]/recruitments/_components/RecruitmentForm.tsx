@@ -9,7 +9,8 @@ import { QuestionBuilder, toBuilderQuestions, toQuestionItemsPayload } from './Q
 import type { BuilderQuestion } from './QuestionBuilder';
 import { ButtonSpinner } from '@/components/loading/Spinner';
 import { SectionCard } from '@/app/manage/_components/SectionCard';
-import { FormSegment, FormSwitch, SettingRow } from './form-controls';
+import { FormSegment, SettingRow } from './form-controls';
+import { FormSwitch } from '@/app/_components/FormSwitch';
 import { RecruitmentPreview } from './RecruitmentPreview';
 import type { RecruitmentPreviewData } from './RecruitmentPreview';
 import { ExternalModeConfirmDialog } from './ExternalModeConfirmDialog';

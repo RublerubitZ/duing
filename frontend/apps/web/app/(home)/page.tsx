@@ -4,6 +4,7 @@ import { FadeIn } from '@/components/motion/FadeIn';
 
 import { HomeFooter } from '../_components/HomeFooter';
 import { PauseOffscreen } from '../_components/PauseOffscreen';
+import { ProfileCheckPrompt } from '../_components/ProfileCheckPrompt';
 import { BannerCarousel } from '../_components/sections/BannerCarousel';
 import { Categories } from '../_components/sections/Categories';
 import { HomeHero } from '../_components/sections/HomeHero';
@@ -62,6 +63,8 @@ export default function HomePage() {
         <Categories />
       </FadeIn>
       <HomeFooter />
+      {/* 학기 정보 확인 팝업 — 로그인 사용자 전용 클라이언트 섬. 서버 HTML 에는 아무것도 없어 ISR 그대로다. */}
+      <ProfileCheckPrompt />
     </div>
   );
 }

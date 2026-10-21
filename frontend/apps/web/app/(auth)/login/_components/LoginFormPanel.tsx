@@ -10,6 +10,7 @@ import { cn } from '@/app/_lib/cn';
 import { toReturnRoute, toRoute } from '@/app/_lib/route';
 import { ButtonSpinner } from '@/components/loading/Spinner';
 import { captureEvent } from '@/app/_lib/analytics';
+import { clearProfileCheckSnooze } from '@/app/_lib/profileCheckSnooze';
 import posthog from 'posthog-js';
 
 const CREDENTIAL_ERROR_MESSAGE = '학번 또는 비밀번호가 올바르지 않습니다.';
@@ -121,6 +122,8 @@ function LoginForm() {
       const loggedInUser = await login.mutateAsync({ ...parsed.data, rememberMe });
       posthog.identify(String(loggedInUser.id));
       captureEvent('user_logged_in', { remember_me: rememberMe });
+      // 새로 로그인하면 정보 확인 팝업의 "나중에" 숨김을 푼다(스펙 D5) — 아래 하드 이동이 문서 한정 숨김도 함께 지운다.
+      clearProfileCheckSnooze();
       // 복귀는 라우터가 아니라 문서 하드 이동이다. 게스트가 MY 탭 등으로 /me·/manage 를 클라이언트
       // 내비게이션(프리페치·클릭)하면 미들웨어의 307(→/login) 결과가 라우터 캐시에 그 경로 키로 남고
       // (staleTimes.dynamic 180초), 로그인 뒤 router.replace(next) 는 서버(미들웨어)에 다시 묻지 않고

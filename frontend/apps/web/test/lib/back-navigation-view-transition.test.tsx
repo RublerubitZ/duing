@@ -31,6 +31,24 @@ function hasMarker() {
   return document.documentElement.hasAttribute(MARKER);
 }
 
+// 진행 중 전환(document.activeViewTransition) 흉내 — jsdom 에는 ViewTransition 이 없어 전역과 함께 단다.
+// 애니메이션 전의 실제 전환처럼 끊으면 ready 가 AbortError 로 거부된다(아무도 받지 않으면 unhandled rejection 으로 실패한다).
+function stubActiveViewTransition() {
+  class FakeViewTransition {
+    private rejectReady: (reason: unknown) => void = () => {};
+    readonly ready = new Promise<void>((_resolve, reject) => {
+      this.rejectReady = reject;
+    });
+    skipTransition = vi.fn(() => {
+      this.rejectReady(new DOMException('Transition was skipped', 'AbortError'));
+    });
+  }
+  vi.stubGlobal('ViewTransition', FakeViewTransition);
+  const activeTransition = new FakeViewTransition();
+  Object.defineProperty(document, 'activeViewTransition', { value: activeTransition, configurable: true });
+  return activeTransition;
+}
+
 afterEach(() => {
   vi.unstubAllGlobals();
   if (registeredPopstateListener) {
@@ -39,6 +57,7 @@ afterEach(() => {
   }
   document.documentElement.removeAttribute(MARKER);
   Reflect.deleteProperty(document, 'startViewTransition');
+  Reflect.deleteProperty(document, 'activeViewTransition');
   navigationState.pathname = '/clubs';
   vi.useRealTimers();
   vi.doUnmock('@/app/_lib/backDismiss');
@@ -104,6 +123,35 @@ describe('installBackNavigationViewTransitionGuard', () => {
     vi.advanceTimersByTime(1);
     expect(hasMarker()).toBe(false);
     expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it('popstate 에 진행 중인 앞으로 이동 전환을 끊는다 — 뒤로 간 화면이 남은 push 를 따라 밀려 들어오지 않게', async () => {
+    const activeTransition = stubActiveViewTransition();
+    await loadAndInstallGuard();
+
+    window.dispatchEvent(new PopStateEvent('popstate'));
+
+    expect(activeTransition.skipTransition).toHaveBeenCalledTimes(1);
+    expect(hasMarker()).toBe(true);
+  });
+
+  it('진행 중 전환이 없으면(activeViewTransition 이 null) 마커만 세운다', async () => {
+    vi.stubGlobal('ViewTransition', class {});
+    Object.defineProperty(document, 'activeViewTransition', { value: null, configurable: true });
+    await loadAndInstallGuard();
+
+    window.dispatchEvent(new PopStateEvent('popstate'));
+
+    expect(hasMarker()).toBe(true);
+  });
+
+  it('오버레이만 닫는 popstate 에서는 전환을 끊지 않는다', async () => {
+    const activeTransition = stubActiveViewTransition();
+    await loadAndInstallGuard({ overlayOnly: () => true });
+
+    window.dispatchEvent(new PopStateEvent('popstate'));
+
+    expect(activeTransition.skipTransition).not.toHaveBeenCalled();
   });
 
   it('startViewTransition 을 감싸지 않는다 — 앞으로 이동 전환은 원래 함수가 그대로 받는다', async () => {

@@ -14,6 +14,7 @@ import {
   firstClubWithHeroActivities,
   firstListedCategory,
   gotoList,
+  interceptedDetailHeading,
   markCard,
   markTime,
   markedCardState,
@@ -64,6 +65,21 @@ async function loginAsMember(page: Page): Promise<void> {
 test.describe('목록 → 인터셉트 상세 → 뒤로', () => {
   test('카드 노드가 그대로 남고(숨김 → 다시 보임), 탭 제목이 목록 제목으로 돌아온다', async ({ page }) => {
     await assertListKeptAcrossDetail(page, (card) => card.click());
+  });
+
+  // 모바일은 숨은 목록을 크림 배경 뒤에 그려 두지만(웹킷 스펙) md 이상은 display:none 이다 — 이 폭에서 목록이 문서 흐름에 보이면
+  // markedCardState(inert 안 노드 제외)는 못 잡으므로 여기서 직접 본다.
+  test('인터셉트 상세 동안 데스크탑 목록은 display:none 이고 inert 다', async ({ page }) => {
+    await gotoList(page);
+    const card = visibleCards(page).first();
+    const clubName = await readCardClubName(card);
+    await card.click();
+    await expect(detailHeading(page, clubName)).toBeVisible({ timeout: ROUTE_TIMEOUT_MS });
+
+    const hiddenList = page.locator('[data-clubs-hidden-list]');
+    await expect(hiddenList).toHaveCSS('display', 'none');
+    await expect(hiddenList).toBeHidden();
+    await expect(hiddenList).toHaveAttribute('inert', '');
   });
 
   test('정렬·분야 필터를 건 목록은 왕복해도 같은 쿼리·같은 카드 노드이고, 숨은 동안 기본 조건으로 다시 받지 않는다', async ({
@@ -159,7 +175,7 @@ test.describe('전체 페이지', () => {
 
     await page.goto(`/clubs/${clubId}/member/notices`);
     await expect(page).toHaveURL(new RegExp(`/clubs/${clubId}$`), { timeout: ROUTE_TIMEOUT_MS });
-    await expect(page.locator('[data-clubs-slot="intercepted"] h1:visible')).toBeVisible({ timeout: ROUTE_TIMEOUT_MS });
+    await expect(interceptedDetailHeading(page)).toBeVisible({ timeout: ROUTE_TIMEOUT_MS });
     // 같은 문구 토스트는 떠 있는 동안 겹쳐 뜨지 않아(ToastProvider dedupe) 0·1 만 관측된다 — 실제 반복 검출은 아래 replace 카운터다.
     await expect(page.getByRole('alert').filter({ hasText: '동아리 소개 페이지로 이동합니다.' })).toHaveCount(1);
 
@@ -191,7 +207,7 @@ test.describe('회원 체인 — 목록 → 인터셉트 상세 → 회원 화�
 
     await page.goBack();
     await expect(page).toHaveURL(new RegExp(`/clubs/${MEMBER_CLUB_ID}$`));
-    await expect(page.locator('[data-clubs-slot="intercepted"] h1:visible')).toBeVisible({ timeout: ROUTE_TIMEOUT_MS });
+    await expect(interceptedDetailHeading(page)).toBeVisible({ timeout: ROUTE_TIMEOUT_MS });
     await expect(page.locator('[data-clubs-hidden-list]')).toHaveCount(0);
     // 목록 UI(탐색 화면에만 있는 검색창)도 마운트되지 않았다 — 숨기지도, 보이게 그리지도 않는다(스펙 §3.2).
     await expect(page.getByLabel('동아리 검색')).toHaveCount(0);

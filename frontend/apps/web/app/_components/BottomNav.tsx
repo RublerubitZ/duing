@@ -11,8 +11,8 @@
 // root(layout.tsx)에 1회 마운트하고 usePathname 으로 가시성/활성을 판단한다.
 // 데스크탑은 기존 상단 HomeNav/ExploreNav 유지(이 바는 md:hidden).
 
-// 탭 전환은 View Transition 을 태우지 않는다(next/link) — 전역 크로스페이드는 전체 뷰포트를
-// 스냅샷 이중 페인트해 유지되는 헤더·탭바·로고까지 깜빡여 보이게 한다(목록→상세 모핑 전용).
+// 탭 전환은 View Transition 을 태우지 않는다(next/link) — 모바일 전진 전환은 화면 전체 push 라 병렬 탭 이동에 걸면
+// 화면이 통째로 밀려 들어온다. VT 는 목록→상세 전진 전용이다(데스크탑 모핑·모바일 push).
 import Link from 'next/link';
 
 import { cn } from '@/app/_lib/cn';

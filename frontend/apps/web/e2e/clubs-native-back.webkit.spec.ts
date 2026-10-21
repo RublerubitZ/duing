@@ -1,6 +1,13 @@
 import { devices, expect, test } from '@playwright/test';
 
-import { assertListKeptAcrossDetail, blockViewBeacons, describeScrollRestoration } from './clubs-native-back.helpers';
+import {
+  assertListKeptAcrossDetail,
+  blockViewBeacons,
+  describeScrollRestoration,
+  gotoList,
+  visibleCards,
+  waitForInterceptedDetail,
+} from './clubs-native-back.helpers';
 
 /**
  * 동아리 목록 유지(스펙 P1) — 웹킷 iPhone 13(터치). 설정에는 데스크탑 크로미엄 프로젝트뿐이라 기기·브라우저를 파일 최상단에서
@@ -18,6 +25,54 @@ test.beforeEach(async ({ page, browserName }) => {
 
 test('목록 → 인터셉트 상세(탭) → 뒤로 — 카드 노드가 그대로 남고 탭 제목이 목록 제목으로 돌아온다', async ({ page }) => {
   await assertListKeptAcrossDetail(page, (card) => card.tap());
+});
+
+// 모바일 숨은 목록은 display:none 대신 크림 배경 뒤(음수 z-index)에 그려 둔 채 덮고, 래퍼 안 크림 막(after:)이 한 번 더 덮는다
+// (ClubsSlotFrame). 래퍼와 루트 사이 조상이 쌓임 맥락을 만들면(transform·isolation 등) 목록 층이 크림 배경 위로 올라와 크림 막만
+// 가린다 — 속성을 나열하지 않고 화면 가운데에서 칠한 순서로 1차 가림을 직접 확인하고, 크림 막은 계산된 스타일로 본다.
+test('인터셉트 상세 동안 목록은 크림 배경 뒤에 덮여 있다 — inert·전환 이름 끔·가림', async ({ page }) => {
+  await gotoList(page);
+  await visibleCards(page).first().tap();
+  await waitForInterceptedDetail(page);
+
+  const hiddenList = page.locator('[data-clubs-hidden-list]');
+  await expect(hiddenList).toHaveAttribute('inert', '');
+  await expect(hiddenList).toHaveCSS('position', 'fixed');
+  // 숨은 목록 안에서 인라인 전환 이름(club-logo-<id>)을 단 로고도 계산값은 none 이다 — 상세 로고와 이름이 겹치면 전환이 건너뛰어진다.
+  // 지금 이름을 단 로고는 데스크탑 그리드 카드(이 폭에서 display:none)뿐이라, 규칙이 인라인 이름을 이기는지 보는 방어 단언이다.
+  await expect(hiddenList.locator('[style*="club-logo-"]').first()).toHaveCSS('view-transition-name', 'none');
+
+  const coverage = await page.evaluate(() => {
+    const list = document.querySelector('[data-clubs-hidden-list]');
+    const canvas = list?.closest('.duing');
+    if (!(list instanceof HTMLElement) || !(canvas instanceof HTMLElement)) return null;
+    // inert 요소는 히트 테스트에서 빠지므로 재는 동안만 뗀다. elementsFromPoint 는 위에 칠한 것부터 돌려준다.
+    list.inert = false;
+    const paintStack = document.elementsFromPoint(window.innerWidth / 2, window.innerHeight / 2);
+    list.inert = true;
+    const firstListIndex = paintStack.findIndex((element) => list.contains(element));
+    const canvasIndex = paintStack.indexOf(canvas);
+    const canvasRect = canvas.getBoundingClientRect();
+    const coverStyle = getComputedStyle(list, '::after');
+    return {
+      listUnderCanvas: firstListIndex !== -1 && canvasIndex !== -1 && canvasIndex < firstListIndex,
+      // 계산된 배경색이 rgb(...) 면 불투명, rgba(...) 면 반투명이다.
+      canvasOpaque: getComputedStyle(canvas).backgroundColor.startsWith('rgb('),
+      canvasCoversViewport: canvasRect.top <= 0 && canvasRect.bottom >= window.innerHeight,
+      // 래퍼 안 크림 막(after:) — 그려지고(content), 검색 바(z-40) 위이며, 불투명하다.
+      coverDrawn: coverStyle.content === '""',
+      coverAboveSearchBar: coverStyle.zIndex === '50',
+      coverOpaque: coverStyle.backgroundColor.startsWith('rgb('),
+    };
+  });
+  expect(coverage).toEqual({
+    listUnderCanvas: true,
+    canvasOpaque: true,
+    canvasCoversViewport: true,
+    coverDrawn: true,
+    coverAboveSearchBar: true,
+    coverOpaque: true,
+  });
 });
 
 describeScrollRestoration();

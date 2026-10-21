@@ -6,19 +6,22 @@ type Props = {
   value: Grade | '';
   onChange: (next: Grade) => void;
   id?: string;
+  /** 칸 아래 안내 문구의 id — 화면 낭독기가 왜 이 값이 채워졌는지 함께 읽는다. */
+  ariaDescribedBy?: string;
 };
 
 function isGrade(value: string): value is Grade {
   return GRADE_OPTIONS.some((grade) => grade === value);
 }
 
-export function GradeSelect({ value, onChange, id }: Props) {
+export function GradeSelect({ value, onChange, id, ariaDescribedBy }: Props) {
   return (
     <div className="relative">
       <select
         id={id}
         required
         value={value}
+        aria-describedby={ariaDescribedBy}
         onChange={(changeEvent) => {
           if (isGrade(changeEvent.target.value)) onChange(changeEvent.target.value);
         }}

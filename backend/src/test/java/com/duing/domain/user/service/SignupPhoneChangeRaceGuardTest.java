@@ -17,6 +17,7 @@ import com.duing.domain.user.entity.PhoneVerification;
 import com.duing.domain.user.entity.User;
 import com.duing.domain.user.entity.VerificationPurpose;
 import com.duing.domain.user.exception.UserException;
+import com.duing.domain.user.profilecheck.service.ProfileCheckConfirmationRecorder;
 import com.duing.domain.user.repository.AdminUserActionLogRepository;
 import com.duing.domain.user.repository.UserRepository;
 import com.duing.domain.user.service.dto.command.ChangePhoneCommand;
@@ -57,7 +58,8 @@ class SignupPhoneChangeRaceGuardTest {
             Clock.system(ZoneId.of("Asia/Seoul")),
             mock(ApplicationEventPublisher.class),
             mock(ClubMemberCommandService.class),
-            mock(JoinRequestService.class));
+            mock(JoinRequestService.class),
+            mock(ProfileCheckConfirmationRecorder.class));
 
     @Test
     @DisplayName("재검증을 함께 통과한 동시 가입이 학번 unique 인덱스에 걸리면 사전 검사와 같은 중복 계정 409 로 치환된다")

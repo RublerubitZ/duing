@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 
 import { ApiError } from '@duing/api';
 import { useUpdateProfileMutation } from '@duing/hooks';
@@ -16,8 +16,12 @@ import { useToast } from '@/app/_components/toast/ToastProvider';
 type Props = {
   open: boolean;
   onClose: () => void;
+  /** 저장에 성공했을 때(닫기 직전) 한 번 — 정보 확인 팝업이 확인 완료로 닫히는 데 쓴다. 실패·취소에는 부르지 않는다. */
+  onSaved?: () => void;
   currentName: string;
   currentGrade: Grade;
+  /** 학년 칸을 현재 학년이 아니라 정보 확인의 제안 학년으로 채웠으면 true — 칸 아래에 그 사실을 알린다. */
+  gradeFromSuggestion?: boolean;
   currentCollege?: College;
   currentMajor?: string;
 };
@@ -25,18 +29,22 @@ type Props = {
 export function ProfileEditDialog({
   open,
   onClose,
+  onSaved,
   currentName,
   currentGrade,
+  gradeFromSuggestion,
   currentCollege,
   currentMajor,
 }: Props) {
   const { addToast } = useToast();
   const updateMutation = useUpdateProfileMutation();
+  const gradeHintId = useId();
   const [name, setName] = useState(currentName);
   const [grade, setGrade] = useState<Grade>(currentGrade);
   const [college, setCollege] = useState<College | ''>(currentCollege ?? '');
   const [major, setMajor] = useState(currentMajor ?? '');
   const [error, setError] = useState<string | null>(null);
+  const titleRef = useRef<HTMLHeadingElement>(null);
 
   // 열릴 때마다 현재 값으로 초기화한다. college 부재 시 '' 로 시드한다.
   useEffect(() => {
@@ -91,6 +99,7 @@ export function ProfileEditDialog({
       {
         onSuccess: () => {
           addToast('프로필을 수정했어요.');
+          onSaved?.();
           onClose();
         },
         onError: (mutationError) => {
@@ -111,9 +120,22 @@ export function ProfileEditDialog({
         if (!next) onClose();
       }}
     >
-      {/* 별도 설명 문구가 없는 폼 다이얼로그 — Description 연결을 명시적으로 해제한다(Radix a11y 경고 억제). */}
-      <DialogContent busy={updateMutation.isPending} aria-describedby={undefined}>
-        <DialogTitle>프로필 수정</DialogTitle>
+      {/* 별도 설명 문구가 없는 폼 다이얼로그 — Description 연결을 명시적으로 해제한다(Radix a11y 경고 억제).
+          375 폭에서 패널이 화면 끝에 붙지 않게 좌우 1rem 을 남긴다(관리자 다이얼로그들과 같은 폭 가드).
+          열릴 때는 이름 칸이 아니라 제목에 초점을 둔다 — 모바일에서 키보드가 곧바로 올라와 아래 버튼을 가리지 않게 하고,
+          이름이 통째로 선택된 채 열려 실수 입력에 지워지지 않게 한다(정보 확인 팝업과 같은 방식). */}
+      <DialogContent
+        busy={updateMutation.isPending}
+        aria-describedby={undefined}
+        className="w-[calc(100%-2rem)]"
+        onOpenAutoFocus={(event) => {
+          event.preventDefault();
+          titleRef.current?.focus();
+        }}
+      >
+        <DialogTitle ref={titleRef} tabIndex={-1} className="outline-none">
+          프로필 수정
+        </DialogTitle>
         {/* 검증은 JS(userNameSchema/majorSchema)로 친절한 한글 메시지를 노출한다.
             CollegeSelect 의 native required 가 빈 값일 때 submit 을 막지 않도록 noValidate. */}
         <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-4">
@@ -128,7 +150,17 @@ export function ProfileEditDialog({
           </label>
           <div className="flex flex-col gap-1.5">
             <label htmlFor="profile-grade" className="text-[13px] font-semibold text-charcoal-2">학년</label>
-            <GradeSelect id="profile-grade" value={grade} onChange={setGrade} />
+            <GradeSelect
+              id="profile-grade"
+              value={grade}
+              onChange={setGrade}
+              ariaDescribedBy={gradeFromSuggestion ? gradeHintId : undefined}
+            />
+            {gradeFromSuggestion && (
+              <p id={gradeHintId} className="text-[12px] text-charcoal-2">
+                새 학기 학년으로 채웠어요. 다르면 바꿔 주세요.
+              </p>
+            )}
           </div>
           <div className="flex flex-col gap-1.5">
             <label htmlFor="profile-college" className="text-[13px] font-semibold text-charcoal-2">단과대학</label>

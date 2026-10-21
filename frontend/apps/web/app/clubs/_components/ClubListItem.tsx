@@ -109,8 +109,7 @@ export function ClubListItem({
           background: `linear-gradient(135deg, ${club.color} 0%, ${club.color}CC 100%)`,
           letterSpacing: '-0.03em',
           filter: isDimmed ? 'saturate(0.6)' : undefined,
-          // 공유요소 전환 — 모바일 목록 로고에서 상세 히어로로 모핑(데스크탑 ClubCard 와 동일 규칙).
-          viewTransitionName: `club-logo-${club.id}`,
+          // 공유요소 전환 이름(club-logo-<id>)은 달지 않는다 — 모바일 목록 전용이고, 모바일 전환은 화면 전체 push 다(globals.css).
         }}
         aria-label={`${club.name} 로고`}
       >

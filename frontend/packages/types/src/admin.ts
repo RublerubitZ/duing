@@ -507,3 +507,34 @@ export type AdminPendingCounts = {
   stalePendingRecruitment: number;
   totalPendingCount: number;
 };
+
+/**
+ * GET /admin/profile-check 응답 — 학기별 사용자 정보 확인 팝업의 설정과 확인 현황(총동연).
+ *
+ * 학기는 서버가 날짜로 정한다(서울 기준 3~8월 = 그해 1학기, 9~2월 = 그해 2학기). semester* 는 통계 기준 학기
+ * (켤 때 기록된 학기, 기록이 없으면 오늘의 학기)이고 currentSemester* 는 오늘의 학기다. 둘이 다르면 지난 학기에 켜 둔
+ * 팝업이 학기가 바뀌어 멈춘 상태다 — enabled 는 실제 노출 여부라 이때 false 다. 설정 행이 없으면 서버가 기본 문구·OFF 로 채운다.
+ */
+export type AdminProfileCheck = {
+  enabled: boolean;
+  semesterYear: number;
+  semesterTerm: 1 | 2;
+  currentSemesterYear: number;
+  currentSemesterTerm: 1 | 2;
+  title: string;
+  message: string;
+  /** 대상 = 일반 학생 중 정지·탈퇴·졸업생이 아닌 회원. 확인 완료·미확인은 같은 대상 안에서 센다. */
+  targetCount: number;
+  confirmedCount: number;
+  unconfirmedCount: number;
+};
+
+/** PUT /admin/profile-check 바디(204). 켜면 서버가 오늘의 학기를 대상으로 기록한다. */
+export type UpdateAdminProfileCheckPayload = {
+  title: string;
+  message: string;
+  enabled: boolean;
+  /** 화면이 GET 에서 받은 오늘 학기 — 서버가 켜는 저장에서 오늘 학기와 대조해 다르면 409(PROFILE_CHECK_SEMESTER_CHANGED). */
+  currentSemesterYear: number;
+  currentSemesterTerm: number;
+};

@@ -71,6 +71,7 @@ export {
   useRecruitmentStatsFunnelQuery,
 } from './stats';
 export { userQueryKeys } from './userQueryKeys';
+export { useProfileCheckQuery, useConfirmProfileCheckMutation } from './profileCheck';
 export { clubQueryKeys } from './clubQueryKeys';
 export {
   clubHeroActivitiesQueryOptions,
@@ -187,6 +188,12 @@ export {
   useUpdateFeeAuditCommentMutation,
   useDeleteFeeAuditCommentMutation,
 } from './adminFees';
+export {
+  ProfileCheckSemesterChangedError,
+  useAdminProfileCheckQuery,
+  useUpdateAdminProfileCheckMutation,
+} from './adminProfileCheck';
+export type { UpdateAdminProfileCheckVariables } from './adminProfileCheck';
 export {
   useSubmitReportMutation,
   useAdminReportListQuery,

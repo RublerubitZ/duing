@@ -25,11 +25,12 @@ vi.mock('@duing/hooks', () => ({
   useMyApplicationsQuery: () => ({ data: [] }),
   useManagedClubsQuery: () => ({ data: [] }),
   useFavoriteListQuery: () => ({ data: { content: [] } }),
+  useProfileCheckQuery: () => ({ data: { pending: false }, isFetching: false, isError: false }),
 }) satisfies Partial<Record<keyof typeof import('@duing/hooks'), unknown>>);
 vi.mock('@/app/_components/HomeNav', () => ({ HomeNav: () => null }));
 vi.mock('@/app/me/_components/MyPageHeader', () => ({ MyPageHeader: () => null }));
 vi.mock('@/components/duing/Sparkle', () => ({ SparkleFull: () => null }));
-vi.mock('@/app/me/settings/_components/ProfileEditDialog', () => ({ ProfileEditDialog: () => null }));
+vi.mock('@/app/_components/ProfileEditDialog', () => ({ ProfileEditDialog: () => null }));
 vi.mock('@/app/me/settings/_components/PasswordChangeDialog', () => ({ PasswordChangeDialog: () => null }));
 vi.mock('@/app/me/settings/_components/PhoneChangeDialog', () => ({ PhoneChangeDialog: () => null }));
 vi.mock('@/app/me/settings/_components/WithdrawAccountDialog', () => ({ WithdrawAccountDialog: () => null }));

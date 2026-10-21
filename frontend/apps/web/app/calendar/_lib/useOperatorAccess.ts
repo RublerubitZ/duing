@@ -4,6 +4,8 @@ import { useManagedClubsQuery, useMeQuery } from '@duing/hooks';
 
 import type { ManagedClub } from '@duing/types';
 
+import { useHydrated } from '@/app/_lib/useHydrated';
+
 export type OperatorAccess = {
   isAuthenticated: boolean;
   /** 프로필 확정 전 — 비로그인 배너·빈 상태 문구를 성급히 띄우지 않으려는 소비처가 쓴다. */
@@ -22,18 +24,24 @@ export type OperatorAccess = {
  * 복제돼 서로를 주석으로 참조하며 동기화되고 있었다(한쪽만 고치면 버튼은 보이는데 모달은
  * "권한 없음" 을 띄우는 어긋남이 난다).
  *
- * <p>인증 판정은 현행 시멘틱인 프로필 확정(`!!meQuery.data`)을 그대로 유지한다 — 스토어 시드를
+ * <p>인증 판정은 현행 시멘틱인 프로필 확정(하이드레이션 뒤 `!!meQuery.data`)을 그대로 유지한다 — 스토어 시드를
  * 믿지 않는다. 시드로 바꾸면 캘린더 비로그인 배너의 하이드레이션 방어(서버 프레임에는 me
  * 요청이 없어 isLoading=false 인데, 클라이언트 첫 렌더는 부팅 복원 때문에 true 다)를 함께
  * 재설계해야 하므로 전환은 후속으로 미룬다.
+ *
+ * <p>isMeLoading 은 하이드레이션 게이트 밖이다 — 하이드레이션 프레임에는 로그인 사용자도 isAuthenticated=false 로
+ * 보이므로, 이 둘로 비로그인 화면을 그리는 소비처는 배너처럼 자체 하이드레이션 게이트를 둬야 한다.
  *
  * <p>비로그인 상태에서는 managed 조회를 아예 띄우지 않는다(401 콘솔 노이즈 방지) — 비로그인
  * 사용자에게 운영 동아리가 있을 수 없어 빈 배열과 의미상 같다.
  */
 export function useOperatorAccess(): OperatorAccess {
   const meQuery = useMeQuery();
-  const isAuthenticated = !!meQuery.data;
-  const isAdmin = meQuery.data?.role === 'ADMIN';
+  const hydrated = useHydrated();
+  // 하이드레이션 프레임은 서버처럼 비운다 — 부팅 세션 복원(me 선요청)이 본문보다 먼저 끝나면 일정 추가 버튼·통계 라벨이 서버 HTML 과 어긋난다.
+  const me = hydrated ? meQuery.data : undefined;
+  const isAuthenticated = !!me;
+  const isAdmin = me?.role === 'ADMIN';
   const managedClubsQuery = useManagedClubsQuery({ enabled: isAuthenticated });
   const managedClubs: ManagedClub[] = managedClubsQuery.data ?? [];
 
