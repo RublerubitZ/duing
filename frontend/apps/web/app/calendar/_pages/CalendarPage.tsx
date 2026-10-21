@@ -26,7 +26,6 @@ import {
 } from '../_lib/calendarMappers';
 import { ACCENT, KIND_ACCENT, KIND_LABEL, KIND_ORDER } from '../_lib/calendarDisplay';
 import { buildUpcoming, resolveUpcomingEmptyState, UPCOMING_WINDOW_DAYS } from '../_lib/upcoming';
-import { toLocalIsoDate } from '../_lib/localIsoDate';
 import { useOperatorAccess } from '../_lib/useOperatorAccess';
 
 import type { CalEvent, EventKind } from '../_types';
@@ -108,43 +107,37 @@ function subscribeToSheetViewport(onChange: () => void) {
   return () => mediaQueryList.removeEventListener('change', onChange);
 }
 
-type CalendarPageProps = {
-  /** 서버가 이 화면을 그린 날(정적 프리렌더라 빌드한 날). 하이드레이션 프레임을 서버 HTML 과 같게 그리는 데만 쓴다. */
+type Props = {
+  /** 서버가 이 화면을 그린 날의 KST 날짜(정적 프리렌더라 빌드 시각). 하이드레이션 프레임의 "오늘"로만 쓴다. */
   renderedTodayIso: string;
 };
 
-export function CalendarPage({ renderedTodayIso }: CalendarPageProps) {
+export function CalendarPage({ renderedTodayIso }: Props) {
   // 하이드레이션 프레임은 서버 HTML 과 같게 그려야 한다. 서버와 브라우저가 다르게 보는 값이 둘 있다.
   // 1) 오늘 — /calendar 는 정적 프리렌더라 서버 HTML 의 "오늘"은 빌드한 날이고, 운영 HTML 은 다음 배포까지 며칠씩 묵는다.
-  //    하이드레이션 프레임은 서버가 넘긴 그날로 그리고(달·날짜 패널), 끝나면 보는 사람의 오늘로 옮긴다. 오늘 강조는
-  //    서버·첫 프레임에 그리지 않는다 — 빌드한 날을 오늘로 강조하면 하이드레이션 전까지 틀린 날이 보인다.
+  //    하이드레이션 프레임은 서버가 넘긴 그날로 그리고, 끝나면 기기의 오늘로 바뀐다. 오늘 강조는 서버·첫 프레임에
+  //    그리지 않는다 — 빌드한 날을 오늘로 강조하면 하이드레이션 전까지 틀린 날이 보인다.
   // 2) 비로그인 배너 — 조건의 meQuery.isLoading 이 하이드레이션 안정적이지 않아 하이드레이션 이후에만 그린다.
   //    서버에는 me 쿼리 fetch 가 없어 항상 fetchStatus='idle'(isLoading=false) 인데, 클라이언트는 부팅 복원
   //    (providers 모듈 스코프의 startBootSessionRestore 가 하이드레이션 전에 요청을 띄우고
   //    AuthSessionBootstrap 이 그걸 me 키에 등록한다)으로 'fetching'(isLoading=true) 인 채로 첫 렌더를 맞는다.
   //    그래서 서버는 배너를 그리고 클라이언트 첫 렌더는 빼면서 불일치가 났다. 로그인 유도 힌트라 SSR 프레임에 없어도 된다.
   const hydrated = useHydrated();
-  const todayIso = hydrated ? toLocalIsoDate(new Date()) : renderedTodayIso;
+  const now = new Date();
+  const todayIso = hydrated ? fmt(now.getFullYear(), now.getMonth(), now.getDate()) : renderedTodayIso;
 
-  const [viewYear, setViewYear] = useState<number>(() => isoYear(todayIso));
-  const [viewMonth, setViewMonth] = useState<number>(() => isoMonthIndex(todayIso)); // 0-indexed
+  // 보는 달·선택한 날은 사용자가 고르기 전까지 오늘에서 파생한다 — 하이드레이션이 끝나는 렌더에서 effect 없이 실제 오늘로 바뀌고,
+  // 하이드레이션 중에 누른 입력과 엇갈려 덮이거나 쌓이지 않는다. 고른 값만 state 로 둔다.
+  const [pickedMonth, setPickedMonth] = useState<{ year: number; monthIndex: number } | null>(null);
+  const [pickedDate, setPickedDate] = useState<string | null>(null);
+  const viewYear = pickedMonth?.year ?? isoYear(todayIso);
+  const viewMonth = pickedMonth?.monthIndex ?? isoMonthIndex(todayIso); // 0-indexed
+  const selectedDate = pickedDate ?? todayIso;
   const [activeKinds, setActiveKinds] = useState<Set<EventKind>>(new Set(KIND_ORDER));
-  const [selectedDate, setSelectedDate] = useState<string>(todayIso);
   const [detailOpen, setDetailOpen] = useState<boolean>(false);
   const [addModalOpen, setAddModalOpen] = useState<boolean>(false);
   const [selectedEvent, setSelectedEvent] = useState<CalEvent | null>(null);
   const [eventDetailOpen, setEventDetailOpen] = useState<boolean>(false);
-
-  // 빌드한 날로 하이드레이션했으면 끝나자마자 보는 달·선택한 날을 실제 오늘로 옮긴다(클라이언트 이동은 처음부터 오늘이다).
-  // 하이드레이션 전에 누른 달 이동·날짜(이벤트 재생)는 덮지 않는다 — 서버가 그린 값 그대로인 것만 옮긴다.
-  useEffect(() => {
-    if (!hydrated) return;
-    const actualTodayIso = toLocalIsoDate(new Date());
-    if (actualTodayIso === renderedTodayIso) return;
-    setViewYear((current) => (current === isoYear(renderedTodayIso) ? isoYear(actualTodayIso) : current));
-    setViewMonth((current) => (current === isoMonthIndex(renderedTodayIso) ? isoMonthIndex(actualTodayIso) : current));
-    setSelectedDate((current) => (current === renderedTodayIso ? actualTodayIso : current));
-  }, [hydrated, renderedTodayIso]);
 
   // 모바일에서는 바텀시트, 데스크톱에서는 사이드 패널 — 뷰포트 분기 없이 뒤로가기로 닫는다.
   useBackDismiss(detailOpen, () => setDetailOpen(false));
@@ -277,22 +270,13 @@ export function CalendarPage({ renderedTodayIso }: CalendarPageProps) {
     isLoading: upcomingCalendar.isLoading || isMeLoading,
   });
 
+  // 이동할 달은 지금 보이는 달에서 연·달을 함께 절대값으로 정한다 — prev ± 1 로 쌓으면 다른 업데이트와 겹칠 때 13월·0월이 된다.
   const handlePrevMonth = () => {
-    if (viewMonth === 0) {
-      setViewYear((prev) => prev - 1);
-      setViewMonth(11);
-    } else {
-      setViewMonth((prev) => prev - 1);
-    }
+    setPickedMonth(viewMonth === 0 ? { year: viewYear - 1, monthIndex: 11 } : { year: viewYear, monthIndex: viewMonth - 1 });
     setDetailOpen(false);
   };
   const handleNextMonth = () => {
-    if (viewMonth === 11) {
-      setViewYear((prev) => prev + 1);
-      setViewMonth(0);
-    } else {
-      setViewMonth((prev) => prev + 1);
-    }
+    setPickedMonth(viewMonth === 11 ? { year: viewYear + 1, monthIndex: 0 } : { year: viewYear, monthIndex: viewMonth + 1 });
     setDetailOpen(false);
   };
 
@@ -529,7 +513,8 @@ export function CalendarPage({ renderedTodayIso }: CalendarPageProps) {
                   const rowIdx     = Math.floor(i / 7);
 
                   return (
-                    <button key={i} className="cal-cell" aria-current={isToday ? 'date' : undefined} onClick={() => { setSelectedDate(cell.iso); setDetailOpen(true); }} style={{
+                    // key 는 날짜 — 하이드레이션 직후 달이 바뀌면 칸을 새로 만들어, 그 사이 누른 칸이 다른 날짜로 바뀐 채 열리지 않게 한다.
+                    <button key={cell.iso} className="cal-cell" aria-current={isToday ? 'date' : undefined} onClick={() => { setPickedDate(cell.iso); setDetailOpen(true); }} style={{
                       minHeight: detailOpen ? 102 : 120,
                       padding: detailOpen ? 7 : 10,
                       border: 'none', background: 'transparent',
