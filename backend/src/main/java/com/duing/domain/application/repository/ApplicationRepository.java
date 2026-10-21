@@ -21,6 +21,8 @@ public interface ApplicationRepository extends JpaRepository<Application, Long>,
 
     long countByRecruitmentId(Long recruitmentId);
 
+    boolean existsByRecruitmentIdAndStatusIn(Long recruitmentId, Collection<ApplicationStatus> statuses);
+
     @Query("SELECT a FROM Application a "
             + "JOIN FETCH a.recruitment r "
             + "JOIN FETCH r.club "

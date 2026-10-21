@@ -97,6 +97,20 @@ public interface RecruitmentRepository extends JpaRepository<Recruitment, Long>,
             @Param("today") LocalDate today, @Param("intervalDays") int intervalDays);
 
     /**
+     * 기간 종료 모집 자동 마감 후보 — 종료일이 {@code endedBefore} 보다 앞인 OPEN 모집 id(상시모집 제외).
+     * {@code @SQLRestriction} 이 붙는 JPQL 이라 soft-delete 된 모집은 빠진다. 마감 조건 전체는
+     * {@link com.duing.domain.recruitment.service.RecruitmentAutoCloseService} 가 잠금 아래에서 본다.
+     */
+    @Query("""
+            SELECT recruitment.id FROM Recruitment recruitment
+             WHERE recruitment.status = com.duing.domain.recruitment.entity.RecruitmentStatus.OPEN
+               AND recruitment.endDate IS NOT NULL
+               AND recruitment.endDate < :endedBefore
+             ORDER BY recruitment.id
+            """)
+    List<Long> findOpenIdsEndedBefore(@Param("endedBefore") LocalDate endedBefore);
+
+    /**
      * 동아리 폐쇄 cascade 의 마지막 단계에서 모집을 일괄 soft-delete 한다.
      * 엔티티 remove(@SQLDelete) 대신 벌크 UPDATE 를 쓰는 이유: 직전에 거절된 Application 이
      * 영속성 컨텍스트에서 이 모집을 @ManyToOne 으로 참조하는데, 모집 엔티티를 remove 하면
