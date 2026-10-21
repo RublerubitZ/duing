@@ -2,7 +2,6 @@ package com.duing.domain.user.profilecheck.service;
 
 import com.duing.domain.user.entity.Grade;
 import com.duing.domain.user.entity.User;
-import com.duing.domain.user.entity.UserRole;
 import com.duing.domain.user.profilecheck.entity.Semester;
 import com.duing.global.time.TimeMapper;
 import java.time.Instant;
@@ -18,9 +17,12 @@ final class ProfileCheckPolicy {
     private ProfileCheckPolicy() {
     }
 
-    /** 대상자 — 일반 학생이고 정지되지 않았고 졸업생이 아니다. 탈퇴자는 User 조회 조건(soft delete)이 이미 뺀다. */
+    /**
+     * 대상자 — 정지되지 않았고 졸업생이 아닌 회원이다. 역할과 무관해 총동연(관리자) 계정도 든다. 탈퇴자는 User 조회 조건(soft delete)이 이미 뺀다.
+     * 대상 조건은 ProfileCheckStatsRepositoryImpl.countTargetsAndConfirmed 와 같아야 한다 — 콘솔 숫자가 팝업 노출과 어긋나지 않게.
+     */
     static boolean isTarget(User user) {
-        return user.getRole() == UserRole.STUDENT && user.isActive() && user.getGrade() != Grade.GRADUATED;
+        return user.isActive() && user.getGrade() != Grade.GRADUATED;
     }
 
     /**

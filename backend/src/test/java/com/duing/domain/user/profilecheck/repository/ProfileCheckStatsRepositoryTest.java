@@ -34,32 +34,32 @@ class ProfileCheckStatsRepositoryTest extends IntegrationTestBase {
     private UserRepository userRepository;
 
     @Test
-    @DisplayName("대상은 운영진·졸업생·정지·탈퇴를 뺀 학생이고, 확인 완료는 그중 해당 학기 기록이 있는 사람만 센다")
+    @DisplayName("대상은 졸업생·정지·탈퇴를 뺀 회원(총동연 관리자 포함)이고, 확인 완료는 그중 해당 학기 기록이 있는 사람만 센다")
     void countsOnlyTargetsAndThisSemester() {
         User confirmedSophomore = saveStudent(Grade.SOPHOMORE);
         saveStudent(Grade.ON_LEAVE); // 대상이지만 이 학기 기록이 없다(미확인)
         User confirmedLastSemesterOnly = saveStudent(Grade.JUNIOR);
+        User admin = userRepository.save(UserFixture.admin());
         User graduated = saveStudent(Grade.GRADUATED);
         User suspended = UserFixture.unique();
         suspended.suspend();
         suspended = userRepository.save(suspended);
         User withdrawn = saveStudent(Grade.SENIOR);
-        User admin = userRepository.save(UserFixture.admin());
 
         confirm(confirmedSophomore, THIS_SEMESTER);
+        confirm(admin, THIS_SEMESTER);
         confirm(confirmedLastSemesterOnly, LAST_SEMESTER);
-        // 대상 밖 사용자의 이 학기 기록은 확인 완료에 섞이지 않아야 한다.
+        // 대상 밖 사용자(졸업생·정지·탈퇴)의 이 학기 기록은 확인 완료에 섞이지 않아야 한다.
         confirm(graduated, THIS_SEMESTER);
         confirm(suspended, THIS_SEMESTER);
-        confirm(admin, THIS_SEMESTER);
         confirm(withdrawn, THIS_SEMESTER);
         userRepository.delete(withdrawn);
 
         ProfileCheckCounts counts = statsRepository.countTargetsAndConfirmed(THIS_SEMESTER);
 
-        // 대상 = 2학년(이 학기 확인), 휴학생(미확인), 3학년(지난 학기만 확인 → 이 학기 미확인)
-        assertThat(counts.targetCount()).isEqualTo(3);
-        assertThat(counts.confirmedCount()).isEqualTo(1);
+        // 대상 = 2학년(이 학기 확인), 휴학생(미확인), 3학년(지난 학기만 확인 → 이 학기 미확인), 관리자(이 학기 확인)
+        assertThat(counts.targetCount()).isEqualTo(4);
+        assertThat(counts.confirmedCount()).isEqualTo(2);
         assertThat(counts.unconfirmedCount()).isEqualTo(2);
     }
 
@@ -97,7 +97,10 @@ class ProfileCheckStatsRepositoryTest extends IntegrationTestBase {
     @Test
     @DisplayName("대상자가 없으면 대상·확인 완료·미확인이 모두 0 이다")
     void zeroWhenNoTargets() {
-        userRepository.save(UserFixture.admin());
+        saveStudent(Grade.GRADUATED);
+        User suspended = UserFixture.unique();
+        suspended.suspend();
+        userRepository.save(suspended);
 
         ProfileCheckCounts counts = statsRepository.countTargetsAndConfirmed(THIS_SEMESTER);
 
