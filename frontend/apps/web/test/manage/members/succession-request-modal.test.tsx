@@ -73,6 +73,13 @@ describe('SuccessionRequestModal 의 내 최근 요청 카드', () => {
     expect(within(card).queryByText('처리일')).not.toBeInTheDocument();
   });
 
+  // 사유·메모가 각각 최대 1000자라 카드만으로 뷰포트를 넘길 수 있다 — 제출·닫기 버튼에 닿도록 창 안에서 스크롤한다.
+  it('창 높이를 뷰포트 85% 로 제한하고 넘치면 안에서 스크롤한다', () => {
+    renderModal(latestRequest());
+
+    expect(screen.getByRole('dialog')).toHaveClass('max-h-[85vh]', 'overflow-y-auto');
+  });
+
   it('요청한 적이 없으면 카드를 그리지 않는다', () => {
     renderModal(null);
 

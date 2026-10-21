@@ -540,7 +540,8 @@ describe('ClubMembersPage — 내 회장 승계 요청 상태(임원)', () => {
     expectSuccessionButtonActive();
   });
 
-  it('배지는 줄바꿈되는 헤더 액션 묶음 안에 둔다 — 390 폭에서도 가로로 넘치지 않는다', async () => {
+  // 배지가 lg 에서 줄지 않는(shrink-0) 액션 묶음 안에 있으면 묶음이 배지만큼 넓어져 제목 칸이 눌린다 — 버튼 아래 둘째 줄로 뺀다.
+  it('배지는 액션 묶음 밖, 액션 묶음과 같은 세로 래퍼 안(버튼 아래 줄)에 둔다', async () => {
     setupHandlers({
       useGeneration: false,
       myRole: 'OFFICER',
@@ -549,8 +550,25 @@ describe('ClubMembersPage — 내 회장 승계 요청 상태(임원)', () => {
     renderPage();
 
     const badge = await screen.findByText('검토 대기 중 · 2026.10.21 제출');
-    expect(badge.parentElement).toHaveClass('flex-wrap');
-    expect(badge.parentElement).toContainElement(successionButton());
+    const actionGroup = successionButton().parentElement;
+    expect(actionGroup).toHaveClass('flex-wrap');
+    expect(actionGroup).not.toContainElement(badge);
+    const actionColumn = badge.parentElement;
+    expect(actionColumn).toHaveClass('flex-col', 'lg:shrink-0');
+    expect(actionColumn).toContainElement(actionGroup);
+  });
+
+  it('요청한 적이 없으면(data:null) 배지 없이 버튼이 활성이고 설명을 가리키지 않는다', async () => {
+    const { myLatestSuccessionRequestCount } = setupHandlers({ useGeneration: false, myRole: 'OFFICER' });
+    const queryClient = appRetryQueryClient();
+    renderPage(queryClient);
+
+    await waitForMyLatestSuccessionStatus(queryClient, 'success');
+    await screen.findByRole('button', { name: '회장 승계 요청' });
+    expect(myLatestSuccessionRequestCount()).toBe(1);
+    expect(screen.queryByText(/검토 대기 중|승인됨|거절됨/)).not.toBeInTheDocument();
+    expectSuccessionButtonActive();
+    expect(successionButton()).not.toHaveAttribute('aria-describedby');
   });
 
   it('모달을 열면 내 최근 요청을 카드로 넘겨 보여 준다', async () => {
@@ -583,7 +601,7 @@ describe('ClubMembersPage — 내 회장 승계 요청 상태(승인돼 회장�
     vi.useRealTimers();
   });
 
-  it('승인 후 14일이 안 됐으면 승계 요청 버튼 없이 "승인됨" 배지만 보인다', async () => {
+  it('승인 후 14일이 안 됐으면 승계 요청 버튼 없이 "회장 승계 요청 승인됨" 배지만 보인다', async () => {
     vi.useFakeTimers({ toFake: ['Date'] });
     vi.setSystemTime(JUST_BEFORE_14_DAYS);
     setupHandlers({
@@ -595,7 +613,7 @@ describe('ClubMembersPage — 내 회장 승계 요청 상태(승인돼 회장�
     });
     renderPage();
 
-    expect(await screen.findByText('승인됨')).toBeInTheDocument();
+    expect(await screen.findByText('회장 승계 요청 승인됨')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: '회장 승계 요청' })).not.toBeInTheDocument();
   });
 

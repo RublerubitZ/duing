@@ -44,14 +44,15 @@ describe('successionRequestBadgeText — 승계 요청 버튼이 보이는 임�
 });
 
 describe('successionRequestBadgeText — 버튼이 없는 회장(승인돼 회장이 된 요청자)', () => {
-  it('승인 후 14일 미만이면 "승인됨" 만 돌려준다', () => {
+  // 버튼 곁이 아니라 맥락이 없으니 무엇이 승인됐는지 문구에 담는다.
+  it('승인 후 14일 미만이면 "회장 승계 요청 승인됨" 만 돌려준다', () => {
     expect(
       successionRequestBadgeText(
         latestRequest({ status: 'APPROVED', handledAt: HANDLED_AT }),
         ONE_MS_BEFORE_FOURTEEN_DAYS,
         false,
       ),
-    ).toBe('승인됨');
+    ).toBe('회장 승계 요청 승인됨');
   });
 
   it('승인 후 정확히 14일이 되면 null 이다', () => {

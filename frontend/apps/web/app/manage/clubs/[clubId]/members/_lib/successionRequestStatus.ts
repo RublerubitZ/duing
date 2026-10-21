@@ -23,7 +23,8 @@ export function successionRequestStatusChip(status: SuccessionStatus): { label: 
 
 /**
  * 부원 관리 헤더 배지 문구. 대기 중이면 제출일을 붙이고, 처리 결과는 처리 후 14일 미만일 때만. 그리지 않으면 null.
- * 승계 요청 버튼이 없는 사용자(승인돼 회장이 된 요청자)에게는 "승인됨"만 — 대기·거절은 붙일 버튼이 없다.
+ * 승계 요청 버튼이 없는 사용자(승인돼 회장이 된 요청자)에게는 승인 결과만 — 대기·거절은 붙일 버튼이 없다.
+ * 버튼 곁이 아니라 맥락이 없으니 무엇이 승인됐는지 문구에 담는다.
  */
 export function successionRequestBadgeText(
   request: LatestLeaderSuccessionRequest,
@@ -36,5 +37,7 @@ export function successionRequestBadgeText(
   }
   if (request.handledAt === null) return null;
   const handledAtMs = parseKstInstant(request.handledAt).getTime();
-  return now.getTime() < handledAtMs + HANDLED_BADGE_WINDOW_MS ? SUCCESSION_REQUEST_STATUS_LABEL[request.status] : null;
+  if (now.getTime() >= handledAtMs + HANDLED_BADGE_WINDOW_MS) return null;
+  const label = SUCCESSION_REQUEST_STATUS_LABEL[request.status];
+  return canRequestSuccession ? label : `회장 승계 요청 ${label}`;
 }

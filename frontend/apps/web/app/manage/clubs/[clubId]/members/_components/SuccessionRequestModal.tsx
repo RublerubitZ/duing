@@ -61,7 +61,8 @@ export function SuccessionRequestModal({ clubId, clubName, latestRequest, onClos
         if (!open && !submitSuccession.isPending) onClose();
       }}
     >
-      <DialogContent busy={submitSuccession.isPending} className="max-w-md">
+      {/* 사유·메모가 각각 최대 1000자라 최근 요청 카드만으로 뷰포트를 넘길 수 있다 — 제출·닫기 버튼에 닿도록 창 안에서 스크롤한다. */}
+      <DialogContent busy={submitSuccession.isPending} className="max-h-[85vh] max-w-md overflow-y-auto">
         {/* 헤더 */}
         <div className="flex items-start justify-between gap-3">
           <DialogHeader>

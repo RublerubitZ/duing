@@ -188,52 +188,55 @@ export default function ClubMembersPage({
               : '부원을 검색·필터할 수 있어요. 역할 변경·탈퇴·회장 인계는 회장 전용이에요.'}
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-2 lg:shrink-0">
-          {/* 가입 요청 처리·부원 초대는 운영진(LEADER/OFFICER) 공통 권한이다. 모집과 무관한
-              부원 초대 링크가 실기능으로 추가돼 초대 진입점을 복원했다(스펙 2026-08-08 §7). */}
-          <ClubInviteDialog clubId={currentClubId} useGeneration={useGeneration} />
-          <Link
-            href={toRoute(`/manage/clubs/${currentClubId}/members/requests`)}
-            className="inline-flex shrink-0 items-center gap-1.5 rounded-xl border border-line px-4 py-2 text-sm font-semibold text-charcoal-2 hover:border-ink hover:text-ink"
-          >
-            가입 요청
-            {pendingCount > 0 && (
-              <span className="rounded-full bg-coral px-1.5 py-0.5 text-xs font-semibold text-paper">
-                {pendingCount}
-              </span>
+        {/* 승계 요청 배지는 액션 묶음 밖 둘째 줄(버튼 아래) — 묶음 안에 두면 lg 에서 묶음이 배지만큼 넓어져 제목 칸이 눌린다. */}
+        <div className="flex flex-col items-start gap-2 lg:shrink-0 lg:items-end">
+          <div className="flex flex-wrap items-center gap-2">
+            {/* 가입 요청 처리·부원 초대는 운영진(LEADER/OFFICER) 공통 권한이다. 모집과 무관한
+                부원 초대 링크가 실기능으로 추가돼 초대 진입점을 복원했다(스펙 2026-08-08 §7). */}
+            <ClubInviteDialog clubId={currentClubId} useGeneration={useGeneration} />
+            <Link
+              href={toRoute(`/manage/clubs/${currentClubId}/members/requests`)}
+              className="inline-flex shrink-0 items-center gap-1.5 rounded-xl border border-line px-4 py-2 text-sm font-semibold text-charcoal-2 hover:border-ink hover:text-ink"
+            >
+              가입 요청
+              {pendingCount > 0 && (
+                <span className="rounded-full bg-coral px-1.5 py-0.5 text-xs font-semibold text-paper">
+                  {pendingCount}
+                </span>
+              )}
+            </Link>
+            {/* 명단 다운로드는 운영진(LEADER/OFFICER) 공통 — 운영 권한 자체는 레이아웃 가드가 이미 보장한다. */}
+            <MemberCsvDownloadPopover
+              clubId={currentClubId}
+              clubName={clubName}
+              memberIds={filteredIds}
+              useGeneration={useGeneration}
+            />
+            {/* 대기 중이면 disabled 대신 aria-disabled — 제출 직후 재조회로 잠겨도 포커스가 body 로 빠지지 않고, Tab 으로 닿아 배지 설명이 읽힌다. */}
+            {permissions.canRequestSuccession && (
+              <button
+                type="button"
+                onClick={() => {
+                  if (!isSuccessionPending) setSuccessionOpen(true);
+                }}
+                aria-disabled={isSuccessionPending || undefined}
+                aria-describedby={isSuccessionPending ? successionBadgeId : undefined}
+                className="shrink-0 rounded-xl border border-line px-4 py-2 text-sm font-semibold text-charcoal-2 hover:border-ink hover:text-ink aria-disabled:cursor-not-allowed aria-disabled:opacity-50 aria-disabled:hover:border-line aria-disabled:hover:text-charcoal-2"
+              >
+                회장 승계 요청
+              </button>
             )}
-          </Link>
-          {/* 명단 다운로드는 운영진(LEADER/OFFICER) 공통 — 운영 권한 자체는 레이아웃 가드가 이미 보장한다. */}
-          <MemberCsvDownloadPopover
-            clubId={currentClubId}
-            clubName={clubName}
-            memberIds={filteredIds}
-            useGeneration={useGeneration}
-          />
+          </div>
           {myLatestSuccessionRequest && successionBadgeText !== null && (
             <span
               id={successionBadgeId}
               className={cn(
-                'inline-flex shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold',
+                'inline-flex rounded-full px-2.5 py-1 text-xs font-semibold',
                 successionRequestStatusChip(myLatestSuccessionRequest.status).badgeClass,
               )}
             >
               {successionBadgeText}
             </span>
-          )}
-          {/* 대기 중이면 disabled 대신 aria-disabled — 제출 직후 재조회로 잠겨도 포커스가 body 로 빠지지 않고, Tab 으로 닿아 배지 설명이 읽힌다. */}
-          {permissions.canRequestSuccession && (
-            <button
-              type="button"
-              onClick={() => {
-                if (!isSuccessionPending) setSuccessionOpen(true);
-              }}
-              aria-disabled={isSuccessionPending || undefined}
-              aria-describedby={isSuccessionPending ? successionBadgeId : undefined}
-              className="shrink-0 rounded-xl border border-line px-4 py-2 text-sm font-semibold text-charcoal-2 hover:border-ink hover:text-ink aria-disabled:cursor-not-allowed aria-disabled:opacity-50 aria-disabled:hover:border-line aria-disabled:hover:text-charcoal-2"
-            >
-              회장 승계 요청
-            </button>
           )}
         </div>
       </header>
