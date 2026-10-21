@@ -3,6 +3,7 @@ import {
   displayStatusLabel,
   recruitmentPeriodLabel,
   recruitmentDaysLeft,
+  recruitmentExpiredOpenNotice,
   recruitmentStatusChip,
 } from '../app/_lib/recruitmentDisplay';
 
@@ -39,6 +40,20 @@ describe('recruitmentDaysLeft', () => {
   });
   it('endDate 가 과거면 음수', () => {
     expect(recruitmentDaysLeft('2026-05-10', today)).toBe(-8);
+  });
+});
+
+describe('recruitmentExpiredOpenNotice — 자동 마감 안내', () => {
+  it('자체 지원은 남은 심사·면접이 없을 때만 종료 7일 뒤 자동 마감된다고 알린다', () => {
+    expect(recruitmentExpiredOpenNotice('SELF')).toContain(
+      '심사를 마치면 모집을 마감해 주세요. 남은 심사·면접이 없으면 종료 7일 뒤 자동으로 마감돼요.',
+    );
+  });
+
+  it('외부 폼은 조건 없이 종료 7일 뒤 자동 마감된다고 알린다', () => {
+    expect(recruitmentExpiredOpenNotice('EXTERNAL')).toContain(
+      '가입 처리를 마치면 모집을 마감해 주세요. 종료 7일 뒤에는 자동으로 마감돼요.',
+    );
   });
 });
 

@@ -219,6 +219,7 @@ describe('CurrentRecruitmentCard — 외부 폼 모집 액션', () => {
     );
 
     expect(screen.getByText(/가입 처리를 마치면 모집을 마감해 주세요/)).toBeInTheDocument();
+    expect(screen.getByText(/종료 7일 뒤/)).toBeInTheDocument();
     expect(screen.queryByText(/남은 지원자 심사/)).not.toBeInTheDocument();
     expect(screen.getByText('기간 종료')).toBeInTheDocument();
   });
