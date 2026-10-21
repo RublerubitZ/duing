@@ -83,6 +83,7 @@ Du-ing 전체(backend/frontend/DB)의 날짜·시간 처리 정책. 2026-07 타�
 | Notice 계열 4종.createdAt/updatedAt | notices.* | system | BaseEntity (expiresAt·EventInfo.startAt/endAt은 Schedule 유지) |
 | NotificationResponse.createdAt/readAt | notifications.* / notice_broadcasts.created_at | system | Notification#create·#markRead · NoticeBroadcast#snapshot 무클럭 now() (읽음 벌크는 NotificationRepositoryImpl 무클럭 now()) |
 | Promotion 계열.createdAt/updatedAt/handledAt | promotions·promotion_requests.* | system | BaseEntity / PromotionRequest#process 무클럭 now() (startAt/endAt은 Schedule 유지) |
+| LatestPromotionRequestResponse.createdAt·handledAt (운영진 최근 홍보 요청) | promotion_requests.created_at·handled_at | system | 위 Promotion 계열과 같은 컬럼·같은 변환 — BaseEntity @CreatedDate / PromotionRequest#process 무클럭 now() |
 | Report{Detail,Summary}Response.createdAt/handledAt | reports.* | system | BaseEntity / Report#process 무클럭 now() |
 | PublicActivityResponse.Item.occurredAt (공개 활동 피드) | recruitment·notice·interview_round·club_event·fee_policy.created_at (5종) | system | PublicActivityQueryRepository#toItems 의 기본 변환이 systemWallClockToInstant — 이 5종은 BaseEntity 감사라 정합 |
 | PublicActivityResponse.Item.occurredAt (INTERVIEW_RESULT 피드만) | interview_round.assignment_completed_at (timestamptz) | **Instant** | GeneralInterviewAssignmentService#confirmRound 가 `Instant.now(clock)` 을 InterviewRound#confirm 에 넘겨 절대시각으로 저장 — 읽기도 PublicActivityQueryRepository#findRecentInterviewResult 가 TimeMapper 없이 직비교·직반환(2026-08-21 에 넣었던 seoul 해석 축은 제거). 위 5종(system)과 저장 regime 만 갈리고 응답 절대시각은 정합. V113 백필 완료(2026-08-22) |

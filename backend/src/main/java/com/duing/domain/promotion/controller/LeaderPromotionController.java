@@ -2,6 +2,7 @@ package com.duing.domain.promotion.controller;
 
 import com.duing.domain.promotion.api.LeaderPromotionApi;
 import com.duing.domain.promotion.controller.dto.request.CreatePromotionRequestRequest;
+import com.duing.domain.promotion.controller.dto.response.LatestPromotionRequestResponse;
 import com.duing.domain.promotion.service.PromotionRequestService;
 import com.duing.global.auth.UserPrincipal;
 import com.duing.global.response.ApiResponse;
@@ -29,5 +30,17 @@ public class LeaderPromotionController implements LeaderPromotionApi {
     ) {
         Long requestId = requestService.create(request.toCommand(clubId, currentUser.id()));
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success(requestId));
+    }
+
+    @Override
+    public ResponseEntity<ApiResponse<LatestPromotionRequestResponse>> getLatestRequest(
+            Long clubId,
+            @AuthenticationPrincipal UserPrincipal currentUser
+    ) {
+        // 요청이 없으면 data null — FE jsonOkNullable 규약과 정합.
+        LatestPromotionRequestResponse latestRequest = requestService.findLatest(clubId, currentUser.id())
+                .map(LatestPromotionRequestResponse::from)
+                .orElse(null);
+        return ResponseEntity.ok(ApiResponse.success(latestRequest));
     }
 }
