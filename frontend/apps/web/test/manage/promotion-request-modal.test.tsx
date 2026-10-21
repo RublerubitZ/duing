@@ -179,6 +179,13 @@ describe('PromotionRequestModal 의 최근 요청 카드', () => {
     expect(within(card).queryByText('처리일')).not.toBeInTheDocument();
   });
 
+  // 폼이 길어 390 폭에서도 뷰포트를 넘고(최근 요청 카드로 더 길어진다) 위쪽이 화면 밖으로 잘렸다 — 창 안에서 스크롤한다.
+  it('창 높이를 뷰포트 85% 로 제한하고 넘치면 안에서 스크롤한다', () => {
+    renderModal(latestRequest());
+
+    expect(screen.getByRole('dialog')).toHaveClass('max-h-[85vh]', 'overflow-y-auto');
+  });
+
   it('요청한 적이 없으면 카드를 그리지 않는다', () => {
     renderModal(null);
 

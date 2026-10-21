@@ -81,7 +81,11 @@ export function PromotionRequestModal({ clubId, clubName, latestRequest, onClose
         if (!open && !submitPromotion.isPending) onClose();
       }}
     >
-      <DialogContent busy={isSubmitting || submitPromotion.isPending} className="max-w-lg">
+      {/* 폼이 길어(최근 요청 카드까지) 좁은 화면에서 뷰포트를 넘는다 — 위쪽이 화면 밖으로 잘리지 않게 창 안에서 스크롤한다. */}
+      <DialogContent
+        busy={isSubmitting || submitPromotion.isPending}
+        className="max-h-[85vh] max-w-lg overflow-y-auto"
+      >
         {/* 헤더 */}
         <div className="flex items-start justify-between gap-3">
           <DialogHeader>
