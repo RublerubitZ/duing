@@ -152,7 +152,7 @@ export function AdminFeesPage() {
       )}
 
       {clubsQuery.isSuccess && (
-        <ConsoleCard>
+        <ConsoleCard data-pagination-anchor="" className="scroll-mt-16 md:scroll-mt-6">
           {/* keepPreviousData 전환 중(정렬·필터·기간 변경)에는 이전 목록이 그대로 남는다 —
               딤으로 "지금 보이는 게 갱신 전 데이터"라는 신호를 준다. 감사 콘솔이라 이전 조건의
               미수금·수납액을 새 조건의 결과로 읽으면 안 된다(#906). 툴바는 딤 밖이다. */}

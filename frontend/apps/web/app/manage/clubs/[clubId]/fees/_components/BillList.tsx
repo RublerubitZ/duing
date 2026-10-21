@@ -15,6 +15,7 @@ import { cn } from '@/app/_lib/cn';
 import { useToast } from '@/app/_components/toast/ToastProvider';
 
 import { feeStatusChip, feeStatusLabel, formatWon } from '@/app/_lib/feeLabels';
+import { scrollToPaginatedListStart } from '@/app/_lib/paginationScroll';
 import { toRoute } from '@/app/_lib/route';
 
 import { RecordPaymentDialog } from './RecordPaymentDialog';
@@ -109,7 +110,7 @@ export function BillList({ clubId }: BillListProps) {
   const hasNext = bills?.hasNext ?? false;
 
   return (
-    <div className="space-y-4">
+    <div data-pagination-anchor="" className="space-y-4 scroll-mt-16 md:scroll-mt-6">
       <div className="flex flex-wrap items-end gap-3">
         <div className="flex flex-col gap-1">
           <label htmlFor="bill-filter-period" className="text-xs font-semibold text-charcoal-2">
@@ -228,7 +229,10 @@ export function BillList({ clubId }: BillListProps) {
             <div className="flex items-center gap-2">
               <button
                 type="button"
-                onClick={() => setPage((current) => Math.max(0, current - 1))}
+                onClick={(event) => {
+                  setPage((current) => Math.max(0, current - 1));
+                  scrollToPaginatedListStart(event.currentTarget);
+                }}
                 disabled={page0Based === 0}
                 className="rounded-md border border-line px-2 py-1 disabled:opacity-40"
               >
@@ -239,7 +243,10 @@ export function BillList({ clubId }: BillListProps) {
               </span>
               <button
                 type="button"
-                onClick={() => setPage((current) => current + 1)}
+                onClick={(event) => {
+                  setPage((current) => current + 1);
+                  scrollToPaginatedListStart(event.currentTarget);
+                }}
                 disabled={!hasNext}
                 className="rounded-md border border-line px-2 py-1 disabled:opacity-40"
               >

@@ -192,113 +192,116 @@ export function AdminFaqListPage() {
 
       {actionError && <p className="mb-4 text-[13px] text-coral-deep">{actionError}</p>}
 
-      {listQuery.isLoading && <LoadingGate className="min-h-0 py-12" label="FAQ 목록 불러오는 중" />}
-      {listQuery.isError && <p className="py-12 text-center text-coral-deep text-[13px]">목록을 불러오지 못했습니다.</p>}
-      {listQuery.isSuccess && (
-        items.length === 0 ? (
-          <p className="py-12 text-center text-charcoal-3 text-[13px]">조건에 맞는 FAQ가 없습니다.</p>
-        ) : (
-          <div className="overflow-x-auto rounded-xl border border-line">
-            <table className="w-full text-[13px]">
-              <thead className="bg-graysoft text-charcoal-2">
-                <tr>
-                  <Th>질문</Th><Th>카테고리</Th><Th>공개</Th><Th>조회수</Th><Th>피드백</Th><Th>수정일</Th><Th>순서</Th><Th>액션</Th>
-                </tr>
-              </thead>
-              <tbody>
-                {items.map((faq) => {
-                  const fullIndex = fullItems.findIndex((item) => item.id === faq.id);
-                  const moveUpDisabled = reorderLocked || fullIndex <= 0;
-                  const moveDownDisabled = reorderLocked || fullIndex === -1 || fullIndex >= fullItems.length - 1;
+      {/* 페이지 이동은 이 표의 위로 돌아온다 — 위의 분류 관리·검색 누락 패널을 펼치면 화면 맨 위에서 표가 보이지 않는다. */}
+      <div data-pagination-anchor="" className="scroll-mt-16 md:scroll-mt-6">
+        {listQuery.isLoading && <LoadingGate className="min-h-0 py-12" label="FAQ 목록 불러오는 중" />}
+        {listQuery.isError && <p className="py-12 text-center text-coral-deep text-[13px]">목록을 불러오지 못했습니다.</p>}
+        {listQuery.isSuccess && (
+          items.length === 0 ? (
+            <p className="py-12 text-center text-charcoal-3 text-[13px]">조건에 맞는 FAQ가 없습니다.</p>
+          ) : (
+            <div className="overflow-x-auto rounded-xl border border-line">
+              <table className="w-full text-[13px]">
+                <thead className="bg-graysoft text-charcoal-2">
+                  <tr>
+                    <Th>질문</Th><Th>카테고리</Th><Th>공개</Th><Th>조회수</Th><Th>피드백</Th><Th>수정일</Th><Th>순서</Th><Th>액션</Th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {items.map((faq) => {
+                    const fullIndex = fullItems.findIndex((item) => item.id === faq.id);
+                    const moveUpDisabled = reorderLocked || fullIndex <= 0;
+                    const moveDownDisabled = reorderLocked || fullIndex === -1 || fullIndex >= fullItems.length - 1;
 
-                  return (
-                    <tr key={faq.id} className="border-t border-line">
-                      <Td>
-                        <div className="flex flex-wrap items-center gap-2">
-                          {faq.pinned && (
-                            <span className="rounded-full bg-ink px-2 py-0.5 text-[10.5px] font-bold text-paper">고정</span>
-                          )}
-                          <Link href={toRoute(`/admin/faqs/${faq.id}/edit`)} className="hover:underline">
-                            {faq.question}
-                          </Link>
-                        </div>
-                      </Td>
-                      <Td>{faq.categoryName ?? '—'}</Td>
-                      <Td>
-                        <span
-                          className={cn(
-                            'inline-block px-2 py-0.5 rounded-full text-[11.5px] font-semibold',
-                            faq.published ? 'bg-sage-mist text-ink-deep' : 'bg-graysoft text-charcoal-2',
-                          )}
-                        >{faq.published ? '공개' : '비공개'}</span>
-                      </Td>
-                      <Td>{faq.viewCount}</Td>
-                      <Td>
-                        <span
-                          className={cn(
-                            'font-medium tabular-nums',
-                            faq.notHelpfulCount > faq.helpfulCount ? 'text-coral-deep' : 'text-charcoal-2',
-                          )}
-                          title={`도움됐어요 ${faq.helpfulCount} · 아쉬워요 ${faq.notHelpfulCount}`}
-                          aria-label={`도움됐어요 ${faq.helpfulCount}건 · 아쉬워요 ${faq.notHelpfulCount}건`}
-                        >
-                          {faq.helpfulCount} / {faq.notHelpfulCount}
-                        </span>
-                      </Td>
-                      <Td>{formatDateKst(faq.updatedAt)}</Td>
-                      <Td>
-                        <div className="flex gap-1">
-                          <button
-                            type="button"
-                            onClick={() => handleMove(faq.id, 'up')}
-                            disabled={moveUpDisabled}
-                            title={filtersActive ? FILTER_DISABLED_TITLE : undefined}
-                            aria-label="위로 이동"
-                            className="grid h-7 w-7 place-items-center rounded text-charcoal-2 hover:bg-graysoft disabled:opacity-30"
-                          >▲</button>
-                          <button
-                            type="button"
-                            onClick={() => handleMove(faq.id, 'down')}
-                            disabled={moveDownDisabled}
-                            title={filtersActive ? FILTER_DISABLED_TITLE : undefined}
-                            aria-label="아래로 이동"
-                            className="grid h-7 w-7 place-items-center rounded text-charcoal-2 hover:bg-graysoft disabled:opacity-30"
-                          >▼</button>
-                        </div>
-                      </Td>
-                      <Td>
-                        <div className="flex flex-wrap gap-2">
-                          <button
-                            type="button"
-                            onClick={() => handleToggleField(faq, 'pinned')}
-                            className="text-[12px] text-charcoal-2 hover:text-ink"
-                          >{faq.pinned ? '고정 해제' : '고정'}</button>
-                          <button
-                            type="button"
-                            onClick={() => handleToggleField(faq, 'published')}
-                            className="text-[12px] text-charcoal-2 hover:text-ink"
-                          >{faq.published ? '비공개 전환' : '공개 전환'}</button>
-                          <Link
-                            href={toRoute(`/admin/faqs/${faq.id}/edit`)}
-                            className="text-[12px] text-charcoal-2 hover:text-ink"
-                          >수정</Link>
-                          <button
-                            type="button"
-                            onClick={() => setDeleteTarget({ id: faq.id, question: faq.question })}
-                            className="text-[12px] text-danger hover:underline"
-                          >삭제</button>
-                        </div>
-                      </Td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )
-      )}
+                    return (
+                      <tr key={faq.id} className="border-t border-line">
+                        <Td>
+                          <div className="flex flex-wrap items-center gap-2">
+                            {faq.pinned && (
+                              <span className="rounded-full bg-ink px-2 py-0.5 text-[10.5px] font-bold text-paper">고정</span>
+                            )}
+                            <Link href={toRoute(`/admin/faqs/${faq.id}/edit`)} className="hover:underline">
+                              {faq.question}
+                            </Link>
+                          </div>
+                        </Td>
+                        <Td>{faq.categoryName ?? '—'}</Td>
+                        <Td>
+                          <span
+                            className={cn(
+                              'inline-block px-2 py-0.5 rounded-full text-[11.5px] font-semibold',
+                              faq.published ? 'bg-sage-mist text-ink-deep' : 'bg-graysoft text-charcoal-2',
+                            )}
+                          >{faq.published ? '공개' : '비공개'}</span>
+                        </Td>
+                        <Td>{faq.viewCount}</Td>
+                        <Td>
+                          <span
+                            className={cn(
+                              'font-medium tabular-nums',
+                              faq.notHelpfulCount > faq.helpfulCount ? 'text-coral-deep' : 'text-charcoal-2',
+                            )}
+                            title={`도움됐어요 ${faq.helpfulCount} · 아쉬워요 ${faq.notHelpfulCount}`}
+                            aria-label={`도움됐어요 ${faq.helpfulCount}건 · 아쉬워요 ${faq.notHelpfulCount}건`}
+                          >
+                            {faq.helpfulCount} / {faq.notHelpfulCount}
+                          </span>
+                        </Td>
+                        <Td>{formatDateKst(faq.updatedAt)}</Td>
+                        <Td>
+                          <div className="flex gap-1">
+                            <button
+                              type="button"
+                              onClick={() => handleMove(faq.id, 'up')}
+                              disabled={moveUpDisabled}
+                              title={filtersActive ? FILTER_DISABLED_TITLE : undefined}
+                              aria-label="위로 이동"
+                              className="grid h-7 w-7 place-items-center rounded text-charcoal-2 hover:bg-graysoft disabled:opacity-30"
+                            >▲</button>
+                            <button
+                              type="button"
+                              onClick={() => handleMove(faq.id, 'down')}
+                              disabled={moveDownDisabled}
+                              title={filtersActive ? FILTER_DISABLED_TITLE : undefined}
+                              aria-label="아래로 이동"
+                              className="grid h-7 w-7 place-items-center rounded text-charcoal-2 hover:bg-graysoft disabled:opacity-30"
+                            >▼</button>
+                          </div>
+                        </Td>
+                        <Td>
+                          <div className="flex flex-wrap gap-2">
+                            <button
+                              type="button"
+                              onClick={() => handleToggleField(faq, 'pinned')}
+                              className="text-[12px] text-charcoal-2 hover:text-ink"
+                            >{faq.pinned ? '고정 해제' : '고정'}</button>
+                            <button
+                              type="button"
+                              onClick={() => handleToggleField(faq, 'published')}
+                              className="text-[12px] text-charcoal-2 hover:text-ink"
+                            >{faq.published ? '비공개 전환' : '공개 전환'}</button>
+                            <Link
+                              href={toRoute(`/admin/faqs/${faq.id}/edit`)}
+                              className="text-[12px] text-charcoal-2 hover:text-ink"
+                            >수정</Link>
+                            <button
+                              type="button"
+                              onClick={() => setDeleteTarget({ id: faq.id, question: faq.question })}
+                              className="text-[12px] text-danger hover:underline"
+                            >삭제</button>
+                          </div>
+                        </Td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )
+        )}
 
-      <Pagination page={page} totalPages={totalPages} onChange={setPage} ariaLabel="FAQ 관리 페이지" />
+        <Pagination page={page} totalPages={totalPages} onChange={setPage} ariaLabel="FAQ 관리 페이지" />
+      </div>
 
       <ConfirmDialog
         open={deleteTarget !== null}

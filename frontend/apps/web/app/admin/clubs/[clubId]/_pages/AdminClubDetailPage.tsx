@@ -228,7 +228,7 @@ export function AdminClubDetailPage({ clubId }: Props) {
             </section>
 
             {/* 회원 */}
-            <section className="rounded-lg border border-line bg-graysoft p-5 space-y-4">
+            <section data-pagination-anchor="" className="rounded-lg border border-line bg-graysoft p-5 space-y-4 scroll-mt-16 md:scroll-mt-6">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <h2 className="text-[15px] font-semibold text-ink">
                   회원 {members.length}명

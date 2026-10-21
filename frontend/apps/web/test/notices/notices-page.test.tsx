@@ -1,5 +1,5 @@
 import { render, screen, fireEvent, within } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { NoticeCardItem } from '@duing/types';
 
 /* ── 모듈 모킹 ─────────────────────────────────────────────── */
@@ -238,6 +238,25 @@ describe('NoticesPage', () => {
     } finally {
       document.documentElement.removeAttribute('data-back-navigation');
     }
+  });
+
+  describe('페이지 버튼', () => {
+    afterEach(() => vi.restoreAllMocks());
+
+    it('다른 번호를 누르면 그 페이지를 조회하고 화면 맨 위로 간다 — 현재 번호는 움직이지 않는다', () => {
+      // 13건 → makeListResponse 가 2페이지로 만든다.
+      const items = Array.from({ length: 13 }, (_, index) => makeNoticeItem({ id: index + 1, title: `공지 ${index + 1}` }));
+      mockUseNoticeListQuery.mockReturnValue(makeListResponse(items));
+      const scrollTo = vi.spyOn(window, 'scrollTo');
+      render(<NoticesPage />);
+
+      fireEvent.click(screen.getByRole('button', { name: '1' }));
+      expect(scrollTo).not.toHaveBeenCalled();
+
+      fireEvent.click(screen.getByRole('button', { name: '2' }));
+      expect(mockUseNoticeListQuery).toHaveBeenLastCalledWith(expect.objectContaining({ page: 1 }));
+      expect(scrollTo).toHaveBeenCalledWith({ top: 0 });
+    });
   });
 });
 
