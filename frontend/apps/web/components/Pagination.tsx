@@ -1,7 +1,5 @@
 'use client';
 
-import type { MouseEvent } from 'react';
-
 import { scrollToPaginatedListStart } from '@/app/_lib/paginationScroll';
 
 type Props = {
@@ -35,7 +33,7 @@ export function Pagination({
 
   const showRange = totalElements !== undefined && pageSize !== undefined && totalElements > 0;
   // 다른 페이지로 갈 때만 새 페이지의 첫머리로 옮긴다 — 현재 번호를 다시 누른 것은 이동이 아니다(onChange 는 그대로 부른다).
-  const changePage = (event: MouseEvent<HTMLButtonElement>, next: number) => {
+  const changePage = (event: React.MouseEvent<HTMLButtonElement>, next: number) => {
     onChange(next);
     if (next !== page) scrollToPaginatedListStart(event.currentTarget);
   };

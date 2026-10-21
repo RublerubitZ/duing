@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll, afterEach, vi } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, afterEach, onTestFinished, vi } from 'vitest';
 import type { ReactNode } from 'react';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -134,6 +134,7 @@ describe('AdminClubDetailPage', () => {
 
   it('회원 목록을 넘기면 화면 맨 위가 아니라 회원 섹션의 위로 간다 — 상세 안 섹션이다', async () => {
     const scrollTo = vi.spyOn(window, 'scrollTo');
+    onTestFinished(() => scrollTo.mockRestore());
     renderPage();
     await screen.findByText('홍길동');
     const memberPager = screen.getByRole('navigation', { name: '회원 목록 페이지' });
@@ -149,7 +150,6 @@ describe('AdminClubDetailPage', () => {
     expect(await screen.findByText('회원21')).toBeInTheDocument();
     expect(scrollIntoView).toHaveBeenCalledWith({ block: 'start' });
     expect(scrollTo).not.toHaveBeenCalled();
-    scrollTo.mockRestore();
   });
 
   it('이름·학번·전공으로 검색하면 결과가 필터링된다', async () => {

@@ -10,6 +10,8 @@ import { createApiClient } from '@duing/api';
 import { ApiClientProvider } from '@duing/hooks';
 import type { ClubSummary, PageResponse } from '@duing/types';
 
+import { clearNavigationPending } from '@/app/_lib/backDismiss';
+
 /**
  * 탐색 화면 페이지 버튼 — 페이지를 바꾸면 화면 맨 위(이 화면은 목록이 첫 내용)로 옮기고, 필터·마운트에는 움직이지 않는다.
  * 페이지 버튼 접근성(이전·다음 이름, 현재 번호, nav)도 여기서 본다. 데스크탑·모바일 두 트리가 다 그려져 페이지 영역이 둘이다.
@@ -59,6 +61,7 @@ function clubListHandler(totalPages: number) {
 
 beforeAll(() => server.listen({ onUnhandledRequest: 'error' }));
 afterEach(() => {
+  clearNavigationPending();
   server.resetHandlers();
   mockSearchParams.value = '';
   mockReplace.mockReset();

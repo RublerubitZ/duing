@@ -1,6 +1,6 @@
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, onTestFinished } from 'vitest';
 
 import type { AdminUserDetail, AdminUserSearchResult, PageResponse } from '@duing/types';
 
@@ -278,6 +278,7 @@ describe('AdminUsersPage', () => {
   it('페이지를 넘기면 표 카드의 위로 간다 — 카드가 페이지네이션 표지를 DOM 에 넘긴다', async () => {
     mockSearch.mockReturnValue(searchSuccess([makeUser()], 3));
     const scrollTo = vi.spyOn(window, 'scrollTo');
+    onTestFinished(() => scrollTo.mockRestore());
     render(<AdminUsersPage />);
     const listPager = screen.getByRole('navigation', { name: '회원 목록 페이지' });
     const listCard = listPager.closest<HTMLElement>('[data-pagination-anchor]');
@@ -291,7 +292,6 @@ describe('AdminUsersPage', () => {
 
     expect(scrollIntoView).toHaveBeenCalledWith({ block: 'start' });
     expect(scrollTo).not.toHaveBeenCalled();
-    scrollTo.mockRestore();
   });
 
   it('주소에 실린 상태·페이지를 그대로 읽어 조회한다 — 새로고침·뒤로가기로 되돌아온다', () => {

@@ -40,7 +40,7 @@ vi.mock('next-view-transitions', async () => {
 
 // jsdom 은 window.scrollTo 를 구현하지 않아 부를 때마다 "Not implemented" 오류를 찍는다 — 페이지 버튼이 부르는
 // 스크롤(scrollToPaginatedListStart)을 조용히 받는다. 호출을 단언하는 테스트는 vi.spyOn(window, 'scrollTo') 로 감싼다.
-// node 환경 테스트(@vitest-environment node)에는 window 가 없다.
+// node 환경 테스트에는 window 가 없다.
 if (typeof window !== 'undefined') {
   window.scrollTo = () => undefined;
 }

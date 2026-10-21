@@ -254,7 +254,7 @@ describe('NoticesPage', () => {
       expect(scrollTo).not.toHaveBeenCalled();
 
       fireEvent.click(screen.getByRole('button', { name: '2' }));
-      expect(mockUseNoticeListQuery).toHaveBeenCalledWith(expect.objectContaining({ page: 1 }));
+      expect(mockUseNoticeListQuery).toHaveBeenLastCalledWith(expect.objectContaining({ page: 1 }));
       expect(scrollTo).toHaveBeenCalledWith({ top: 0 });
     });
   });
