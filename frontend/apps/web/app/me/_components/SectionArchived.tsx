@@ -6,6 +6,7 @@ import type { ApplicationSummary } from '@duing/types';
 import { cn } from '@/app/_lib/cn';
 import {
   APPLICATION_CLOSED_WITHOUT_RESULT_LABEL,
+  APPLICATION_STATUS_APPLICANT_LABEL,
   isTerminalApplicationStatus,
 } from '@/app/_constants/application-status';
 import type { TerminalApplicationStatus } from '@/app/_constants/application-status';
@@ -18,11 +19,11 @@ type PillMeta = { label: string; className: string };
 
 const PILL: Record<TerminalApplicationStatus, PillMeta> = {
   ACCEPTED: {
-    label: '🎉 합격',
+    label: `🎉 ${APPLICATION_STATUS_APPLICANT_LABEL.ACCEPTED}`,
     className: 'bg-sage-mist text-ink-deep border-sage-mist',
   },
   REJECTED: {
-    label: '📝 불합격',
+    label: `📝 ${APPLICATION_STATUS_APPLICANT_LABEL.REJECTED}`,
     className: 'bg-paper text-charcoal-3 border-line',
   },
 };

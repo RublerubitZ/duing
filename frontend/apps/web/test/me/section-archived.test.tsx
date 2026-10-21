@@ -26,17 +26,17 @@ const make = (overrides: Partial<ApplicationSummary> = {}): ApplicationSummary =
 });
 
 describe('SectionArchived', () => {
-  it('ACCEPTED 카드는 "🎉 합격" pill 과 /me/applications/{id} 링크를 노출한다', () => {
+  it('ACCEPTED 카드는 "🎉 최종 합격" pill 과 /me/applications/{id} 링크를 노출한다', () => {
     render(<SectionArchived applications={[make({ id: 5, status: 'ACCEPTED', clubName: '합격동' })]} />);
-    expect(screen.getByText(/🎉\s*합격/)).toBeInTheDocument();
+    expect(screen.getByText(/🎉\s*최종 합격/)).toBeInTheDocument();
     expect(screen.getByText('합격동')).toBeInTheDocument();
     const link = screen.getByRole('link', { name: /합격동/ });
     expect(link).toHaveAttribute('href', '/me/applications/5');
   });
 
-  it('REJECTED 카드는 "📝 불합격" pill 과 상세 링크를 노출한다', () => {
+  it('REJECTED 카드는 "📝 최종 불합격" pill 과 상세 링크를 노출한다', () => {
     render(<SectionArchived applications={[make({ id: 7, status: 'REJECTED', clubName: '불합격동' })]} />);
-    expect(screen.getByText(/📝\s*불합격/)).toBeInTheDocument();
+    expect(screen.getByText(/📝\s*최종 불합격/)).toBeInTheDocument();
     const link = screen.getByRole('link', { name: /불합격동/ });
     expect(link).toHaveAttribute('href', '/me/applications/7');
   });
