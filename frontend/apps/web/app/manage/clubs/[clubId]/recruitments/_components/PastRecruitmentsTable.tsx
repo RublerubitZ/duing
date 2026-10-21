@@ -26,15 +26,18 @@ export function PastRecruitmentsTable({ clubId, recruitments: unsortedRecruitmen
   const recruitments = sortPastRecruitments(unsortedRecruitments);
   // 행별 지원/합격 집계 — 단일 소비처라 라우트 로컬 fan-out(대시보드 useApplicantSummary와 동일 패턴,
   // statsQueryKeys.summary 공유로 대시보드·상세·통계와 캐시 일치). 지난 모집은 클럽당 연 1~2건 수준.
+  // 외부 폼은 지원 데이터가 없어 자체 폼 행만 조회한다 — combine 도 같은 배열로 인덱싱해야 수치가 제 행에 붙는다.
+  // 외부 폼 행은 Map 에 없어 "—" 가 된다(다른 화면이 같은 키를 0 으로 채워도 이 표는 그 키를 구독하지 않는다).
+  const selfRecruitments = recruitments.filter((recruitment) => recruitment.applicationMode === 'SELF');
   const summariesById = useQueries({
-    queries: recruitments.map((recruitment) => ({
+    queries: selfRecruitments.map((recruitment) => ({
       queryKey: statsQueryKeys.summary(recruitment.id),
       queryFn: () => client.stats.summary(recruitment.id),
     })),
     combine: (results) => {
       const byId = new Map<number, StatsSummary>();
       results.forEach((result, index) => {
-        const recruitment = recruitments[index];
+        const recruitment = selfRecruitments[index];
         if (recruitment !== undefined && result.data !== undefined) {
           byId.set(recruitment.id, result.data);
         }

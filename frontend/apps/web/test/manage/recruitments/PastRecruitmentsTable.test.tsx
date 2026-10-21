@@ -5,7 +5,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { setupServer } from 'msw/node';
 import { http, HttpResponse } from 'msw';
 import { createApiClient } from '@duing/api';
-import { ApiClientProvider } from '@duing/hooks';
+import { ApiClientProvider, statsQueryKeys } from '@duing/hooks';
 import type { RecruitmentSummary, StatsSummary } from '@duing/types';
 
 vi.mock('next/link', () => ({
@@ -36,14 +36,33 @@ function summaryResponse(overrides: Partial<StatsSummary> = {}) {
 }
 
 const server = setupServer();
-beforeAll(() => server.listen({ onUnhandledRequest: 'error' }));
-afterEach(() => server.resetHandlers());
-afterAll(() => server.close());
+/**
+ * 이 스위트에서 나간 요청 경로 — 외부 폼 행의 통계 조회 여부를 본다.
+ * 미처리 요청 오류도 같은 "—" 를 그리므로 화면만으론 조회하지 않았음을 가릴 수 없다.
+ */
+const requestedPaths: string[] = [];
+const trackRequest = ({ request }: { request: Request }) => {
+  requestedPaths.push(new URL(request.url).pathname);
+};
+beforeAll(() => {
+  server.listen({ onUnhandledRequest: 'error' });
+  server.events.on('request:start', trackRequest);
+});
+afterEach(() => {
+  server.resetHandlers();
+  requestedPaths.length = 0;
+});
+afterAll(() => {
+  server.events.removeListener('request:start', trackRequest);
+  server.close();
+});
 
-function renderTable(recruitments: RecruitmentSummary[]) {
-  const queryClient = new QueryClient({
+function renderTable(
+  recruitments: RecruitmentSummary[],
+  queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
-  });
+  }),
+) {
   function Wrapper({ children }: { children: ReactNode }) {
     return (
       <ApiClientProvider client={apiClient}>
@@ -73,6 +92,25 @@ function closedRecruitment(over: Partial<RecruitmentSummary> = {}): RecruitmentS
     closedAt: null,
     ...over,
   };
+}
+
+/** 데스크톱 표에서 제목 링크로 그 모집의 행을 찾는다 — 수치가 제 행에 붙었는지 보기 위해. */
+function desktopRow(title: string): HTMLElement {
+  const row = within(screen.getByRole('table'))
+    .getAllByRole('row')
+    .find((candidate) => within(candidate).queryByRole('link', { name: title }) !== null);
+  if (row === undefined) throw new Error(`표에 '${title}' 행이 없다`);
+  return row;
+}
+
+function externalRecruitment(over: Partial<RecruitmentSummary> = {}): RecruitmentSummary {
+  return closedRecruitment({
+    id: 108,
+    title: '8기 외부 폼 모집',
+    applicationMode: 'EXTERNAL',
+    externalFormUrl: 'https://forms.gle/abc',
+    ...over,
+  });
 }
 
 function statsHandlers(...recruitmentIds: number[]) {
@@ -210,5 +248,68 @@ describe('PastRecruitmentsTable', () => {
 
     expect((await screen.findAllByText(/마감 2025-09-18/)).length).toBeGreaterThan(0);
     expect(screen.queryByText(/마감 2025-09-10/)).toBeNull();
+  });
+
+  describe('외부 폼 모집 행', () => {
+    // 외부 폼 id 에도 0 아닌 수치를 준다 — 조회가 나가면 숫자가 그려져 "—" 단언이 실패한다
+    function bothStatsHandlers() {
+      return [
+        http.get('*/leader/recruitments/9/stats/summary', () =>
+          HttpResponse.json(summaryResponse({ total: 41, accepted: 18 })),
+        ),
+        http.get('*/leader/recruitments/108/stats/summary', () =>
+          HttpResponse.json(summaryResponse({ total: 12, submitted: 2, accepted: 4 })),
+        ),
+      ];
+    }
+
+    it('통계를 조회하지 않고 지원 / 합격을 —로 표시한다 (미확정 표기 없음)', async () => {
+      server.use(...bothStatsHandlers());
+      renderTable([
+        closedRecruitment(),
+        externalRecruitment({ startDate: '2025-03-01', endDate: '2025-03-14' }),
+      ]);
+
+      // 같은 커밋에서 함께 발화하므로 자체 폼 수치가 보이면 외부 폼 요청도 이미 나갔을 것이다
+      expect(await within(desktopRow('9기 신입 모집')).findByText('41 / 18')).toBeInTheDocument();
+      expect(
+        requestedPaths.filter((requestedPath) => requestedPath.endsWith('/recruitments/108/stats/summary')),
+      ).toHaveLength(0);
+      expect(within(desktopRow('8기 외부 폼 모집')).getByText('—')).toBeInTheDocument();
+      expect(screen.getByText('지원 —')).toBeInTheDocument();
+      expect(screen.queryByText(/미확정/)).toBeNull();
+    });
+
+    it('외부 폼 행이 앞에 와도 자체 폼 수치는 제 행에 붙는다', async () => {
+      server.use(...bothStatsHandlers());
+      // 외부 폼 종료일이 더 늦어 정렬 뒤 첫 행이 된다 — fan-out 배열과 표 배열의 인덱스가 어긋나는 자리
+      renderTable([
+        closedRecruitment(),
+        externalRecruitment({ startDate: '2025-12-01', endDate: '2025-12-20' }),
+      ]);
+
+      expect(await within(desktopRow('9기 신입 모집')).findByText('41 / 18')).toBeInTheDocument();
+      expect(screen.getByText('지원 41 / 18')).toBeInTheDocument();
+      expect(within(desktopRow('8기 외부 폼 모집')).getByText('—')).toBeInTheDocument();
+      expect(screen.getByText('지원 —')).toBeInTheDocument();
+    });
+
+    // 이 표는 외부 폼 키를 구독하지 않는다 — 나중에 filter 를 없애고 enabled 로 바꾸는 회귀를 막는다
+    it('다른 화면이 같은 키에 남긴 0 통계가 있어도 —로 표시한다', async () => {
+      server.use(...bothStatsHandlers());
+      const queryClient = new QueryClient({
+        defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+      });
+      // 대시보드·모집 상세·통계 화면이 같은 키를 채운다 — 외부 폼은 전부 0
+      queryClient.setQueryData(statsQueryKeys.summary(108), summaryResponse().data);
+      renderTable(
+        [closedRecruitment(), externalRecruitment({ startDate: '2025-03-01', endDate: '2025-03-14' })],
+        queryClient,
+      );
+
+      expect(await within(desktopRow('9기 신입 모집')).findByText('41 / 18')).toBeInTheDocument();
+      expect(within(desktopRow('8기 외부 폼 모집')).getByText('—')).toBeInTheDocument();
+      expect(screen.queryByText('0 / 0')).toBeNull();
+    });
   });
 });

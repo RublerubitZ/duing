@@ -1,5 +1,5 @@
 import { render, screen } from '@testing-library/react';
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import type { RecruitmentSummary, StatsSummary } from '@duing/types';
 
 const mockSummary = vi.fn();
@@ -49,6 +49,8 @@ function statsSummary(over: Partial<StatsSummary> = {}): StatsSummary {
 }
 
 describe('RecruitmentKpiRow', () => {
+  beforeEach(() => mockSummary.mockReset());
+
   it('4개 타일에 summary 버킷 값을 표시하고 검토 대기는 submitted+onHold 합이다', () => {
     mockSummary.mockReturnValue({
       data: statsSummary({ total: 34, submitted: 5, onHold: 7, interviewPending: 8, accepted: 2 }),
@@ -82,6 +84,28 @@ describe('RecruitmentKpiRow', () => {
     mockSummary.mockReturnValue({ data: undefined, isLoading: true });
     render(<RecruitmentKpiRow recruitment={recruitment()} />);
 
+    expect(screen.getAllByText('—')).toHaveLength(4);
+    expect(screen.getByText('모집 인원 20명')).toBeInTheDocument();
+  });
+
+  it('외부 폼 모집은 통계를 조회하지 않고 4개 값 모두 —로 표시한다 (정원 부제는 유지)', () => {
+    // 숫자 id 로 조회하면 값이 생기게 해 둔다 — 조회 인자가 바뀌지 않으면 숫자가 그려져 실패한다
+    mockSummary.mockImplementation((recruitmentId: number | undefined) =>
+      recruitmentId === undefined
+        ? { data: undefined, isLoading: false }
+        : {
+            data: statsSummary({ total: 34, submitted: 5, onHold: 7, interviewPending: 8, accepted: 2 }),
+            isLoading: false,
+          },
+    );
+    render(
+      <RecruitmentKpiRow
+        recruitment={recruitment({ applicationMode: 'EXTERNAL', externalFormUrl: 'https://forms.gle/abc' })}
+      />,
+    );
+
+    expect(mockSummary).toHaveBeenCalledWith(undefined);
+    expect(mockSummary).not.toHaveBeenCalledWith(expect.any(Number));
     expect(screen.getAllByText('—')).toHaveLength(4);
     expect(screen.getByText('모집 인원 20명')).toBeInTheDocument();
   });
