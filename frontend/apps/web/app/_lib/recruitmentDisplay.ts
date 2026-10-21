@@ -55,8 +55,8 @@ export const RECRUITMENT_EXPIRED_OPEN_BADGE = 'pill pill-warm-outline';
 const AUTO_CLOSE_GRACE_DAYS = 7;
 
 /**
- * 만료-OPEN 안내 문구 — 지금 상태와 다음 행동(심사·가입 처리 후 마감), 그리고 그대로 두면 종료
- * {@link AUTO_CLOSE_GRACE_DAYS}일 뒤 자동 마감된다는 사실을 함께 알려준다.
+ * 만료-OPEN 안내 문구 — 지금 상태와 다음 행동(심사·가입 처리 후 마감), 그리고 그대로 두면 종료일로부터
+ * {@link AUTO_CLOSE_GRACE_DAYS}일이 지나 자동 마감된다는 사실을 함께 알려준다.
  */
 export function recruitmentExpiredOpenNotice(applicationMode: ApplicationMode): string {
   const nextStep =
@@ -66,8 +66,8 @@ export function recruitmentExpiredOpenNotice(applicationMode: ApplicationMode): 
   // 자체 지원은 결과 없는 지원·진행 중 면접 라운드가 있으면 자동 마감되지 않는다. 외부 폼은 둘 다 없어 조건 없이 닫힌다.
   const autoClose =
     applicationMode === 'EXTERNAL'
-      ? `종료 ${AUTO_CLOSE_GRACE_DAYS}일 뒤에는 자동으로 마감돼요.`
-      : `남은 심사·면접이 없으면 종료 ${AUTO_CLOSE_GRACE_DAYS}일 뒤 자동으로 마감돼요.`;
+      ? `종료일로부터 ${AUTO_CLOSE_GRACE_DAYS}일이 지나면 자동으로 마감돼요.`
+      : `남은 심사·면접이 없으면 종료일로부터 ${AUTO_CLOSE_GRACE_DAYS}일이 지난 뒤 자동으로 마감돼요.`;
   return `모집 기간이 끝났지만 아직 마감 전이에요. ${nextStep} ${autoClose}`;
 }
 
