@@ -523,7 +523,7 @@ export type AdminProfileCheck = {
   currentSemesterTerm: 1 | 2;
   title: string;
   message: string;
-  /** 대상 = 일반 학생 중 정지·탈퇴·졸업생이 아닌 회원. 확인 완료·미확인은 같은 대상 안에서 센다. */
+  /** 대상 = 정지·탈퇴·졸업생이 아닌 회원(총동연 계정 포함). 확인 완료·미확인은 같은 대상 안에서 센다. */
   targetCount: number;
   confirmedCount: number;
   unconfirmedCount: number;

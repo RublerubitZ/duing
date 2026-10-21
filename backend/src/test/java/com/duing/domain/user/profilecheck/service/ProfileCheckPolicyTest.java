@@ -77,8 +77,8 @@ class ProfileCheckPolicyTest {
     }
 
     @Test
-    @DisplayName("대상은 정지되지 않은 학생 중 졸업생이 아닌 사람이다 — 휴학생은 대상이다")
-    void targetIsActiveNonGraduatedStudent() {
+    @DisplayName("대상은 정지되지 않은 회원 중 졸업생이 아닌 사람이다 — 휴학생과 총동연(관리자) 계정도 대상이다")
+    void targetIsActiveNonGraduatedUserRegardlessOfRole() {
         User freshman = UserFixture.unique();
         User onLeave = studentWith(Grade.ON_LEAVE);
         User graduated = studentWith(Grade.GRADUATED);
@@ -88,9 +88,9 @@ class ProfileCheckPolicyTest {
 
         assertThat(ProfileCheckPolicy.isTarget(freshman)).isTrue();
         assertThat(ProfileCheckPolicy.isTarget(onLeave)).isTrue();
+        assertThat(ProfileCheckPolicy.isTarget(admin)).isTrue();
         assertThat(ProfileCheckPolicy.isTarget(graduated)).isFalse();
         assertThat(ProfileCheckPolicy.isTarget(suspended)).isFalse();
-        assertThat(ProfileCheckPolicy.isTarget(admin)).isFalse();
     }
 
     @Test

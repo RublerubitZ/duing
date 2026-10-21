@@ -85,9 +85,9 @@ class AdminProfileCheckControllerTest extends IntegrationTestBase {
                 .body("data.currentSemesterTerm", equalTo(1))
                 .body("data.title", equalTo(ProfileCheckSetting.DEFAULT_TITLE))
                 .body("data.message", equalTo(ProfileCheckSetting.DEFAULT_MESSAGE))
-                .body("data.targetCount", equalTo(1))
+                .body("data.targetCount", equalTo(2))
                 .body("data.confirmedCount", equalTo(0))
-                .body("data.unconfirmedCount", equalTo(1));
+                .body("data.unconfirmedCount", equalTo(2));
         assertThat(settingRepository.count()).isZero();
     }
 
@@ -155,9 +155,9 @@ class AdminProfileCheckControllerTest extends IntegrationTestBase {
                 .body("data.semesterTerm", equalTo(2))
                 .body("data.currentSemesterYear", equalTo(2026))
                 .body("data.currentSemesterTerm", equalTo(1))
-                .body("data.targetCount", equalTo(2))
+                .body("data.targetCount", equalTo(3))
                 .body("data.confirmedCount", equalTo(1))
-                .body("data.unconfirmedCount", equalTo(1));
+                .body("data.unconfirmedCount", equalTo(2));
     }
 
     @Test
