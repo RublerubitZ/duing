@@ -275,6 +275,25 @@ describe('AdminUsersPage', () => {
     });
   });
 
+  it('페이지를 넘기면 표 카드의 위로 간다 — 카드가 페이지네이션 표지를 DOM 에 넘긴다', async () => {
+    mockSearch.mockReturnValue(searchSuccess([makeUser()], 3));
+    const scrollTo = vi.spyOn(window, 'scrollTo');
+    render(<AdminUsersPage />);
+    const listPager = screen.getByRole('navigation', { name: '회원 목록 페이지' });
+    const listCard = listPager.closest<HTMLElement>('[data-pagination-anchor]');
+    expect(listCard).not.toBeNull();
+    if (listCard === null) return;
+    listCard.getBoundingClientRect = () => new DOMRect(0, -420, 900, 1100);
+    const scrollIntoView = vi.fn();
+    listCard.scrollIntoView = scrollIntoView;
+
+    await userEvent.setup().click(within(listPager).getByRole('button', { name: '다음' }));
+
+    expect(scrollIntoView).toHaveBeenCalledWith({ block: 'start' });
+    expect(scrollTo).not.toHaveBeenCalled();
+    scrollTo.mockRestore();
+  });
+
   it('주소에 실린 상태·페이지를 그대로 읽어 조회한다 — 새로고침·뒤로가기로 되돌아온다', () => {
     mockQueryString = 'status=SUSPENDED&page=3';
     mockSearch.mockReturnValue(searchSuccess([makeUser()], 5));

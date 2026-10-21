@@ -108,7 +108,7 @@ export function FeeAuditLogList({
   const logs = auditLogsQuery.data?.content ?? [];
 
   return (
-    <div className="flex flex-col gap-3">
+    <div data-pagination-anchor="" className="flex flex-col gap-3 scroll-mt-16 md:scroll-mt-6">
       <FeeFilterChips
         ariaLabel="이벤트 유형 필터"
         options={GROUP_OPTIONS}

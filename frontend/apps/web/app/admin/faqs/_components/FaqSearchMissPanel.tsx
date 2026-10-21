@@ -35,7 +35,7 @@ export function FaqSearchMissPanel() {
   }, [totalPages, page]);
 
   return (
-    <div className="rounded-xl border border-line bg-paper">
+    <div data-pagination-anchor="" className="rounded-xl border border-line bg-paper scroll-mt-16 md:scroll-mt-6">
       <button
         type="button"
         onClick={() => setExpanded((prev) => !prev)}

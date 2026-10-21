@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll, afterEach, vi } from 'vitest';
 import type { ReactNode } from 'react';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { setupServer } from 'msw/node';
@@ -130,6 +130,26 @@ describe('AdminClubDetailPage', () => {
     // 21번째 회원은 2페이지 → 첫 페이지에 없음
     expect(screen.queryByText('회원21')).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: '2' })).toBeInTheDocument();
+  });
+
+  it('회원 목록을 넘기면 화면 맨 위가 아니라 회원 섹션의 위로 간다 — 상세 안 섹션이다', async () => {
+    const scrollTo = vi.spyOn(window, 'scrollTo');
+    renderPage();
+    await screen.findByText('홍길동');
+    const memberPager = screen.getByRole('navigation', { name: '회원 목록 페이지' });
+    const memberSection = memberPager.closest<HTMLElement>('[data-pagination-anchor]');
+    expect(memberSection).not.toBeNull();
+    if (memberSection === null) return;
+    memberSection.getBoundingClientRect = () => new DOMRect(0, -640, 900, 1200);
+    const scrollIntoView = vi.fn();
+    memberSection.scrollIntoView = scrollIntoView;
+
+    await userEvent.setup().click(within(memberPager).getByRole('button', { name: '2' }));
+
+    expect(await screen.findByText('회원21')).toBeInTheDocument();
+    expect(scrollIntoView).toHaveBeenCalledWith({ block: 'start' });
+    expect(scrollTo).not.toHaveBeenCalled();
+    scrollTo.mockRestore();
   });
 
   it('이름·학번·전공으로 검색하면 결과가 필터링된다', async () => {

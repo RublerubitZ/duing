@@ -75,18 +75,21 @@ export function AdminGlobalEventsListPage() {
         />
       </div>
 
-      {listQuery.isLoading && <LoadingGate label="이벤트 목록 불러오는 중" />}
-      {listQuery.isError && (
-        <p className="py-12 text-center text-coral-deep text-[13px]">목록을 불러오지 못했습니다.</p>
-      )}
-      {listQuery.isSuccess && (
-        <AdminGlobalEventTable
-          items={items}
-          onDeleteClick={(eventId, title) => setDeleteTarget({ id: eventId, title })}
-        />
-      )}
+      {/* 페이지 이동은 이 목록의 위로 돌아온다 — 위에 통계 카드·필터가 있어 화면 맨 위로 가면 목록이 밀려난다. */}
+      <div data-pagination-anchor="" className="scroll-mt-16 md:scroll-mt-6">
+        {listQuery.isLoading && <LoadingGate label="이벤트 목록 불러오는 중" />}
+        {listQuery.isError && (
+          <p className="py-12 text-center text-coral-deep text-[13px]">목록을 불러오지 못했습니다.</p>
+        )}
+        {listQuery.isSuccess && (
+          <AdminGlobalEventTable
+            items={items}
+            onDeleteClick={(eventId, title) => setDeleteTarget({ id: eventId, title })}
+          />
+        )}
 
-      <Pagination page={page} totalPages={totalPages} onChange={setPage} />
+        <Pagination page={page} totalPages={totalPages} onChange={setPage} />
+      </div>
 
       <ConfirmDialog
         open={deleteTarget !== null}
