@@ -6,7 +6,7 @@ import { setupServer } from 'msw/node';
 import { http, HttpResponse } from 'msw';
 import { createApiClient } from '@duing/api';
 import { ApiClientProvider } from '@duing/hooks';
-import type { RecruitmentSummary } from '@duing/types';
+import type { RecruitmentSummary, StatsSummary } from '@duing/types';
 
 vi.mock('next/link', () => ({
   default: ({ children, href }: { children: React.ReactNode; href: string }) => <a href={href}>{children}</a>,
@@ -17,7 +17,7 @@ import { PastRecruitmentsTable } from '@/app/manage/clubs/[clubId]/recruitments/
 
 const apiClient = createApiClient({ baseUrl: 'http://localhost:8080/api/v1' });
 
-function summaryResponse(overrides: Partial<{ total: number; accepted: number }> = {}) {
+function summaryResponse(overrides: Partial<StatsSummary> = {}) {
   return {
     ok: true,
     message: null,
@@ -123,6 +123,30 @@ describe('PastRecruitmentsTable', () => {
 
     expect((await screen.findAllByText('41 / 18')).length).toBeGreaterThan(0);
     expect(screen.getAllByText('—').length).toBeGreaterThan(0);
+  });
+
+  it('결과 미확정 지원이 있으면 미확정 N명을 표시한다', async () => {
+    server.use(
+      http.get('*/leader/recruitments/9/stats/summary', () =>
+        HttpResponse.json(summaryResponse({ total: 5, submitted: 1, onHold: 1, accepted: 3 })),
+      ),
+    );
+    renderTable([closedRecruitment()]);
+
+    // 데스크톱 표·모바일 카드를 CSS 로만 토글하므로 두 곳에 하나씩
+    expect(await screen.findAllByText(/미확정 2명/)).toHaveLength(2);
+  });
+
+  it('결과 미확정 지원이 없으면 미확정 표기를 하지 않는다', async () => {
+    server.use(
+      http.get('*/leader/recruitments/9/stats/summary', () =>
+        HttpResponse.json(summaryResponse({ total: 3, accepted: 3 })),
+      ),
+    );
+    renderTable([closedRecruitment()]);
+
+    expect((await screen.findAllByText('3 / 3')).length).toBeGreaterThan(0);
+    expect(screen.queryByText(/미확정/)).toBeNull();
   });
 
   it('자체 폼 모집은 지원현황으로 바로 가는 지원자 링크를 제공한다', async () => {

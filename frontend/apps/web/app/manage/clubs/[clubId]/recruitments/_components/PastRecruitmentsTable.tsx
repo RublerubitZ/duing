@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useQueries } from '@tanstack/react-query';
 import type { RecruitmentSummary, StatsSummary } from '@duing/types';
-import { statsQueryKeys, useApiClient } from '@duing/hooks';
+import { countUndecided, statsQueryKeys, useApiClient } from '@duing/hooks';
 import { toRoute } from '@/app/_lib/route';
 import {
   recruitmentPeriodLabel,
@@ -56,6 +56,11 @@ export function PastRecruitmentsTable({ clubId, recruitments: unsortedRecruitmen
     return summary ? `${summary.total} / ${summary.accepted}` : '—';
   }
 
+  function undecidedCount(recruitmentId: number): number {
+    const summary = summariesById.get(recruitmentId);
+    return summary ? countUndecided(summary) : 0;
+  }
+
   return (
     <div className="card overflow-hidden">
       {/* 데스크탑: 표 */}
@@ -90,7 +95,14 @@ export function PastRecruitmentsTable({ clubId, recruitments: unsortedRecruitmen
                     <div className="mt-0.5 text-charcoal-3">{recruitmentClosedLabel(recruitment)}</div>
                   )}
                 </td>
-                <td className="px-4 py-3 tabular-nums text-charcoal">{appliedAcceptedLabel(recruitment.id)}</td>
+                <td className="px-4 py-3 tabular-nums text-charcoal">
+                  {appliedAcceptedLabel(recruitment.id)}
+                  {undecidedCount(recruitment.id) > 0 && (
+                    <div className="mt-0.5 text-xs font-semibold text-coral-deep">
+                      미확정 {undecidedCount(recruitment.id)}명
+                    </div>
+                  )}
+                </td>
                 <td className="px-4 py-3">
                   <span
                     className={`rounded-full px-2 py-0.5 text-xs font-medium ${RECRUITMENT_DISPLAY_STATUS_BADGE[recruitment.displayStatus]}`}
@@ -154,6 +166,9 @@ export function PastRecruitmentsTable({ clubId, recruitments: unsortedRecruitmen
             </div>
             <div className="mt-1 tabular-nums text-sm text-charcoal">
               지원 {appliedAcceptedLabel(recruitment.id)}
+              {undecidedCount(recruitment.id) > 0 && (
+                <span className="font-semibold text-coral-deep"> · 미확정 {undecidedCount(recruitment.id)}명</span>
+              )}
             </div>
             <div className="mt-3 flex gap-2">
               {recruitment.applicationMode === 'SELF' && (
