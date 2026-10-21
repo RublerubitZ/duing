@@ -248,6 +248,18 @@ describe('관리자 회비 이상징후 탭', () => {
     expect(screen.queryByRole('list', { name: '이상징후 목록' })).toBeNull();
   });
 
+  it('기간을 정하지 않으면 이상징후는 최근 30일로 평가한다고 적고, 기간을 고르면 적지 않는다', () => {
+    const { unmount } = renderAnomalyTab();
+    expect(screen.getByText(/기간을 정하지 않으면 이상징후는 최근 30일로 평가합니다/)).toBeInTheDocument();
+    unmount();
+
+    currentSearch = 'tab=anomalies&period=LAST_30D';
+    renderAnomalyTab();
+    // 탭이 아예 안 그려져도 부정 단언은 통과하므로 평가 안내가 그려졌는지 먼저 본다
+    expect(screen.getByText(/평가 시각/)).toBeInTheDocument();
+    expect(screen.queryByText(/기간을 정하지 않으면 이상징후는 최근 30일로 평가합니다/)).toBeNull();
+  });
+
   it('평가에 실패하면 다시 시도할 수 있다', async () => {
     const user = userEvent.setup();
     const refetch = vi.fn();
