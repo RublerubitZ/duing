@@ -304,7 +304,7 @@ export {
   formatRelativeTime,
   kstDateTimeFormatter,
 } from './datetime';
-export { CLOSING_SOON_DAYS } from './dashboardSelectors';
+export { CLOSING_SOON_DAYS, countUndecided } from './dashboardSelectors';
 export {
   DASHBOARD_QUERY_OPTIONS,
   useActiveRecruitments,

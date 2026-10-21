@@ -9,6 +9,8 @@ import {
   CLOSING_SOON_DAYS,
   ACTION_ITEM_PREVIEW_COUNT,
   buildActionItems,
+  buildClosedRecruitmentItems,
+  countUndecided,
   sortActionItems,
   aggregateApplicantTotals,
   sortTodaySchedule,
@@ -226,6 +228,36 @@ describe('buildActionItems', () => {
   });
 });
 
+describe('countUndecided', () => {
+  it('결과(합격·불합격)가 없는 지원 = submitted + onHold + interviewPending', () => {
+    expect(countUndecided(stats({ submitted: 1, onHold: 2, interviewPending: 3, accepted: 4, rejected: 5 }))).toBe(6);
+  });
+});
+
+describe('buildClosedRecruitmentItems', () => {
+  const closedRecruitment = recruitment({ status: 'CLOSED', displayStatus: 'CLOSED', effectivelyOpen: false });
+
+  it('미결 지원이 남은 마감 모집 → 마감 모집 결과 미확정', () => {
+    const items = buildClosedRecruitmentItems([
+      { recruitment: closedRecruitment, stats: stats({ submitted: 1, onHold: 1, interviewPending: 1 }) },
+    ]);
+    expect(items).toEqual([
+      { type: 'CLOSED_RECRUITMENT_UNDECIDED', recruitmentId: 1, recruitmentTitle: '2026 봄 모집', count: 3 },
+    ]);
+  });
+
+  it('전원 확정이면 만들지 않는다', () => {
+    const items = buildClosedRecruitmentItems([
+      { recruitment: closedRecruitment, stats: stats({ accepted: 3, rejected: 2 }) },
+    ]);
+    expect(items).toEqual([]);
+  });
+
+  it('통계 미로딩(undefined)이면 만들지 않는다', () => {
+    expect(buildClosedRecruitmentItems([{ recruitment: closedRecruitment, stats: undefined }])).toEqual([]);
+  });
+});
+
 describe('sortActionItems', () => {
   it('기한 있는 항목이 daysLeft 오름차순으로 먼저, 그 뒤 타입 우선순위', () => {
     const items = buildActionItems(
@@ -263,6 +295,14 @@ describe('sortActionItems', () => {
     const sorted = sortActionItems(items);
     expect(sorted[0]?.type).toBe('INTERVIEW_ROUND_NEEDED');
     expect(sorted[1]?.type).toBe('INTERVIEW_ROUND_UNCONFIRMED');
+  });
+
+  it('기한 없는 마감 모집 결과 미확정은 검토 대기 지원자 뒤로 간다', () => {
+    const sorted = sortActionItems([
+      { type: 'CLOSED_RECRUITMENT_UNDECIDED', recruitmentId: 2, recruitmentTitle: '가을 모집', count: 1 },
+      { type: 'APPLICANTS_AWAITING_REVIEW', recruitmentId: 1, recruitmentTitle: '봄 모집', count: 2 },
+    ]);
+    expect(sorted.map((item) => item.type)).toEqual(['APPLICANTS_AWAITING_REVIEW', 'CLOSED_RECRUITMENT_UNDECIDED']);
   });
 });
 

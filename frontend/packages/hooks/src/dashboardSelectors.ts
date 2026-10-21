@@ -28,6 +28,7 @@ const TYPE_PRIORITY: Record<ActionItemType, number> = {
   INTERVIEW_RESPONSE_UNCOLLECTED: 2,
   INTERVIEW_RESULT_PENDING: 3,
   APPLICANTS_AWAITING_REVIEW: 4,
+  CLOSED_RECRUITMENT_UNDECIDED: 5,
 };
 
 export function buildActionItems(inputs: RecruitmentDashboardInput[], now: Date): ActionItem[] {
@@ -87,6 +88,35 @@ export function buildActionItems(inputs: RecruitmentDashboardInput[], now: Date)
     }
   }
 
+  return items;
+}
+
+/** 결과(합격·불합격)가 아직 없는 지원 수 — 마감 모집에서 확정할 수 있는 지원과 같은 집합이다(#892). */
+export function countUndecided(stats: StatsSummary): number {
+  return stats.submitted + stats.onHold + stats.interviewPending;
+}
+
+/** 마감 모집 1건 + 그 모집의 통계 */
+export type ClosedRecruitmentDashboardInput = Pick<RecruitmentDashboardInput, 'recruitment' | 'stats'>;
+
+/**
+ * 마감 모집에 남은 미결 지원. 마감 뒤에도 최종 결과 확정은 열려 있는데(#892),
+ * 진행 중 모집만 보는 buildActionItems 로는 운영진 화면 어디에도 드러나지 않는다.
+ * 통계 미로딩·실패(undefined)면 단정할 수 없어 만들지 않는다.
+ */
+export function buildClosedRecruitmentItems(inputs: ClosedRecruitmentDashboardInput[]): ActionItem[] {
+  const items: ActionItem[] = [];
+  for (const { recruitment, stats } of inputs) {
+    const undecidedCount = stats ? countUndecided(stats) : 0;
+    if (undecidedCount > 0) {
+      items.push({
+        type: 'CLOSED_RECRUITMENT_UNDECIDED',
+        recruitmentId: recruitment.id,
+        recruitmentTitle: recruitment.title,
+        count: undecidedCount,
+      });
+    }
+  }
   return items;
 }
 
