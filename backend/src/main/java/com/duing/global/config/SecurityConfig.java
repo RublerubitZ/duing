@@ -110,6 +110,8 @@ public class SecurityConfig {
                         // 인증 필수. 코드 문자열이 실려 나가므로 GET 이 아래 clubs GET permitAll 에 닿으면 안 된다.
                         .requestMatchers("/api/v1/clubs/*/join-codes/**").authenticated()
                         .requestMatchers(HttpMethod.GET, "/api/v1/clubs/*/join-requests/**").authenticated()
+                        // 내 최근 승계 요청 — 현재 사용자 기준 응답이라 익명·만료 토큰은 403 이 아닌 401 이어야 한다(FE 토큰 갱신 신호).
+                        .requestMatchers(HttpMethod.GET, "/api/v1/clubs/*/leader-succession-requests/**").authenticated()
                         // 회비 계좌(복호화 계좌번호)·내부 일정·내부 공지·내 멤버십 — 전부 현재 사용자 기준 응답이라
                         // 익명은 401 이어야 한다. 아래 clubs GET permitAll 보다 먼저 매칭돼야 URL 레이어 방어가
                         // 생긴다(#838). 컨트롤러 @PreAuthorize("isAuthenticated()") 는 그대로 두어 이중화한다.

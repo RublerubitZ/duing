@@ -2,6 +2,7 @@ package com.duing.domain.clubmember.controller;
 
 import com.duing.domain.clubmember.api.LeaderSuccessionApi;
 import com.duing.domain.clubmember.controller.dto.request.CreateLeaderSuccessionRequestRequest;
+import com.duing.domain.clubmember.controller.dto.response.MyLatestSuccessionRequestResponse;
 import com.duing.domain.clubmember.service.LeaderSuccessionService;
 import com.duing.global.auth.UserPrincipal;
 import com.duing.global.response.ApiResponse;
@@ -30,5 +31,17 @@ public class LeaderSuccessionController implements LeaderSuccessionApi {
         Long requestId = successionService.create(
                 request.toCommand(clubId, currentUser.id()));
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success(requestId));
+    }
+
+    @Override
+    public ResponseEntity<ApiResponse<MyLatestSuccessionRequestResponse>> getMyLatestRequest(
+            Long clubId,
+            @AuthenticationPrincipal UserPrincipal currentUser
+    ) {
+        // 요청이 없으면 data null — FE jsonOkNullable 규약과 정합.
+        MyLatestSuccessionRequestResponse myLatestRequest = successionService.findMyLatest(clubId, currentUser.id())
+                .map(MyLatestSuccessionRequestResponse::from)
+                .orElse(null);
+        return ResponseEntity.ok(ApiResponse.success(myLatestRequest));
     }
 }

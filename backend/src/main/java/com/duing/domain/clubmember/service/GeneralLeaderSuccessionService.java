@@ -19,6 +19,7 @@ import com.duing.domain.clubmember.service.dto.query.ClubMemberHistoryAdminQuery
 import com.duing.domain.clubmember.service.dto.query.SuccessionAdminSearchCondition;
 import com.duing.domain.clubmember.service.dto.query.SuccessionRequestAdminDetailQuery;
 import com.duing.domain.clubmember.service.dto.query.SuccessionRequestAdminSummaryQuery;
+import com.duing.domain.clubmember.service.dto.query.SuccessionRequestMyLatestQuery;
 import com.duing.domain.user.entity.User;
 import com.duing.domain.user.repository.UserRepository;
 import com.duing.global.constant.AdminLabels;
@@ -28,6 +29,7 @@ import com.duing.global.web.SortWhitelist;
 import jakarta.persistence.EntityManager;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -157,6 +159,15 @@ public class GeneralLeaderSuccessionService implements LeaderSuccessionService {
     public LeaderSuccessionRequest getById(Long requestId) {
         return requestRepository.findById(requestId)
                 .orElseThrow(ClubMemberException.SuccessionRequestNotFound::new);
+    }
+
+    @Override
+    public Optional<SuccessionRequestMyLatestQuery> findMyLatest(Long clubId, Long currentUserId) {
+        // 요청자는 승인되면 LEADER 가 되므로 OFFICER 가 아니라 운영진 게이트로 받는다. 공개 범위는 요청자 본인 —
+        // 다른 운영진의 요청은 쿼리 조건(requesterUserId)에서 걸러져 403 이 아니라 null 이 된다.
+        clubAuthService.requireManager(currentUserId, clubId);
+        return requestRepository.findFirstByClubIdAndRequesterUserIdOrderByIdDesc(clubId, currentUserId)
+                .map(SuccessionRequestMyLatestQuery::from);
     }
 
     @Override

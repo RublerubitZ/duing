@@ -65,6 +65,7 @@ Du-ing 전체(backend/frontend/DB)의 날짜·시간 처리 정책. 2026-07 타�
 | ClubEventDetailResponse.createdAt/updatedAt | club_events.* | system | BaseEntity (startAt/endAt은 Schedule 유지) |
 | ClubMember{Export,History,…}Response.joinedAt/createdAt | club_members·club_member_histories.created_at | system | BaseEntity (joinedAt = created_at 알리아스) |
 | SuccessionRequest{Detail,Summary}Response.createdAt/handledAt | leader_succession_requests.* | system | BaseEntity / LeaderSuccessionRequest#process 무클럭 now() (승인·거절 공용) |
+| MyLatestSuccessionRequestResponse.createdAt·handledAt (요청자 본인의 최근 승계 요청) | leader_succession_requests.created_at·handled_at | system | 위 SuccessionRequest 계열과 같은 컬럼·같은 변환 — BaseEntity @CreatedDate / LeaderSuccessionRequest#process 무클럭 now() |
 | FavoriteClubResponse.favoritedAt | club_favorites.created_at | system | ClubFavorite#create 무클럭 now() |
 | AdminGlobalEvent{Detail,Summary}Response.createdAt/updatedAt | global_events.* | system | BaseEntity (startAt/endAt은 Schedule 유지) |
 | RecruitmentSummaryResponse.closedAt (공개 모집 목록·캘린더 공용) | recruitment.closed_at | **seoul** | GeneralRecruitmentService 의 4개 writer — #create(만료 OPEN 자동 마감)·#close(수동)·#closeAllOnClubClosure(폐쇄 시 행별 마감)·#closeAllOnClubDeactivation(벌크 closeAllOpenByClubId) 모두 now(clock). 아래 joinExpiresAt 의 기준점이기도 하다. #stopIntake 는 closed_at 을 쓰지 않는다 |
