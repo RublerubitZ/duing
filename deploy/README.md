@@ -150,3 +150,47 @@ UPDATE uploaded_object SET status = 'RELEASED', released_at = NOW()
                         WHERE deleted_at IS NOT NULL AND logo_thumbnail_url IS NOT NULL
                           AND logo_thumbnail_url IS DISTINCT FROM logo_url);
 ```
+
+### 기간 종료 자동 마감 되돌리기 (매일 00:40 잡이 잘못 닫은 모집을 다시 열 때)
+
+`RecruitmentAutoCloseJob` 이 닫은 모집을 OPEN 으로 되돌린다. 아래 순서를 그대로 따른다 — 컨테이너를 다시 만들면(2) 의 `up -d`)
+그 전 로그가 사라지고, 플래그를 끄지 않고 되돌리면 다음 00:40 에 같은 모집이 다시 닫힌다.
+
+1) 대상 확보 — DB 에서 그날 잡이 닫은 모집을 뽑는다. `recruitment.closed_at` 은 seoul 벽시계(TIMEZONE.md)라 KST 날짜·시각을
+그대로 넣는다. 같은 1분 안에 손으로 닫은 모집이 섞일 수 있으니, 컨테이너를 다시 만들기 **전에** 잡 로그의 id 목록도 떠 두고 대조한다
+(로그 시각은 JVM `TZ=UTC` 라 KST 00:40 이 전날 15:40 으로 찍힌다).
+
+```sql
+SELECT id, club_id FROM recruitment
+ WHERE status = 'CLOSED' AND deleted_at IS NULL
+   AND closed_at >= '<날짜> 00:40' AND closed_at < '<날짜> 00:41';
+```
+
+```bash
+docker compose logs backend | grep 'closed ids'   # RecruitmentAutoCloseJob closed ids=[…]
+```
+
+2) 플래그 끄기 — `deploy/.env` 에 `DUING_RECRUITMENT_AUTO_CLOSE_ENABLED=false` 를 넣고 `docker compose up -d` 로 반영한다.
+원인을 고친 이미지를 배포한 뒤 줄을 지워 다시 켠다.
+
+3) 되돌리기 SQL — `<id 목록>` 에 1) 의 id 를 넣는다. 동아리당 OPEN 모집은 1건만 허용되므로(V38 `uk_recruitment_club_active`)
+그 사이 같은 동아리에 새 모집이 열렸으면 건너뛰고, 그 사이 삭제된 모집은 되살리지 않는다. 바뀐 건수가 1) 보다 적으면 빠진 id 를 확인한다.
+
+```sql
+UPDATE recruitment SET status = 'OPEN', closed_at = NULL
+ WHERE id IN (<id 목록>) AND status = 'CLOSED' AND deleted_at IS NULL
+   AND NOT EXISTS (SELECT 1 FROM recruitment o
+                    WHERE o.club_id = recruitment.club_id AND o.status = 'OPEN' AND o.deleted_at IS NULL);
+```
+
+4) 공개 상세 재검증 — SQL 은 상세 재생성 트리거를 부르지 않으므로 되돌린 동아리의 상세(`/clubs/<club_id>`, 7일 캐시)를 직접 다시
+만든다(탐색 목록 `/clubs` 는 정각 재생성이 반영한다). 이 경로는 서버 고정 IP 밖에서 403 이라(위 Vercel `REVALIDATE_SECRET` 설명)
+**서버에서** `deploy/` 디렉터리에서 보낸다. `paths` 는 한 번에 10개까지이고, 200 이면 성공이다(401·502 등은 MONITORING.md
+`런북 — 프론트 재생성 트리거 연속 실패` 의 사유 표).
+
+```bash
+DUING_FRONTEND_REVALIDATE_SECRET=$(sed -n 's/^DUING_FRONTEND_REVALIDATE_SECRET=//p' .env)
+curl -s -o /dev/null -w '%{http_code}\n' -X POST https://duings.com/api/internal/revalidate \
+  -H "Authorization: Bearer $DUING_FRONTEND_REVALIDATE_SECRET" -H 'Content-Type: application/json' \
+  -d '{"paths":["/clubs/<club_id>"]}'
+```
