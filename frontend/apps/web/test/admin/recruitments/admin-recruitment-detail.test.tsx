@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
@@ -225,7 +225,9 @@ describe('관리자 모집 상세', () => {
 
       render(<AdminRecruitmentDetailPage recruitmentId={5} />);
       await user.click(screen.getByRole('button', { name: '강제 마감' }));
-      await user.click(screen.getByRole('button', { name: '마감하기' }));
+      await user.click(
+        within(screen.getByRole('dialog')).getByRole('button', { name: '강제 마감' }),
+      );
 
       expect(mockForceClose).toHaveBeenCalledWith(
         { recruitmentId: 5, payload: { reason: undefined } },
@@ -242,7 +244,9 @@ describe('관리자 모집 상세', () => {
       render(<AdminRecruitmentDetailPage recruitmentId={5} />);
       await user.click(screen.getByRole('button', { name: '강제 마감' }));
       await user.type(screen.getByLabelText('마감 사유 (선택)'), '  기간 경과 방치  ');
-      await user.click(screen.getByRole('button', { name: '마감하기' }));
+      await user.click(
+        within(screen.getByRole('dialog')).getByRole('button', { name: '강제 마감' }),
+      );
 
       expect(mockForceClose).toHaveBeenCalledWith(
         { recruitmentId: 5, payload: { reason: '기간 경과 방치' } },
@@ -258,7 +262,9 @@ describe('관리자 모집 상세', () => {
 
       render(<AdminRecruitmentDetailPage recruitmentId={5} />);
       await user.click(screen.getByRole('button', { name: '강제 마감' }));
-      await user.click(screen.getByRole('button', { name: '마감하기' }));
+      await user.click(
+        within(screen.getByRole('dialog')).getByRole('button', { name: '강제 마감' }),
+      );
 
       expect(screen.getByText('이미 마감된 모집입니다.')).toBeInTheDocument();
       expect(screen.getByRole('dialog')).toBeInTheDocument();

@@ -322,7 +322,7 @@ describe('관리자 모집 목록', () => {
     const user = userEvent.setup();
     render(<AdminRecruitmentsPage />);
 
-    await user.click(screen.getByRole('button', { name: '모집중' }));
+    await user.click(screen.getByRole('button', { name: '마감 전' }));
     await user.click(screen.getByRole('button', { name: '외부 폼' }));
     await user.selectOptions(screen.getByLabelText('정렬'), 'DEADLINE');
 

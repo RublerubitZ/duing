@@ -15,8 +15,8 @@ import { AdminRecruitmentsTable } from '../_components/AdminRecruitmentsTable';
 
 const STATUS_OPTIONS: { label: string; value?: RecruitmentStatus }[] = [
   { label: '전체 상태', value: undefined },
-  { label: '모집중', value: 'OPEN' },
-  { label: '마감', value: 'CLOSED' },
+  { label: '마감 전', value: 'OPEN' },
+  { label: '마감됨', value: 'CLOSED' },
 ];
 
 const MODE_OPTIONS: { label: string; value?: ApplicationMode }[] = [
