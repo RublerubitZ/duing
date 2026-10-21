@@ -733,7 +733,7 @@ export function RecruitmentForm(props: RecruitmentFormProps) {
           {!isEditMode && isAlwaysOpen && (
             <p className="mt-2 text-xs text-charcoal-3">
               접수 마감(신규 지원만 중단)은 모집 시작일 다음 날부터 할 수 있습니다. 당일에 바로
-              끝내야 한다면 모집 종료를 이용해주세요.
+              끝내야 한다면 모집 마감을 이용해주세요.
             </p>
           )}
           {isEditMode && initialData?.endDate === null && (

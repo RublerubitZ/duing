@@ -25,10 +25,6 @@ type ClubSwitcherProps = {
   onNavigate?: (navigated: boolean) => void;
 };
 
-function recruitLabel(activeRecruitmentCount: number) {
-  return activeRecruitmentCount > 0 ? '모집중' : '모집종료';
-}
-
 /** 클럽 로고(실패 시 첫 글자 폴백). ClubLogo 규약대로 컨테이너가 relative·사이즈·모양·배경을 책임진다. */
 function ClubAvatar({
   club,
@@ -61,6 +57,7 @@ export function ClubSwitcher({ managedClubs, currentClubId, onNavigate }: ClubSw
     return null;
   }
 
+  // 0건이면 칩을 달지 않는다 — 기간만 끝나고 아직 마감 전인 모집도 0건으로 세어져 '모집종료'라 단정할 수 없다.
   const recruiting = currentClub.activeRecruitmentCount > 0;
 
   return (
@@ -82,14 +79,11 @@ export function ClubSwitcher({ managedClubs, currentClubId, onNavigate }: ClubSw
               <span className="shrink-0 rounded-full bg-sage px-1.5 py-px text-[9.5px] font-extrabold text-ink-deep">
                 {clubMemberRoleLabel(currentClub.myRole)}
               </span>
-              <span
-                className={cn(
-                  'shrink-0 rounded-full px-1.5 py-px text-[9.5px] font-bold',
-                  recruiting ? 'bg-sage/20 text-sage-soft' : 'bg-white/10 text-white/50',
-                )}
-              >
-                {recruitLabel(currentClub.activeRecruitmentCount)}
-              </span>
+              {recruiting && (
+                <span className="shrink-0 rounded-full bg-sage/20 px-1.5 py-px text-[9.5px] font-bold text-sage-soft">
+                  모집중
+                </span>
+              )}
             </span>
           </span>
           <ChevronDown
@@ -126,10 +120,13 @@ export function ClubSwitcher({ managedClubs, currentClubId, onNavigate }: ClubSw
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-[13px] font-bold text-white">{club.clubName}</span>
                 <span className="block text-[11px] text-white/50">
-                  {clubMemberRoleLabel(club.myRole)} ·{' '}
-                  <span className={club.activeRecruitmentCount > 0 ? 'text-sage-soft' : 'text-white/50'}>
-                    {recruitLabel(club.activeRecruitmentCount)}
-                  </span>
+                  {clubMemberRoleLabel(club.myRole)}
+                  {club.activeRecruitmentCount > 0 && (
+                    <>
+                      {' · '}
+                      <span className="text-sage-soft">모집중</span>
+                    </>
+                  )}
                 </span>
               </span>
               {isCurrent && (

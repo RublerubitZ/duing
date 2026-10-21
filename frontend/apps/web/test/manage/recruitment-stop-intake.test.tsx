@@ -142,6 +142,7 @@ describe('CurrentRecruitmentCard — 상시모집 접수 마감', () => {
 
     expect(screen.getByRole('button', { name: '접수 마감' })).toBeDisabled();
     expect(screen.getByText(/모집 시작일 다음 날부터 접수를 마감할 수 있습니다/)).toBeInTheDocument();
+    expect(screen.getByText(/모집 마감을 이용해주세요/)).toBeInTheDocument();
   });
 
   it('기간모집에는 접수 마감 버튼이 없다', () => {
@@ -154,7 +155,7 @@ describe('CurrentRecruitmentCard — 상시모집 접수 마감', () => {
 
     expect(screen.queryByRole('button', { name: '접수 마감' })).not.toBeInTheDocument();
     // 기존 마감 액션은 그대로다.
-    expect(screen.getByRole('button', { name: '모집 종료' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '모집 마감' })).toBeInTheDocument();
   });
 });
 
@@ -174,5 +175,6 @@ describe('RecruitmentForm — 상시모집 접수 마감 정책 안내', () => {
     fireEvent.click(screen.getByRole('checkbox', { name: /상시모집/ }));
 
     expect(screen.getByText(/모집 시작일 다음 날부터/)).toBeInTheDocument();
+    expect(screen.getByText(/모집 마감을 이용해주세요/)).toBeInTheDocument();
   });
 });

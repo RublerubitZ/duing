@@ -279,7 +279,7 @@ describe('모집 상세 — 모드별 회원 등록 영역', () => {
       '학생 가입 요청',
       '운영진 승인',
       '회원 등록',
-      '모집 종료',
+      '모집 마감',
     ]);
     expect(screen.getByText(DEDUCTION_NOTICE)).toBeInTheDocument();
   });

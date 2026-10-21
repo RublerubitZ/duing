@@ -327,7 +327,7 @@ export default function RecruitmentDetailPage({
               onClick={() => setShowCloseConfirm(true)}
               className="inline-flex items-center gap-2 rounded-md border border-rose-300 bg-white px-4 py-2 text-sm font-medium text-rose-600 shadow-sm transition-colors hover:border-rose-400 hover:bg-rose-50"
             >
-              마감
+              모집 마감
             </button>
           </>
         )}
@@ -348,7 +348,7 @@ export default function RecruitmentDetailPage({
 
       {stopIntakeAction.visible && !stopIntakeAction.enabled && (
         <p id="stop-intake-too-early" className="mt-2 text-xs text-slate-500">
-          모집 시작일 다음 날부터 접수를 마감할 수 있습니다. 오늘 바로 끝내야 한다면 마감을
+          모집 시작일 다음 날부터 접수를 마감할 수 있습니다. 오늘 바로 끝내야 한다면 모집 마감을
           이용해주세요.
         </p>
       )}

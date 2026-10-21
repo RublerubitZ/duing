@@ -151,14 +151,14 @@ export function CurrentRecruitmentCard({ clubId, recruitment }: Props) {
             onClick={() => setShowCloseConfirm(true)}
             className="text-charcoal-3 hover:text-danger hover:underline"
           >
-            모집 종료
+            모집 마감
           </button>
         </span>
       </div>
 
       {stopIntakeAction.visible && !stopIntakeAction.enabled && (
         <p id="stop-intake-too-early" className="mt-2 text-xs text-charcoal-3">
-          모집 시작일 다음 날부터 접수를 마감할 수 있습니다. 오늘 바로 끝내야 한다면 모집 종료를
+          모집 시작일 다음 날부터 접수를 마감할 수 있습니다. 오늘 바로 끝내야 한다면 모집 마감을
           이용해주세요.
         </p>
       )}
