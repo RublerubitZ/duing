@@ -659,6 +659,12 @@ describe('RoundWizard — 면접 라운드 생성 wizard', () => {
     // jsdom 은 크기를 못 재므로 의도 클래스로 못박는다(실측은 브라우저 QA)
     // 후보 행: lg 미만만 44px, PC 는 기존 36px 유지
     expect(candidateCheckbox.closest('label')).toHaveClass('min-h-11', 'lg:min-h-0');
+    // 후보 글자: lg 미만은 이름 아래 학과·학년 글줄(어절 단위로 접음), PC 는 감싼 칸이 사라져(lg:contents) 기존 한 줄
+    expect(candidateCheckbox).toHaveClass('shrink-0');
+    expect(screen.getByText('김지원', { selector: 'span' }).parentElement).toHaveClass(
+      'break-keep',
+      'lg:contents',
+    );
     // 그룹 전체 선택: 44px 정사각, 사방 음수 여백으로 배치 자리는 체크박스 16px 그대로, 제목(h3)은 라벨 밖
     const groupLabel = screen
       .getByRole('checkbox', { name: '미결정(지원 완료·보류) 전체 선택' })
