@@ -68,7 +68,7 @@ export function AdminRecruitmentsPage() {
         <p className="mt-1 text-[12.5px] text-charcoal-3">
           미처리는 아직 &apos;{APPLICATION_STATUS_OPERATOR_LABEL.SUBMITTED}&apos; 그대로인 지원서
           수입니다. &apos;{APPLICATION_STATUS_OPERATOR_LABEL.ON_HOLD}&apos;로 옮긴 지원서는 처리한
-          것으로 보며, {PENDING_ATTENTION_DAYS}일째부터 강조합니다.
+          것으로 보며, 가장 오래 기다린 지원서가 {PENDING_ATTENTION_DAYS}일째가 되면 강조합니다.
         </p>
       </header>
 
