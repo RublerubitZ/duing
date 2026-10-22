@@ -384,13 +384,18 @@ public class GeneralApplicationService implements ApplicationService {
     @Override
     @Transactional
     public void updateStatus(UpdateApplicationStatusCommand updateApplicationStatusCommand) {
-        Application application = applicationRepository.findById(updateApplicationStatusCommand.applicationId())
+        Long applicationId = updateApplicationStatusCommand.applicationId();
+        // 인가 먼저 — getApplicantDetail 과 같은 순서(경량 clubId 조회 → 운영진 확인 → 지원서). 폐쇄된 동아리(삭제된 모집)의
+        // 지원은 clubId 조회의 조인에서 빠져 404 다(지원부터 읽으면 권한 확인 전에 삭제된 모집 프록시를 초기화하다 500).
+        Long clubId = applicationRepository.findClubIdByApplicationId(applicationId)
                 .orElseThrow(ApplicationDomainException.ApplicationNotFoundException::new);
         // 반환된 ClubMember 를 그대로 받아 아래 운영진 승급 게이트의 역할 판정에 쓴다 — 추가 조회 없음.
         ClubMember actor = clubAuthService.requireManagerOrHidden(
                 updateApplicationStatusCommand.currentUserId(),
-                application.getRecruitment().getClub().getId(),
+                clubId,
                 ApplicationDomainException.ApplicationNotFoundException::new);
+        Application application = applicationRepository.findById(applicationId)
+                .orElseThrow(ApplicationDomainException.ApplicationNotFoundException::new);
         // 마감된 모집은 아카이브라 새 활동은 막지만, 남은 지원서의 최종 결과 확정만은 허용한다 —
         // 아무도 처리할 수 없으면 지원자는 결과를 못 받고 운영진도 손댈 수 없는 교착이 된다.
         // 벌크도 건별로 이 메서드를 경유하므로 여기 한 곳이면 충분하고, 실패 사유는 failures[] 로 전파된다.
