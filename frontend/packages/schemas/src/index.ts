@@ -194,12 +194,16 @@ export function isAllowedExternalFormUrl(rawUrl: string): boolean {
   );
 }
 
-/** 사용자 로컬 타임존 기준 오늘(YYYY-MM-DD) — toISOString() 은 UTC 라 KST 자정~09시에 하루 어긋난다. */
-function localTodayIsoDate(): string {
-  const now = new Date();
-  const month = String(now.getMonth() + 1).padStart(2, '0');
-  const day = String(now.getDate()).padStart(2, '0');
-  return `${now.getFullYear()}-${month}-${day}`;
+// 한국 시간 오늘(YYYY-MM-DD) — 백엔드 판정(seoulClock)과 같은 기준이다. 기기 시간대·toISOString(UTC) 은 하루 어긋날 수 있다.
+// 스키마 패키지는 @duing/hooks 에 의존하지 않으므로 같은 포맷터(en-CA = YYYY-MM-DD)를 여기 둔다.
+const KST_DATE_FORMATTER = new Intl.DateTimeFormat('en-CA', {
+  timeZone: 'Asia/Seoul',
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+});
+function kstTodayIsoDate(): string {
+  return KST_DATE_FORMATTER.format(new Date());
 }
 
 export const createRecruitmentSchema = z
@@ -250,7 +254,7 @@ export const createRecruitmentSchema = z
   })
   // 생성 한정 — 종료일이 이미 지난 공고는 만들어지자마자 만료(한 번도 열리지 않는 마감 공고)라 차단한다.
   // 수정 스키마에는 넣지 않는다: 만료-OPEN 공고 편집은 기존 과거 종료일을 그대로 재전송하는 정당한 경로다(변경 여부는 BE 가 판정).
-  .refine((data) => data.endDate === null || data.endDate >= localTodayIsoDate(), {
+  .refine((data) => data.endDate === null || data.endDate >= kstTodayIsoDate(), {
     message: '모집 종료일은 오늘 이후여야 합니다.',
     path: ['endDate'],
   })

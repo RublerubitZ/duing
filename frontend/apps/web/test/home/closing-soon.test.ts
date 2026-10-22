@@ -3,7 +3,8 @@ import type { ClubSummary } from '@duing/types';
 
 import { closingSoonEmphasis, selectClosingSoonClubs } from '../../app/_lib/closingSoon';
 
-const TODAY = new Date('2026-09-20T09:00:00');
+// 한국 시간 순간으로 고정한다 — 오프셋이 없으면 기기 시간대로 읽혀 한국보다 서쪽(LA 등)에서 하루 어긋난다.
+const TODAY = new Date('2026-09-20T09:00:00+09:00');
 
 function club(id: number, name: string, endDate: string | null): ClubSummary {
   return {

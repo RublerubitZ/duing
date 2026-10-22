@@ -8,6 +8,15 @@ const mockCsvMutateAsync = vi.fn();
 const mockDownloadBlobFile = vi.fn();
 const mockAddToast = vi.fn();
 
+// 메모 프리필의 "M월 N주차" — 앱과 같이 한국 시간 오늘로 계산한다(기기 시간대 게터는 하루 어긋날 수 있다).
+function kstWeekPrefix(): string {
+  const [, month, day] = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Seoul' })
+    .format(new Date())
+    .split('-')
+    .map(Number);
+  return `${month}월 ${Math.ceil((day ?? 1) / 7)}주차`;
+}
+
 vi.mock('@duing/hooks', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@duing/hooks')>()),
   useSubmissionCandidatesQuery: (...args: unknown[]) => mockCandidatesQuery(...args),
@@ -485,9 +494,8 @@ describe('SubmissionPrepareTab', () => {
     fireEvent.click(screen.getByRole('button', { name: /^제출 목록 만들기/ }));
     expect(screen.getByText('제출 목록을 만들까요?')).toBeInTheDocument();
 
-    // 메모는 "M월 N주차 · 동아리명" 프리필(수정 가능) — 절대 날짜 대신 오늘 기준으로 계산해 단언한다.
-    const today = new Date();
-    const expectedPrefill = `${today.getMonth() + 1}월 ${Math.ceil(today.getDate() / 7)}주차 · 밴드부`;
+    // 메모는 "M월 N주차 · 동아리명" 프리필(수정 가능) — 절대 날짜 대신 오늘(한국 시간) 기준으로 계산해 단언한다.
+    const expectedPrefill = `${kstWeekPrefix()} · 밴드부`;
     const memoInput = screen.getByLabelText('밴드부 메모');
     expect(memoInput).toHaveValue(expectedPrefill);
     fireEvent.change(memoInput, { target: { value: '8월 1차' } });
@@ -530,8 +538,7 @@ describe('SubmissionPrepareTab', () => {
     expect(screen.getByText('제출 목록 2개를 만들까요?')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: '목록 만들기' }));
 
-    const today = new Date();
-    const weekPrefix = `${today.getMonth() + 1}월 ${Math.ceil(today.getDate() / 7)}주차`;
+    const weekPrefix = kstWeekPrefix();
     await waitFor(() => {
       // 밴드부의 강당(1)+세미나실(3) 예약이 한 호출에 담긴다 — 다시설 배치(v2 스펙 §1).
       expect(createMutateAsync).toHaveBeenNthCalledWith(1, { bookingIds: [1, 3], memo: `${weekPrefix} · 밴드부` });
