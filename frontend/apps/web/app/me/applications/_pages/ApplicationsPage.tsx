@@ -159,6 +159,9 @@ export function ApplicationsPage({ defaultOpenId = null }: Props) {
 
   const { data: applicationSummaries, isLoading, isFetching, isError } = useMyApplicationsQuery();
   const hydrated = useHydrated();
+  // 정적 HTML·하이드레이션 프레임은 조회가 꺼져 있어 isLoading 이 false 다 — 하이드레이션 전에는 로딩으로 둔다(#1500).
+  // 목록 스켈레톤과 숫자(탭·요약·필터)가 같은 조건을 써야 "불러오는 중인데 0건" 이 보이지 않는다.
+  const listPending = !hydrated || isLoading;
 
   const openApplicationId = openId !== null ? Number(openId) : undefined;
   const { data: openDetail } = useMyApplicationDetailQuery(openApplicationId);
@@ -185,6 +188,7 @@ export function ApplicationsPage({ defaultOpenId = null }: Props) {
     });
     return countMap;
   }, [apps]);
+  const shownCounts = listPending ? null : counts;
 
   const visibleApps = useMemo(() => {
     if (selected.includes('all')) return apps;
@@ -219,7 +223,7 @@ export function ApplicationsPage({ defaultOpenId = null }: Props) {
     <div className="duing min-h-dvh bg-cream">
       <ExploreNav slimOnMobile />
       <ApplyStatusHero />
-      <ApplyTopTabs active={selected} onToggle={toggleFilter} counts={counts} />
+      <ApplyTopTabs active={selected} onToggle={toggleFilter} counts={shownCounts} />
 
       <section style={{ padding: `16px ${PAGE_PAD} 40px` }}>
         <div
@@ -227,8 +231,7 @@ export function ApplicationsPage({ defaultOpenId = null }: Props) {
           style={{ maxWidth: PAGE_MAX }}
         >
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {/* 정적 HTML·하이드레이션 프레임은 조회가 꺼져 있어 isLoading 이 false 다 — 하이드레이션 전에는 로딩으로 둔다(#1500). */}
-            {!hydrated || isLoading ? (
+            {listPending ? (
               <ListRowsSkeleton
                 rows={4}
                 rowClassName="h-[84px] rounded-[14px]"
@@ -275,8 +278,8 @@ export function ApplicationsPage({ defaultOpenId = null }: Props) {
 
           {/* 요약·단계 필터 사이드바 — 데스크탑 전용. 모바일은 상단 ApplyTopTabs 가 필터를 제공한다. */}
           <aside className="sticky top-4 hidden flex-col gap-3 md:flex">
-            <ApplySummaryCard counts={counts} />
-            <StageFilterCard checked={selected} onToggle={toggleFilter} counts={counts} />
+            <ApplySummaryCard counts={shownCounts} />
+            <StageFilterCard checked={selected} onToggle={toggleFilter} counts={shownCounts} />
           </aside>
         </div>
       </section>

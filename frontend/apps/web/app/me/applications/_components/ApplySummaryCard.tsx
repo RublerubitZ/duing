@@ -6,15 +6,16 @@ import { SparkleFull } from './Shared';
 import type { Counts } from '../_constants/data';
 
 type Props = {
-  counts: Counts;
+  /** null 은 불러오는 중 — 숫자 자리를 "—" 로 둔다(마이페이지 머리글과 같은 표기, 거짓 0 방지) */
+  counts: Counts | null;
 };
 
 export function ApplySummaryCard({ counts }: Props) {
-  const progress = (counts.doc ?? 0) + (counts.intv ?? 0);
-  const done = (counts.pass ?? 0) + (counts.fail ?? 0);
+  const progress = counts ? (counts.doc ?? 0) + (counts.intv ?? 0) : '—';
+  const done = counts ? (counts.pass ?? 0) + (counts.fail ?? 0) : '—';
   // 모집이 끝났는데 결과가 없는 지원 — 진행 중도 완료도 아니라 별도 칸으로 센다.
-  const closedWithoutResult = counts.closed ?? 0;
-  const total = counts.all ?? 0;
+  const closedWithoutResult = counts ? (counts.closed ?? 0) : '—';
+  const total = counts ? counts.all ?? 0 : '—';
   return (
     <div style={{
       background: 'linear-gradient(160deg, #1F4A36 0%, #143025 100%)',
@@ -34,7 +35,7 @@ export function ApplySummaryCard({ counts }: Props) {
           lineHeight: 1,
           letterSpacing: '-0.02em',
         }}>{total}</span>
-        <span style={{ fontSize: 15, fontWeight: 700, color: 'rgba(255,255,255,0.9)' }}>건</span>
+        {counts && <span style={{ fontSize: 15, fontWeight: 700, color: 'rgba(255,255,255,0.9)' }}>건</span>}
         <SparkleFull size={14} color="#C9D8CC" style={{ marginLeft: 4, transform: 'translateY(-16px)' }} />
       </div>
       <div style={{
