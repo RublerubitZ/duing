@@ -6,7 +6,12 @@ import type { ReactNode } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { setupServer } from 'msw/node';
 import { http, HttpResponse } from 'msw';
-import type { ApplicationSummary, MyClubMembership, StudentRecruitmentProjection } from '@duing/types';
+import type {
+  ApplicationSummary,
+  MyClubMembership,
+  RecruitmentDisplayStatus,
+  StudentRecruitmentProjection,
+} from '@duing/types';
 import { createApiClient } from '@duing/api';
 import { ApiClientProvider } from '@duing/hooks';
 import { ToastProvider } from '@/app/_components/toast/ToastProvider';
@@ -175,7 +180,19 @@ describe('ClubDetailApplyBar — 모바일 하단 지원 바', () => {
 
   it('CLOSED → 종료 문구 + 비활성 지원 버튼', () => {
     renderBar({ ...base, displayStatus: 'CLOSED' });
-    expect(screen.getByText('모집 마감')).toBeInTheDocument();
+    expect(screen.getByText('모집마감')).toBeInTheDocument();
+    expect(screen.getByText('이번 모집은 종료됐어요')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '지원하기' })).toBeDisabled();
+  });
+
+  it('UPCOMING → 상단 "모집예정"(카드·탐색 칩과 같은 라벨)', () => {
+    renderBar({ ...base, displayStatus: 'UPCOMING' });
+    expect(screen.getByText('모집예정')).toBeInTheDocument();
+  });
+
+  it('백엔드가 먼저 배포한 모르는 상태는 서버 렌더를 깨지 않고 모집마감으로 그린다', () => {
+    renderBar({ ...base, displayStatus: 'PAUSED' as unknown as RecruitmentDisplayStatus });
+    expect(screen.getByText('모집마감')).toBeInTheDocument();
     expect(screen.getByText('이번 모집은 종료됐어요')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '지원하기' })).toBeDisabled();
   });

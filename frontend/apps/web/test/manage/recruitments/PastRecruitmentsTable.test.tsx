@@ -136,7 +136,7 @@ describe('PastRecruitmentsTable', () => {
     renderTable([closedRecruitment()]);
 
     expect((await screen.findAllByText('41 / 18')).length).toBeGreaterThan(0);
-    expect(screen.getAllByText('마감').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('모집마감').length).toBeGreaterThan(0);
 
     const titleLinks = screen.getAllByRole('link', { name: '9기 신입 모집' });
     expect(titleLinks[0]).toHaveAttribute('href', '/manage/clubs/1/recruitments/9');

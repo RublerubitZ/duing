@@ -1,5 +1,6 @@
 import type { ClubCategory, ClubDayOfWeek, ClubSearchParams, College } from '@duing/types';
 
+import { RECRUITMENT_DISPLAY_STATUS_LABEL } from '../../_lib/recruitmentDisplay';
 import { SEARCH_KEYWORD_MAX_LENGTH } from '../../_lib/searchKeyword';
 import { type Division, isDivision } from './clubs';
 
@@ -87,8 +88,8 @@ function isCollege(value: string): value is College {
 
 export const RECRUITMENT_LABEL: Record<Exclude<RecruitmentFilter, 'all'>, string> = {
   available: '지원가능',
-  upcoming: '모집예정',
-  closed: '모집마감',
+  upcoming: RECRUITMENT_DISPLAY_STATUS_LABEL.UPCOMING,
+  closed: RECRUITMENT_DISPLAY_STATUS_LABEL.CLOSED,
 };
 
 export function parseExploreParams(search: URLSearchParams): ExploreParams {
