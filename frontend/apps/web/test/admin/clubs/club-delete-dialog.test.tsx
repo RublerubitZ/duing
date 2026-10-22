@@ -100,7 +100,7 @@ describe('AdminClubDeleteDialog', () => {
     expect(screen.getByRole('button', { name: '삭제' })).toBeDisabled();
   });
 
-  it('되돌릴 수 없다는 경고에 결과가 정해지지 않은 지원이 불합격으로 처리된다고 함께 알린다', () => {
+  it('되돌릴 수 없다는 경고에 학생 지원이 어떻게 되는지(불합격 처리·마이페이지에서 숨김) 함께 알린다', () => {
     render(
       <AdminClubDeleteDialog
         club={makeClub()}
@@ -110,7 +110,10 @@ describe('AdminClubDeleteDialog', () => {
         onCancel={vi.fn()}
       />,
     );
-    expect(screen.getByText(/결과가 정해지지 않은 지원은 불합격으로 처리됩니다\./)).toBeInTheDocument();
+    // 폐쇄 동아리의 지원은 학생에게 숨긴다(결과 무관) — 총동연이 그 사실을 알고 삭제하도록 학생 영향 두 가지를 한 문단에
+    expect(screen.getByText(/결과가 정해지지 않은 지원은 불합격으로 처리됩니다\./)).toHaveTextContent(
+      /학생 마이페이지에서도 이 동아리의 지원 내역은 결과와 상관없이 모두 보이지 않게 됩니다\./,
+    );
   });
 
   it('처리 실패 문구는 role="alert" 로 노출되어 스크린리더가 읽는다', () => {
