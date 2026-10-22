@@ -28,8 +28,9 @@ Du-ing 전체(backend/frontend/DB)의 날짜·시간 처리 정책. 2026-07 타�
 - **무클럭 `LocalDateTime.now()` 신규 작성 금지** — `ClocklessNowGuardTest`가 파일별 개수 허용목록으로 차단한다. 의도적 예외는 허용목록에 근거와 함께 등재.
 
 ### Frontend
-- 날짜 표시는 **`@duing/hooks` 공통 유틸만** 사용: `formatDateTimeKst` / `formatDateKst` / `formatTimeKst` / `formatRelativeTime` (+ 특수 포맷은 `kstDateTimeFormatter`, KST 캘린더 연산은 `kstDateString`/`isTodayKst`/`daysUntilKst`).
+- 날짜 표시는 **`@duing/hooks` 공통 유틸만** 사용: `formatDateTimeKst` / `formatDateKst` / `formatTimeKst` / `formatRelativeTime` (+ 특수 포맷은 `kstDateTimeFormatter`, KST 캘린더 연산은 `kstDateString`/`isTodayKst`/`daysUntilKst`, KST "오늘"·오프셋 없는 일정 시각 읽기는 `todayKstDateString`/`parseKstInstant`, 날짜 산술은 `addDaysIso`).
 - 금지: `toLocaleString()`류 직접 호출(timeZone 미지정), 시각 문자열 `slice()`, `getHours()` 등 로컬 게터, 화면별 지역 포맷 함수. Event 필드는 `…Z`라 slice 시 UTC 숫자가 노출된다.
+- **기기 시간대 Date API 신규 사용 금지** — `frontend/apps/web/test/lint/device-timezone-guard.test.ts`가 로컬 게터·세터·`new Date(y, m, …)`는 파일별 개수 허용목록으로, `toLocaleDateString`/`toLocaleTimeString`(timeZone 을 넣어도 — 포맷은 `kstDateTimeFormatter`)·`toDateString`/`toTimeString`/`Date()`·timeZone 없는 날짜 포맷은 0건으로 차단한다. 의도적 예외(시간대와 무관한 계산 — 달력 날짜 산술 등)는 허용목록에 근거와 함께 등재.
 - 파싱 규칙(공통 유틸 내장): 오프셋/Z 있으면 그대로, 없으면 KST 벽시계(`+09:00`)로 간주 — Event(Z)와 Schedule(무오프셋) 모두 자동으로 올바르다.
 
 ### DB (현재)
