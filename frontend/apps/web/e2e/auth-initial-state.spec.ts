@@ -150,6 +150,11 @@ type RouteApiOptions = {
   user?: typeof TEST_USER;
   /** 찜 목록 응답 지연(ms) — "방향 모름" 구간을 관측 가능한 폭으로 벌린다. */
   favoriteIdsDelayMs?: number;
+  /**
+   * 갱신 응답을 이 약속이 풀릴 때까지 붙든다 — "확인 중"(확정 신호 전) 구간을 테스트가 닫을 때까지 벌린다.
+   * 앱의 갱신 타임아웃(authFlow 8초) 안에 풀어야 한다 — 넘기면 'unavailable' 로 끝나 확정 신호가 서지 않는다.
+   */
+  refreshGate?: Promise<void>;
 };
 
 type ApiHarness = {
@@ -201,6 +206,7 @@ async function routeApi(
 
     if (pathname.endsWith('/auth/web/refresh')) {
       refreshCalls += 1;
+      if (options.refreshGate) await options.refreshGate;
       if (scenario === 'anonymous') return route.fulfill(unauthorized());
       if (scenario === 'refresh-unavailable') {
         return route.fulfill(json(503, fail('일시적으로 처리할 수 없습니다.')));
@@ -676,7 +682,13 @@ test.describe('PR-3 인증 초기 상태', () => {
     browser,
   }) => {
     const context = await browser.newContext();
-    const api = await routeApi(context, 'anonymous');
+    // 갱신 401 이 곧바로 오면 하이드레이션(안내는 그 뒤에만 그린다 — #1545)과 확정 신호가 같은 커밋에 겹쳐
+    // 안내가 0프레임인 채 이동할 수 있다 — 갱신을 붙들어 "확인 중" 구간을 고정한다.
+    let releaseRefresh = () => {};
+    const refreshGate = new Promise<void>((resolve) => {
+      releaseRefresh = resolve;
+    });
+    const api = await routeApi(context, 'anonymous', { refreshGate });
     const page = await context.newPage();
     await recordAuthFrames(page, {
       texts: [NOTIFICATIONS_LOGIN_TEXT],
@@ -686,13 +698,14 @@ test.describe('PR-3 인증 초기 상태', () => {
     await page.goto('/notifications', { waitUntil: 'commit' });
     // 확인이 끝나기 전에도 로그인 진입점을 준다(fail-open) — 갱신이 401 이 아닌 이유로 실패하면
     // 확정 신호가 영영 서지 않으므로, 대기 화면만 두면 익명 방문자가 갇힌다.
-    // 이 확정은 곧 이어질 replace 와 경합하므로 라이브 단언 대신 기록된 프레임으로 되짚는다.
     await waitForTextFrame(page, NOTIFICATIONS_LOGIN_TEXT);
     const frames = await readAuthFrames(page);
     expect(
       frames.filter((frame) => frame.selectors.includes(NOTIFICATIONS_LOGIN_LINK_SELECTOR)),
     ).not.toHaveLength(0);
+    expect(currentLocation(page)).toBe('/notifications');
 
+    releaseRefresh();
     await expect.poll(() => currentLocation(page)).toBe('/login?next=/notifications');
     // 이동은 부트스트랩 401 체인(갱신 시도까지)이 끝난 뒤에만 일어난다.
     expect(api.refreshCalls()).toBeGreaterThanOrEqual(1);
