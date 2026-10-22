@@ -29,6 +29,7 @@ import com.duing.domain.user.repository.UserRepository;
 import com.duing.global.auth.JwtTokenProvider;
 import io.restassured.RestAssured;
 import io.restassured.http.ContentType;
+import io.restassured.response.Response;
 import java.lang.reflect.Field;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -395,6 +396,65 @@ class AdminClubClosureControllerTest extends IntegrationTestBase {
     }
 
     @Test
+    @DisplayName("동아리 폐쇄 후 학생의 내 지원은 목록에서 빠지고, 상세·철회는 500 이 아니라 404 를 반환한다")
+    void closedClubApplicationHiddenAndDetailWithdrawReturn404() throws Exception {
+        Club club = saveClubWithLeader("내지원폐쇄클럽", ClubStatus.ACTIVE);
+        Recruitment recruitment = recruitmentRepository.save(
+                Recruitment.create(club, "폐쇄될모집", "내용",
+                        LocalDate.now().minusDays(1), LocalDate.now().plusDays(7), 5));
+        long applicationId = applicationRepository.save(
+                Application.submit(recruitment, studentUser, List.of())).getId();
+        jdbcTemplate.update("UPDATE club SET status = 'INACTIVE' WHERE id = ?", club.getId());
+        // 같은 학생의 다른(운영 중) 동아리 지원 — 목록이 통째로 비어 "빠진다" 단언이 거짓 통과하지 않게 하는 대조군
+        Club otherClub = saveClubWithLeader("내지원운영중클럽", ClubStatus.ACTIVE);
+        Recruitment otherRecruitment = recruitmentRepository.save(
+                Recruitment.create(otherClub, "남는모집", "내용",
+                        LocalDate.now().minusDays(1), LocalDate.now().plusDays(7), 5));
+        long otherApplicationId = applicationRepository.save(
+                Application.submit(otherRecruitment, studentUser, List.of())).getId();
+
+        // 폐쇄 전 기준선 — 목록에 있어야 아래 "빠진다" 단언이 공허하지 않다.
+        Assertions.assertTrue(myApplicationIds().containsAll(List.of(applicationId, otherApplicationId)));
+
+        RestAssured
+                .given()
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                    .contentType(ContentType.JSON)
+                .when()
+                    .post("/api/v1/admin/clubs/{clubId}/close", club.getId())
+                .then()
+                    .statusCode(HttpStatus.NO_CONTENT.value());
+
+        // 폐쇄 동아리의 지원은 학생에게 숨긴다(결과 무관) — 목록은 모집·동아리 조인에 붙는 @SQLRestriction 으로 빠진다.
+        List<Long> idsAfterClosure = myApplicationIds();
+        Assertions.assertFalse(idsAfterClosure.contains(applicationId));
+        Assertions.assertTrue(idsAfterClosure.contains(otherApplicationId), "운영 중인 동아리의 지원은 그대로 보인다");
+
+        // 상세·철회가 지원만 읽고 삭제된 모집 프록시를 초기화하면 500 이 된다(회귀 방지) — 목록·면접 API 와 같은 404 여야 한다.
+        // 둘 다 보낸 뒤 함께 단언한다(실패 메시지에 두 응답이 모두 보이게). 메시지로 경로 오류의 404 와 가른다.
+        Response detail = RestAssured
+                .given()
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + studentToken)
+                .when()
+                    .get("/api/v1/users/me/applications/{applicationId}", applicationId);
+        Response withdrawal = RestAssured
+                .given()
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + studentToken)
+                .when()
+                    .delete("/api/v1/users/me/applications/{applicationId}", applicationId);
+        Assertions.assertEquals(
+                List.of(HttpStatus.NOT_FOUND.value(), HttpStatus.NOT_FOUND.value()),
+                List.of(detail.statusCode(), withdrawal.statusCode()),
+                "[상세, 철회] 상태 코드");
+        Assertions.assertEquals("지원 내역을 찾을 수 없습니다.", detail.jsonPath().getString("message"));
+        Assertions.assertEquals("지원 내역을 찾을 수 없습니다.", withdrawal.jsonPath().getString("message"));
+
+        LocalDateTime applicationDeletedAt = jdbcTemplate.queryForObject(
+                "SELECT deleted_at FROM application WHERE id = ?", LocalDateTime.class, applicationId);
+        Assertions.assertNull(applicationDeletedAt, "철회가 거절됐으니 지원 행은 그대로다");
+    }
+
+    @Test
     @DisplayName("동아리 폐쇄 시 활성 가입 링크가 폐기되고 학생의 링크 랜딩은 500 이 아니라 404 로 안내된다")
     void closureRevokesJoinCodesAndLandingFailsClosed() throws Exception {
         Club club = saveClubWithLeader("가입링크폐쇄클럽", ClubStatus.ACTIVE);
@@ -500,6 +560,17 @@ class AdminClubClosureControllerTest extends IntegrationTestBase {
         Long revokedById = jdbcTemplate.queryForObject(
                 "SELECT revoked_by FROM club_join_code WHERE id = ?", Long.class, inviteCode.getId());
         Assertions.assertEquals(leaderUser.getId(), revokedById, "최초 폐기자가 유지된다");
+    }
+
+    private List<Long> myApplicationIds() {
+        return RestAssured
+                .given()
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + studentToken)
+                .when()
+                    .get("/api/v1/users/me/applications")
+                .then()
+                    .statusCode(HttpStatus.OK.value())
+                    .extract().jsonPath().getList("data.id", Long.class);
     }
 
     private int countStatusHistory(long applicationId) {
