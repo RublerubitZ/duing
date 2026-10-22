@@ -110,16 +110,15 @@ public class SecurityConfig {
                         // 인증 필수. 코드 문자열이 실려 나가므로 GET 이 아래 clubs GET permitAll 에 닿으면 안 된다.
                         .requestMatchers("/api/v1/clubs/*/join-codes/**").authenticated()
                         .requestMatchers(HttpMethod.GET, "/api/v1/clubs/*/join-requests/**").authenticated()
-                        // 내 최근 승계 요청 — 현재 사용자 기준 응답이라 익명·만료 토큰은 403 이 아닌 401 이어야 한다(FE 토큰 갱신 신호).
-                        .requestMatchers(HttpMethod.GET, "/api/v1/clubs/*/leader-succession-requests/**").authenticated()
-                        // 회비 계좌(복호화 계좌번호)·내부 일정·내부 공지·내 멤버십 — 전부 현재 사용자 기준 응답이라
-                        // 익명은 401 이어야 한다. 아래 clubs GET permitAll 보다 먼저 매칭돼야 URL 레이어 방어가
+                        // 회비 계좌(복호화 계좌번호)·내부 일정·내부 공지·내 멤버십·내 최근 승계 요청·최근 홍보 요청
+                        // (운영진 전용) — 전부 현재 사용자(권한) 기준 응답이라 익명·만료 토큰은 403 이 아닌 401 이어야
+                        // 한다(FE 토큰 갱신 신호). 아래 clubs GET permitAll 보다 먼저 매칭돼야 URL 레이어 방어가
                         // 생긴다(#838). 컨트롤러 @PreAuthorize("isAuthenticated()") 는 그대로 두어 이중화한다.
                         .requestMatchers(HttpMethod.GET, "/api/v1/clubs/*/fee-account").authenticated()
                         .requestMatchers(HttpMethod.GET, "/api/v1/clubs/*/events", "/api/v1/clubs/*/events/*").authenticated()
                         .requestMatchers(HttpMethod.GET, "/api/v1/clubs/*/notices", "/api/v1/clubs/*/notices/*").authenticated()
                         .requestMatchers(HttpMethod.GET, "/api/v1/clubs/*/membership").authenticated()
-                        // 홍보 요청 조회는 운영진 전용이라 익명은 401 — permitAll 에 닿으면 403 이 돼 FE 토큰 갱신을 못 탄다.
+                        .requestMatchers(HttpMethod.GET, "/api/v1/clubs/*/leader-succession-requests/**").authenticated()
                         .requestMatchers(HttpMethod.GET, "/api/v1/clubs/*/promotion-requests/**").authenticated()
                         // 홈 관심도 집계용 조회 기록 — 비로그인 방문자도 집계 대상이라 permitAll 이다.
                         // 인증이 없는 쓰기 경로라 ClubViewRateLimiter 가 IP 총량 상한을 건다.
