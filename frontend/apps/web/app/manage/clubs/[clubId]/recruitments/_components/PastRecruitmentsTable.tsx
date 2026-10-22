@@ -6,11 +6,7 @@ import type { RecruitmentSummary, StatsSummary } from '@duing/types';
 import { countUndecided, statsQueryKeys, useApiClient } from '@duing/hooks';
 import { APPLICATION_UNDECIDED_LABEL } from '@/app/_constants/application-status';
 import { toRoute } from '@/app/_lib/route';
-import {
-  recruitmentPeriodLabel,
-  RECRUITMENT_DISPLAY_STATUS_BADGE,
-  RECRUITMENT_DISPLAY_STATUS_LABEL,
-} from '@/app/_lib/recruitmentDisplay';
+import { recruitmentPeriodLabel, recruitmentStatusChip } from '@/app/_lib/recruitmentDisplay';
 import { recruitmentFlowLabel } from '@/app/manage/clubs/[clubId]/recruitments/_lib/recruitmentFlowLabel';
 import {
   recruitmentClosedLabel,
@@ -109,9 +105,9 @@ export function PastRecruitmentsTable({ clubId, recruitments: unsortedRecruitmen
                 </td>
                 <td className="px-4 py-3">
                   <span
-                    className={`rounded-full px-2 py-0.5 text-xs font-medium ${RECRUITMENT_DISPLAY_STATUS_BADGE[recruitment.displayStatus]}`}
+                    className={`rounded-full px-2 py-0.5 text-xs font-medium ${recruitmentStatusChip(recruitment).badgeClass}`}
                   >
-                    {RECRUITMENT_DISPLAY_STATUS_LABEL[recruitment.displayStatus]}
+                    {recruitmentStatusChip(recruitment).label}
                   </span>
                 </td>
                 <td className="px-4 py-3">
@@ -158,9 +154,9 @@ export function PastRecruitmentsTable({ clubId, recruitments: unsortedRecruitmen
                 {recruitment.title}
               </Link>
               <span
-                className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${RECRUITMENT_DISPLAY_STATUS_BADGE[recruitment.displayStatus]}`}
+                className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${recruitmentStatusChip(recruitment).badgeClass}`}
               >
-                {RECRUITMENT_DISPLAY_STATUS_LABEL[recruitment.displayStatus]}
+                {recruitmentStatusChip(recruitment).label}
               </span>
             </div>
             <div className="mt-1 text-xs text-charcoal-3">

@@ -3,7 +3,15 @@ import type { ApplicationMode, RecruitmentDisplayStatus, RecruitmentSummary } fr
 
 /** 학생 화면 상태 라벨 — 아래 표시 상태 테이블을 그대로 읽는다(운영진·총동연 칩과 같은 출처). */
 export function displayStatusLabel(status: RecruitmentDisplayStatus): string {
-  return RECRUITMENT_DISPLAY_STATUS_LABEL[status];
+  return RECRUITMENT_DISPLAY_STATUS_LABEL[displayStatusOrClosed(status)];
+}
+
+/**
+ * 백엔드가 먼저 배포한 모르는 표시 상태는 마감의 라벨·색으로 읽는다 — 빈 칩을 그리지 않고, 지원할 수 있다고
+ * 잘못 말하지도 않는다(지원 바와 같은 폴백). 라벨·색을 꺼낼 때만 쓴다 — 액션 게이트와 만료-OPEN 판정은 원래 값을 본다.
+ */
+function displayStatusOrClosed(status: RecruitmentDisplayStatus): RecruitmentDisplayStatus {
+  return Object.hasOwn(RECRUITMENT_DISPLAY_STATUS_LABEL, status) ? status : 'CLOSED';
 }
 
 export function recruitmentPeriodLabel(
@@ -23,8 +31,7 @@ export function recruitmentPeriodLabel(
  * 따른다. 이 판정은 그 구간을 '마감'으로 잘못 표기하지 않기 위한 표시용이다 — 캠페인 기간 표기
  * (D-day·상태 칩 색)는 그대로 displayStatus 를 쓴다.
  *
- * 총동연 콘솔의 `needsOperatorAttention`(app/admin/recruitments/_lib/recruitmentLabels)이 같은 도메인
- * 상태를 다른 이름으로 부르지만 판정은 이 함수 하나로 모였다(#896). 예전에는 그쪽이 목록 응답에
+ * 총동연 콘솔(목록의 "운영 개입 필요"·상태 칩)도 이 함수를 그대로 쓴다(#896). 예전에는 총동연 목록 응답에
  * displayStatus 가 없어 endDate 로 직접 계산했고, 클라이언트 시계가 어긋나면 두 화면의 판정이 갈렸다.
  * 세 번째 술어를 만들지 말 것.
  */
@@ -91,9 +98,10 @@ export function recruitmentStatusChip(
   if (isRecruitmentExpiredOpen(recruitment)) {
     return { label: RECRUITMENT_EXPIRED_OPEN_LABEL, badgeClass: RECRUITMENT_EXPIRED_OPEN_BADGE };
   }
+  const displayStatus = displayStatusOrClosed(recruitment.displayStatus);
   return {
-    label: RECRUITMENT_DISPLAY_STATUS_LABEL[recruitment.displayStatus],
-    badgeClass: RECRUITMENT_DISPLAY_STATUS_BADGE[recruitment.displayStatus],
+    label: RECRUITMENT_DISPLAY_STATUS_LABEL[displayStatus],
+    badgeClass: RECRUITMENT_DISPLAY_STATUS_BADGE[displayStatus],
   };
 }
 
