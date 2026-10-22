@@ -229,7 +229,9 @@ public class GeneralApplicationService implements ApplicationService {
 
     @Override
     public MyApplicationDetailQuery getMyApplicationDetail(Long applicationId, Long currentUserId) {
-        Application application = applicationRepository.findById(applicationId)
+        // 모집·동아리를 함께 읽는다 — 폐쇄된 동아리(삭제된 모집)의 지원은 조인에서 빠져, 목록에서 빠지듯 상세·철회도 404 다
+        // (지원만 읽으면 삭제된 모집 프록시를 초기화하다 EntityNotFoundException 으로 500).
+        Application application = applicationRepository.findWithRecruitmentAndClubById(applicationId)
                 .orElseThrow(ApplicationDomainException.ApplicationNotFoundException::new);
         if (!application.getUser().getId().equals(currentUserId)) {
             throw new ApplicationDomainException.ForbiddenApplicationAccessException();
@@ -258,13 +260,14 @@ public class GeneralApplicationService implements ApplicationService {
     @Override
     @Transactional
     public void withdraw(Long applicationId, Long currentUserId) {
-        Application application = applicationRepository.findById(applicationId)
+        // 상세와 같은 조회 — 폐쇄된 동아리의 지원은 404 다.
+        Application application = applicationRepository.findWithRecruitmentAndClubById(applicationId)
                 .orElseThrow(ApplicationDomainException.ApplicationNotFoundException::new);
         if (!application.getUser().getId().equals(currentUserId)) {
             throw new ApplicationDomainException.ForbiddenApplicationAccessException();
         }
         // 마감된 모집의 지원은 아카이브 데이터라 철회로 사라지지 않는다. 상태 가드보다 앞에 두어
-        // "심사 중에만 철회 가능" 대신 마감 사실을 우선 안내한다 (recruitment lazy SELECT 1회 추가 — 무해).
+        // "심사 중에만 철회 가능" 대신 마감 사실을 우선 안내한다 (모집은 위 조회에서 함께 읽어 추가 SELECT 없음).
         if (ClosedRecruitmentPolicy.isClosed(application.getRecruitment())) {
             throw new ApplicationDomainException.CannotWithdrawClosedRecruitmentException();
         }
