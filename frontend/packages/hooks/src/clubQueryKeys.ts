@@ -8,6 +8,9 @@ export const clubQueryKeys = {
   heroActivities: (clubId: number) => [...clubQueryKeys.all, clubId, 'hero-activities'] as const,
   recruitments: (clubId: number) => [...clubQueryKeys.all, clubId, 'recruitments'] as const,
   members: (clubId: number) => [...clubQueryKeys.all, clubId, 'members'] as const,
+  // 요청자 본인 기준이라 사용자마다 다르다 — 로그아웃 때 쿼리 캐시 전체가 비워져 다른 계정에 남지 않는다.
+  myLatestLeaderSuccessionRequest: (clubId: number) =>
+    [...clubQueryKeys.all, clubId, 'leader-succession-request', 'me', 'latest'] as const,
   // 모집 링크는 모집에 귀속된다 — 요청 콘솔(클럽 단위)은 어느 모집의 코드가 바뀌는지 모르므로
   // 프리픽스로 한 번에 무효화하고, 조회는 모집까지 포함한 키를 쓴다.
   joinCodesAll: (clubId: number) => [...clubQueryKeys.all, clubId, 'join-code'] as const,

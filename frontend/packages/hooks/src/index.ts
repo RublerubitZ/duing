@@ -204,6 +204,7 @@ export {
   useSubmitSuccessionRequestMutation,
   useAdminSuccessionListQuery,
   useAdminSuccessionDetailQuery,
+  useMyLatestLeaderSuccessionRequestQuery,
   useProcessSuccessionMutation,
   useAssignAdminLeaderMutation,
   useAdminClubMemberHistoryQuery,

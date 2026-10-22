@@ -286,6 +286,16 @@ export type SubmitSuccessionRequestPayload = {
   reason: string;
 };
 
+/** 현재 사용자가 이 동아리에서 한 가장 최근 회장 승계 요청 1건(요청자 본인에게만). 처리자·현 회장 정보는 내려오지 않는다. */
+export type LatestLeaderSuccessionRequest = {
+  requestId: number;
+  status: SuccessionStatus;
+  reason: string;
+  actionNote: string | null;
+  createdAt: IsoInstantString;
+  handledAt: IsoInstantString | null;
+};
+
 export type AssignAdminLeaderPayload = {
   newLeaderUserId: number;
   reason: string;
