@@ -95,7 +95,6 @@ export function Step1Candidates({
         <div className="flex items-center gap-2 pb-1">
           <input
             type="checkbox"
-            id={`group-all-${groupLabel}`}
             checked={allSelected}
             onChange={(event) => toggleAll(groupCandidates, event.target.checked)}
             className="h-4 w-4 rounded border-slate-300"
