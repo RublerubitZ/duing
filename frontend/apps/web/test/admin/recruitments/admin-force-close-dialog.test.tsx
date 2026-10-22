@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
 import type { AdminJoinLinkStatus, AdminRecruitmentDetail } from '@duing/types';
@@ -100,7 +100,7 @@ describe('모집 강제 마감 다이얼로그', () => {
     const onConfirm = vi.fn();
     render(<AdminForceCloseDialog {...props} onConfirm={onConfirm} />);
 
-    fireEvent.click(screen.getByRole('button', { name: '마감하기' }));
+    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: '강제 마감' }));
 
     expect(onConfirm).toHaveBeenCalledWith({ reason: undefined });
   });
@@ -110,7 +110,7 @@ describe('모집 강제 마감 다이얼로그', () => {
     render(<AdminForceCloseDialog {...props} onConfirm={onConfirm} />);
 
     fireEvent.change(screen.getByLabelText('마감 사유 (선택)'), { target: { value: '   ' } });
-    fireEvent.click(screen.getByRole('button', { name: '마감하기' }));
+    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: '강제 마감' }));
 
     expect(onConfirm).toHaveBeenCalledWith({ reason: undefined });
   });
@@ -122,7 +122,7 @@ describe('모집 강제 마감 다이얼로그', () => {
     fireEvent.change(screen.getByLabelText('마감 사유 (선택)'), {
       target: { value: ' 기간 경과 방치 ' },
     });
-    fireEvent.click(screen.getByRole('button', { name: '마감하기' }));
+    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: '강제 마감' }));
 
     expect(onConfirm).toHaveBeenCalledWith({ reason: '기간 경과 방치' });
   });
@@ -149,7 +149,9 @@ describe('모집 강제 마감 다이얼로그', () => {
   it('처리 중에는 버튼을 잠근다 — 두 번 눌러 중복 요청이 나가지 않게 한다', () => {
     render(<AdminForceCloseDialog {...props} isPending />);
 
-    expect(screen.getByRole('button', { name: /마감하기/ })).toBeDisabled();
+    expect(
+      within(screen.getByRole('dialog')).getByRole('button', { name: /강제 마감/ }),
+    ).toBeDisabled();
     expect(screen.getByRole('button', { name: '취소' })).toBeDisabled();
   });
 });

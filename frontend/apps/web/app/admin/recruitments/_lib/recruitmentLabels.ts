@@ -9,6 +9,10 @@ import type {
 import { isRecruitmentExpiredOpen, recruitmentStatusChip } from '@/app/_lib/recruitmentDisplay';
 import { externalFormPlatformLabel } from '@/app/manage/clubs/[clubId]/recruitments/_lib/externalFormPlatform';
 
+/**
+ * 표시 상태가 없는 구 응답의 폴백 칩 전용이다(`recruitmentConsoleChip`). 목록 상태 필터 라벨은
+ * `AdminRecruitmentsPage` 의 `STATUS_OPTIONS` 에 따로 있다.
+ */
 export const RECRUITMENT_STATUS_LABEL: Record<RecruitmentStatus, string> = {
   OPEN: '모집중',
   CLOSED: '마감',

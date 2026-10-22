@@ -121,7 +121,7 @@ export function AdminForceCloseDialog({
             className="btn btn-danger btn-sm"
           >
             {isPending && <ButtonSpinner />}
-            마감하기
+            강제 마감
           </button>
         </DialogFooter>
         <span role="status" className="sr-only">{isPending ? '모집 강제 마감 중' : null}</span>
