@@ -31,8 +31,8 @@ export function ApplicantSummaryCard({ clubId }: { clubId: number }) {
         </Link>
       }
     >
-      {/* md 부터 사이드바(280px)와 대시보드 2열이 겹쳐 카드가 좁다 — 5열이면 4글자 라벨이 접혀 xl 부터 다시 5열(md 초입 768 근처는 3열이어도 두 줄) */}
-      <div className="grid grid-cols-3 gap-2 sm:grid-cols-5 md:grid-cols-3 xl:grid-cols-5">
+      {/* md 부터 사이드바(280px)와 대시보드 2열이 겹쳐 카드가 좁다 — 4글자 라벨이 한 줄에 들도록 768~1023 은 2열, 1024~1279 는 3열, 1280 이상에서 다시 5열 */}
+      <div className="grid grid-cols-3 gap-2 sm:grid-cols-5 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
         {statCards.map((card) => (
           <div key={card.label} className="rounded-md border border-line bg-paper p-2 text-center">
             <p className="text-xs text-charcoal-3">{card.label}</p>
