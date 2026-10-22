@@ -1,15 +1,15 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 
 import Link from 'next/link';
 
 import {
   useFavoriteListQuery,
   useLogout,
-  useManagedClubsQuery,
   useMeQuery,
   useMyApplicationsQuery,
+  useMyClubsQuery,
   useProfileCheckQuery,
 } from '@duing/hooks';
 import { COLLEGE_DISPLAY_NAME, GRADE_DISPLAY_NAME, isCollege, type Grade } from '@duing/types';
@@ -26,6 +26,7 @@ import { ArrowRight } from '@/components/duing/Icon';
 import { SparkleFull } from '@/components/duing/Sparkle';
 
 import { MyPageHeader } from '../../_components/MyPageHeader';
+import { partitionApplications } from '../../_lib/partitionApplications';
 import { SessionListCard } from '../_components/SessionListCard';
 import { PasswordChangeDialog } from '../_components/PasswordChangeDialog';
 import { PhoneChangeDialog } from '../_components/PhoneChangeDialog';
@@ -126,7 +127,7 @@ function SettingsPageTabs() {
 export function SettingsPage() {
   const meQuery = useMeQuery();
   const applicationsQuery = useMyApplicationsQuery();
-  const managedClubsQuery = useManagedClubsQuery();
+  const myClubsQuery = useMyClubsQuery();
   const favoriteListQuery = useFavoriteListQuery(0, 20);
   const profileCheckQuery = useProfileCheckQuery();
   const logout = useLogout();
@@ -135,8 +136,12 @@ export function SettingsPage() {
 
   // 하이드레이션 프레임은 서버처럼 비운다 — 부팅 세션 복원(me 선요청)이 본문보다 먼저 끝나면 첫 렌더가 서버 HTML("—")과 어긋난다.
   const user = hydrated ? meQuery.data : undefined;
-  const applyCount = applicationsQuery.data?.length ?? 0;
-  const joinedCount = managedClubsQuery.data?.length ?? 0;
+  // 머리글은 마이페이지와 같은 숫자여야 한다(#1499) — 지원 중은 진행 중 지원만, 가입은 가입한 동아리(운영 동아리 아님).
+  const applyCount = useMemo(
+    () => partitionApplications(applicationsQuery.data ?? []).inProgress.length,
+    [applicationsQuery.data],
+  );
+  const joinedCount = myClubsQuery.data?.length ?? 0;
   const savedCount = favoriteListQuery.data?.content.length ?? 0;
 
   const [profileOpen, setProfileOpen] = useState(false);
