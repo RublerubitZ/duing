@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll, afterEach, beforeEach, vi } from 'vitest';
 import type { ReactNode } from 'react';
-import { act, render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { setupServer } from 'msw/node';
@@ -241,9 +241,11 @@ describe('부원 초대 다이얼로그 — 활성 링크 카드', () => {
 
     expect(await screen.findByText('🟢 활성')).toBeInTheDocument();
     expect(screen.getByText(`${formatDateTimeKst(FUTURE_ISO)}까지`)).toBeInTheDocument();
-    // 누적 신청 6 / 최대 30 · 승인 대기 2 — 서버 카운트를 합산하거나 파생하지 않는다.
+    // 사용 4 / 최대 30 · 누적 신청 6 · 승인 대기 2 — 서버 카운트를 합산하거나 파생하지 않는다.
+    expect(screen.getByText('사용')).toBeInTheDocument();
+    expect(screen.getByText('4 / 30명')).toBeInTheDocument();
     expect(screen.getByText('누적 신청')).toBeInTheDocument();
-    expect(screen.getByText('6 / 30명')).toBeInTheDocument();
+    expect(screen.getByText('6건')).toBeInTheDocument();
     expect(screen.getByText('승인 대기')).toBeInTheDocument();
     expect(screen.getByText('2명')).toBeInTheDocument();
 
@@ -251,6 +253,26 @@ describe('부원 초대 다이얼로그 — 활성 링크 카드', () => {
     expect(screen.getByRole('button', { name: 'QR 보기' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '링크 재생성' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '링크 폐기' })).toBeInTheDocument();
+  });
+
+  // 누적 신청은 거절·재신청까지 센 값이라 정원과 나란히 적으면 "7 / 5명" 처럼 초과로 읽힌다 —
+  // 정원 대비는 사용(승인+대기) 칸이 맡고, 누적 신청은 분모 없이 건수만 적는다.
+  it('정원 대비는 사용 수로 적고 누적 신청은 분모 없이 건수로 적는다', async () => {
+    await openDialog({ activeCode: inviteCode({ usedCount: 4, maxUses: 5, totalRequestCount: 7 }) });
+
+    const statusCard = within(await screen.findByLabelText('초대 링크 상태'));
+    expect(statusCard.getByText('사용')).toBeInTheDocument();
+    expect(statusCard.getByText('4 / 5명')).toBeInTheDocument();
+    expect(statusCard.getByText('누적 신청')).toBeInTheDocument();
+    expect(statusCard.getByText('7건')).toBeInTheDocument();
+    expect(statusCard.queryByText('7 / 5명')).not.toBeInTheDocument();
+    expect(statusCard.getAllByRole('term').map((term) => term.textContent)).toEqual([
+      '링크 상태',
+      '만료 일시',
+      '사용',
+      '승인 대기',
+      '누적 신청',
+    ]);
   });
 
   it('링크 복사는 가입 링크 전체를 클립보드에 넣는다', async () => {
