@@ -80,7 +80,7 @@ describe('CurrentRecruitmentCard', () => {
     expect(screen.getByText('3. 최종')).toBeInTheDocument();
   });
 
-  it('링크 순서: 제목 → 지원자 관리 → 면접 관리 → 통계 → 모집글 편집, 모집 종료는 버튼이다', () => {
+  it('링크 순서: 제목 → 지원자 관리 → 면접 관리 → 통계 → 모집글 편집, 모집 마감은 버튼이다', () => {
     render(<CurrentRecruitmentCard clubId={1} recruitment={recruitment()} />);
 
     const linkTexts = screen.getAllByRole('link').map((el) => el.textContent);
@@ -101,7 +101,7 @@ describe('CurrentRecruitmentCard', () => {
       'href',
       '/manage/clubs/1/recruitments/42/edit',
     );
-    expect(screen.getByRole('button', { name: '모집 종료' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '모집 마감' })).toBeInTheDocument();
   });
 
   it('면접 미사용 모집은 면접 관리 링크와 면접 단계를 숨긴다', () => {
@@ -113,11 +113,11 @@ describe('CurrentRecruitmentCard', () => {
     expect(screen.queryByText(/면접/)).not.toBeInTheDocument();
   });
 
-  it('모집 종료 버튼 → 확인 모달 → 마감 클릭 시 마감 뮤테이션을 호출한다', async () => {
+  it('모집 마감 버튼 → 확인 모달 → 마감 클릭 시 마감 뮤테이션을 호출한다', async () => {
     mockCloseMutateAsync.mockResolvedValue(undefined);
     render(<CurrentRecruitmentCard clubId={1} recruitment={recruitment()} />);
 
-    fireEvent.click(screen.getByRole('button', { name: '모집 종료' }));
+    fireEvent.click(screen.getByRole('button', { name: '모집 마감' }));
     expect(screen.getByText('모집을 마감할까요?')).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: '마감' }));
@@ -140,7 +140,7 @@ describe('CurrentRecruitmentCard', () => {
     });
     render(<CurrentRecruitmentCard clubId={1} recruitment={recruitment()} />);
 
-    fireEvent.click(screen.getByRole('button', { name: '모집 종료' }));
+    fireEvent.click(screen.getByRole('button', { name: '모집 마감' }));
 
     expect(screen.getByText('3건')).toBeInTheDocument();
     expect(screen.getByText(/합격·불합격 확정만 할 수 있습니다/)).toBeInTheDocument();
@@ -150,7 +150,7 @@ describe('CurrentRecruitmentCard', () => {
     mockCloseMutateAsync.mockRejectedValue(new Error('이미 마감된 모집입니다.'));
     render(<CurrentRecruitmentCard clubId={1} recruitment={recruitment()} />);
 
-    fireEvent.click(screen.getByRole('button', { name: '모집 종료' }));
+    fireEvent.click(screen.getByRole('button', { name: '모집 마감' }));
     fireEvent.click(screen.getByRole('button', { name: '마감' }));
 
     // 공통 규칙(B안) — 카드에 그리면 오버레이·aria-hidden 뒤에 갇힌다.

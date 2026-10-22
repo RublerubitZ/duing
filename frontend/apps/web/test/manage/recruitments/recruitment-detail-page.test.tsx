@@ -7,7 +7,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { setupServer } from 'msw/node';
 import { http, HttpResponse } from 'msw';
 import { createApiClient } from '@duing/api';
-import { ApiClientProvider } from '@duing/hooks';
+import { ApiClientProvider, todayKstDateString } from '@duing/hooks';
 import type {
   RecruitmentDisplayStatus,
   RecruitmentQuestionItem,
@@ -61,6 +61,9 @@ type RecruitmentDetailMockOpts = {
   displayStatus?: RecruitmentDisplayStatus;
   /** 서버가 내려주는 파생 값. 기본값만 서버 규칙을 흉내 내고, 필요하면 테스트가 직접 지정한다. */
   effectivelyOpen?: boolean;
+  /** 기간 — 상시모집(endDate null)·시작일 당일 접수 마감 잠금 검증용. */
+  startDate?: string;
+  endDate?: string | null;
 };
 
 function mockRecruitmentDetail(
@@ -71,6 +74,8 @@ function mockRecruitmentDetail(
     status = 'OPEN',
     displayStatus = 'OPEN',
     effectivelyOpen = status === 'OPEN' && displayStatus !== 'CLOSED',
+    startDate = '2099-01-01',
+    endDate = '2099-02-01',
   }: RecruitmentDetailMockOpts = {},
 ) {
   return http.get(`*/recruitments/${RECRUITMENT_ID}`, () =>
@@ -81,8 +86,8 @@ function mockRecruitmentDetail(
         clubId: CLUB_ID,
         clubName: '테스트 동아리',
         title: '테스트 모집',
-        startDate: '2099-01-01',
-        endDate: '2099-02-01',
+        startDate,
+        endDate,
         capacity: 10,
         status,
         displayStatus,
@@ -336,7 +341,7 @@ describe('RecruitmentDetailPage — 마감 확인 모달', () => {
 
     renderPage();
 
-    await userEvent.click(await screen.findByRole('button', { name: '마감' }));
+    await userEvent.click(await screen.findByRole('button', { name: '모집 마감' }));
     const dialog = await screen.findByRole('dialog');
 
     expect(await within(dialog).findByText('4건')).toBeInTheDocument();
@@ -357,7 +362,7 @@ describe('RecruitmentDetailPage — 마감 확인 모달', () => {
 
     renderPage();
 
-    await userEvent.click(await screen.findByRole('button', { name: '마감' }));
+    await userEvent.click(await screen.findByRole('button', { name: '모집 마감' }));
     const dialog = await screen.findByRole('dialog');
     await userEvent.click(within(dialog).getByRole('button', { name: '마감' }));
 
@@ -384,7 +389,7 @@ describe('RecruitmentDetailPage — 마감 확인 모달', () => {
 
     renderPage();
 
-    await userEvent.click(await screen.findByRole('button', { name: '마감' }));
+    await userEvent.click(await screen.findByRole('button', { name: '모집 마감' }));
     const dialog = await screen.findByRole('dialog');
     await userEvent.click(within(dialog).getByRole('button', { name: '마감' }));
     expect(await within(dialog).findByRole('alert')).toBeInTheDocument();
@@ -392,10 +397,28 @@ describe('RecruitmentDetailPage — 마감 확인 모달', () => {
     await userEvent.click(within(dialog).getByRole('button', { name: '취소' }));
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
 
-    await userEvent.click(screen.getByRole('button', { name: '마감' }));
+    await userEvent.click(screen.getByRole('button', { name: '모집 마감' }));
     const reopened = await screen.findByRole('dialog');
     expect(within(reopened).queryByRole('alert')).not.toBeInTheDocument();
     expect(closeCalls).toBe(1);
+  });
+});
+
+describe('RecruitmentDetailPage — 상시모집 접수 마감 안내', () => {
+  it('시작일 당일에는 접수 마감이 잠기고, 바로 끝내려면 모집 마감을 쓰라고 안내한다', async () => {
+    server.use(
+      mockRecruitmentDetail(false, {
+        displayStatus: 'ALWAYS_OPEN',
+        startDate: todayKstDateString(new Date()),
+        endDate: null,
+      }),
+      EMPTY_ROUNDS_HANDLER,
+    );
+
+    renderPage();
+
+    expect(await screen.findByRole('button', { name: '접수 마감' })).toBeDisabled();
+    expect(screen.getByText(/모집 마감을 이용해주세요/)).toBeInTheDocument();
   });
 });
 
@@ -410,7 +433,7 @@ describe('RecruitmentDetailPage — 마감일 경과·수동 마감 전(만료-O
 
     renderPage();
 
-    expect(await screen.findByRole('button', { name: '마감' })).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: '모집 마감' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: '수정' })).toBeInTheDocument();
     expect(screen.queryByText('이미 마감된 모집입니다.')).not.toBeInTheDocument();
     expect(screen.getByText(/모집 기간이 끝났지만 아직 마감 전이에요/)).toBeInTheDocument();
@@ -429,7 +452,7 @@ describe('RecruitmentDetailPage — 마감일 경과·수동 마감 전(만료-O
     renderPage();
 
     expect(await screen.findByText('이미 마감된 모집입니다.')).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: '마감' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '모집 마감' })).not.toBeInTheDocument();
     expect(screen.queryByRole('link', { name: '수정' })).not.toBeInTheDocument();
     expect(screen.queryByText(/모집 기간이 끝났지만 아직 마감 전이에요/)).not.toBeInTheDocument();
   });
