@@ -2,10 +2,12 @@ import { useAuthStore } from '@duing/stores';
 
 import type { User } from '@duing/types';
 
+import { HAD_SESSION_KEY } from './hadSessionKey';
+
 // 이 브라우저에서 세션이 살아 있던 적이 있는지 표시하는 로컬 플래그.
 // 갱신은 AuthSessionBootstrap 의 status 구독 한 곳에서만 한다(그 파일의 주석 참조).
 // 저장소는 웹 전용이라 packages/* 가 아닌 앱 계층에 둔다.
-export const HAD_SESSION_KEY = 'duing:had-session';
+export { HAD_SESSION_KEY };
 
 export function markHadSession(value: boolean): void {
   try {

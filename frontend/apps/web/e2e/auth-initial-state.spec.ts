@@ -262,6 +262,10 @@ async function routeApi(
 type AuthFrame = {
   t: number;
   hasLoginButton: boolean;
+  /** 로그인 버튼이 실제로 보였는가 — DOM 에 있어도 하이드레이션 전 숨김(visibility)·숨은 스트리밍 경계면 거짓. */
+  hasVisibleLoginButton: boolean;
+  /** 하이드레이션 전 인증 자리(data-auth-seeding)가 화면에 배치돼 있었는가 — 하이드레이션 전 창을 실제로 관측했다는 증거. */
+  hasDisplayedSeedingSlot: boolean;
   hasHeaderPlaceholder: boolean;
   hasUserMenu: boolean;
   /** 이 프레임의 본문 텍스트에서 발견된 감시 문구. */
@@ -286,9 +290,14 @@ async function recordAuthFrames(page: Page, probe: FrameProbe = {}): Promise<voi
       const poll = () => {
         const header = document.querySelector('header');
         const bodyText = document.body === null ? '' : (document.body.textContent ?? '');
+        const loginLink = header?.querySelector('a[href="/login"]');
+        const seedingSlot = header?.querySelector('[data-auth-seeding]');
         frames.push({
           t: performance.now(),
-          hasLoginButton: header?.querySelector('a[href="/login"]') != null,
+          hasLoginButton: loginLink != null,
+          hasVisibleLoginButton:
+            loginLink?.checkVisibility({ visibilityProperty: true, checkVisibilityCSS: true }) ?? false,
+          hasDisplayedSeedingSlot: seedingSlot?.checkVisibility() ?? false,
           hasHeaderPlaceholder: header?.querySelector('[role="status"]') != null,
           hasUserMenu: Array.from(header?.querySelectorAll('button') ?? []).some((node) =>
             (node.textContent ?? '').includes('님'),
@@ -429,6 +438,18 @@ async function assertAnonymousHomeHasNoPlaceholder(
   expect(reactErrors).toEqual([]);
 }
 
+// 하이드레이션 전 창을 확실히 만든다 — 로컬 next start 는 청크가 즉시 와서 그 창이 0~1 프레임일 수 있다.
+// JS 만 늦춘다 — CSS 도 같은 chunks 경로라 함께 늦추면 렌더 차단으로 첫 페인트까지 밀려 창이 다시 좁아진다.
+// 스트리밍 경계 공개($RC)는 인라인 스크립트라 청크와 무관하게 먼저 일어나므로, 헤더가 보이는 채 하이드레이션만 늦어진다.
+async function delayScriptChunks(context: BrowserContext, delayMs: number): Promise<void> {
+  await context.route(/\/_next\/static\/chunks\/.+\.js(\?|$)/, async (route) => {
+    await new Promise((resolve) => setTimeout(resolve, delayMs));
+    await route.continue();
+  });
+}
+
+const CHUNK_DELAY_MS = 1500;
+
 /* ────────────────────────── 스펙 ────────────────────────── */
 
 test.describe('PR-3 인증 초기 상태', () => {
@@ -457,6 +478,52 @@ test.describe('PR-3 인증 초기 상태', () => {
   test('[metric 2] CPU 4x — 비로그인 홈에서도 자리표시 0프레임', async ({ browser }) => {
     const context = await browser.newContext();
     await assertAnonymousHomeHasNoPlaceholder(context, { cpuThrottlingRate: 4 });
+    await context.close();
+  });
+
+  // 정적 HTML 은 늘 비로그인으로 그려진다 — 로그인 이력이 있는 브라우저는 하이드레이션 전 인증 자리를 숨긴다(빈 자리).
+  test('로그인 이력 브라우저 — JS 가 늦게 와도 보이는 로그인 버튼 0프레임(하이드레이션 전 빈 자리)', async ({
+    browser,
+  }) => {
+    const context = await browser.newContext();
+    await seedLoggedInCookies(context);
+    await routeApi(context, 'expired');
+    await delayScriptChunks(context, CHUNK_DELAY_MS);
+    const page = await context.newPage();
+    const reactErrors = collectReactErrors(page);
+    await recordAuthFrames(page);
+
+    await page.goto('/', { waitUntil: 'commit' });
+    // 청크를 늦췄으므로 기본 5초보다 넉넉히 기다린다 — 실패하면 지연 탓인지 회귀인지 갈리게.
+    await expect(page.getByRole('button', { name: /홍길동님/ })).toBeVisible({ timeout: 10_000 });
+    await waitForHeaderFrame(page, 'hasUserMenu');
+
+    const frames = await readAuthFrames(page);
+    expect(frames.filter((frame) => frame.hasVisibleLoginButton)).toHaveLength(0);
+    expect(frames.filter((frame) => frame.hasDisplayedSeedingSlot).length).toBeGreaterThan(0);
+    expect(frames.filter((frame) => frame.hasHeaderPlaceholder)).toHaveLength(0);
+    expect(reactErrors).toEqual([]);
+    await context.close();
+  });
+
+  test('비로그인 브라우저 — JS 가 늦게 와도 하이드레이션 전부터 보이는 로그인 버튼', async ({ browser }) => {
+    const context = await browser.newContext();
+    await routeApi(context, 'anonymous');
+    await delayScriptChunks(context, CHUNK_DELAY_MS);
+    const page = await context.newPage();
+    const reactErrors = collectReactErrors(page);
+    await recordAuthFrames(page);
+
+    await page.goto('/', { waitUntil: 'commit' });
+    await expect(page.locator('header a[href="/login"]')).toBeVisible({ timeout: 10_000 });
+    await waitForHeaderFrame(page, 'hasLoginButton');
+
+    const frames = await readAuthFrames(page);
+    const seedingFrames = frames.filter((frame) => frame.hasDisplayedSeedingSlot);
+    expect(seedingFrames.length).toBeGreaterThan(0);
+    expect(seedingFrames.every((frame) => frame.hasVisibleLoginButton)).toBe(true);
+    expect(frames.filter((frame) => frame.hasUserMenu)).toHaveLength(0);
+    expect(reactErrors).toEqual([]);
     await context.close();
   });
 
