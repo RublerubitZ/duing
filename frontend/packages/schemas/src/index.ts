@@ -633,19 +633,6 @@ export const updateGlobalEventSchema = z
 
 export type UpdateGlobalEventInput = z.infer<typeof updateGlobalEventSchema>;
 
-export {
-  createInterviewConfigSchema,
-  updateInterviewConfigSchema,
-  slotPatternSchema,
-  updateAvailabilitySchema,
-} from './interview';
-export type {
-  CreateInterviewConfigInput,
-  UpdateInterviewConfigInput,
-  SlotPatternInput,
-  UpdateAvailabilityInput,
-} from './interview';
-
 // === 회비(fee) ===
 // 빈 number 입력("")을 undefined 로 정규화한다 — z.coerce.number()는 ""→0 으로 강제하므로(자동발행 off 시 오탐) 전처리가 필요.
 const optionalDay = (label: string) =>
