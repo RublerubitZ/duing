@@ -39,7 +39,7 @@ export function buildActionItems(inputs: RecruitmentDashboardInput[], now: Date)
 
     // 검토 대기 지원자
     if (stats) {
-      const awaiting = stats.submitted + stats.onHold;
+      const awaiting = countAwaitingReview(stats);
       if (awaiting > 0) {
         items.push({ type: 'APPLICANTS_AWAITING_REVIEW', ...base, count: awaiting });
       }
@@ -89,6 +89,11 @@ export function buildActionItems(inputs: RecruitmentDashboardInput[], now: Date)
   }
 
   return items;
+}
+
+/** 검토 대기 = 지원 완료 + 보류 — 면접 대상은 이미 검토를 넘긴 지원이라 세지 않는다. */
+export function countAwaitingReview(stats: StatsSummary): number {
+  return stats.submitted + stats.onHold;
 }
 
 /** 결과(합격·불합격)가 아직 없는 지원 수 — 마감 모집에서 확정할 수 있는 지원과 같은 집합이다(#892). */

@@ -12,7 +12,7 @@ import { COLLEGE_DISPLAY_NAME, GRADE_DISPLAY_NAME } from '@duing/types';
 import { LoadingGate } from '@/components/loading/LoadingGate';
 
 // Step1: 면접 라운드 대상 후보 선정 (ephemeral — 서버에 저장하지 않음).
-// 미결정(SUBMITTED·ON_HOLD) / 면접 대기(INTERVIEW_PENDING) 그룹 헤더로 분리.
+// 미결정(SUBMITTED·ON_HOLD) / 면접 대상(INTERVIEW_PENDING) 그룹 헤더로 분리.
 // 기본 includeUndecided=true (정기 wizard 진입 §10.3).
 //
 // 선택 상태는 RoundWizard 가 Map<number, InterviewRoundCandidate> 로 보유.
@@ -172,8 +172,11 @@ export function Step1Candidates({
         <p className="text-sm text-slate-500">후보가 없습니다.</p>
       ) : (
         <div className="space-y-4">
-          {renderGroup('미결정(지원·보류)', undecidedCandidates)}
-          {renderGroup('면접 대기', interviewPendingCandidates)}
+          {renderGroup(
+            `미결정(${APPLICATION_STATUS_OPERATOR_LABEL.SUBMITTED}·${APPLICATION_STATUS_OPERATOR_LABEL.ON_HOLD})`,
+            undecidedCandidates,
+          )}
+          {renderGroup(APPLICATION_STATUS_OPERATOR_LABEL.INTERVIEW_PENDING, interviewPendingCandidates)}
         </div>
       )}
 

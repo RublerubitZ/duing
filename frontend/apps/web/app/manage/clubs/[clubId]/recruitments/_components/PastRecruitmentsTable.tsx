@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useQueries } from '@tanstack/react-query';
 import type { RecruitmentSummary, StatsSummary } from '@duing/types';
 import { countUndecided, statsQueryKeys, useApiClient } from '@duing/hooks';
+import { APPLICATION_UNDECIDED_LABEL } from '@/app/_constants/application-status';
 import { toRoute } from '@/app/_lib/route';
 import {
   recruitmentPeriodLabel,
@@ -102,7 +103,7 @@ export function PastRecruitmentsTable({ clubId, recruitments: unsortedRecruitmen
                   {appliedAcceptedLabel(recruitment.id)}
                   {undecidedCount(recruitment.id) > 0 && (
                     <div className="mt-0.5 text-xs font-semibold text-coral-deep">
-                      미확정 {undecidedCount(recruitment.id)}명
+                      {APPLICATION_UNDECIDED_LABEL} {undecidedCount(recruitment.id)}명
                     </div>
                   )}
                 </td>
@@ -170,7 +171,7 @@ export function PastRecruitmentsTable({ clubId, recruitments: unsortedRecruitmen
             <div className="mt-1 tabular-nums text-sm text-charcoal">
               지원 {appliedAcceptedLabel(recruitment.id)}
               {undecidedCount(recruitment.id) > 0 && (
-                <span className="font-semibold text-coral-deep"> · 미확정 {undecidedCount(recruitment.id)}명</span>
+                <span className="font-semibold text-coral-deep"> · {APPLICATION_UNDECIDED_LABEL} {undecidedCount(recruitment.id)}명</span>
               )}
             </div>
             <div className="mt-3 flex gap-2">

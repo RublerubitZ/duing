@@ -39,11 +39,14 @@ describe('ApplicantSummaryCard', () => {
     };
     mockUseApplicantSummary.mockReturnValue({ totals, isLoading: false, isError: false });
     render(<ApplicantSummaryCard clubId={1} />);
-    expect(screen.getByText('접수')).toBeInTheDocument();
+    expect(screen.getByText('지원 완료')).toBeInTheDocument();
     expect(screen.getByText('보류')).toBeInTheDocument();
-    expect(screen.getByText('면접대기')).toBeInTheDocument();
+    expect(screen.getByText('면접 대상')).toBeInTheDocument();
     expect(screen.getByText('합격')).toBeInTheDocument();
     expect(screen.getByText('불합격')).toBeInTheDocument();
     expect(screen.getByText('5')).toBeInTheDocument();
+    // 옛 대시보드 전용 표기는 공용 운영진 라벨로 바뀌었다
+    expect(screen.queryByText('접수')).not.toBeInTheDocument();
+    expect(screen.queryByText('면접대기')).not.toBeInTheDocument();
   });
 });

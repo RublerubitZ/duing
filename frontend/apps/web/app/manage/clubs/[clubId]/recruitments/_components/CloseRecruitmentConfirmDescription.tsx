@@ -1,4 +1,5 @@
 import type { ApplicationMode, StatsSummary } from '@duing/types';
+import { countUndecided } from '@duing/hooks';
 
 /**
  * 마감 확인 다이얼로그 안내 — 마감의 실제 결과를 모드별로 알린다. 자체 폼은 신규 지원과
@@ -26,10 +27,7 @@ export function CloseRecruitmentConfirmDescription({
     );
   }
 
-  const undecidedCount =
-    statsSummary != null
-      ? statsSummary.submitted + statsSummary.onHold + statsSummary.interviewPending
-      : null;
+  const undecidedCount = statsSummary != null ? countUndecided(statsSummary) : null;
 
   return (
     <>

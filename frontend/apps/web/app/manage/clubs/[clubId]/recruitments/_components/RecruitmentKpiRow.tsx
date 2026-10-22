@@ -1,7 +1,11 @@
 'use client';
 
 import type { RecruitmentSummary } from '@duing/types';
-import { useRecruitmentStatsSummaryQuery } from '@duing/hooks';
+import { countAwaitingReview, useRecruitmentStatsSummaryQuery } from '@duing/hooks';
+import {
+  APPLICATION_AWAITING_REVIEW_LABEL,
+  APPLICATION_STATUS_OPERATOR_LABEL,
+} from '@/app/_constants/application-status';
 
 type Props = {
   recruitment: RecruitmentSummary;
@@ -25,7 +29,8 @@ function KpiTile({ label, value, sub }: KpiTileProps) {
 
 /**
  * 활성 모집 1건의 현황 버킷 4종 — stats summary 단독 구성(추가 쿼리 금지).
- * 4타일이 지원자 관리 화면의 상태 필터와 1:1 대응하므로 "보고 → 처리" 동선이 이어진다.
+ * 타일이 지원자 관리 화면의 상태 필터와 대응하므로 "보고 → 처리" 동선이 이어진다 —
+ * 검토 대기만 지원 완료·보류 두 칩의 합이라 자체 지원 모집에서는 그 구성을 부제로 밝힌다.
  */
 export function RecruitmentKpiRow({ recruitment }: Props) {
   // 외부 폼은 지원 데이터가 없어 조회하지 않는다 — 0 대신 총동연과 같은 "—"(아무도 안 냈다로 읽히지 않게).
@@ -46,9 +51,17 @@ export function RecruitmentKpiRow({ recruitment }: Props) {
         value={summary ? String(summary.total) : '—'}
         sub={`모집 인원 ${recruitment.capacity}명`}
       />
-      <KpiTile label="검토 대기" value={summary ? String(summary.submitted + summary.onHold) : '—'} />
-      <KpiTile label="면접 대기" value={interviewPendingValue} />
-      <KpiTile label="합격" value={summary ? String(summary.accepted) : '—'} />
+      <KpiTile
+        label={APPLICATION_AWAITING_REVIEW_LABEL}
+        value={summary ? String(countAwaitingReview(summary)) : '—'}
+        sub={
+          recruitment.applicationMode === 'SELF'
+            ? `${APPLICATION_STATUS_OPERATOR_LABEL.SUBMITTED} + ${APPLICATION_STATUS_OPERATOR_LABEL.ON_HOLD}`
+            : undefined
+        }
+      />
+      <KpiTile label={APPLICATION_STATUS_OPERATOR_LABEL.INTERVIEW_PENDING} value={interviewPendingValue} />
+      <KpiTile label={APPLICATION_STATUS_OPERATOR_LABEL.ACCEPTED} value={summary ? String(summary.accepted) : '—'} />
     </div>
   );
 }

@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useApplicantSummary } from '@duing/hooks';
+import { APPLICATION_STATUS_OPERATOR_LABEL } from '@/app/_constants/application-status';
 import { toRoute } from '@/app/_lib/route';
 import { DashboardCard } from './DashboardCard';
 
@@ -9,11 +10,11 @@ export function ApplicantSummaryCard({ clubId }: { clubId: number }) {
   const { totals, isLoading } = useApplicantSummary(clubId);
 
   const statCards: Array<{ label: string; value: number }> = [
-    { label: '접수', value: totals.submitted },
-    { label: '보류', value: totals.onHold },
-    { label: '면접대기', value: totals.interviewPending },
-    { label: '합격', value: totals.accepted },
-    { label: '불합격', value: totals.rejected },
+    { label: APPLICATION_STATUS_OPERATOR_LABEL.SUBMITTED, value: totals.submitted },
+    { label: APPLICATION_STATUS_OPERATOR_LABEL.ON_HOLD, value: totals.onHold },
+    { label: APPLICATION_STATUS_OPERATOR_LABEL.INTERVIEW_PENDING, value: totals.interviewPending },
+    { label: APPLICATION_STATUS_OPERATOR_LABEL.ACCEPTED, value: totals.accepted },
+    { label: APPLICATION_STATUS_OPERATOR_LABEL.REJECTED, value: totals.rejected },
   ];
 
   return (
@@ -29,7 +30,8 @@ export function ApplicantSummaryCard({ clubId }: { clubId: number }) {
         </Link>
       }
     >
-      <div className="grid grid-cols-3 gap-2 sm:grid-cols-5">
+      {/* md 부터 사이드바(280px)와 대시보드 2열이 겹쳐 카드가 좁다 — 5열이면 4글자 라벨이 접혀 xl 부터 다시 5열(md 초입 768 근처는 3열이어도 두 줄) */}
+      <div className="grid grid-cols-3 gap-2 sm:grid-cols-5 md:grid-cols-3 xl:grid-cols-5">
         {statCards.map((card) => (
           <div key={card.label} className="rounded-md border border-line bg-paper p-2 text-center">
             <p className="text-xs text-charcoal-3">{card.label}</p>

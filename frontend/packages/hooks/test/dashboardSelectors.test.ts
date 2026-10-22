@@ -10,6 +10,7 @@ import {
   ACTION_ITEM_PREVIEW_COUNT,
   buildActionItems,
   buildClosedRecruitmentItems,
+  countAwaitingReview,
   countUndecided,
   sortActionItems,
   aggregateApplicantTotals,
@@ -225,6 +226,12 @@ describe('buildActionItems', () => {
       NOW,
     );
     expect(items.some((i) => i.type === 'INTERVIEW_ROUND_NEEDED')).toBe(false);
+  });
+});
+
+describe('countAwaitingReview', () => {
+  it('검토 대기 = submitted + onHold — 면접 대상은 세지 않는다', () => {
+    expect(countAwaitingReview(stats({ submitted: 1, onHold: 2, interviewPending: 3, accepted: 4, rejected: 5 }))).toBe(3);
   });
 });
 
