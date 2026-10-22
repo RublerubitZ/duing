@@ -635,4 +635,37 @@ describe('RoundWizard — 면접 라운드 생성 wizard', () => {
       expect(screen.getByRole('alert')).toHaveTextContent(/종료 시각은 시작 시각보다 늦어야 합니다/);
     });
   });
+
+  it('12. 후보 이름을 눌러도 선택되고, 후보 행·그룹 전체 선택의 터치 영역은 44px 이다', async () => {
+    server.use(
+      http.get(`*/recruitments/${RECRUITMENT_ID}/interview-round-candidates`, ({ request }) => {
+        const url = new URL(request.url);
+        const include = url.searchParams.get('includeUndecided') === 'true';
+        return handleCandidates(include);
+      }),
+      http.get(`*/recruitments/${RECRUITMENT_ID}/interview-rounds`, () => handleEmptyRoundList()),
+    );
+
+    renderWizard();
+
+    await waitFor(() => screen.getByText('미결정(지원 완료·보류)', { selector: 'h3' }));
+
+    // 체크박스가 아닌 이름 글자를 눌러도 한 번만 토글돼 선택된다
+    await userEvent.click(screen.getByText('김지원', { selector: 'span' }));
+    const candidateCheckbox = screen.getByRole('checkbox', { name: '김지원 선택' });
+    expect(candidateCheckbox).toBeChecked();
+    expect(screen.getByText(/1명 선택/)).toBeInTheDocument();
+
+    // jsdom 은 크기를 못 재므로 의도 클래스로 못박는다(실측은 브라우저 QA)
+    // 후보 행: lg 미만만 44px, PC 는 기존 36px 유지
+    expect(candidateCheckbox.closest('label')).toHaveClass('min-h-11', 'lg:min-h-0');
+    // 그룹 전체 선택: 44px 정사각, 사방 음수 여백으로 배치 자리는 체크박스 16px 그대로, 제목(h3)은 라벨 밖
+    const groupLabel = screen
+      .getByRole('checkbox', { name: '미결정(지원 완료·보류) 전체 선택' })
+      .closest('label');
+    expect(groupLabel).toHaveClass('h-11', 'w-11', '-m-3.5');
+    expect(groupLabel).not.toContainElement(
+      screen.getByText('미결정(지원 완료·보류)', { selector: 'h3' }),
+    );
+  });
 });

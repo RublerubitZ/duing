@@ -93,13 +93,16 @@ export function Step1Candidates({
     return (
       <div key={groupLabel} className="space-y-2">
         <div className="flex items-center gap-2 pb-1">
-          <input
-            type="checkbox"
-            checked={allSelected}
-            onChange={(event) => toggleAll(groupCandidates, event.target.checked)}
-            className="h-4 w-4 rounded border-slate-300"
-            aria-label={`${groupLabel} 전체 선택`}
-          />
+          {/* 눌리는 영역만 44px — 사방 음수 여백이라 배치 자리는 체크박스 16px 그대로(제목 위치 불변) */}
+          <label className="-m-3.5 grid h-11 w-11 shrink-0 cursor-pointer place-items-center">
+            <input
+              type="checkbox"
+              checked={allSelected}
+              onChange={(event) => toggleAll(groupCandidates, event.target.checked)}
+              className="h-4 w-4 rounded border-slate-300"
+              aria-label={`${groupLabel} 전체 선택`}
+            />
+          </label>
           <h3 className="text-sm font-semibold text-slate-700">{groupLabel}</h3>
           <span className="text-xs text-slate-400">({groupCandidates.length}명)</span>
         </div>
@@ -112,25 +115,31 @@ export function Step1Candidates({
               candidate.status;
 
             return (
-              <li
-                key={candidate.applicationId}
-                className={cn('flex items-center gap-3 rounded-md px-3 py-2 text-sm hover:bg-slate-50', isSelected && 'bg-slate-50')}
-              >
-                <input
-                  type="checkbox"
-                  checked={isSelected}
-                  onChange={() => toggleCandidate(candidate)}
-                  aria-label={`${candidate.userName} 선택`}
-                  className="h-4 w-4 rounded border-slate-300"
-                />
-                <span className="font-medium text-slate-900">{candidate.userName}</span>
-                <span className="text-slate-500">
-                  {COLLEGE_DISPLAY_NAME[candidate.college]} · {candidate.major}
-                </span>
-                <span className="text-slate-400">{GRADE_DISPLAY_NAME[candidate.grade]}</span>
-                <span className={cn(badgeClass, 'ml-auto px-2 py-0.5 text-[11px]')}>
-                  {statusLabel}
-                </span>
+              <li key={candidate.applicationId}>
+                {/* 행 전체(패딩 포함)가 눌린다. 모바일만 44px, PC(lg)는 기존 36px. 토글은 input onChange 1회뿐 —
+                    라벨 클릭은 click 이 두 번 오므로 라벨에 부수효과 핸들러를 달지 않는다 */}
+                <label
+                  className={cn(
+                    'flex min-h-11 w-full cursor-pointer items-center gap-3 rounded-md px-3 py-2 text-sm hover:bg-slate-50 lg:min-h-0',
+                    isSelected && 'bg-slate-50',
+                  )}
+                >
+                  <input
+                    type="checkbox"
+                    checked={isSelected}
+                    onChange={() => toggleCandidate(candidate)}
+                    aria-label={`${candidate.userName} 선택`}
+                    className="h-4 w-4 rounded border-slate-300"
+                  />
+                  <span className="font-medium text-slate-900">{candidate.userName}</span>
+                  <span className="text-slate-500">
+                    {COLLEGE_DISPLAY_NAME[candidate.college]} · {candidate.major}
+                  </span>
+                  <span className="text-slate-400">{GRADE_DISPLAY_NAME[candidate.grade]}</span>
+                  <span className={cn(badgeClass, 'ml-auto px-2 py-0.5 text-[11px]')}>
+                    {statusLabel}
+                  </span>
+                </label>
               </li>
             );
           })}
