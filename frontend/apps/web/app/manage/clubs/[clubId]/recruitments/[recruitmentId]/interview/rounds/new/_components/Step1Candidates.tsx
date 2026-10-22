@@ -129,14 +129,18 @@ export function Step1Candidates({
                     checked={isSelected}
                     onChange={() => toggleCandidate(candidate)}
                     aria-label={`${candidate.userName} 선택`}
-                    className="h-4 w-4 rounded border-slate-300"
+                    className="h-4 w-4 shrink-0 rounded border-slate-300"
                   />
-                  <span className="font-medium text-slate-900">{candidate.userName}</span>
-                  <span className="text-slate-500">
-                    {COLLEGE_DISPLAY_NAME[candidate.college]} · {candidate.major}
+                  {/* lg 미만은 이름 아래 학과·학년을 글줄로 잇는다(한 줄에 다 넣으면 이름·학년이 글자 단위로 꺾였다).
+                      PC(lg)는 lg:contents 로 감싼 칸이 사라져 기존 한 줄 배치 그대로 — 사이 공백은 flex 에서 그려지지 않는다 */}
+                  <span className="min-w-0 break-keep [overflow-wrap:anywhere] lg:contents">
+                    <span className="block font-medium text-slate-900">{candidate.userName}</span>
+                    <span className="text-slate-500">
+                      {COLLEGE_DISPLAY_NAME[candidate.college]} · {candidate.major}
+                    </span>{' '}
+                    <span className="text-slate-400">{GRADE_DISPLAY_NAME[candidate.grade]}</span>
                   </span>
-                  <span className="text-slate-400">{GRADE_DISPLAY_NAME[candidate.grade]}</span>
-                  <span className={cn(badgeClass, 'ml-auto px-2 py-0.5 text-[11px]')}>
+                  <span className={cn(badgeClass, 'ml-auto shrink-0 px-2 py-0.5 text-[11px]')}>
                     {statusLabel}
                   </span>
                 </label>
