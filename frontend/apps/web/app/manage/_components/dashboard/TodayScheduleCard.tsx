@@ -35,13 +35,14 @@ function ScheduleRow({ clubId, item }: { clubId: number; item: TodayScheduleItem
 }
 
 export function TodayScheduleCard({ clubId }: { clubId: number }) {
-  const { items, isLoading } = useTodaySchedule(clubId);
+  const { items, isLoading, isError } = useTodaySchedule(clubId);
 
   return (
     <DashboardCard
       title="오늘 일정"
       badge={items.length > 0 ? <span className="text-xs text-charcoal-3">{items.length}건</span> : undefined}
       isLoading={isLoading}
+      isError={isError}
       isEmpty={!isLoading && items.length === 0}
       emptyText="오늘 일정이 없어요"
     >

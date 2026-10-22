@@ -71,4 +71,12 @@ describe('ActionItemsCard', () => {
     render(<ActionItemsCard clubId={10} />);
     expect(screen.getByText('처리할 업무가 없어요')).toBeInTheDocument();
   });
+
+  it('조회에 실패해 0건이면 "업무가 없어요" 대신 오류 안내', () => {
+    mockUse.mockReturnValue({ items: [], preview: [], totalCount: 0, isLoading: false, isError: true });
+    render(<ActionItemsCard clubId={10} />);
+    expect(screen.getByText('불러오지 못했어요. 잠시 후 다시 시도해 주세요.')).toBeInTheDocument();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(screen.queryByText('처리할 업무가 없어요')).not.toBeInTheDocument();
+  });
 });

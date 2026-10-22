@@ -25,5 +25,15 @@ describe('ClubFeedLinkCard', () => {
     expect(screen.getByText('아직 공지·일정이 없어요')).toBeInTheDocument();
     const link = screen.getByRole('link', { name: /바로가기/ });
     expect(link).toHaveAttribute('href', '/clubs/10');
+    expect(screen.queryByText('불러오지 못했어요. 잠시 후 다시 시도해 주세요.')).not.toBeInTheDocument();
+  });
+
+  it('조회에 실패해 두 수가 모두 0이면 빈 안내 문구 대신 오류 안내를 표시하고 바로가기는 남긴다', () => {
+    mockUseClubFeedCounts.mockReturnValue({ noticeCount: 0, eventCount: 0, isLoading: false, isError: true });
+    render(<ClubFeedLinkCard clubId={10} />);
+    expect(screen.getByText('불러오지 못했어요. 잠시 후 다시 시도해 주세요.')).toBeInTheDocument();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(screen.queryByText('아직 공지·일정이 없어요')).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /바로가기/ })).toHaveAttribute('href', '/clubs/10');
   });
 });
