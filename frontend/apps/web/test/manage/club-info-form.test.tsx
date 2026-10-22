@@ -1,6 +1,6 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 // 폼이 이탈 가드(useUnsavedChangesGuard)를 쓰면서 useRouter 컨텍스트를 요구한다 — 단독 렌더라 스텁한다.
 vi.mock('@/app/_lib/useGuardedRouter', () => ({
@@ -120,6 +120,30 @@ describe('ClubInfoForm', () => {
 
     await waitFor(() => expect(mutateAsync).toHaveBeenCalledTimes(1));
     expect(mutateAsync).toHaveBeenCalledWith({ feeCycle: 'SEMESTER', membershipFeeAmount: 30000 });
+  });
+
+  describe('저장 시각은 기기 시간대가 아니라 한국 시간', () => {
+    const originalTz = process.env.TZ;
+    afterEach(() => {
+      vi.useRealTimers();
+      // undefined 를 대입하면 문자열 "undefined" 가 들어가 UTC 로 동작한다 — 원래 없었으면 지운다.
+      if (originalTz === undefined) delete process.env.TZ;
+      else process.env.TZ = originalTz;
+    });
+
+    it('뉴욕 기기(오전 11:10)에서 저장해도 "저장됨 (오전 12:10:05)" 로 한국 시각을 보인다', async () => {
+      process.env.TZ = 'America/New_York';
+      vi.useFakeTimers({ toFake: ['Date'] });
+      vi.setSystemTime(new Date('2026-11-01T00:10:05+09:00'));
+      const mutateAsync = vi.fn().mockResolvedValue(makeDetail());
+      render(
+        <ClubInfoForm detail={makeDetail()} mode="leader" mutation={{ mutateAsync, isPending: false }} />,
+      );
+      fireEvent.change(screen.getByLabelText('한줄 소개'), { target: { value: '즐거운 코딩' } });
+      fireEvent.click(screen.getByRole('button', { name: '저장' }));
+
+      expect(await screen.findByText('저장됨 (오전 12:10:05)')).toBeInTheDocument();
+    });
   });
 
   it('회비를 회비 없음으로 바꾸면 페이로드 금액이 null 이다', async () => {

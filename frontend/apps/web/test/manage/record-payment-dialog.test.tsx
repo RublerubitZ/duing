@@ -1,6 +1,6 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 const mockRecordMutate = vi.fn();
 let mockRecordError: unknown = null;
@@ -133,5 +133,25 @@ describe('RecordPaymentDialog', () => {
     mockRecordPending = true;
     render(<RecordPaymentDialog clubId={1} bill={buildBill()} memberName="홍길동" onClose={() => {}} />);
     expect(screen.getByRole('status')).toHaveTextContent('납부 기록 중');
+  });
+});
+
+// 기본 날짜(오늘)는 기기 시간대가 아니라 한국 시간이다 — 백엔드 판정(seoulClock)과 같은 기준(TIMEZONE.md).
+describe('RecordPaymentDialog — 기본 납부일은 한국 오늘', () => {
+  const originalTz = process.env.TZ;
+  afterEach(() => {
+    vi.useRealTimers();
+    // undefined 를 대입하면 문자열 "undefined" 가 들어가 UTC 로 동작한다 — 원래 없었으면 지운다.
+    if (originalTz === undefined) delete process.env.TZ;
+    else process.env.TZ = originalTz;
+  });
+
+  it('뉴욕 기기(아직 10/31)에서 한국 11/01 00:10 이면 납부일 기본값은 2026-11-01', () => {
+    process.env.TZ = 'America/New_York';
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-11-01T00:10:00+09:00'));
+    render(<RecordPaymentDialog clubId={1} bill={buildBill()} memberName="김민지" onClose={() => {}} />);
+
+    expect(screen.getByLabelText(/납부일/)).toHaveValue('2026-11-01');
   });
 });

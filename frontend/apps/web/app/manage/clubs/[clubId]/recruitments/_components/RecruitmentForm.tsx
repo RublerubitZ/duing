@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
 import type { QuestionItemPayload, RecruitmentDetail } from '@duing/types';
+import { todayKstDateString } from '@duing/hooks/datetime';
 import { createRecruitmentSchema, updateRecruitmentSchema } from '@duing/schemas';
 import { cn } from '../../../../../_lib/cn';
 import { QuestionBuilder, toBuilderQuestions, toQuestionItemsPayload } from './QuestionBuilder';
@@ -64,10 +65,10 @@ const FIELD_LABELS: Record<string, string> = {
 /**
  * 공개 확인 모달의 제목 — 시작일이 미래면 "지금부터" 가 거짓말이 되므로 실제 공개일을 말한다.
  * startDate 는 `<input type="date">` 가 만든 YYYY-MM-DD 라 조각내 읽는다(bookingDateLabel 과 같은 방식).
- * 오늘 판정은 폼의 종료일 min 과 같은 로컬 기준(en-CA = YYYY-MM-DD, toISOString 은 UTC 라 어긋난다).
+ * 오늘 판정은 폼의 종료일 min·스키마·백엔드와 같은 한국 시간 기준이다(기기 시간대·toISOString(UTC) 은 어긋난다).
  */
 function publishConfirmTitle(startDate: string): string {
-  if (startDate <= new Date().toLocaleDateString('en-CA')) return '지금부터 학생에게 공개돼요';
+  if (startDate <= todayKstDateString(new Date())) return '지금부터 학생에게 공개돼요';
   const [, month, day] = startDate.split('-').map(Number);
   return `${month}월 ${day}일부터 학생에게 공개돼요`;
 }
@@ -692,8 +693,8 @@ export function RecruitmentForm(props: RecruitmentFormProps) {
                   required={!isAlwaysOpen}
                   disabled={isAlwaysOpen}
                   // 생성 시 과거 종료일 차단(zod·BE 와 동일 규칙) — 수정은 기존 과거 종료일 유지가 정당해 제한하지 않는다.
-                  // en-CA 로케일은 사용자 로컬 기준 YYYY-MM-DD (toISOString 은 UTC 라 자정~09시 KST 에 하루 어긋남).
-                  min={isEditMode ? undefined : new Date().toLocaleDateString('en-CA')}
+                  // 오늘은 한국 시간 기준(기기 시간대·toISOString(UTC) 은 하루 어긋날 수 있다).
+                  min={isEditMode ? undefined : todayKstDateString(new Date())}
                   value={isAlwaysOpen ? '' : endDate}
                   onChange={(event) => {
                     setEndDate(event.target.value);

@@ -5,6 +5,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 
 import { ApiError } from '@duing/api';
 import { useRecordPaymentMutation } from '@duing/hooks';
+import { todayKstDateString } from '@duing/hooks/datetime';
 import { recordPaymentSchema } from '@duing/schemas';
 import type { RecordPaymentInput } from '@duing/schemas';
 import type { FeeBill } from '@duing/types';
@@ -37,15 +38,6 @@ const errorInputCls = 'border-coral focus-visible:border-coral focus-visible:rin
 // 수동 기록 가능한 납부 수단(AUTO_MATCHED 제외) — 스키마 enum 과 동일 순서.
 const METHOD_OPTIONS: RecordPaymentInput['method'][] = ['CASH', 'TRANSFER', 'OTHER'];
 
-// 오늘 날짜를 LOCAL 기준 YYYY-MM-DD 로 만든다(toISOString 은 UTC 라 KST 에서 하루 어긋날 수 있음).
-function todayLocalDate(): string {
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, '0');
-  const day = String(now.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-}
-
 export function RecordPaymentDialog({
   clubId,
   bill,
@@ -64,7 +56,7 @@ export function RecordPaymentDialog({
     defaultValues: {
       amount: bill.remainingAmount,
       method: 'CASH',
-      paidAt: todayLocalDate(),
+      paidAt: todayKstDateString(new Date()),
       memo: '',
     },
   });
