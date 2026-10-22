@@ -20,6 +20,7 @@ import type {
   SubmitSuccessionRequestPayload,
   SubmitReportPayload,
   SubmitPromotionRequestPayload,
+  LatestPromotionRequest,
   ApiResponse,
   PageResponse,
   ClubDetail,
@@ -467,6 +468,8 @@ export type DuingApiClient = {
   };
   promotionRequests: {
     submit(clubId: number, payload: SubmitPromotionRequestPayload): Promise<number>;
+    /** 이 동아리의 가장 최근 홍보 요청 1건. 요청한 적이 없으면 null (200 + data:null). */
+    latest(clubId: number): Promise<LatestPromotionRequest | null>;
   };
   clubMembership: {
     /** 해당 동아리의 멤버가 아니면 null (200 + data:null). 접근 거부(비 ACTIVE 동아리 등)만 ApiError. */
@@ -1237,6 +1240,8 @@ export function createApiClient(options: CreateApiClientOptions): DuingApiClient
         jsonOk<number>(
           http.post(`clubs/${clubId}/promotion-requests`, { json: payload }),
         ),
+      latest: (clubId) =>
+        jsonOkNullable<LatestPromotionRequest>(http.get(`clubs/${clubId}/promotion-requests/latest`)),
     },
     clubMembership: {
       get: (clubId) =>

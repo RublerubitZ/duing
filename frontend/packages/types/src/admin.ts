@@ -1,6 +1,7 @@
 import type { ClubCategory, ClubStatus } from './club';
 import type { College, Grade } from './user';
 import type { ClubMemberRole } from './clubmember';
+import type { IsoInstantString } from './datetime';
 import type { UserRole } from './user';
 
 /**
@@ -355,6 +356,16 @@ export type SubmitPromotionRequestPayload = {
   description: string;
   suggestedBannerImageUrl?: string;
   suggestedLinkUrl?: string;
+};
+
+/** 운영진이 보는 이 동아리의 최근 홍보 요청 1건. 처리자 정보는 내려오지 않는다. */
+export type LatestPromotionRequest = {
+  requestId: number;
+  status: PromotionRequestStatus;
+  title: string;
+  actionNote: string | null;
+  createdAt: IsoInstantString;
+  handledAt: IsoInstantString | null;
 };
 
 // ─── 홍보 배너 ──────────────────────────────────────────────────────────────
