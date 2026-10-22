@@ -668,4 +668,31 @@ describe('RoundWizard — 면접 라운드 생성 wizard', () => {
       screen.getByText('미결정(지원 완료·보류)', { selector: 'h3' }),
     );
   });
+
+  it('13. 그룹 전체 선택의 라벨(넓힌 터치 영역)을 누르면 그 그룹 후보가 모두 선택된다', async () => {
+    server.use(
+      http.get(`*/recruitments/${RECRUITMENT_ID}/interview-round-candidates`, ({ request }) => {
+        const url = new URL(request.url);
+        const include = url.searchParams.get('includeUndecided') === 'true';
+        return handleCandidates(include);
+      }),
+      http.get(`*/recruitments/${RECRUITMENT_ID}/interview-rounds`, () => handleEmptyRoundList()),
+    );
+
+    renderWizard();
+
+    await waitFor(() => screen.getByText('미결정(지원 완료·보류)', { selector: 'h3' }));
+
+    const groupCheckbox = screen.getByRole('checkbox', { name: '미결정(지원 완료·보류) 전체 선택' });
+    const groupLabel = groupCheckbox.closest('label');
+    if (!groupLabel) throw new Error('그룹 전체 선택 체크박스를 감싼 label 이 없다');
+    await userEvent.click(groupLabel);
+
+    expect(groupCheckbox).toBeChecked();
+    expect(screen.getByRole('checkbox', { name: '김지원 선택' })).toBeChecked();
+    expect(screen.getByRole('checkbox', { name: '박보류 선택' })).toBeChecked();
+    // 다른 그룹(면접 대상)은 건드리지 않는다
+    expect(screen.getByRole('checkbox', { name: '이면접 선택' })).not.toBeChecked();
+    expect(screen.getByText(/2명 선택/)).toBeInTheDocument();
+  });
 });
