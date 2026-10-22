@@ -47,7 +47,7 @@ describe('StatusActionBar', () => {
     mockIsPending = false;
   });
 
-  it('ON_HOLD + useInterview=true 면 면접대기와 불합격 버튼이 노출되고 합격 버튼은 없다', () => {
+  it('ON_HOLD + useInterview=true 면 면접 대상과 불합격 버튼이 노출되고 합격 버튼은 없다', () => {
     renderBar(<StatusActionBar applicationId={1} recruitmentId={1} currentStatus="ON_HOLD" useInterview />);
     expect(inBottomBar().getByRole('button', { name: /면접 대상/ })).toBeInTheDocument();
     const buttonTexts = inBottomBar()

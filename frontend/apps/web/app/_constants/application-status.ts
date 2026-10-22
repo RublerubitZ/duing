@@ -35,6 +35,15 @@ export const APPLICATION_STATUS_APPLICANT_LABEL: Record<ApplicationStatus, strin
   REJECTED: '최종 불합격',
 };
 
+/** 검토 대기 = 지원 완료 + 보류(면접 대상 제외). 합산 타일·할 일 라벨 — 계산은 hooks `countAwaitingReview`. */
+export const APPLICATION_AWAITING_REVIEW_LABEL = '검토 대기';
+
+/**
+ * 미확정 = 결과(합격·불합격)가 아직 없는 지원 — hooks `countUndecided` 집합 전용.
+ * "면접 결과 미확정"·"면접 일정 미확정"처럼 다른 집합을 가리키는 표기에는 쓰지 말 것.
+ */
+export const APPLICATION_UNDECIDED_LABEL = '미확정';
+
 // 기존 호출자(모두 운영진 UI) backward compat alias.
 // 신규 코드는 audience 가 명시적인 OPERATOR / APPLICANT 상수를 직접 import 한다.
 export const APPLICATION_STATUS_LABEL = APPLICATION_STATUS_OPERATOR_LABEL;

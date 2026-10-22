@@ -48,7 +48,7 @@ const CANDIDATE_ON_HOLD = {
   submittedAt: '2026-06-01T10:30:00',
 };
 
-/** 면접 대기 후보 1건 */
+/** 면접 대상 후보 1건 */
 const CANDIDATE_INTERVIEW_PENDING = {
   applicationId: 2,
   userId: 102,
@@ -168,7 +168,7 @@ function renderWizard() {
 // ── 테스트 9건 ───────────────────────────────────────────────────────────────
 
 describe('RoundWizard — 면접 라운드 생성 wizard', () => {
-  it('1. 후보 목록이 미결정과 면접 대기 그룹으로 나뉘어 보인다', async () => {
+  it('1. 후보 목록이 미결정과 면접 대상 그룹으로 나뉘어 보인다', async () => {
     server.use(
       http.get(`*/recruitments/${RECRUITMENT_ID}/interview-round-candidates`, ({ request }) => {
         const url = new URL(request.url);
@@ -182,15 +182,19 @@ describe('RoundWizard — 면접 라운드 생성 wizard', () => {
 
     await waitFor(() => {
       // 그룹 헤더 (h3)
-      expect(screen.getByText('미결정(지원·보류)', { selector: 'h3' })).toBeInTheDocument();
-      expect(screen.getByText('면접 대기', { selector: 'h3' })).toBeInTheDocument();
+      expect(screen.getByText('미결정(지원 완료·보류)', { selector: 'h3' })).toBeInTheDocument();
+      expect(screen.getByText('면접 대상', { selector: 'h3' })).toBeInTheDocument();
     });
 
     // 미결정 그룹은 SUBMITTED·ON_HOLD 를 함께 담는다 (상태 뱃지는 운영진 라벨)
     expect(screen.getByText('지원 완료')).toBeInTheDocument();
     expect(screen.getByText('보류')).toBeInTheDocument();
-    expect(screen.getByText('면접 대상')).toBeInTheDocument();
+    // 그룹 헤더도 "면접 대상"이라 배지(span)로 좁힌다
+    expect(screen.getByText('면접 대상', { selector: 'span' })).toBeInTheDocument();
     expect(screen.getByText('(2명)')).toBeInTheDocument();
+    // 옛 그룹 헤더 표기는 남지 않는다
+    expect(screen.queryByText('미결정(지원·보류)')).not.toBeInTheDocument();
+    expect(screen.queryByText('면접 대기')).not.toBeInTheDocument();
   });
 
   it('2. 미결정 포함 토글을 끄면 대기열만 다시 조회한다', async () => {
@@ -210,7 +214,7 @@ describe('RoundWizard — 면접 라운드 생성 wizard', () => {
 
     // 초기 로드 완료 대기 (그룹 헤더 h3 기준)
     await waitFor(() => {
-      expect(screen.getByText('미결정(지원·보류)', { selector: 'h3' })).toBeInTheDocument();
+      expect(screen.getByText('미결정(지원 완료·보류)', { selector: 'h3' })).toBeInTheDocument();
     });
 
     // 토글 끄기
@@ -223,7 +227,7 @@ describe('RoundWizard — 면접 라운드 생성 wizard', () => {
 
     // 미결정 그룹 헤더(h3)가 사라져야 함
     await waitFor(() => {
-      expect(screen.queryByText('미결정(지원·보류)', { selector: 'h3' })).not.toBeInTheDocument();
+      expect(screen.queryByText('미결정(지원 완료·보류)', { selector: 'h3' })).not.toBeInTheDocument();
     });
   });
 
@@ -240,7 +244,7 @@ describe('RoundWizard — 면접 라운드 생성 wizard', () => {
     renderWizard();
 
     await waitFor(() => {
-      expect(screen.getByText('미결정(지원·보류)', { selector: 'h3' })).toBeInTheDocument();
+      expect(screen.getByText('미결정(지원 완료·보류)', { selector: 'h3' })).toBeInTheDocument();
     });
 
     // 선택 0 → [다음] disabled
@@ -281,7 +285,7 @@ describe('RoundWizard — 면접 라운드 생성 wizard', () => {
     renderWizard();
 
     await waitFor(() => {
-      expect(screen.getByText('미결정(지원·보류)', { selector: 'h3' })).toBeInTheDocument();
+      expect(screen.getByText('미결정(지원 완료·보류)', { selector: 'h3' })).toBeInTheDocument();
     });
 
     // 미결정 후보 선택
@@ -342,7 +346,7 @@ describe('RoundWizard — 면접 라운드 생성 wizard', () => {
     renderWizard();
 
     // Step1 → 후보 선택 → Step2 → 라운드 생성 → Step3
-    await waitFor(() => screen.getByText('미결정(지원·보류)', { selector: 'h3' }));
+    await waitFor(() => screen.getByText('미결정(지원 완료·보류)', { selector: 'h3' }));
     await userEvent.click(screen.getByRole('checkbox', { name: /김지원 선택/ }));
     await userEvent.click(screen.getByRole('button', { name: /다음/ }));
     await waitFor(() => screen.getByLabelText(/라운드 제목/));
@@ -391,7 +395,7 @@ describe('RoundWizard — 면접 라운드 생성 wizard', () => {
     renderWizard();
 
     // Step1 → 2 → 3 → 4
-    await waitFor(() => screen.getByText('미결정(지원·보류)', { selector: 'h3' }));
+    await waitFor(() => screen.getByText('미결정(지원 완료·보류)', { selector: 'h3' }));
     await userEvent.click(screen.getByRole('checkbox', { name: /김지원 선택/ }));
     await userEvent.click(screen.getByRole('button', { name: /다음/ }));
     await waitFor(() => screen.getByLabelText(/라운드 제목/));
@@ -435,7 +439,7 @@ describe('RoundWizard — 면접 라운드 생성 wizard', () => {
     renderWizard();
 
     // Step1 → 2 → 3 → 4
-    await waitFor(() => screen.getByText('미결정(지원·보류)', { selector: 'h3' }));
+    await waitFor(() => screen.getByText('미결정(지원 완료·보류)', { selector: 'h3' }));
     await userEvent.click(screen.getByRole('checkbox', { name: /김지원 선택/ }));
     await userEvent.click(screen.getByRole('button', { name: /다음/ }));
     await waitFor(() => screen.getByLabelText(/라운드 제목/));
@@ -518,7 +522,7 @@ describe('RoundWizard — 면접 라운드 생성 wizard', () => {
 
     // Step1 노출 (그룹 헤더 h3 기준)
     await waitFor(() => {
-      expect(screen.getByText('미결정(지원·보류)', { selector: 'h3' })).toBeInTheDocument();
+      expect(screen.getByText('미결정(지원 완료·보류)', { selector: 'h3' })).toBeInTheDocument();
     });
   });
 
@@ -545,7 +549,7 @@ describe('RoundWizard — 면접 라운드 생성 wizard', () => {
 
     // includeUndecided=true 상태에서 미결정 후보(김지원) 선택
     await waitFor(() => {
-      expect(screen.getByText('미결정(지원·보류)', { selector: 'h3' })).toBeInTheDocument();
+      expect(screen.getByText('미결정(지원 완료·보류)', { selector: 'h3' })).toBeInTheDocument();
     });
     await userEvent.click(screen.getByRole('checkbox', { name: /김지원 선택/ }));
 
@@ -554,7 +558,7 @@ describe('RoundWizard — 면접 라운드 생성 wizard', () => {
     await userEvent.click(toggle);
 
     await waitFor(() => {
-      expect(screen.queryByText('미결정(지원·보류)', { selector: 'h3' })).not.toBeInTheDocument();
+      expect(screen.queryByText('미결정(지원 완료·보류)', { selector: 'h3' })).not.toBeInTheDocument();
     });
 
     // INTERVIEW_PENDING 후보(이면접) 추가 선택
@@ -604,7 +608,7 @@ describe('RoundWizard — 면접 라운드 생성 wizard', () => {
     renderWizard();
 
     // Step1 → 후보 선택 → Step2 → 라운드 생성 → Step3
-    await waitFor(() => screen.getByText('미결정(지원·보류)', { selector: 'h3' }));
+    await waitFor(() => screen.getByText('미결정(지원 완료·보류)', { selector: 'h3' }));
     await userEvent.click(screen.getByRole('checkbox', { name: /김지원 선택/ }));
     await userEvent.click(screen.getByRole('button', { name: /다음/ }));
     await waitFor(() => screen.getByLabelText(/라운드 제목/));
