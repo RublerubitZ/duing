@@ -246,8 +246,9 @@ export default function RecruitmentDetailPage({
         </div>
       )}
 
-      {/* 지원 현황 요약 — 통계 페이지 진입 전 핵심 지표 미리보기 */}
-      {statsSummary && (
+      {/* 지원 현황 요약 — 통계 페이지 진입 전 핵심 지표 미리보기.
+          외부 폼은 지원 데이터가 없어 0 만 나오므로 감춘다(조회는 삭제 판정에 필요해 그대로 둔다). */}
+      {!isExternal && statsSummary && (
         <div className="mb-5 flex flex-wrap items-center gap-x-6 gap-y-2 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3">
           <div className="flex items-baseline gap-1.5">
             <span className="text-xs text-slate-500">지원자</span>

@@ -28,7 +28,10 @@ function KpiTile({ label, value, sub }: KpiTileProps) {
  * 4타일이 지원자 관리 화면의 상태 필터와 1:1 대응하므로 "보고 → 처리" 동선이 이어진다.
  */
 export function RecruitmentKpiRow({ recruitment }: Props) {
-  const { data: summary } = useRecruitmentStatsSummaryQuery(recruitment.id);
+  // 외부 폼은 지원 데이터가 없어 조회하지 않는다 — 0 대신 총동연과 같은 "—"(아무도 안 냈다로 읽히지 않게).
+  const { data: summary } = useRecruitmentStatsSummaryQuery(
+    recruitment.applicationMode === 'EXTERNAL' ? undefined : recruitment.id,
+  );
 
   const interviewPendingValue = !recruitment.useInterview
     ? '—'

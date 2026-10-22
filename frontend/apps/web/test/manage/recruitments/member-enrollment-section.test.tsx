@@ -238,6 +238,16 @@ describe('모집 상세 — 모드별 회원 등록 영역', () => {
     expect(screen.queryByRole('link', { name: '통계' })).not.toBeInTheDocument();
   });
 
+  it('외부 폼 모집 상세에는 지원 현황 요약 줄을 두지 않고 삭제 버튼은 통계 도착 뒤 그대로 열린다', async () => {
+    setupExternal({ status: 'CLOSED' });
+
+    renderPage();
+
+    // 삭제 판정이 통계 도착에 기대므로 통계 조회는 그대로다 — 버튼이 열린 뒤에 요약 줄 부재를 본다
+    await waitFor(() => expect(screen.getByRole('button', { name: '삭제' })).toBeEnabled());
+    expect(screen.queryByText(/합격률/)).toBeNull();
+  });
+
   it('외부 폼 모집이면 헤더에 "외부 폼 모집" 배지와 플랫폼명을 함께 보여준다', async () => {
     setupExternal();
 
