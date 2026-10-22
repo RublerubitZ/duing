@@ -100,6 +100,19 @@ describe('AdminClubDeleteDialog', () => {
     expect(screen.getByRole('button', { name: '삭제' })).toBeDisabled();
   });
 
+  it('되돌릴 수 없다는 경고에 결과가 정해지지 않은 지원이 불합격으로 처리된다고 함께 알린다', () => {
+    render(
+      <AdminClubDeleteDialog
+        club={makeClub()}
+        isPending={false}
+        errorMessage={null}
+        onConfirm={vi.fn()}
+        onCancel={vi.fn()}
+      />,
+    );
+    expect(screen.getByText(/결과가 정해지지 않은 지원은 불합격으로 처리됩니다\./)).toBeInTheDocument();
+  });
+
   it('처리 실패 문구는 role="alert" 로 노출되어 스크린리더가 읽는다', () => {
     render(
       <AdminClubDeleteDialog

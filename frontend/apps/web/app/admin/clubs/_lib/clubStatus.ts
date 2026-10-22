@@ -75,7 +75,7 @@ export const STATUS_ACTIONS: Record<ClubStatus, ReadonlyArray<StatusAction>> = {
       nextStatus: 'ACTIVE',
       tone: 'primary',
       description:
-        '운영 중단을 해제하고 학생 탐색 페이지에 다시 노출시킵니다. 중단 시 마감된 모집은 복구되지 않으므로 새로 등록해야 합니다.',
+        '운영 중단을 해제하고 학생 탐색 페이지에 다시 노출시킵니다. 중단 시 마감된 모집은 복구되지 않으므로 새로 등록해야 합니다. 결과가 정해지지 않은 지원은 운영진이 이어서 결과를 확정할 수 있습니다.',
     },
   ],
   REJECTED: [
