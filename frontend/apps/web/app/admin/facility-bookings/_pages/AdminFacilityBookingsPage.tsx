@@ -153,9 +153,12 @@ export function AdminFacilityBookingsPage() {
       </div>
 
       {/* 워크플로 레일(목업 FacSubmitStepper) — 카드형 레일, 지난 단계 ✓ · 현재 단계 ink-deep 블록.
-          시각은 스테퍼지만 동작은 자유 이동 탭이다(운영 루프는 순환). */}
+          시각은 스테퍼지만 동작은 자유 이동 탭이다(운영 루프는 순환).
+          xl(1280) 미만은 활성 단계만 이름을 보이는 압축 레일이다(#1504) — md 부터 사이드바가 붙어 본문이 좁아, 6단계 이름·화살표를
+          다 넣으면 640~768 은 레일이 본문 밖으로 화면을 밀고 1024 는 이름이 한 글자씩 세로로 꺾였다. 390 은 버튼 밖에 떠 있던
+          sr-only 이름 상자(→ 버튼 relative)와 빈 이름 칸의 간격(→ 이름 칸째 sr-only)이 넘쳤다. 그래도 넘치면 레일 안에서만 스크롤. */}
       <div
-        className="flex items-stretch gap-1 rounded-2xl border border-line bg-paper p-2"
+        className="flex items-stretch gap-1 overflow-x-auto rounded-2xl border border-line bg-paper p-2"
         role="tablist"
         aria-label="시설 예약 업무 단계"
       >
@@ -172,8 +175,9 @@ export function AdminFacilityBookingsPage() {
                 aria-controls={`facility-ops-panel-${tab}`}
                 aria-selected={isActive}
                 onClick={() => selectTab(tab)}
-                className={`flex flex-1 items-center gap-2 rounded-[11px] px-2 py-3 text-left motion-safe:transition-colors sm:gap-2.5 sm:px-4 ${
-                  isActive ? 'bg-ink-deep' : 'hover:bg-graysoft/60'
+                className={`relative flex flex-1 items-center gap-2 rounded-[11px] py-3 text-left motion-safe:transition-colors xl:gap-2.5 xl:px-4 ${
+                  // 압축 레일의 비활성 단계는 번호 원만 — 여백을 줄여(390 에서 활성 이름이 긴 단계·경고 점까지 한 줄) 가운데 둔다.
+                  isActive ? 'bg-ink-deep px-2' : 'justify-center px-1 hover:bg-graysoft/60 xl:justify-start'
                 }`}
               >
                 <span
@@ -206,12 +210,12 @@ export function AdminFacilityBookingsPage() {
                 {tab === 'review' && conflictAttentionCount > 0 && (
                   <span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-full bg-coral" />
                 )}
-                <span className="min-w-0">
-                  {/* 모바일은 활성 단계명만 노출 — 비활성 탭은 sr-only 로 접근성 이름을 유지한다. */}
+                {/* xl 미만은 활성 단계명만 노출 — 비활성 탭은 이름 칸째로 sr-only 라 빈 칸이 간격을 차지하지 않고, 접근성 이름은 유지된다. */}
+                <span className={`min-w-0 ${isActive ? '' : 'sr-only xl:not-sr-only'}`}>
                   <span
                     className={`block truncate text-[13.5px] font-bold leading-tight ${
                       isActive ? 'text-paper' : isDone ? 'text-ink-deep' : 'text-charcoal-2'
-                    } ${isActive ? '' : 'sr-only sm:not-sr-only sm:block'}`}
+                    }`}
                   >
                     {TAB_LABELS[tab]}
                   </span>
@@ -222,7 +226,7 @@ export function AdminFacilityBookingsPage() {
                       <span
                         className={`mt-0.5 block tabular-nums text-[11px] ${
                           isActive ? 'text-sage' : 'text-charcoal-3'
-                        } ${isActive ? '' : 'sr-only sm:not-sr-only sm:block'}`}
+                        }`}
                         title={tab === 'prepare' ? '오늘~다음 달 말일 기준' : undefined}
                       >
                         {tabCount}건
@@ -232,7 +236,7 @@ export function AdminFacilityBookingsPage() {
                 </span>
               </button>
               {stepIndex < TAB_KEYS.length - 1 && (
-                <span aria-hidden className="hidden items-center sm:flex">
+                <span aria-hidden className="hidden items-center xl:flex">
                   <svg
                     viewBox="0 0 24 24"
                     fill="none"

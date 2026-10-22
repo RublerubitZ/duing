@@ -183,6 +183,23 @@ describe('AdminFacilityBookingsPage', () => {
     expect(screen.getByRole('button', { name: /오늘 접수/ })).toBeInTheDocument();
   });
 
+  it('업무 단계 레일은 xl(1280) 미만에서 압축되고(비활성 이름 칸이 흐름에서 빠짐·화살표 숨김) 넘치면 레일 안에서만 스크롤된다', () => {
+    render(<AdminFacilityBookingsPage />);
+
+    // jsdom 은 폭을 못 재므로 의도 클래스로 못박는다(넘침 실측은 브라우저 QA — #1504)
+    const stepper = screen.getByRole('tablist', { name: '시설 예약 업무 단계' });
+    expect(stepper).toHaveClass('overflow-x-auto');
+    const activeTab = screen.getByRole('tab', { name: /예약 검토/ });
+    const inactiveTab = screen.getByRole('tab', { name: /제출 준비/ });
+    expect(inactiveTab).toHaveClass('relative', 'px-1', 'justify-center', 'xl:justify-start', 'xl:gap-2.5', 'xl:px-4');
+    // 비활성 단계는 이름 칸째로 sr-only — 빈 칸이 간격을 차지하지 않고, 접근성 이름은 위 getByRole 이 확인한다
+    expect(within(inactiveTab).getByText('제출 준비').parentElement).toHaveClass('sr-only', 'xl:not-sr-only');
+    // 활성 단계 이름은 어느 폭에서나 보인다
+    expect(within(activeTab).getByText('예약 검토').parentElement).not.toHaveClass('sr-only');
+    // 단계 사이 화살표 5개는 xl 부터
+    expect(stepper.querySelectorAll(':scope > span.xl\\:flex')).toHaveLength(5);
+  });
+
   it('스테퍼 "제출 준비" 건수는 준비 탭 기본 기간(오늘~다음 달 말일)으로 조회한다', () => {
     render(<AdminFacilityBookingsPage />);
     expect(mockCandidatesQuery).toHaveBeenCalledWith(defaultSubmissionRange());
