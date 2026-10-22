@@ -8,7 +8,7 @@ import { DDayBadge } from '@/app/manage/_components/DDayBadge';
 import { recruitmentStatusChip } from '@/app/_lib/recruitmentDisplay';
 
 export function ActiveRecruitmentsCard({ clubId }: { clubId: number }) {
-  const { data, isLoading } = useActiveRecruitments(clubId);
+  const { data, isLoading, isError } = useActiveRecruitments(clubId);
   const recruitments = data ?? [];
   const now = new Date();
 
@@ -17,6 +17,7 @@ export function ActiveRecruitmentsCard({ clubId }: { clubId: number }) {
       title="진행 중 모집"
       badge={recruitments.length > 0 ? <span className="text-xs text-charcoal-3">{recruitments.length}건</span> : undefined}
       isLoading={isLoading}
+      isError={isError}
       isEmpty={!isLoading && recruitments.length === 0}
       emptyText="진행 중인 모집이 없어요"
     >

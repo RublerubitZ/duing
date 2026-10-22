@@ -7,7 +7,7 @@ import { toRoute } from '@/app/_lib/route';
 import { DashboardCard } from './DashboardCard';
 
 export function ApplicantSummaryCard({ clubId }: { clubId: number }) {
-  const { totals, isLoading } = useApplicantSummary(clubId);
+  const { totals, isLoading, isError } = useApplicantSummary(clubId);
 
   const statCards: Array<{ label: string; value: number }> = [
     { label: APPLICATION_STATUS_OPERATOR_LABEL.SUBMITTED, value: totals.submitted },
@@ -22,6 +22,7 @@ export function ApplicantSummaryCard({ clubId }: { clubId: number }) {
       title="지원자 현황"
       badge={<span className="text-xs text-charcoal-3">총 {totals.total}명</span>}
       isLoading={isLoading}
+      isError={isError}
       isEmpty={!isLoading && totals.total === 0}
       emptyText="집계할 지원자 데이터가 없어요"
       footer={

@@ -36,13 +36,14 @@ function contextText(item: ActionItem): string {
 }
 
 export function ActionItemsCard({ clubId }: { clubId: number }) {
-  const { preview, totalCount, isLoading } = useClubActionItems(clubId);
+  const { preview, totalCount, isLoading, isError } = useClubActionItems(clubId);
 
   return (
     <DashboardCard
       title="처리 필요 업무"
       badge={totalCount > 0 ? <span className="rounded-full bg-ink px-2 py-0.5 text-xs font-semibold text-paper">{totalCount}</span> : undefined}
       isLoading={isLoading}
+      isError={isError}
       isEmpty={!isLoading && totalCount === 0}
       emptyText="처리할 업무가 없어요"
       footer={totalCount > preview.length ? <p className="text-xs text-charcoal-3">전체 {totalCount}건</p> : undefined}
