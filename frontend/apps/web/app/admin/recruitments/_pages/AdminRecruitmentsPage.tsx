@@ -5,13 +5,17 @@ import { useState } from 'react';
 import { useAdminRecruitmentsQuery } from '@duing/hooks';
 import type { AdminRecruitmentSort, ApplicationMode, RecruitmentStatus } from '@duing/types';
 
+import { APPLICATION_STATUS_OPERATOR_LABEL } from '@/app/_constants/application-status';
 import { toRoute } from '@/app/_lib/route';
 import { useGuardedRouter } from '@/app/_lib/useGuardedRouter';
 import { ListRowsSkeleton } from '@/components/loading/Skeleton';
 import { ConsoleCard } from '../../_components/ConsoleCard';
 import { ErrorState } from '../../_components/ErrorState';
 import { useDebouncedValue } from '../../_hooks/useDebouncedValue';
-import { AdminRecruitmentsTable } from '../_components/AdminRecruitmentsTable';
+import {
+  AdminRecruitmentsTable,
+  PENDING_ATTENTION_DAYS,
+} from '../_components/AdminRecruitmentsTable';
 
 const STATUS_OPTIONS: { label: string; value?: RecruitmentStatus }[] = [
   { label: '전체 상태', value: undefined },
@@ -59,6 +63,12 @@ export function AdminRecruitmentsPage() {
         <h1 className="text-[22px] font-bold text-ink">모집 관리</h1>
         <p className="mt-1 text-[13.5px] text-charcoal-2">
           전 동아리의 모집 현황을 한 자리에서 보고, 방치된 모집을 강제로 마감합니다.
+        </p>
+        {/* 툴팁은 터치 기기에서 열 수 없어 보이는 한 줄로 둔다 — 운영진 대시보드 "검토 대기"(보류 포함)와 정의가 다르다. */}
+        <p className="mt-1 text-[12.5px] text-charcoal-3">
+          미처리는 아직 &apos;{APPLICATION_STATUS_OPERATOR_LABEL.SUBMITTED}&apos; 그대로인 지원서
+          수입니다. &apos;{APPLICATION_STATUS_OPERATOR_LABEL.ON_HOLD}&apos;로 옮긴 지원서는 처리한
+          것으로 보며, {PENDING_ATTENTION_DAYS}일째부터 강조합니다.
         </p>
       </header>
 

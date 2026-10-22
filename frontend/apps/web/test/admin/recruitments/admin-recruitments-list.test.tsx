@@ -107,6 +107,17 @@ describe('관리자 모집 목록', () => {
     expect(screen.getByText('보컬 추가 모집')).toBeInTheDocument();
   });
 
+  it('미처리 열이 무엇을 세는지 보이는 한 줄로 안내한다', () => {
+    // 툴팁은 터치 기기에서 열 수 없다 — 운영진 대시보드 "검토 대기"(보류 포함)와 정의가 달라 화면에 적어 둔다.
+    render(<AdminRecruitmentsPage />);
+
+    expect(
+      screen.getByText(
+        "미처리는 아직 '지원 완료' 그대로인 지원서 수입니다. '보류'로 옮긴 지원서는 처리한 것으로 보며, 7일째부터 강조합니다.",
+      ),
+    ).toBeInTheDocument();
+  });
+
   it('외부 폼 모집의 지원자 수는 0 이 아니라 해당 없음(—)으로 읽힌다', () => {
     mockRecruitmentsQuery.mockReturnValue(
       listSuccess([
