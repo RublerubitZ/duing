@@ -1,7 +1,7 @@
 import { render, screen, fireEvent } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import type { AdminClubSummary } from '@duing/types';
-import type { StatusAction } from '../../../app/admin/clubs/_lib/clubStatus';
+import { STATUS_ACTIONS, type StatusAction } from '../../../app/admin/clubs/_lib/clubStatus';
 import { AdminClubStatusChangeDialog } from '../../../app/admin/clubs/_components/AdminClubStatusChangeDialog';
 
 /* ── 테스트 데이터 헬퍼 ───────────────────────────────────────── */
@@ -124,5 +124,23 @@ describe('AdminClubStatusChangeDialog', () => {
 
     rerender(<AdminClubStatusChangeDialog {...props} isPending={false} />);
     expect(screen.getByRole('status')).toBeEmptyDOMElement();
+  });
+
+  it('운영 중단 확인창은 결과 없는 지원이 학생에게 "결과 미발표"로 남고 재활성하면 확정할 수 있다고 안내한다', () => {
+    const deactivate = STATUS_ACTIONS.ACTIVE.find((action) => action.nextStatus === 'INACTIVE');
+    if (!deactivate) throw new Error('운영 중단 액션이 없습니다.');
+    render(
+      <AdminClubStatusChangeDialog
+        club={makeClub({ status: 'ACTIVE' })}
+        action={deactivate}
+        isPending={false}
+        errorMessage={null}
+        onConfirm={vi.fn()}
+        onCancel={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText(/'결과 미발표'로 남고/)).toBeInTheDocument();
+    expect(screen.getByText(/재활성하면 운영진이 결과를 확정할 수 있습니다/)).toBeInTheDocument();
   });
 });
