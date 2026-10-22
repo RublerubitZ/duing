@@ -22,16 +22,18 @@ describe('DashboardCard', () => {
     expect(screen.getByText('내용')).toBeInTheDocument();
   });
 
-  it('조회에 실패해 비었으면 빈 문구·배지·푸터 대신 오류 안내를 표시한다', () => {
+  it('조회에 실패해 비었으면 빈 문구·배지 대신 오류 안내를 표시하고 푸터는 남긴다', () => {
     render(
       <DashboardCard title="처리 필요 업무" badge={<span>0</span>} isError isEmpty emptyText="처리할 업무가 없어요" footer={<p>전체 보기</p>}>
         <div>내용</div>
       </DashboardCard>,
     );
-    expect(screen.getByRole('alert')).toHaveTextContent('불러오지 못했어요. 잠시 후 다시 시도해 주세요.');
+    expect(screen.getByText('불러오지 못했어요. 잠시 후 다시 시도해 주세요.')).toBeInTheDocument();
+    // 카드 여러 장이 같은 쿼리로 함께 실패하므로 alert 로 연달아 낭독시키지 않는다
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
     expect(screen.queryByText('처리할 업무가 없어요')).not.toBeInTheDocument();
     expect(screen.queryByText('0')).not.toBeInTheDocument();
-    expect(screen.queryByText('전체 보기')).not.toBeInTheDocument();
+    expect(screen.getByText('전체 보기')).toBeInTheDocument();
     expect(screen.queryByText('내용')).not.toBeInTheDocument();
   });
 
@@ -45,13 +47,13 @@ describe('DashboardCard', () => {
     expect(screen.getByText('3')).toBeInTheDocument();
     expect(screen.getByText('전체 보기')).toBeInTheDocument();
     expect(screen.getByText('일부 정보를 불러오지 못했어요.')).toBeInTheDocument();
-    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(screen.queryByText('불러오지 못했어요. 잠시 후 다시 시도해 주세요.')).not.toBeInTheDocument();
   });
 
   it('로딩 중에는 오류 안내를 표시하지 않는다', () => {
     render(<DashboardCard title="오늘 일정" isLoading isError isEmpty emptyText="오늘 일정이 없어요"><div>내용</div></DashboardCard>);
     expect(screen.getByRole('status', { name: '불러오는 중' })).toBeInTheDocument();
-    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(screen.queryByText('불러오지 못했어요. 잠시 후 다시 시도해 주세요.')).not.toBeInTheDocument();
     expect(screen.queryByText('일부 정보를 불러오지 못했어요.')).not.toBeInTheDocument();
   });
 });

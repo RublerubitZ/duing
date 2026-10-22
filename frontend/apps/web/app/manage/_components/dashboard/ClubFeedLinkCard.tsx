@@ -14,7 +14,7 @@ export function ClubFeedLinkCard({ clubId }: { clubId: number }) {
       title="공지 · 일정"
       isLoading={isLoading}
       isError={isError}
-      // 정상 빈 상태는 아래 children 문구와 바로가기로 보이고, 두 조회가 실패해 0 이 된 경우만 카드의 오류 안내로 보낸다
+      // 정상 빈 상태는 아래 children 문구로 보이고, 한쪽이라도 조회에 실패했고 두 수가 모두 0 인 경우만 카드의 오류 안내로 보낸다
       isEmpty={isError && isEmpty}
       footer={
         <Link href={toRoute(`/clubs/${clubId}`)} className="text-xs font-medium text-ink hover:underline">
