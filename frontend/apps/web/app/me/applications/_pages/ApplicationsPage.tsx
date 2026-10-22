@@ -160,7 +160,7 @@ export function ApplicationsPage({ defaultOpenId = null }: Props) {
   const { data: applicationSummaries, isLoading, isFetching, isError } = useMyApplicationsQuery();
   const hydrated = useHydrated();
   // 정적 HTML·하이드레이션 프레임은 조회가 꺼져 있어 isLoading 이 false 다 — 하이드레이션 전에는 로딩으로 둔다(#1500).
-  // 목록 스켈레톤과 숫자(탭·요약·필터)가 같은 조건을 써야 "불러오는 중인데 0건" 이 보이지 않는다.
+  // 숫자(탭·요약·필터)는 최소한 목록 스켈레톤과 같은 조건에서 숨겨야 "불러오는 중인데 0건" 이 보이지 않는다.
   const listPending = !hydrated || isLoading;
 
   const openApplicationId = openId !== null ? Number(openId) : undefined;
@@ -188,7 +188,8 @@ export function ApplicationsPage({ defaultOpenId = null }: Props) {
     });
     return countMap;
   }, [apps]);
-  const shownCounts = listPending ? null : counts;
+  // 받은 목록이 없으면(첫 조회 실패) 셀 것이 없다 — 0 은 거짓이다. 옛 목록을 든 채 재조회가 실패하면 마지막 숫자를 둔다.
+  const shownCounts = listPending || applicationSummaries === undefined ? null : counts;
 
   const visibleApps = useMemo(() => {
     if (selected.includes('all')) return apps;
