@@ -9,6 +9,7 @@ import { FILTERS } from '@/app/me/applications/_constants/data';
 import { ApplicationsPage } from '@/app/me/applications/_pages/ApplicationsPage';
 
 // 정적 HTML 은 조회가 꺼져 있어 숫자가 전부 0 으로 실렸다 — 목록 스켈레톤과 같은 조건이면 숫자를 그리지 않는다(#1500 후속).
+// 첫 조회가 실패해 받은 목록이 없을 때도 0 은 거짓이라 그리지 않는다.
 
 const mockApplicationsQuery = vi.fn();
 
@@ -66,7 +67,7 @@ afterEach(() => {
   mockApplicationsQuery.mockReset();
 });
 
-describe('지원 내역 — 불러오는 동안 숫자 0 을 그리지 않는다', () => {
+describe('지원 내역 — 불러오는 동안·첫 조회 실패 때 숫자 0 을 그리지 않는다', () => {
   it('서버 렌더(정적 HTML, 조회 꺼짐): 탭·필터 숫자 없음, 요약은 "—"', () => {
     mockApplicationsQuery.mockReturnValue({ data: undefined, isLoading: false, isFetching: false, isError: false });
 
@@ -97,6 +98,24 @@ describe('지원 내역 — 불러오는 동안 숫자 0 을 그리지 않는다
 
     expect(tabTexts(container)).toEqual(labels.map((label) => `${label}0`));
     expect(summaryText(container)).toContain('0건');
+  });
+
+  it('첫 조회가 실패하면(받은 목록 없음) 탭·필터 숫자 없음, 요약은 "—"', () => {
+    mockApplicationsQuery.mockReturnValue({ data: undefined, isLoading: false, isFetching: false, isError: true });
+
+    const { container } = render(tree());
+
+    expect(container.textContent).toContain('지원 내역을 불러오지 못했습니다');
+    expectCountsHidden(container);
+  });
+
+  it('옛 목록을 든 채 다시 불러오다 실패하면 마지막으로 받은 숫자를 둔다', () => {
+    mockApplicationsQuery.mockReturnValue({ data: rows, isLoading: false, isFetching: false, isError: true });
+
+    const { container } = render(tree());
+
+    expect(tabTexts(container)[0]).toBe('전체2');
+    expect(summaryText(container)).toContain('2건');
   });
 
   it('하이드레이션 직전에 목록이 차 있어도 서버와 같이 하이드레이션하고, 그 뒤 숫자를 채운다', async () => {
