@@ -1,4 +1,5 @@
 import type { ClubStatus } from '@duing/types';
+import { APPLICATION_CLOSED_WITHOUT_RESULT_LABEL } from '@/app/_constants/application-status';
 
 export const STATUS_LABEL: Record<ClubStatus, string> = {
   PENDING_APPROVAL: '승인 대기',
@@ -65,8 +66,7 @@ export const STATUS_ACTIONS: Record<ClubStatus, ReadonlyArray<StatusAction>> = {
       label: '운영 중단',
       nextStatus: 'INACTIVE',
       tone: 'danger',
-      description:
-        '학생 탐색 페이지에서 동아리가 즉시 숨겨지고, 진행 중인 모집은 모두 마감됩니다. 마감은 되돌릴 수 없습니다. 기존 멤버십·지원 이력은 그대로 유지됩니다.',
+      description: `학생 탐색 페이지에서 동아리가 즉시 숨겨지고, 진행 중인 모집은 모두 마감됩니다. 마감은 되돌릴 수 없습니다. 기존 멤버십·지원 이력은 그대로 유지됩니다. 결과가 정해지지 않은 지원은 학생에게 '${APPLICATION_CLOSED_WITHOUT_RESULT_LABEL}'로 남고, 재활성하면 운영진이 결과를 확정할 수 있습니다.`,
     },
   ],
   INACTIVE: [
