@@ -19,7 +19,7 @@ import { applicationModeLabel } from '../_lib/recruitmentLabels';
  * 미처리 지원서가 이 일수 이상 묵으면 강조한다. KST 달력 일수라, 제출 시각 기준(지금 − 168시간)으로 세는
  * 사이드바 뱃지·운영진 리마인더와는 경계에서 하루 미만 어긋날 수 있다(스펙이 허용).
  */
-const PENDING_ATTENTION_DAYS = 7;
+export const PENDING_ATTENTION_DAYS = 7;
 /** 운영진 마지막 접속이 이 일수를 넘으면 강조한다. */
 const OPERATOR_INACTIVE_DAYS = 30;
 const ATTENTION_TEXT_CLASS = 'font-semibold text-coral-deep';
