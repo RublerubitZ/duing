@@ -110,20 +110,26 @@ describe('모집 표시 상태 라벨 — 학생·운영진·총동연이 한 �
 
 describe('모르는 표시 상태 — 라벨·색만 모집마감으로 읽는다', () => {
   // 백엔드가 먼저 배포한 새 표시 상태를 흉내 낸다 — 타입에 없는 값이라 테스트에서만 단언한다.
-  const unknownStatus = 'PAUSED' as unknown as RecruitmentDisplayStatus;
+  // toString 은 Object.prototype 에서 상속한 키라, 판정이 `in`·`??` 로 바뀌면 함수가 새어 나와 걸린다.
+  const unknownStatuses = ['PAUSED', 'toString'] as unknown as RecruitmentDisplayStatus[];
 
-  it('학생 라벨은 빈칸이 아니라 모집마감이다', () => {
+  it.each(unknownStatuses)('%s — 학생 라벨은 빈칸이 아니라 모집마감이다', (unknownStatus) => {
     expect(displayStatusLabel(unknownStatus)).toBe('모집마감');
   });
 
-  it('운영진·총동연 칩은 raw OPEN 이어도 기간 종료가 아니라 모집마감 라벨·색이다', () => {
-    const recruitment: Pick<RecruitmentSummary, 'status' | 'displayStatus'> = {
-      status: 'OPEN',
-      displayStatus: unknownStatus,
-    };
-    const closedChip = recruitmentStatusChip({ status: 'CLOSED', displayStatus: 'CLOSED' });
+  it.each(unknownStatuses)(
+    '%s — 운영진·총동연 칩은 raw OPEN 이어도 기간 종료가 아니라 모집마감 라벨·색이다',
+    (unknownStatus) => {
+      const recruitment: Pick<RecruitmentSummary, 'status' | 'displayStatus'> = {
+        status: 'OPEN',
+        displayStatus: unknownStatus,
+      };
+      const statusChip = recruitmentStatusChip(recruitment);
+      const closedChip = recruitmentStatusChip({ status: 'CLOSED', displayStatus: 'CLOSED' });
 
-    expect(isRecruitmentExpiredOpen(recruitment)).toBe(false);
-    expect(recruitmentStatusChip(recruitment)).toEqual(closedChip);
-  });
+      expect(isRecruitmentExpiredOpen(recruitment)).toBe(false);
+      expect(statusChip.label).toBe('모집마감');
+      expect(statusChip).toEqual(closedChip);
+    },
+  );
 });
