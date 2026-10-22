@@ -50,17 +50,27 @@ function App({ intercepted, headKey, headTitle, detailTitle, inClubsLayout = tru
 
 const nextTask = () => new Promise((resolve) => setTimeout(resolve, 30));
 
+/**
+ * 커밋이 보일 때까지 기다린 뒤 한 번 더 쉬어 뒤따르는 작업(passive·공지 갱신 커밋)을 돌린다 — 부하 걸린 CI 에선 커밋 자체가 30ms 를
+ * 넘겨, 고정 대기만으로는 간헐 실패했다. 상한 1.5초 — 커밋 세 번이 테스트 제한(5초) 안에 들도록.
+ */
+async function settle<T>(committed: () => T): Promise<T> {
+  const result = await vi.waitFor(committed, { timeout: 1500, interval: 5 });
+  await nextTask();
+  return result;
+}
+
 let root: Root | null = null;
 let container: HTMLDivElement | null = null;
 let previousActEnvironment: unknown;
 const regionTexts: string[] = [];
 let regionObserver: MutationObserver | null = null;
 
-async function commit(pathname: string, props: AppProps): Promise<void> {
+async function commit(pathname: string, props: AppProps, expectedTitle: string): Promise<void> {
   navigation.pathname = pathname;
   window.history.pushState(null, '', pathname);
   startTransition(() => root?.render(<App {...props} />));
-  await nextTask();
+  await settle(() => expect(document.title).toBe(expectedTitle));
 }
 
 // 목록 → 인터셉트 상세(데이터가 커밋에 실린 진입).
@@ -70,12 +80,14 @@ async function enterIntercept(): Promise<void> {
   window.history.replaceState(null, '', '/clubs');
   root = createRoot(container);
   startTransition(() => root?.render(<App intercepted={false} headKey="list" headTitle={LIST_TITLE} />));
-  await nextTask();
-  const region = container.querySelector('[role="status"]');
-  if (!region) throw new Error('공지 영역이 없다');
+  const region = await settle(() => {
+    const found = container?.querySelector('[role="status"]');
+    if (!found) throw new Error('공지 영역이 없다');
+    return found;
+  });
   regionObserver = new MutationObserver(() => regionTexts.push(region.textContent ?? ''));
   regionObserver.observe(region, { childList: true, characterData: true, subtree: true });
-  await commit('/clubs/7', { intercepted: true, headKey: 'list', headTitle: LIST_TITLE, detailTitle: '밴드부' });
+  await commit('/clubs/7', { intercepted: true, headKey: 'list', headTitle: LIST_TITLE, detailTitle: '밴드부' }, CLUB_TITLE);
   expect(document.title).toBe(CLUB_TITLE);
 }
 
@@ -101,14 +113,14 @@ afterEach(() => {
 describe('ClubsRouteAnnouncer — 인터셉트를 떠나는 전환 커밋(act 없음)', () => {
   it('head 가 다른 화면(같은 레이아웃의 회원 화면)으로 — 탭 제목은 새 화면 것이고 영역은 아무것도 알리지 않는다', async () => {
     await enterIntercept();
-    await commit('/clubs/7/member/notices', { intercepted: false, headKey: 'member', headTitle: SITE_TITLE });
+    await commit('/clubs/7/member/notices', { intercepted: false, headKey: 'member', headTitle: SITE_TITLE }, SITE_TITLE);
     expect(document.title).toBe(SITE_TITLE);
     expect(regionTexts.filter((text) => text !== '')).toEqual([]);
   });
 
   it('clubs 레이아웃 밖 화면으로(프레임이 빠짐) — 탭 제목은 새 화면 것이다', async () => {
     await enterIntercept();
-    await commit('/notices', { intercepted: false, headKey: 'notices', headTitle: SITE_TITLE, inClubsLayout: false });
+    await commit('/notices', { intercepted: false, headKey: 'notices', headTitle: SITE_TITLE, inClubsLayout: false }, SITE_TITLE);
     expect(document.title).toBe(SITE_TITLE);
   });
 });
