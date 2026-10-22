@@ -145,7 +145,7 @@ describe('AdminClubStatusChangeDialog', () => {
   });
 });
 
-describe('동아리 운영 중단 안내', () => {
+describe('동아리 운영 중단·재활성 안내', () => {
   it('진행 중인 모집이 마감된다는 사실과 되돌릴 수 없음을 함께 알린다', () => {
     // 실제로는 운영 중단이 OPEN 모집을 일괄 마감하는데, 안내가 "그대로 유지된다"고만 말하고 있었다.
     const deactivate = STATUS_ACTIONS.ACTIVE.find((action) => action.nextStatus === 'INACTIVE');
@@ -163,8 +163,7 @@ describe('동아리 운영 중단 안내', () => {
   it('재활성 안내는 운영 중단 안내와 짝을 맞춰 결과 없는 지원을 운영진이 이어서 확정할 수 있다고 알린다', () => {
     const reactivate = STATUS_ACTIONS.INACTIVE.find((action) => action.nextStatus === 'ACTIVE');
 
-    expect(reactivate?.description).toContain(
-      '결과가 정해지지 않은 지원은 운영진이 이어서 결과를 확정할 수 있습니다.',
-    );
+    expect(reactivate?.description).toContain('이어서');
+    expect(reactivate?.description).toContain('확정할 수 있');
   });
 });

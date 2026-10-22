@@ -59,7 +59,8 @@ export function AdminClubDeleteDialog({ club, isPending, errorMessage, onConfirm
 
         <div className="space-y-2 rounded-md bg-coral/5 px-3 py-2 text-sm text-coral-deep">
           <p className="font-semibold">되돌릴 수 없습니다.</p>
-          <p className="text-xs">멤버십·진행 중인 모집·지원·면접·인증 요청·홍보가 모두 종료되고, 동아리가 모든 화면에서 사라집니다. 결과가 정해지지 않은 지원은 불합격으로 처리됩니다.</p>
+          <p className="text-xs">멤버십·진행 중인 모집·지원·면접·인증 요청·홍보가 모두 종료되고, 동아리가 모든 화면에서 사라집니다.</p>
+          <p className="text-xs">결과가 정해지지 않은 지원은 불합격으로 처리됩니다.</p>
         </div>
 
         <label className="block space-y-1">
