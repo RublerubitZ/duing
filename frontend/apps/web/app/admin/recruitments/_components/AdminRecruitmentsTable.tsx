@@ -6,14 +6,14 @@ import { daysUntilKst, formatDateTimeKst } from '@duing/hooks/datetime';
 import type { AdminRecruitmentListItem, AdminRecruitmentSummary } from '@duing/types';
 
 import { cn } from '@/app/_lib/cn';
-import { recruitmentPeriodLabel } from '@/app/_lib/recruitmentDisplay';
+import {
+  isRecruitmentExpiredOpen,
+  recruitmentPeriodLabel,
+  recruitmentStatusChip,
+} from '@/app/_lib/recruitmentDisplay';
 import { toRoute } from '@/app/_lib/route';
 import { EmptyState } from '../../_components/EmptyState';
-import {
-  applicationModeLabel,
-  needsOperatorAttention,
-  recruitmentConsoleChip,
-} from '../_lib/recruitmentLabels';
+import { applicationModeLabel } from '../_lib/recruitmentLabels';
 
 /**
  * 미처리 지원서가 이 일수 이상 묵으면 강조한다. KST 달력 일수라, 제출 시각 기준(지금 − 168시간)으로 세는
@@ -98,7 +98,7 @@ export function AdminRecruitmentsTable({ items, onOpenDetail }: Props) {
                   >
                     {recruitment.title}
                   </Link>
-                  {needsOperatorAttention(recruitment) && (
+                  {isRecruitmentExpiredOpen(recruitment) && (
                     <span className="pill-warm shrink-0 whitespace-nowrap rounded-full px-2 py-0.5 text-[11.5px] font-semibold">
                       운영 개입 필요
                     </span>
@@ -195,7 +195,7 @@ const OperatorsLastActiveCell = ({
 
 /** 라벨과 색은 항상 같이 갈리므로 한 번만 계산한다 — 호출부가 같은 조건을 두 번 쓰지 않게. */
 const StatusChip = ({ recruitment }: { recruitment: AdminRecruitmentSummary }) => {
-  const { label, badgeClass } = recruitmentConsoleChip(recruitment);
+  const { label, badgeClass } = recruitmentStatusChip(recruitment);
   return (
     <span
       className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11.5px] font-semibold ${badgeClass}`}

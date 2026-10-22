@@ -10,7 +10,7 @@ import { formatDateTimeKst } from '@duing/hooks/datetime';
 import type { AdminRecruitmentDetail, ForceCloseRecruitmentPayload } from '@duing/types';
 
 import { useToast } from '@/app/_components/toast/ToastProvider';
-import { recruitmentPeriodLabel } from '@/app/_lib/recruitmentDisplay';
+import { recruitmentPeriodLabel, recruitmentStatusChip } from '@/app/_lib/recruitmentDisplay';
 import { toRoute } from '@/app/_lib/route';
 import { ListRowsSkeleton } from '@/components/loading/Skeleton';
 import { ConsoleCard } from '../../_components/ConsoleCard';
@@ -18,10 +18,7 @@ import { ErrorState } from '../../_components/ErrorState';
 import { AdminExternalRecruitmentPanel } from '../_components/AdminExternalRecruitmentPanel';
 import { AdminForceCloseDialog } from '../_components/AdminForceCloseDialog';
 import { AdminSelfRecruitmentPanel } from '../_components/AdminSelfRecruitmentPanel';
-import {
-  applicationModeLabel,
-  recruitmentConsoleChip,
-} from '../_lib/recruitmentLabels';
+import { applicationModeLabel } from '../_lib/recruitmentLabels';
 
 type Props = {
   recruitmentId: number;
@@ -158,7 +155,7 @@ export function AdminRecruitmentDetailPage({ recruitmentId }: Props) {
 
 /** 라벨과 색은 항상 같이 갈리므로 한 번만 계산한다 — 목록의 StatusChip 과 같은 이유다. */
 function StatusChip({ recruitment }: { recruitment: AdminRecruitmentDetail }) {
-  const { label, badgeClass } = recruitmentConsoleChip(recruitment);
+  const { label, badgeClass } = recruitmentStatusChip(recruitment);
   return (
     <span
       className={`inline-flex shrink-0 items-center rounded-full px-2.5 py-1 text-[12px] font-semibold ${badgeClass}`}
