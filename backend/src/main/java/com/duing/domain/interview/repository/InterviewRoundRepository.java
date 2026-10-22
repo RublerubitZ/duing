@@ -2,6 +2,7 @@ package com.duing.domain.interview.repository;
 
 import com.duing.domain.interview.entity.InterviewRound;
 import com.duing.domain.interview.entity.RoundStatus;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import jakarta.persistence.LockModeType;
@@ -44,6 +45,8 @@ public interface InterviewRoundRepository extends JpaRepository<InterviewRound, 
     Optional<Long> findRecruitmentIdById(@Param("id") Long id);
 
     boolean existsByRecruitmentIdAndStatus(Long recruitmentId, RoundStatus status);
+
+    boolean existsByRecruitmentIdAndStatusIn(Long recruitmentId, Collection<RoundStatus> statuses);
 
     List<InterviewRound> findByRecruitmentIdOrderByCreatedAtDesc(Long recruitmentId);
 }

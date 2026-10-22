@@ -9,6 +9,8 @@ import com.duing.domain.fee.job.MonthlyBillIssueJob;
 import com.duing.domain.fee.job.OverdueBillJob;
 import com.duing.domain.notification.job.DeadlineNotificationJob;
 import com.duing.domain.notification.job.InterviewReminderJob;
+import com.duing.domain.recruitment.config.RecruitmentAutoCloseJobConfig;
+import com.duing.domain.recruitment.job.RecruitmentAutoCloseJob;
 import com.duing.global.privacy.PiiRetentionJobConfig;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -37,7 +39,7 @@ class FederationInquiryPurgeSchedulingWiringTest extends IntegrationTestBase {
 
     @Test
     @DisplayName("federation-inquiry.purge 만 켜도 스케줄 설정이 활성화되며 FederationInquiryPurgeJob 은 등록되고, "
-            + "비활성 PII·알림·회비 잡은 함께 깨우지 않는다")
+            + "비활성 PII·알림·회비·모집 자동 마감 잡은 함께 깨우지 않는다")
     void federationInquiryPurgeSchedulesItselfWithoutWakingOtherJobs() {
         // 자기 플래그만으로 스케줄러를 켜는 설정이 등록됐고, 파기 잡 빈도 존재한다.
         assertThat(applicationContext.getBeanNamesForType(FederationInquiryPurgeJobConfig.class)).isNotEmpty();
@@ -48,5 +50,8 @@ class FederationInquiryPurgeSchedulingWiringTest extends IntegrationTestBase {
         assertThat(applicationContext.getBeanNamesForType(InterviewReminderJob.class)).isEmpty();
         assertThat(applicationContext.getBeanNamesForType(OverdueBillJob.class)).isEmpty();
         assertThat(applicationContext.getBeanNamesForType(MonthlyBillIssueJob.class)).isEmpty();
+        // 모집 자동 마감 플래그는 주지 않았다(테스트 설정에도 없음) — 켜지 않으면 잡·설정 모두 등록되지 않는다.
+        assertThat(applicationContext.getBeanNamesForType(RecruitmentAutoCloseJobConfig.class)).isEmpty();
+        assertThat(applicationContext.getBeanNamesForType(RecruitmentAutoCloseJob.class)).isEmpty();
     }
 }
