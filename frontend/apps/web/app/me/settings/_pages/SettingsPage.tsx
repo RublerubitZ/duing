@@ -143,6 +143,8 @@ export function SettingsPage() {
   );
   const joinedCount = myClubsQuery.data?.length ?? 0;
   const savedCount = favoriteListQuery.data?.content.length ?? 0;
+  // 조회 중에는 거짓 0 대신 "—"(#1500) — 하이드레이션 프레임도 서버처럼 조회 중으로 둔다.
+  const headerCount = (count: number, isPending: boolean) => (!hydrated || isPending ? null : count);
 
   const [profileOpen, setProfileOpen] = useState(false);
   const [passwordOpen, setPasswordOpen] = useState(false);
@@ -194,9 +196,9 @@ export function SettingsPage() {
       <MyPageHeader
         name={user?.name ?? '—'}
         studentId={user?.studentId ?? '—'}
-        applyCount={applyCount}
-        joinedCount={joinedCount}
-        savedCount={savedCount}
+        applyCount={headerCount(applyCount, applicationsQuery.isPending)}
+        joinedCount={headerCount(joinedCount, myClubsQuery.isPending)}
+        savedCount={headerCount(savedCount, favoriteListQuery.isPending)}
       />
       <SettingsPageTabs />
 

@@ -3,13 +3,17 @@
 import Link from 'next/link';
 import { useFavoriteListQuery } from '@duing/hooks';
 import { HomeNav } from '@/app/_components/HomeNav';
+import { useHydrated } from '@/app/_lib/useHydrated';
 import { ListRowsSkeleton } from '@/components/loading/Skeleton';
 import { FavoriteClubCard } from './_components/FavoriteClubCard';
 
 export default function MyFavoritesPage() {
   const favoriteListQuery = useFavoriteListQuery();
+  const hydrated = useHydrated();
 
-  if (favoriteListQuery.isLoading) {
+  // 정적 HTML·하이드레이션 프레임은 조회가 꺼져 있어 isLoading 이 false 다 — 그대로 두면 "아직 찜한 동아리가 없어요"가
+  // 실린다(#1500). 하이드레이션 전에는 로딩으로 둔다.
+  if (!hydrated || favoriteListQuery.isLoading) {
     // PC 에는 이 페이지들만 상단바가 없었다. 레이아웃이 아니라 페이지에서 감싼다 —
     // MyPage 의 100dvh 래퍼와 충돌하기 때문(SettingsPage 패턴).
     return (

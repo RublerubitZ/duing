@@ -5,6 +5,7 @@ import type { ApplicationStatus, ApplicationSummary } from '@duing/types';
 
 import { cn } from '@/app/_lib/cn';
 import { ArrowRight } from '@/components/duing/Icon';
+import { ListRowsSkeleton } from '@/components/loading/Skeleton';
 
 import { SectionHeader } from './SectionHeader';
 
@@ -53,10 +54,12 @@ const statusNote = (app: ApplicationSummary): string => {
 
 type Props = {
   applications: ApplicationSummary[];
+  /** 조회 중 — 빈 상태 대신 스켈레톤(정적 HTML·조회 전에 거짓 "없어요"를 그리지 않는다, #1500). */
+  isPending?: boolean;
 };
 
-export function SectionApply({ applications }: Props) {
-  if (applications.length === 0) {
+export function SectionApply({ applications, isPending = false }: Props) {
+  if (isPending || applications.length === 0) {
     return (
       <section
         data-section="apply"
@@ -65,15 +68,19 @@ export function SectionApply({ applications }: Props) {
       >
         <div className="max-w-layout mx-auto px-4 sm:px-6 md:px-10">
           <SectionHeader
-            title="진행 중인 지원 · 0"
+            title={isPending ? '진행 중인 지원' : '진행 중인 지원 · 0'}
             hint="아직 결과를 기다리고 있는 지원 내역입니다."
           />
-          <div className="bg-paper border border-line rounded-lg px-8 py-12 text-center text-charcoal-3 text-sm">
-            진행 중인 지원이 없어요.{' '}
-            <Link href="/clubs" className="text-ink font-semibold hover:underline">
-              동아리 탐색하러 가기 →
-            </Link>
-          </div>
+          {isPending ? (
+            <ListRowsSkeleton rows={2} rowClassName="h-[88px] rounded-lg" label="진행 중인 지원 불러오는 중" />
+          ) : (
+            <div className="bg-paper border border-line rounded-lg px-8 py-12 text-center text-charcoal-3 text-sm">
+              진행 중인 지원이 없어요.{' '}
+              <Link href="/clubs" className="text-ink font-semibold hover:underline">
+                동아리 탐색하러 가기 →
+              </Link>
+            </div>
+          )}
         </div>
       </section>
     );

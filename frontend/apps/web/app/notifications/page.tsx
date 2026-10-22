@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useGuardedRouter } from '@/app/_lib/useGuardedRouter';
+import { useHydrated } from '@/app/_lib/useHydrated';
 import { useSeededAuthStatus } from '@/app/_lib/useSeededAuthStatus';
 import {
   daysUntilKst,
@@ -20,6 +21,7 @@ import { NotificationItem } from '../_components/NotificationItem';
 
 export default function NotificationsPage() {
   const authStatus = useSeededAuthStatus();
+  const hydrated = useHydrated();
   // 이동은 되돌릴 수 없는 부수효과라 확정 신호로만 건다(화면 분기는 아래 status 가 그대로 한다).
   const isSessionEndConfirmed = useAuthStore(
     (state) => state.isVerified && state.status === 'unauthenticated',
@@ -52,6 +54,24 @@ export default function NotificationsPage() {
     observer.observe(sentinel);
     return () => observer.disconnect();
   }, [listQuery.hasNextPage, listQuery.isFetchingNextPage, listQuery.fetchNextPage]);
+
+  // 정적 HTML·하이드레이션 프레임은 스토어 초기값(미인증)이라, 여기서 로그인 안내를 그리면 로그인한 사용자도 JS 가 오기 전까지
+  // 안내를 본다(#1500) — 판정을 미루고 목록 자리만 그린다. 하이드레이션 뒤에는 아래 분기 그대로다.
+  if (!hydrated) {
+    return (
+      <div className="duing min-h-dvh bg-cream">
+        <HomeNav slimOnMobile />
+        <main className="mx-auto max-w-2xl px-6 py-10">
+          {/* 로그인 사용자가 보게 될 목록 화면과 같은 자리 — 제목 줄·필터 줄 높이를 맞춰 하이드레이션 뒤 스켈레톤이 밀리지 않게 */}
+          <div className="mb-4">
+            <h1 className="text-2xl font-bold">알림</h1>
+          </div>
+          <div aria-hidden className="mb-6 h-6" />
+          <ListRowsSkeleton rows={6} rowClassName="h-[76px] rounded-xl" label="알림 목록 불러오는 중" />
+        </main>
+      </div>
+    );
+  }
 
   // 확인이 끝나지 않았어도 로그인 진입점을 준다 — 갱신이 401 이 아닌 이유(5xx·타임아웃·오프라인)로
   // 실패하면 확정 신호가 영영 서지 않아, 대기 화면만 두면 익명 방문자가 무한 스피너에 갇힌다.

@@ -5,6 +5,7 @@ import type { FavoriteClub } from '@duing/types';
 import { cn } from '@/app/_lib/cn';
 import { ClubLogo } from '@/app/_components/ClubLogo';
 import { clubCategoryLabel } from '@/app/clubs/[clubId]/_lib/clubCategoryLabel';
+import { ListRowsSkeleton } from '@/components/loading/Skeleton';
 
 import { SectionHeader } from './SectionHeader';
 
@@ -21,9 +22,11 @@ const CATEGORY_EMOJI: Record<string, string> = {
 
 type Props = {
   favorites: FavoriteClub[];
+  /** 조회 중 — 빈 상태 대신 스켈레톤(정적 HTML·조회 전에 거짓 "없어요"를 그리지 않는다, #1500). */
+  isPending?: boolean;
 };
 
-export function SectionSaved({ favorites }: Props) {
+export function SectionSaved({ favorites, isPending = false }: Props) {
   return (
     <section
       data-section="saved"
@@ -32,11 +35,13 @@ export function SectionSaved({ favorites }: Props) {
     >
       <div className="max-w-layout mx-auto px-4 sm:px-6 md:px-10">
         <SectionHeader
-          title={`찜한 동아리 · ${favorites.length}`}
+          title={isPending ? '찜한 동아리' : `찜한 동아리 · ${favorites.length}`}
           hint="관심 표시한 동아리예요. 모집 마감이 임박하면 알려드려요."
         />
 
-        {favorites.length === 0 ? (
+        {isPending ? (
+          <ListRowsSkeleton rows={2} rowClassName="h-[88px] rounded-lg" label="찜한 동아리 불러오는 중" />
+        ) : favorites.length === 0 ? (
           <div className="bg-paper border border-line rounded-lg px-8 py-12 text-center text-charcoal-3 text-sm">
             아직 찜한 동아리가 없어요.{' '}
             <Link href="/clubs" className="text-ink font-semibold hover:underline">

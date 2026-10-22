@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
+import { renderToString } from 'react-dom/server';
 import type { FavoriteClub } from '@duing/types';
 
 vi.mock('@/app/_components/HomeNav', () => ({ HomeNav: () => <nav data-testid="home-nav" /> }));
@@ -45,5 +46,15 @@ describe('MyFavoritesPage', () => {
     render(<MyFavoritesPage />);
 
     expect(screen.getByTestId('home-nav')).toBeInTheDocument();
+  });
+
+  // 정적 HTML 은 조회가 꺼져 있어(isLoading false·data 없음) 빈 상태가 실렸다(#1500) — 하이드레이션 전에는 로딩으로 둔다.
+  it('서버 렌더(정적 HTML)는 빈 상태 대신 로딩 스켈레톤이다', () => {
+    mockUseFavoriteListQuery.mockReturnValue({ data: undefined, isLoading: false });
+
+    const html = renderToString(<MyFavoritesPage />);
+
+    expect(html).not.toContain('아직 찜한 동아리가 없어요');
+    expect(html).toContain('찜한 동아리 불러오는 중');
   });
 });

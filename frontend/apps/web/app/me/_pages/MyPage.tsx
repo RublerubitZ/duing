@@ -9,6 +9,7 @@ import {
   useMyClubsQuery,
   useMyFederationInquiriesQuery,
 } from '@duing/hooks';
+import type { MyClubSummary } from '@duing/types';
 
 import { HomeNav } from '@/app/_components/HomeNav';
 import { ProfileCheckPrompt } from '@/app/_components/ProfileCheckPrompt';
@@ -30,6 +31,9 @@ import { SectionArchived } from '../_components/SectionArchived';
 import { SectionInquiries } from '../_components/SectionInquiries';
 import { SectionMyClubs } from '../_components/SectionMyClubs';
 import { SectionSaved } from '../_components/SectionSaved';
+
+// 조회 중 배너에 넘기는 빈 목록 — 렌더마다 새 배열이면 배너의 메모가 매번 다시 계산된다.
+const NO_CLUBS: MyClubSummary[] = [];
 
 export function MyPage() {
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -59,14 +63,20 @@ export function MyPage() {
   const favorites = favoriteListQuery.data?.content ?? [];
   const myInquiries = myInquiriesQuery.data?.content ?? [];
   const myInquiriesTotalCount = myInquiriesQuery.data?.totalElements ?? 0;
+  // 조회 중에는 "없음"이 아니라 "아직 모름"이다(#1500) — 정적 HTML·조회 전에 "…없어요"·0 을 그리지 않는다. 하이드레이션
+  // 프레임도 서버처럼 조회 중으로 둔다(캐시가 먼저 차 있어도 서버 HTML 의 스켈레톤과 어긋나지 않게).
+  const applicationsPending = !hydrated || applicationsQuery.isPending;
+  const myClubsPending = !hydrated || myClubsQuery.isPending;
+  const favoritesPending = !hydrated || favoriteListQuery.isPending;
+  const inquiriesPending = !hydrated || myInquiriesQuery.isPending;
 
   /* ── 섹션 순서 — 진행 중 지원이 없으면 빈 "지원 현황" 대신 내 동아리를 먼저 보여준다 ── */
   // 로딩 중에는 "0건" 이 아니라 "아직 모름" 이다 — 그대로 0 을 넘기면 pending 동안 joined-first 로 그렸다가
   // 응답이 오는 순간 apply-first 로 뒤집혀 섹션이 통째로 점프한다. 미확정 구간은 1(=기본 apply-first)로 고정하고,
   // 0건이 확정된 뒤에만 재배치한다.
   const order = useMemo(
-    () => resolveSectionOrder(applicationsQuery.isPending ? 1 : applications.length),
-    [applicationsQuery.isPending, applications.length],
+    () => resolveSectionOrder(applicationsPending ? 1 : applications.length),
+    [applicationsPending, applications.length],
   );
   const sections = order.map((id) => ({
     id,
@@ -176,19 +186,15 @@ export function MyPage() {
   };
 
   /* ── Tabs with live count badges ── */
-  const sectionsWithCount = sections.map((section) => {
-    const count =
-      section.id === 'apply'
-        ? applications.length
-        : section.id === 'joined'
-          ? myClubs.length
-          : section.id === 'saved'
-            ? favorites.length
-            : section.id === 'inquiries'
-              ? myInquiriesTotalCount
-              : archivedApplications.length;
-    return { ...section, count };
-  });
+  // 조회 중인 섹션은 숫자를 숨긴다(탭은 count 가 없으면 배지를 그리지 않는다).
+  const sectionCount: Record<SectionId, number | undefined> = {
+    apply: applicationsPending ? undefined : applications.length,
+    joined: myClubsPending ? undefined : myClubs.length,
+    saved: favoritesPending ? undefined : favorites.length,
+    inquiries: inquiriesPending ? undefined : myInquiriesTotalCount,
+    archived: applicationsPending ? undefined : archivedApplications.length,
+  };
+  const sectionsWithCount = sections.map((section) => ({ ...section, count: sectionCount[section.id] }));
 
   return (
     <div
@@ -209,12 +215,12 @@ export function MyPage() {
         <MyPageHeader
           name={user?.name ?? '—'}
           studentId={user?.studentId ?? '—'}
-          applyCount={applications.length}
-          joinedCount={myClubs.length}
-          savedCount={favorites.length}
+          applyCount={applicationsPending ? null : applications.length}
+          joinedCount={myClubsPending ? null : myClubs.length}
+          savedCount={favoritesPending ? null : favorites.length}
         />
 
-        <AcceptanceBanner myClubs={myClubs} />
+        <AcceptanceBanner myClubs={myClubsPending ? NO_CLUBS : myClubs} />
 
         <MyPageTabs
           sections={sectionsWithCount}
@@ -224,13 +230,19 @@ export function MyPage() {
 
         {order.map((id) => (
           <div key={id} ref={refFor(id)} data-section={id}>
-            {id === 'apply' && <SectionApply applications={applications} />}
-            {id === 'joined' && <SectionMyClubs myClubs={myClubs} />}
-            {id === 'saved' && <SectionSaved favorites={favorites} />}
+            {id === 'apply' && <SectionApply applications={applications} isPending={applicationsPending} />}
+            {id === 'joined' && <SectionMyClubs myClubs={myClubs} isPending={myClubsPending} />}
+            {id === 'saved' && <SectionSaved favorites={favorites} isPending={favoritesPending} />}
             {id === 'inquiries' && (
-              <SectionInquiries inquiries={myInquiries} totalCount={myInquiriesTotalCount} />
+              <SectionInquiries
+                inquiries={myInquiries}
+                totalCount={myInquiriesTotalCount}
+                isPending={inquiriesPending}
+              />
             )}
-            {id === 'archived' && <SectionArchived applications={archivedApplications} />}
+            {id === 'archived' && (
+              <SectionArchived applications={archivedApplications} isPending={applicationsPending} />
+            )}
           </div>
         ))}
 

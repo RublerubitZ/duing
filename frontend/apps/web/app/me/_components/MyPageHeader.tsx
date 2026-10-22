@@ -7,12 +7,12 @@ import { SparkleFull } from '@/components/duing/Sparkle';
 type Props = {
   name: string;
   studentId: string;
-  /** 진행 중인 지원 수 */
-  applyCount: number;
-  /** 가입한 동아리 수 */
-  joinedCount: number;
-  /** 찜한 동아리 수 */
-  savedCount: number;
+  /** 진행 중인 지원 수 — null 은 조회 중(이름 자리처럼 "—", 거짓 0 을 그리지 않는다 #1500) */
+  applyCount: number | null;
+  /** 가입한 동아리 수 — null 은 조회 중 */
+  joinedCount: number | null;
+  /** 찜한 동아리 수 — null 은 조회 중 */
+  savedCount: number | null;
 };
 
 export function MyPageHeader({
@@ -81,9 +81,9 @@ export function MyPageHeader({
           <div className="hidden sm:flex gap-6 items-center z-[1]">
             {(
               [
-                [String(applyCount), '지원 중'],
-                [String(joinedCount), '가입'],
-                [String(savedCount), '찜'],
+                [applyCount ?? '—', '지원 중'],
+                [joinedCount ?? '—', '가입'],
+                [savedCount ?? '—', '찜'],
               ] as const
             ).map(([count, label]) => (
               <div key={label} className="text-center">
