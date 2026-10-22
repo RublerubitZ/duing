@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 
+import { useHydrated } from '@/app/_lib/useHydrated';
 import { useSeededAuthStatus } from '@/app/_lib/useSeededAuthStatus';
 import { UserMenu } from '@/components/UserMenu';
 
@@ -14,6 +15,9 @@ export function HomeNavAuthSlot({
   initialAuthenticated?: boolean | null;
 }) {
   const status = useSeededAuthStatus(initialAuthenticated);
+  // 정적 HTML 은 늘 이 비로그인 분기로 그려진다 — 하이드레이션 전에만 표지를 달아, 로그인 이력이 있는 브라우저는
+  // 그 동안 숨긴다(globals.css). 하이드레이션 뒤에는 표지가 빠지고 status 가 그대로 판정한다.
+  const hydrated = useHydrated();
 
   if (status !== 'authenticated') {
     return (
@@ -21,7 +25,7 @@ export function HomeNavAuthSlot({
       // PC(컴포넌트 210:2824, ×0.815): 높이 42→34·좌우 24→20·글자 Medium 20→16·간격 12→10.
       // 모바일(426:4094, 1:1)은 높이 24·폭 66·글자 13 인데 한 단계 키워 26·70·14 로 둔다 — 13 은 타입 스케일 밖이고
       // 14(Body/Small)가 40px 헤더 행에서 더 또렷하다(사용자 요청). 간격 4. 경계는 상단 네비 링크와 같은 md.
-      <div className="flex items-center gap-1 md:gap-2.5">
+      <div className="flex items-center gap-1 md:gap-2.5" data-auth-seeding={hydrated ? undefined : ''}>
         <Link
           href="/login"
           className="relative before:absolute before:-inset-y-[9px] before:inset-x-0 before:content-[''] grid h-[26px] w-[70px] place-items-center rounded-full text-[14px] font-medium tracking-tightest text-ink-deep transition hover:bg-graysoft focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink md:h-[34px] md:w-auto md:px-5 md:text-[16px]"

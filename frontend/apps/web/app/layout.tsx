@@ -4,6 +4,7 @@ import './globals.css';
 import { AdSenseLoader } from './_components/AdSenseLoader';
 import { BottomNav } from './_components/BottomNav';
 import { Providers } from './providers';
+import { HAD_SESSION_PREPAINT_SCRIPT } from './_lib/hadSessionKey';
 import { SITE_URL } from './_lib/site';
 
 const SITE_NAME = '두잉';
@@ -102,6 +103,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             그 밖의 화면(/apply·/join·/notifications·/me/* ·/403)은 시스템 폰트로 렌더됐고,
             그 문서들에선 위 preload 를 아무도 소비하지 않아 "preloaded but not used" 경고가 났다. */}
         <body className="font-body">
+          {/* 로그인 이력 표지 — 첫 페인트 전에 <html data-had-session> 을 단다(스크립트 주석 참조). 셸(Providers·Suspense 밖)이면서
+              문서 순서상 헤더보다 앞이어야 헤더를 파싱하기 전에 실행된다. head 가 아니라 body 인 이유는 아래 JSON-LD 와 같다. */}
+          <script dangerouslySetInnerHTML={{ __html: HAD_SESSION_PREPAINT_SCRIPT }} />
           {/* 검색엔진용 구조화 데이터(JSON-LD) — 사이트 이름/조직 정보를 명시해 검색결과 사이트명을 두잉으로 고정한다.
               type="application/ld+json" 은 실행 스크립트가 아닌 데이터 블록이며, 정적 상수만 직렬화하고
               '<' 를 이스케이프해 `</script>` 조기 종료(인젝션)를 차단한다.
