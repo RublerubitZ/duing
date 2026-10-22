@@ -3,12 +3,13 @@
 // 변경점: date + startTime/endTime 시간 분리 입력 → 계산 후 슬롯 배열 반환.
 // capacity 는 필수 입력으로 개조 (스펙 §10.3).
 //
-// startTime 은 `YYYY-MM-DDTHH:mm:ss` (로컬, timezone-naive) 로 직렬화되어
-// 백엔드 LocalDateTime 포맷과 일치해야 한다. UTC 변환 없음 (구 파일 주석 참조).
+// 입력·출력은 한국 시간 벽시계(오프셋 없는 `YYYY-MM-DDTHH:mm:ss`, 백엔드 LocalDateTime)다.
+// Date 를 거치지 않고 하루 중 초로 계산한다 — 기기 로컬 Date 에 밀리초를 더하면 기기 시간대의
+// 일광절약 전환일에 슬롯이 겹치거나 빠진다.
 
 import {
-  formatLocalDateTime,
   parseLocalDateTime,
+  type LocalDateTimeParts,
 } from '@/components/interview/_utils/localDateTime';
 
 export type RoundSlotEntry = {
@@ -34,37 +35,38 @@ type GenerateRoundSlotsArgs = {
   capacity: number;
 };
 
+const toSecondOfDay = (parts: LocalDateTimeParts) =>
+  parts.hour * 3600 + parts.minute * 60 + parts.second;
+
+const pad = (n: number) => String(n).padStart(2, '0');
+
+const toWallClock = (date: string, secondOfDay: number) =>
+  `${date}T${pad(Math.floor(secondOfDay / 3600))}:` +
+  `${pad(Math.floor(secondOfDay / 60) % 60)}:${pad(secondOfDay % 60)}`;
+
 /**
  * 날짜 + 시간 범위 + 면접 시간(분) + 정원으로 슬롯 배열을 생성한다.
  *
  * 예) date='2026-07-15', startTime='10:00', endTime='12:00', durationMinutes=30, capacity=2
  * → startTime 10:00/10:30/11:00/11:30, endTime 10:30/11:00/11:30/12:00, capacity=2 (4개 슬롯)
  *
- * endTime 전에 시작할 수 있는 슬롯만 포함 (마지막 슬롯의 endTime == endTime 포함).
+ * 끝이 endTime 이내인 슬롯만 포함한다 (마지막 슬롯의 endTime == endTime 포함, 남는 꼬리는 버림).
  * 자정 교차(종료 ≤ 시작)는 지원하지 않으며 역범위로 거부된다.
  */
 export function generateRoundSlotsFromPattern(args: GenerateRoundSlotsArgs): GenerateRoundSlotsResult {
   const { date, startTime, endTime, durationMinutes, capacity } = args;
 
-  const startIso = `${date}T${startTime}`;
-  const endIso = `${date}T${endTime}`;
-
-  const startParts = parseLocalDateTime(startIso);
-  const endParts = parseLocalDateTime(endIso);
+  const startParts = parseLocalDateTime(`${date}T${startTime}`);
+  const endParts = parseLocalDateTime(`${date}T${endTime}`);
 
   if (!startParts || !endParts) {
     return { ok: false, reason: '슬롯 패턴 입력이 올바르지 않습니다. 날짜와 시각을 확인해주세요.' };
   }
 
-  const toDate = (parts: ReturnType<typeof parseLocalDateTime>) => {
-    if (!parts) throw new Error('Invalid parts');
-    return new Date(parts.year, parts.month - 1, parts.day, parts.hour, parts.minute, parts.second);
-  };
+  const rangeStart = toSecondOfDay(startParts);
+  const rangeEnd = toSecondOfDay(endParts);
 
-  const baseStart = toDate(startParts);
-  const rangeEnd = toDate(endParts);
-
-  if (rangeEnd.getTime() <= baseStart.getTime()) {
+  if (rangeEnd <= rangeStart) {
     return {
       ok: false,
       reason:
@@ -72,20 +74,20 @@ export function generateRoundSlotsFromPattern(args: GenerateRoundSlotsArgs): Gen
     };
   }
 
-  const durationMs = durationMinutes * 60_000;
+  // 정수 초로 맞춘다 — 소수 분이 소수 초 문자열로 새지 않게.
+  const durationSeconds = Math.round(durationMinutes * 60);
 
   const slots: RoundSlotEntry[] = [];
-  let current = baseStart.getTime();
-
-  while (current + durationMs <= rangeEnd.getTime()) {
-    const slotStart = new Date(current);
-    const slotEnd = new Date(current + durationMs);
+  for (
+    let slotStart = rangeStart;
+    slotStart + durationSeconds <= rangeEnd;
+    slotStart += durationSeconds
+  ) {
     slots.push({
-      startTime: formatLocalDateTime(slotStart),
-      endTime: formatLocalDateTime(slotEnd),
+      startTime: toWallClock(date, slotStart),
+      endTime: toWallClock(date, slotStart + durationSeconds),
       capacity,
     });
-    current += durationMs;
   }
 
   return { ok: true, slots };
