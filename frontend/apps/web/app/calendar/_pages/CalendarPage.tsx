@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'reac
 import {
   addDaysIso,
   monthsInRange,
+  todayKstDateString,
   useCalendarMonthQuery,
   useCalendarMonthsQuery,
 } from '@duing/hooks';
@@ -115,7 +116,8 @@ type Props = {
 export function CalendarPage({ renderedTodayIso }: Props) {
   // 하이드레이션 프레임은 서버 HTML 과 같게 그려야 한다. 서버와 브라우저가 다르게 보는 값이 둘 있다.
   // 1) 오늘 — /calendar 는 정적 프리렌더라 서버 HTML 의 "오늘"은 빌드한 날이고, 운영 HTML 은 다음 배포까지 며칠씩 묵는다.
-  //    하이드레이션 프레임은 서버가 넘긴 그날로 그리고, 끝나면 기기의 오늘로 바뀐다. 오늘 강조는 서버·첫 프레임에
+  //    하이드레이션 프레임은 서버가 넘긴 그날로 그리고, 끝나면 한국 시간 오늘로 바뀐다(기기 시간대 무관 — 일정 날짜가
+  //    모두 한국 시간이라 오늘도 같은 기준이어야 한다, #1502). 오늘 강조는 서버·첫 프레임에
   //    그리지 않는다 — 빌드한 날을 오늘로 강조하면 하이드레이션 전까지 틀린 날이 보인다.
   // 2) 비로그인 배너 — 조건의 meQuery.isLoading 이 하이드레이션 안정적이지 않아 하이드레이션 이후에만 그린다.
   //    서버에는 me 쿼리 fetch 가 없어 항상 fetchStatus='idle'(isLoading=false) 인데, 클라이언트는 부팅 복원
@@ -123,8 +125,7 @@ export function CalendarPage({ renderedTodayIso }: Props) {
   //    AuthSessionBootstrap 이 그걸 me 키에 등록한다)으로 'fetching'(isLoading=true) 인 채로 첫 렌더를 맞는다.
   //    그래서 서버는 배너를 그리고 클라이언트 첫 렌더는 빼면서 불일치가 났다. 로그인 유도 힌트라 SSR 프레임에 없어도 된다.
   const hydrated = useHydrated();
-  const now = new Date();
-  const todayIso = hydrated ? fmt(now.getFullYear(), now.getMonth(), now.getDate()) : renderedTodayIso;
+  const todayIso = hydrated ? todayKstDateString(new Date()) : renderedTodayIso;
 
   // 보는 달·선택한 날은 사용자가 고르기 전까지 오늘에서 파생한다 — 하이드레이션이 끝나는 렌더에서 effect 없이 실제 오늘로 바뀌고,
   // 하이드레이션 중에 누른 입력과 엇갈려 덮이거나 쌓이지 않는다. 고른 값만 state 로 두고, 날짜나 달을 고르면 그 달에 머문다.
