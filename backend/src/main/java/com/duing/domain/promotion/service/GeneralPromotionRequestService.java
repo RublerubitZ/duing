@@ -13,6 +13,7 @@ import com.duing.domain.promotion.service.dto.command.ProcessPromotionRequestCom
 import com.duing.domain.promotion.service.dto.query.PromotionRequestAdminDetailQuery;
 import com.duing.domain.promotion.service.dto.query.PromotionRequestAdminSearchCondition;
 import com.duing.domain.promotion.service.dto.query.PromotionRequestAdminSummaryQuery;
+import com.duing.domain.promotion.service.dto.query.PromotionRequestLatestQuery;
 import com.duing.domain.user.entity.User;
 import com.duing.domain.user.repository.UserRepository;
 import com.duing.global.constant.AdminLabels;
@@ -20,6 +21,7 @@ import com.duing.global.file.UploadedObjectService;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -80,6 +82,13 @@ public class GeneralPromotionRequestService implements PromotionRequestService {
     public PromotionRequest getById(Long requestId) {
         return requestRepository.findById(requestId)
                 .orElseThrow(PromotionException.PromotionRequestNotFoundException::new);
+    }
+
+    @Override
+    public Optional<PromotionRequestLatestQuery> findLatest(Long clubId, Long currentUserId) {
+        clubAuthService.requireManager(currentUserId, clubId);
+        return requestRepository.findFirstByClubIdOrderByIdDesc(clubId)
+                .map(PromotionRequestLatestQuery::from);
     }
 
     @Override

@@ -117,6 +117,8 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/v1/clubs/*/events", "/api/v1/clubs/*/events/*").authenticated()
                         .requestMatchers(HttpMethod.GET, "/api/v1/clubs/*/notices", "/api/v1/clubs/*/notices/*").authenticated()
                         .requestMatchers(HttpMethod.GET, "/api/v1/clubs/*/membership").authenticated()
+                        // 홍보 요청 조회는 운영진 전용이라 익명은 401 — permitAll 에 닿으면 403 이 돼 FE 토큰 갱신을 못 탄다.
+                        .requestMatchers(HttpMethod.GET, "/api/v1/clubs/*/promotion-requests/**").authenticated()
                         // 홈 관심도 집계용 조회 기록 — 비로그인 방문자도 집계 대상이라 permitAll 이다.
                         // 인증이 없는 쓰기 경로라 ClubViewRateLimiter 가 IP 총량 상한을 건다.
                         // 위 인증 필수 clubs 하위 경로들과 path 가 겹치지 않아 순서에 영향을 주지 않는다.

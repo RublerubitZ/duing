@@ -1,7 +1,12 @@
 package com.duing.domain.promotion;
 
+import static org.hamcrest.Matchers.containsInAnyOrder;
+import static org.hamcrest.Matchers.endsWith;
 import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.hasKey;
+import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.notNullValue;
+import static org.hamcrest.Matchers.nullValue;
 
 import com.duing.common.IntegrationTestBase;
 import com.duing.common.TestcontainersConfiguration;
@@ -9,6 +14,7 @@ import com.duing.domain.club.entity.Club;
 import com.duing.domain.club.entity.ClubCategory;
 import com.duing.domain.club.repository.ClubRepository;
 import com.duing.domain.clubmember.entity.ClubMember;
+import com.duing.domain.clubmember.entity.ClubMemberRole;
 import com.duing.domain.clubmember.repository.ClubMemberRepository;
 import com.duing.domain.user.entity.College;
 import com.duing.domain.user.entity.Grade;
@@ -117,6 +123,164 @@ class PromotionAcceptanceTest extends IntegrationTestBase {
                 .contentType(ContentType.JSON).body(body)
                 .when().post("/api/v1/clubs/" + clubId + "/promotion-requests")
                 .then().statusCode(HttpStatus.CONFLICT.value());
+    }
+
+    @Test
+    @DisplayName("홍보 요청을 한 번도 하지 않은 동아리의 최근 요청 조회는 200 + data null 이다")
+    void latestRequestIsNullWhenNoneSubmitted() {
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
+                .when().get(latestRequestPath())
+                .then().statusCode(HttpStatus.OK.value())
+                .body("ok", equalTo(true))
+                .body("$", hasKey("data"))
+                .body("data", nullValue());
+    }
+
+    @Test
+    @DisplayName("요청이 여러 건이면 가장 최근 요청 1건만 보이고, 아직 처리 전이면 메모·처리 시각이 비어 있다")
+    void latestRequestReturnsMostRecentOne() {
+        // 동아리당 PENDING 은 1건뿐이라 첫 요청을 처리해야 두 번째를 낼 수 있다.
+        Long firstRequestId = submitRequest("첫 요청");
+        processRequest(firstRequestId, "REJECTED", "첫 요청 거절");
+        Long secondRequestId = submitRequest("두 번째 요청");
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
+                .when().get(latestRequestPath())
+                .then().statusCode(HttpStatus.OK.value())
+                .body("data.requestId", equalTo(secondRequestId.intValue()))
+                .body("data.title", equalTo("두 번째 요청"))
+                .body("data.status", equalTo("PENDING"))
+                .body("data.createdAt", endsWith("Z"))
+                .body("data.actionNote", nullValue())
+                .body("data.handledAt", nullValue());
+    }
+
+    @Test
+    @DisplayName("총동연이 처리한 요청은 결과·처리 메모·처리 시각이 보이고 처리자는 내보내지 않는다")
+    void latestRequestShowsProcessedResultWithoutHandler() {
+        Long requestId = submitRequest("행사 홍보");
+        processRequest(requestId, "REJECTED", "이번 주 배너 자리가 찼습니다.");
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
+                .when().get(latestRequestPath())
+                .then().statusCode(HttpStatus.OK.value())
+                .body("data.requestId", equalTo(requestId.intValue()))
+                .body("data.title", equalTo("행사 홍보"))
+                .body("data.status", equalTo("REJECTED"))
+                .body("data.actionNote", equalTo("이번 주 배너 자리가 찼습니다."))
+                .body("data.createdAt", endsWith("Z"))
+                .body("data.handledAt", endsWith("Z"))
+                .body("data", not(hasKey("handledBy")))
+                .body("data.keySet()", containsInAnyOrder(
+                        "requestId", "status", "title", "actionNote", "createdAt", "handledAt"));
+    }
+
+    @Test
+    @DisplayName("요청을 낸 회장이 아니어도 같은 동아리 임원(OFFICER)이면 최근 홍보 요청을 볼 수 있다")
+    void latestRequestVisibleToOfficer() {
+        Long requestId = submitRequest("행사 홍보");
+        User officer = saveUser(UserRole.STUDENT);
+        clubMemberRepository.save(ClubMember.of(
+                clubRepository.findById(clubId).orElseThrow(), officer, ClubMemberRole.OFFICER));
+        String officerToken = jwtTokenProvider.createToken(officer.getId(), officer.getRole().name());
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + officerToken)
+                .when().get(latestRequestPath())
+                .then().statusCode(HttpStatus.OK.value())
+                .body("data.requestId", equalTo(requestId.intValue()));
+    }
+
+    @Test
+    @DisplayName("다른 동아리에 더 최근 요청이 있어도 우리 동아리의 최근 요청만 돌려준다")
+    void latestRequestIgnoresOtherClubsRequests() {
+        Long ownRequestId = submitRequest("우리 동아리 요청");
+        User otherLeader = saveUser(UserRole.STUDENT);
+        Club otherClub = clubRepository.save(Club.create("다른 동아리",
+                ClubCategory.ACADEMIC, null, "설명", null));
+        clubMemberRepository.save(ClubMember.asLeader(otherClub, otherLeader));
+        jdbcTemplate.update("UPDATE club SET status = 'ACTIVE' WHERE id = ?", otherClub.getId());
+        submitRequest(jwtTokenProvider.createToken(otherLeader.getId(), otherLeader.getRole().name()),
+                otherClub.getId(), "다른 동아리 요청");
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
+                .when().get(latestRequestPath())
+                .then().statusCode(HttpStatus.OK.value())
+                .body("data.requestId", equalTo(ownRequestId.intValue()))
+                .body("data.title", equalTo("우리 동아리 요청"));
+    }
+
+    @Test
+    @DisplayName("로그인하지 않은 호출은 URL 레이어에서 401 로 막힌다 — clubs/** GET permitAll 보다 앞선 규칙")
+    void latestRequestUnauthenticated() {
+        RestAssured.given()
+                .when().get(latestRequestPath())
+                .then().statusCode(HttpStatus.UNAUTHORIZED.value());
+    }
+
+    @Test
+    @DisplayName("같은 동아리 일반 부원(MEMBER)이 최근 홍보 요청을 조회하면 403")
+    void latestRequestForbiddenForSameClubMember() {
+        User member = saveUser(UserRole.STUDENT);
+        clubMemberRepository.save(ClubMember.asMember(clubRepository.findById(clubId).orElseThrow(), member));
+        String memberToken = jwtTokenProvider.createToken(member.getId(), member.getRole().name());
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + memberToken)
+                .when().get(latestRequestPath())
+                .then().statusCode(HttpStatus.FORBIDDEN.value());
+    }
+
+    @Test
+    @DisplayName("동아리에 속하지 않은 사용자가 최근 홍보 요청을 조회하면 403")
+    void latestRequestForbiddenForNonMember() {
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + studentToken)
+                .when().get(latestRequestPath())
+                .then().statusCode(HttpStatus.FORBIDDEN.value());
+    }
+
+    @Test
+    @DisplayName("운영 중(ACTIVE)이 아닌 동아리의 운영진이 최근 홍보 요청을 조회하면 403")
+    void latestRequestForbiddenForInactiveClub() {
+        jdbcTemplate.update("UPDATE club SET status = 'INACTIVE' WHERE id = ?", clubId);
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
+                .when().get(latestRequestPath())
+                .then().statusCode(HttpStatus.FORBIDDEN.value())
+                .body("message", equalTo("운영 종료된 동아리입니다."));
+    }
+
+    private String latestRequestPath() {
+        return "/api/v1/clubs/" + clubId + "/promotion-requests/latest";
+    }
+
+    private Long submitRequest(String title) {
+        return submitRequest(leaderToken, clubId, title);
+    }
+
+    private Long submitRequest(String requesterToken, Long targetClubId, String title) {
+        return RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + requesterToken)
+                .contentType(ContentType.JSON)
+                .body(Map.of("title", title, "description", "내용"))
+                .when().post("/api/v1/clubs/" + targetClubId + "/promotion-requests")
+                .then().statusCode(HttpStatus.CREATED.value())
+                .extract().jsonPath().getLong("data");
+    }
+
+    private void processRequest(Long requestId, String status, String actionNote) {
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                .contentType(ContentType.JSON)
+                .body(Map.of("status", status, "actionNote", actionNote))
+                .when().patch("/api/v1/admin/promotion-requests/" + requestId)
+                .then().statusCode(HttpStatus.NO_CONTENT.value());
     }
 
     @Test
