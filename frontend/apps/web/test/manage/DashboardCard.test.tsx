@@ -9,10 +9,11 @@ describe('DashboardCard', () => {
     expect(screen.queryByText('내용')).not.toBeInTheDocument();
   });
 
-  it('빈 상태를 표시한다', () => {
-    render(<DashboardCard title="오늘 일정" isEmpty emptyText="오늘 일정이 없어요"><div>내용</div></DashboardCard>);
+  it('빈 상태를 표시하고 푸터는 숨긴다', () => {
+    render(<DashboardCard title="오늘 일정" isEmpty emptyText="오늘 일정이 없어요" footer={<p>전체 보기</p>}><div>내용</div></DashboardCard>);
     expect(screen.getByText('오늘 일정이 없어요')).toBeInTheDocument();
     expect(screen.queryByText('내용')).not.toBeInTheDocument();
+    expect(screen.queryByText('전체 보기')).not.toBeInTheDocument();
   });
 
   it('정상 상태에서 children과 badge를 표시한다', () => {
