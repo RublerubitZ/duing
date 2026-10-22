@@ -1,5 +1,6 @@
 package com.duing.domain.facility.crawler;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.method;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo;
@@ -9,6 +10,8 @@ import static org.springframework.test.web.client.response.MockRestResponseCreat
 import com.duing.domain.facility.config.FacilityCrawlerProperties;
 import com.duing.domain.facility.crawler.exception.FacilityClientException.FacilityBadResponseException;
 import com.duing.domain.facility.crawler.exception.FacilityClientException.FacilityFetchException;
+import com.fasterxml.jackson.core.JsonParser;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.YearMonth;
 import org.junit.jupiter.api.AfterEach;
@@ -106,6 +109,20 @@ class SchoolFacilityClientRetryTest {
         mockServer.verify(); // 파싱 실패도 계층 안에서 비재시도
     }
 
+    @Test
+    @DisplayName("200 응답 항목에 같은 키가 두 번 있어도 공용 매퍼의 중복 키 거절 없이 파싱된다(학교 응답은 통제 불가)")
+    void duplicateKeysInSchoolResponseAreTolerated() {
+        mockServer.expect(ExpectedCount.times(1), requestTo("https://school.test/room/data/list"))
+                .andExpect(method(HttpMethod.POST))
+                .andRespond(withStatus(HttpStatus.OK).contentType(MediaType.APPLICATION_JSON)
+                        .body("[{\"seq\":1,\"seq\":2,\"room\":{\"name\":\"a\",\"name\":\"b\"}}]"));
+
+        JsonNode reservation = client.fetchReservations(4, YearMonth.of(2026, 7)).get(0);
+        assertThat(reservation.path("seq").asInt()).isEqualTo(2);
+        assertThat(reservation.path("room").path("name").asText()).isEqualTo("b"); // 중첩 객체도 뒤 값
+        mockServer.verify();
+    }
+
     @Configuration
     @EnableRetry
     static class RetryTestConfig {
@@ -126,9 +143,10 @@ class SchoolFacilityClientRetryTest {
             return facilityBuilder.build();
         }
 
+        // 운영 공용 매퍼와 같게 중복 키를 거절하는 매퍼(JacksonConfig) — 크롤러가 그 설정을 끄고 읽는지 본다.
         @Bean
         ObjectMapper objectMapper() {
-            return new ObjectMapper();
+            return new ObjectMapper().enable(JsonParser.Feature.STRICT_DUPLICATE_DETECTION);
         }
 
         @Bean
