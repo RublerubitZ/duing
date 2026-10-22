@@ -25,6 +25,7 @@ import {
   APPLICATION_STATUS_APPLICANT_LABEL,
   isClosedWithoutResult,
 } from '@/app/_constants/application-status';
+import { useHydrated } from '@/app/_lib/useHydrated';
 import { ListRowsSkeleton } from '@/components/loading/Skeleton';
 
 import { FILTERS, STATUS_TO_FILTER, PAGE_PAD, PAGE_MAX } from '../_constants/data';
@@ -157,6 +158,7 @@ export function ApplicationsPage({ defaultOpenId = null }: Props) {
   const [openId, setOpenId] = useState<string | null>(defaultOpenId);
 
   const { data: applicationSummaries, isLoading, isFetching, isError } = useMyApplicationsQuery();
+  const hydrated = useHydrated();
 
   const openApplicationId = openId !== null ? Number(openId) : undefined;
   const { data: openDetail } = useMyApplicationDetailQuery(openApplicationId);
@@ -225,7 +227,8 @@ export function ApplicationsPage({ defaultOpenId = null }: Props) {
           style={{ maxWidth: PAGE_MAX }}
         >
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {isLoading ? (
+            {/* 정적 HTML·하이드레이션 프레임은 조회가 꺼져 있어 isLoading 이 false 다 — 하이드레이션 전에는 로딩으로 둔다(#1500). */}
+            {!hydrated || isLoading ? (
               <ListRowsSkeleton
                 rows={4}
                 rowClassName="h-[84px] rounded-[14px]"

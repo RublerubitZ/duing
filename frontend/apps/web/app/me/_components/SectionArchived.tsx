@@ -12,6 +12,7 @@ import {
 import type { TerminalApplicationStatus } from '@/app/_constants/application-status';
 import { ArrowRight } from '@/components/duing/Icon';
 import { ClubLogo } from '@/app/_components/ClubLogo';
+import { ListRowsSkeleton } from '@/components/loading/Skeleton';
 
 import { SectionHeader } from './SectionHeader';
 
@@ -42,9 +43,11 @@ const pillOf = (application: ApplicationSummary): PillMeta =>
 
 type Props = {
   applications: ApplicationSummary[];
+  /** 조회 중 — 빈 상태 대신 스켈레톤(정적 HTML·조회 전에 거짓 "없어요"를 그리지 않는다, #1500). */
+  isPending?: boolean;
 };
 
-export function SectionArchived({ applications }: Props) {
+export function SectionArchived({ applications, isPending = false }: Props) {
   return (
     <section
       data-section="archived"
@@ -53,11 +56,13 @@ export function SectionArchived({ applications }: Props) {
     >
       <div className="max-w-layout mx-auto px-4 sm:px-6 md:px-10">
         <SectionHeader
-          title={`지난 지원 · ${applications.length}`}
+          title={isPending ? '지난 지원' : `지난 지원 · ${applications.length}`}
           hint="결과가 나왔거나 모집이 종료된 지원 내역입니다."
         />
 
-        {applications.length === 0 ? (
+        {isPending ? (
+          <ListRowsSkeleton rows={2} rowClassName="h-[88px] rounded-lg" label="지난 지원 불러오는 중" />
+        ) : applications.length === 0 ? (
           <div className="bg-paper border border-line rounded-lg px-8 py-12 text-center text-charcoal-3 text-sm">
             지난 지원 내역이 없어요.{' '}
             <Link href="/clubs" className="text-ink font-semibold hover:underline">

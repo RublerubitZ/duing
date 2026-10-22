@@ -17,6 +17,12 @@ describe('MyPageHeader — 모바일 슬림 밴드, PC 원형 유지', () => {
     expect(stats.className).toContain('sm:flex');
   });
 
+  it('조회 중(null)인 숫자는 거짓 0 대신 "—" 로 그린다(#1500)', () => {
+    render(<MyPageHeader name="—" studentId="—" applyCount={null} joinedCount={2} savedCount={null} />);
+    const countOf = (label: string) => screen.getByText(label, { exact: true }).previousElementSibling?.textContent;
+    expect([countOf('지원 중'), countOf('가입'), countOf('찜')]).toEqual(['—', '2', '—']);
+  });
+
   it('회비 링크는 모바일 우상단·PC 칩 두 자리에 있고 둘 다 /me/fees 로 간다', () => {
     renderHeader();
     const links = screen.getAllByRole('link', { name: /회비/ });
