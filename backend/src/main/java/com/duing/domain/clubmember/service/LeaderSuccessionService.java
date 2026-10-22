@@ -7,6 +7,8 @@ import com.duing.domain.clubmember.service.dto.query.ClubMemberHistoryAdminQuery
 import com.duing.domain.clubmember.service.dto.query.SuccessionAdminSearchCondition;
 import com.duing.domain.clubmember.service.dto.query.SuccessionRequestAdminDetailQuery;
 import com.duing.domain.clubmember.service.dto.query.SuccessionRequestAdminSummaryQuery;
+import com.duing.domain.clubmember.service.dto.query.SuccessionRequestMyLatestQuery;
+import java.util.Optional;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
@@ -14,6 +16,7 @@ public interface LeaderSuccessionService {
     Long create(CreateSuccessionCommand command);
     void process(ProcessSuccessionCommand command);
     LeaderSuccessionRequest getById(Long requestId);
+    Optional<SuccessionRequestMyLatestQuery> findMyLatest(Long clubId, Long currentUserId);
 
     Page<SuccessionRequestAdminSummaryQuery> listForAdmin(SuccessionAdminSearchCondition condition, Pageable pageable);
     SuccessionRequestAdminDetailQuery getDetailForAdmin(Long requestId);
