@@ -37,10 +37,9 @@
 - 전역 설정은 `global/` 패키지에만 위치
 - 모든 DTO는 Java `record` 사용
 
-### 확장성 원칙 (추후 배포 대비)
+### 외부 의존성 추상화
 - 파일 업로드는 `FileStorageService` 인터페이스로 추상화
-  - 현재: `LocalFileStorageService` 구현체 사용
-  - 추후: `S3FileStorageService` 구현체로 교체만 하면 됨
+  - 구현체는 `file.storage.provider` 로 고른다: `LocalFileStorageService`(local, 기본) / `S3FileStorageService`(s3, 운영은 Cloudflare R2)
 - 환경별 설정은 `application-local.yml` / `application-prod.yml`로 분리
 - 시크릿은 항상 환경변수로 주입 (배포 시 그대로 사용 가능)
 
