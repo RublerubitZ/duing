@@ -40,8 +40,10 @@ function closeImpactNotice(recruitment: AdminRecruitmentDetail): string {
     return '새 가입 링크는 발급할 수 없습니다.';
   }
   // 기한은 서버가 준다 — 종료일이 이미 지난 모집은 종료일 다음 날 0시 기준으로 정해져 있고 마감해도 바뀌지 않는다.
+  // 서버가 이미 만료로 판정했으면 기기 시계가 늦어도 만료로 쓴다(서버는 소진을 먼저 판정하므로 시각 비교도 남긴다).
   if (joinLink.joinExpiresAt !== null) {
-    return parseKstInstant(joinLink.joinExpiresAt).getTime() <= Date.now()
+    return joinLink.linkStatus === 'EXPIRED' ||
+      parseKstInstant(joinLink.joinExpiresAt).getTime() <= Date.now()
       ? '새 가입 링크는 발급할 수 없습니다. 기존 가입 링크는 이미 만료됐습니다.'
       : `새 가입 링크는 발급할 수 없습니다. 기존 가입 링크는 ${formatDateTimeKst(joinLink.joinExpiresAt)}까지만 사용할 수 있습니다.`;
   }
@@ -49,7 +51,7 @@ function closeImpactNotice(recruitment: AdminRecruitmentDetail): string {
   if (joinLink.joinWindowDays === 0) {
     return "새 가입 링크는 발급할 수 없습니다. 기존 가입 링크는 가입 가능 기간이 '모집 종료일까지'라 마감하면 바로 만료됩니다.";
   }
-  return `새 가입 링크는 발급할 수 없습니다. 기존 가입 링크는 모집 종료 후 ${joinLink.joinWindowDays}일까지만 사용할 수 있습니다.`;
+  return `새 가입 링크는 발급할 수 없습니다. 기존 가입 링크는 마감 후 ${joinLink.joinWindowDays}일까지만 사용할 수 있습니다.`;
 }
 
 export function AdminForceCloseDialog({
