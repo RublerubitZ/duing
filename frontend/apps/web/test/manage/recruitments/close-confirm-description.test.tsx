@@ -61,4 +61,17 @@ describe('CloseRecruitmentConfirmDescription', () => {
     expect(screen.getByText(/새 가입 링크를 만들 수 없고/)).toBeInTheDocument();
     expect(screen.queryByText(/평가·면접 진행도 멈춥니다/)).toBeNull();
   });
+
+  // 링크 기한은 마감 시각과 종료일 다음 날 0시 중 이른 쪽부터 센다 — 0일 링크는 진행 중 마감이면 그 순간, 종료일이 지난
+  // 모집이면 마감 전에 이미 만료돼 있다. 이 창은 둘을 가리지 못하므로 둘 다 참인 문장만 쓴다("바로 만료"는 뒤쪽에서 거짓).
+  it("외부 폼은 '모집 종료일까지' 가입 링크를 마감 뒤에는 쓸 수 없다고 알린다", () => {
+    render(
+      <CloseRecruitmentConfirmDescription applicationMode="EXTERNAL" statsSummary={undefined} />,
+    );
+
+    expect(
+      screen.getByText(/'모집 종료일까지'로 만든 링크는 마감 뒤에는 쓸 수 없습니다\./),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/바로 만료/)).toBeNull();
+  });
 });
