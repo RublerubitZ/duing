@@ -51,7 +51,8 @@ services:
     # DoS 급, go1.26.6 수정)이 빠져 있다. 해제 조건: HTTP/1.1 에서도 시간 상한에 닿으면 클라이언트에 바로 응답하는 릴리스가 나오면
     # (업스트림 이슈 caddyserver/caddy#8165) 그 버전으로 올린다 — 올릴 때 HTTP/1.1 느린 업로드·멈춘 업로드와 HTTP/2 가 모두 상한에 응답받는지, 2.11.6 의 h2 패닉(#8101)이
     # 고쳐졌는지 확인한다. 그동안 HTTP/2 서버 DoS(GO-2026-6603·6611·6612·6617)는 Caddyfile 에서 HTTP/2 를 꺼 막아 둔다 — 올리는 릴리스가
-    # go1.26.9·x/net v0.60 이상 빌드인지 `caddy build-info` 로 확인하고 Caddyfile 의 `protocols h1` 을 `h1 h2` 로 되돌린다.
+    # x/net v0.60 이상·Go 1.26.x 는 1.26.9 이상(1.27.x 는 1.27.2 이상) 빌드인지 `caddy build-info` 로 확인하고 Caddyfile 의 :443 만
+    # `protocols h1 h2` 로 되돌린다(:80 은 h1 유지 — Caddyfile 전역 servers 주석).
     image: caddy:2.11.4-alpine
     restart: unless-stopped
     # 평시 수십 MB 지만 1,000 동접에 +60MB, 1,500 동접이면 TLS 세션으로 수백 MB 까지 간다(부하테스트 실측).
