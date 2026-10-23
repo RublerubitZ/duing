@@ -51,7 +51,12 @@
 		# HTTP/3 안내 끔 — Caddy 는 기본으로 응답에 Alt-Svc 헤더를 붙여 HTTP/3(UDP 443)를 안내하는데,
 		# docker-compose.yml 은 TCP 80/443 만 게시해 HTTP/3 로는 닿지 않는다. DNS only 면 브라우저가 이 안내를
 		# 그대로 받으므로, 닿지 않는 프로토콜은 안내하지 않는다(보안이 아니라 헛시도 제거).
-		protocols h1 h2
+		# HTTP/2 도 임시로 끈다(2026-10-24) — 고정한 2.11.4 는 go1.26.3·x/net 0.55 빌드라 HTTP/2 서버 DoS(GO-2026-6603
+		# 메모리 고갈·6611 CPU·6612 흐름 제어·6617 HPACK 경합 크래시, go1.26.9·x/net 0.60 수정)가 남아 있고, 직결이라 앞에서
+		# 막아 줄 곳이 없다. 대가는 브라우저 → API 가 HTTP/1.1(출처당 연결 6개)이 되는 것뿐이다(Vercel 서버 → API 는 원래 1.1).
+		# 되돌릴 때: docker-compose.yml 의 고정 해제 조건을 만족하고 `caddy build-info` 가 go1.26.9·x/net v0.60 이상인
+		# 릴리스로 올리면서 `protocols h1 h2` 로 돌린다.
+		protocols h1
 	}
 }
 
