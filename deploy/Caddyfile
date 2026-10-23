@@ -58,6 +58,8 @@
 		# 되돌릴 때: docker-compose.yml 의 고정 해제 조건을 만족하고 `caddy build-info` 가 x/net v0.60 이상·Go 1.26.x 는
 		# 1.26.9 이상(1.27.x 는 1.27.2 이상)인 릴리스로 올리면서 :443 만 `protocols h1 h2` 로 돌린다. :80 은 평문 HTTP/2 를
 		# 쓸 곳이 없으니 그때도 h1 으로 둔다 — 전역 `servers` 를 주소별(`servers :443 {…}`·`servers :80 {…}`)로 나눠 적는다.
+		# 나눌 때 timeouts 는 두 블록 모두에 넣는다(서버마다 servers 블록 하나만 적용된다). 그리고 EDGE-EMERGENCY.md 의 비상 모드
+		# 신뢰 줄 삽입(awk)이 이 `servers {` 한 줄을 찾으므로, 나누면 그 절차와 이 파일 머리의 복원 안내도 함께 고친다.
 		protocols h1
 	}
 }
