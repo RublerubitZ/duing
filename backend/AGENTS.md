@@ -105,8 +105,9 @@ domain/{도메인}/
 ### URL 컨벤션
 
 - 공개/일반 사용자: `/api/v1/{resource}` (예: `/api/v1/clubs`)
-- 운영진(회장·임원) 전용: `/api/v1/leader/...` (예: `/api/v1/leader/clubs/{clubId}/recruitments`) 또는 동아리 단위 `/api/v1/clubs/{clubId}/...` (멤버·가입 신청·공지·일정 등)
-  - 후자에 새 GET 을 만들면 `SecurityConfig` 의 `GET /api/v1/clubs/**` permitAll 보다 앞에 `.authenticated()` 를 추가한다 — 없으면 익명 요청이 401 대신 403 을 받아 프론트가 토큰 갱신을 타지 못한다(#838)
+- 운영진(회장·임원) 전용: `/api/v1/leader/...` (예: `/api/v1/leader/clubs/{clubId}/recruitments`)
+- 동아리 단위(운영진·회원): `/api/v1/clubs/{clubId}/...` (멤버·가입 신청은 운영진, 공지·일정 조회는 회원 이상)
+  - 현재 사용자 기준으로 판정하는 GET 을 여기에 새로 만들면 `SecurityConfig` 의 `GET /api/v1/clubs/**` permitAll 보다 앞에 `.authenticated()` 를 추가한다 — 없으면 익명 요청이 401 대신 403 을 받아 프론트가 토큰 갱신을 타지 못한다(#838)
 - 총동연 전용: `/api/v1/admin/...` (예: `/api/v1/admin/clubs`)
 
 ### 페이지네이션
@@ -383,7 +384,7 @@ DUING_NOTIFICATION_JOBS_ENABLED=false  # 로컬 default. true 로 두면 매일 
 ```
 
 모든 값은 환경변수 또는 팀 공유 `.env` 파일로 주입한다. 코드/yml 직접 기재 금지.
-위 목록은 일부다 — 전체 목록과 필수 여부의 정본은 [`.env.example`](./.env.example) 이다(예: `AUTH_HINT_SECRET`·`PHONE_VERIFICATION_SECRET`·`FEE_ACCOUNT_ENC_KEY`·`CORS_ALLOWED_ORIGINS` 는 없으면 기동이 실패한다).
+위 목록은 일부다 — 전체 목록과 필수 여부의 정본은 [`.env.example`](./.env.example) 이다(예: `AUTH_HINT_SECRET`·`PHONE_VERIFICATION_SECRET`·`FEE_ACCOUNT_ENC_KEY` 는 없으면 기동이 실패하고, `CORS_ALLOWED_ORIGINS` 는 운영에서 필수다).
 
 ### 알림 스케줄러 운영 활성화 (Phase 3)
 
