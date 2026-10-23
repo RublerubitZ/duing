@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, within } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { formatDateTimeKst } from '@duing/hooks/datetime';
 import type { AdminJoinLinkStatus, AdminRecruitmentDetail } from '@duing/types';
 
 import { AdminForceCloseDialog } from '@/app/admin/recruitments/_components/AdminForceCloseDialog';
@@ -77,6 +78,86 @@ describe('모집 강제 마감 다이얼로그', () => {
         '새 가입 링크는 발급할 수 없습니다. 기존 가입 링크는 모집 종료 후 14일까지만 사용할 수 있습니다.',
       ),
     ).toBeInTheDocument();
+  });
+
+  it("진행 중 모집의 '모집 종료일까지' 가입 링크는 마감하면 바로 만료된다고 알린다 — '모집 종료 후 0일'로 쓰지 않는다", () => {
+    render(
+      <AdminForceCloseDialog
+        {...props}
+        recruitment={makeDetail({
+          applicationMode: 'EXTERNAL',
+          applicantCount: null,
+          externalFormUrl: 'https://forms.gle/abc123',
+          joinLink: makeJoinLink({ joinWindowDays: 0 }),
+        })}
+      />,
+    );
+
+    expect(
+      screen.getByText(
+        "새 가입 링크는 발급할 수 없습니다. 기존 가입 링크는 가입 가능 기간이 '모집 종료일까지'라 마감하면 바로 만료됩니다.",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/모집 종료 후 0일/)).toBeNull();
+  });
+
+  // 종료일(3/20)이 지난 모집(만료-OPEN)은 링크 기한이 종료일 다음 날 0시 기준으로 이미 정해져 있어 마감해도 바뀌지 않는다 —
+  // 서버가 준 기한(joinExpiresAt)을 그대로 쓰고, "마감하면 바로 만료"나 "모집 종료 후 N일"로 다시 세지 않는다.
+  describe('종료일이 지난 모집(3/24 에 강제 마감)', () => {
+    beforeEach(() => {
+      vi.useFakeTimers({ toFake: ['Date'] });
+      vi.setSystemTime(new Date('2026-03-24T03:00:00Z'));
+    });
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it("'모집 종료일까지' 링크는 3/21 0시에 이미 만료됐다고 알린다", () => {
+      render(
+        <AdminForceCloseDialog
+          {...props}
+          recruitment={makeDetail({
+            applicationMode: 'EXTERNAL',
+            displayStatus: 'CLOSED',
+            applicantCount: null,
+            externalFormUrl: 'https://forms.gle/abc123',
+            joinLink: makeJoinLink({
+              linkStatus: 'EXPIRED',
+              joinWindowDays: 0,
+              joinExpiresAt: '2026-03-20T15:00:00Z',
+            }),
+          })}
+        />,
+      );
+
+      expect(
+        screen.getByText('새 가입 링크는 발급할 수 없습니다. 기존 가입 링크는 이미 만료됐습니다.'),
+      ).toBeInTheDocument();
+      expect(screen.queryByText(/바로 만료/)).toBeNull();
+    });
+
+    it('7일 링크는 서버가 준 만료 일시(3/28 0시)까지만 쓸 수 있다고 알린다', () => {
+      const joinExpiresAt = '2026-03-27T15:00:00Z';
+      render(
+        <AdminForceCloseDialog
+          {...props}
+          recruitment={makeDetail({
+            applicationMode: 'EXTERNAL',
+            displayStatus: 'CLOSED',
+            applicantCount: null,
+            externalFormUrl: 'https://forms.gle/abc123',
+            joinLink: makeJoinLink({ joinWindowDays: 7, joinExpiresAt }),
+          })}
+        />,
+      );
+
+      expect(
+        screen.getByText(
+          `새 가입 링크는 발급할 수 없습니다. 기존 가입 링크는 ${formatDateTimeKst(joinExpiresAt)}까지만 사용할 수 있습니다.`,
+        ),
+      ).toBeInTheDocument();
+      expect(screen.queryByText(/모집 종료 후 7일/)).toBeNull();
+    });
   });
 
   it('활성 가입 링크가 없으면 사용 기한 문장은 붙이지 않는다 — 기한을 지어내지 않는다', () => {
