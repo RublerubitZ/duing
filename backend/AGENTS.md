@@ -332,8 +332,10 @@ Club-scoped 검증은 서비스 레이어에서 `ClubAuthService` 로 처리한�
 | 트리거 | 결과 |
 |---|---|
 | `POST /admin/clubs` (ADMIN) | designated leader → `ClubMember(LEADER)` 자동 생성 |
-| `PATCH /leader/applications/{id}/status = ACCEPTED` | 지원자 → `ClubMember(MEMBER)` 자동 생성 (멱등) |
-| `PATCH /leader/applications/{id}/status = ACCEPTED` (targetRole=OFFICER, 기존 MEMBER) | 기존 MEMBER → OFFICER 승급 (멱등) |
+| `PATCH /leader/applications/{id}/status = ACCEPTED`·`bulk-status` | 지원자 → 모집 대상 역할(`targetRole`: MEMBER·OFFICER)로 `ClubMember` 자동 등록. 이미 회원이면 더 높은 역할일 때만 승급 (멱등). 운영진 모집은 지원 자격이 기존 MEMBER 라 보통 MEMBER → OFFICER 승급이다 |
+| 위와 같음, 운영진 모집(`targetRole=OFFICER`) | 합격 처리는 회장(LEADER)만 — 임원이 하면 403(일괄 처리는 건별 실패로 담긴다) |
+| `POST /join-codes/{code}/requests` (자동 승인 코드) | 신청자 → `ClubMember(MEMBER)` 즉시 등록 |
+| `PATCH /clubs/{clubId}/join-requests/{id}` (`status=APPROVED`)·`bulk-approve` — 운영진 | 신청자 → `ClubMember(MEMBER)` 등록. 그새 회원이 됐으면 자동 거절하고 신청 때 확보한 자리를 돌려준다 |
 
 ### 권한 검증 패턴 (서비스 레이어)
 
