@@ -83,7 +83,8 @@ async function hydrateSeededTree(page: PageResponse<NoticeCardItem>, serverNow?:
 }
 
 const DAY_MS = 86_400_000;
-// 운영 목록 ISR 은 24시간 주기라 하루 넘게 묵은 HTML 이 흔하다 — 25시간이면 KST 자정을 반드시 넘는다.
+// 운영 목록 ISR 은 24시간 주기라 KST 자정을 넘긴 HTML 이 흔하고, 만료 뒤 첫 요청·재생성 실패면 하루를 넘길 수도 있다 —
+// 25시간이면 KST 자정을 반드시 넘는다.
 const STALE_ISR_MS = 25 * 60 * 60 * 1000;
 
 // NEW(작성 7일 이내) 경계에 걸친 소식 — 작성 7.5일 전이라 25시간 전 서버 시각으로는 NEW 고 지금은 아니다.
