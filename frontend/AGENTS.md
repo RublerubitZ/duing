@@ -244,6 +244,12 @@ export const useAuthStore = create<AuthState>((set) => ({
 - 금지: timeZone 없는 `toLocaleString()`류, 시각 문자열 `slice()`, `getHours()` 등 로컬 게터, 화면별 지역 포맷 함수 — Event 필드는 `…Z`(UTC)라 slice 시 UTC 숫자가 노출됨
 - 백엔드 계약: Event Time은 `…Z` 절대시각, Schedule Time(행사·면접·모집)은 오프셋 없는 KST 벽시계 — 공통 유틸이 둘 다 자동 처리
 
+### 하이드레이션
+- `'use client'` 컴포넌트도 서버에서 한 번 그려진다. 그 렌더가 `useMeQuery` 결과(`data`·`isLoading`·`isError`·`status` …)로 분기하면 `useHydrated` 게이트를 둔다
+  - 서버 HTML 은 me 조회 없이 그려진다(data 없음·isLoading false). 본문은 루트 Suspense(`app/loading.tsx`) 안이라 셸보다 늦게 하이드레이션되고, 그 사이 셸의 부팅 세션 복원이 me 조회를 등록하거나 끝낸다
+  - 등록(isLoading)은 로컬에서도 재현된다(#1003). 완료(data·isError)는 me 응답이 빠른 운영에서 주로 나고 로컬·CI 로는 재현이 어렵다(#1496)
+  - 대상이 me 뿐인 이유: 셸이 본문보다 먼저 조회하는 쿼리가 me 하나다. 셸에 선조회를 더하면 그 쿼리도 같은 규칙
+
 ---
 
 ## 테스트
