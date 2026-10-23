@@ -32,8 +32,8 @@
 6. 테스트 작성 (RestAssured + Fixture Monkey)
 
 ### 패키지 구조 원칙
-- 도메인별 패키지: `domain/{도메인명}/` 하위에 api / controller / service / repository / entity / dto 배치
-- dto는 목적별로 분리: `dto/command/` (쓰기), `dto/query/` (읽기)
+- 도메인별 패키지: `domain/{도메인명}/` 하위에 api / controller / service / repository / entity / exception 배치
+- DTO 는 경계별로 분리: HTTP 경계 `controller/dto/{request,response}`, 서비스 경계 `service/dto/{command,query}`(쓰기·읽기) — AGENTS.md 의 DTO 2-tier
 - 전역 설정은 `global/` 패키지에만 위치
 - 모든 DTO는 Java `record` 사용
 
