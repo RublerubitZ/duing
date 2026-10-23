@@ -50,8 +50,8 @@ export const RECRUITMENT_EXPIRED_OPEN_LABEL = '기간 종료';
  */
 export const RECRUITMENT_EXPIRED_OPEN_BADGE = 'pill pill-warm-outline';
 
-// 백엔드 자동 마감 유예(RecruitmentAutoClosePolicy.GRACE_DAYS)와 같은 값이다 — 바뀌면 함께 고친다.
-const AUTO_CLOSE_GRACE_DAYS = 7;
+/** 백엔드 자동 마감 유예(RecruitmentAutoClosePolicy.GRACE_DAYS)와 같은 값이다 — 바뀌면 함께 고친다. */
+export const AUTO_CLOSE_GRACE_DAYS = 7;
 
 /**
  * 만료-OPEN 안내 문구 — 지금 상태와 다음 행동(심사·가입 처리 후 마감), 그리고 그대로 두면 종료일로부터

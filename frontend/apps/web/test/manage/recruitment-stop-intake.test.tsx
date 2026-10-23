@@ -136,6 +136,43 @@ describe('CurrentRecruitmentCard — 상시모집 접수 마감', () => {
     expect(dialog).toHaveTextContent('신규 가입 링크 발급은 중단');
   });
 
+  // 접수 마감은 종료일을 어제로 확정하므로, 오늘을 포함해 7일이 지나면 자동 마감되어 다시 열 수 없다
+  // (자체 지원은 남은 심사·면접이 없을 때만).
+  it('자체 지원 상시모집의 접수 마감 안내는 다시 열 수 있는 기한과 남은 심사가 없을 때의 자동 마감을 알린다', () => {
+    server.use(statsSummaryHandler());
+    renderCard(alwaysOpenRecruitment);
+
+    fireEvent.click(screen.getByRole('button', { name: '접수 마감' }));
+
+    const dialog = screen.getByRole('dialog');
+    expect(dialog).toHaveTextContent(
+      '접수를 다시 열려면 오늘을 포함해 7일 안에 모집글 편집에서 종료일을 미래 날짜로 수정하면 됩니다.',
+    );
+    expect(dialog).toHaveTextContent(
+      '이 기간이 지난 뒤에는 남은 심사·면접이 없으면 모집이 자동으로 마감되어 다시 열 수 없습니다.',
+    );
+  });
+
+  it('외부 폼 상시모집의 접수 마감 안내는 다시 열 수 있는 기한과 조건 없는 자동 마감을 알린다', () => {
+    renderCard({
+      ...alwaysOpenRecruitment,
+      applicationMode: 'EXTERNAL',
+      externalFormUrl: 'https://forms.gle/abc',
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: '접수 마감' }));
+
+    const dialog = screen.getByRole('dialog');
+    expect(dialog).toHaveTextContent(
+      '접수를 다시 열려면 오늘을 포함해 7일 안에 모집글 편집에서 종료일을 미래 날짜로 수정하면 됩니다.',
+    );
+    // 외부 폼은 두잉 안에 남은 심사가 없어 조건 없이 자동 마감된다.
+    expect(dialog).toHaveTextContent(
+      '이 기간이 지난 뒤에는 모집이 자동으로 마감되어 다시 열 수 없습니다.',
+    );
+    expect(dialog).not.toHaveTextContent('남은 심사·면접');
+  });
+
   it('모집 시작일 당일에는 접수 마감 버튼이 비활성화되고 사유를 안내한다', () => {
     server.use(statsSummaryHandler());
     renderCard({ ...alwaysOpenRecruitment, startDate: KST_TODAY });
