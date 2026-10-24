@@ -267,7 +267,9 @@ test.describe('라우트 공지 — 전환마다 한 곳에서 한 번(Next 공�
     await page.locator('header a[href="/clubs"]:visible').click();
     await waitForList(page);
     // 목록 head 가 들어오기 전 진입은 수용한 경합이라(스펙 2026-10-24 §7) 목록 제목을 기다린 뒤 들어간다.
+    // 기록기는 프레임마다 적으므로, 목록 제목이 그려져 기록된 뒤에 구간을 연다.
     await expect(page).toHaveTitle(LIST_TITLE);
+    await page.waitForTimeout(ANNOUNCEMENT_SETTLE_MS);
     const card = visibleCards(page).first();
     const clubTitle = `${await readCardClubName(card)} | 두잉`;
     await delayClubDetailApi(page, await readCardClubId(card), LATE_DETAIL_DELAY_MS);
