@@ -37,7 +37,6 @@ type HeadState = { key: string; title: string };
 type HeadGate = { promise: Promise<void>; open: () => void };
 
 const headGates = new Map<string, HeadGate>();
-const openHeads = new Set<string>();
 
 function headGate(headKey: string): HeadGate {
   const existing = headGates.get(headKey);
@@ -51,15 +50,19 @@ function headGate(headKey: string): HeadGate {
   return gate;
 }
 
-/** 열어 둔 head — 처음 그려질 때 틈 없이 바로 마운트된다(숨지 않은 즉시 마운트 경로). */
+/**
+ * 열어 둔 head — 약속을 React 의 thenable 표기(status 'fulfilled')로 이미 이행된 것으로 표시해 use() 가 멈추지 않고 값을 바로
+ * 돌려준다. 처음 그려질 때 틈 없이 바로 마운트된다(숨지 않은 즉시 마운트 경로).
+ */
 function ready(head: HeadState): HeadState {
-  openHeads.add(head.key);
+  const gate = headGate(head.key);
+  Object.assign(gate.promise, { status: 'fulfilled', value: undefined });
+  gate.open();
   return head;
 }
 
-/** 열리지 않은 head 를 공개한다 — React 가 별도 커밋으로 <title> 을 넣는다. */
+/** 열리지 않은 head 를 공개한다 — 멈춘 경계는 React 가 약속 이행을 듣고 다시 그려 별도 커밋으로 <title> 을 넣는다. */
 function revealHead(headKey: string): void {
-  openHeads.add(headKey);
   headGate(headKey).open();
 }
 
@@ -67,9 +70,10 @@ const listHead = (key = 'list'): HeadState => ({ key, title: LIST_TITLE });
 // 모달 페이지 메타데이터 head — 제목이 없어 루트 기본 제목이다.
 const modalHead = (key = 'modal'): HeadState => ({ key, title: SITE_TITLE });
 
-// 메타데이터 <title> — 열리지 않은 head 는 Suspense 대체(제목 없음)로 커밋되고, 열면 별도 공개 커밋으로 들어온다.
+// 메타데이터 <title> — use() 는 조건 없이 늘 부른다(조건부 use() 는 React DEV 경고를 낸다). 약속이 이행되지 않았으면 Suspense
+// 대체(제목 없음)로 커밋되고, 이행되면 별도 공개 커밋으로 들어온다. ready 로 미리 이행한 약속은 멈추지 않는다.
 function MetadataTitle({ headKey, title }: { headKey: string; title: string }) {
-  if (!openHeads.has(headKey)) use(headGate(headKey).promise);
+  use(headGate(headKey).promise);
   return <title>{title}</title>;
 }
 
@@ -267,7 +271,6 @@ afterEach(() => {
     strictMode = false;
     refreshCount = 0;
     headGates.clear();
-    openHeads.clear();
     Reflect.set(globalThis, 'IS_REACT_ACT_ENVIRONMENT', previousActEnvironment);
     navigation.pathname = '/clubs';
     window.history.replaceState(null, '', '/');
