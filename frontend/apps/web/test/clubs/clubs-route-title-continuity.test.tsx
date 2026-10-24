@@ -5,8 +5,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 /**
  * 제목 연속성 가드(스펙 2026-10-24 clubs-route-title-continuity) — Next 16.4 모양의 head 재렌더. 16.4 는 head 를 라우트 트리 옆
  * 독립 노드로 다시 그리고 메타데이터 <title> 은 Suspense 경계 안에 있다. 그래서 경계 key 가 바뀌는 커밋에서 <title> 이 빠지고(틈),
- * 제목은 트리를 바꾸지 않는 별도 공개 커밋으로 들어온다. 하네스는 React 가 <title> 을 실제로 그리게 해(호이스팅·입양 규칙 포함) 그
- * 두 커밋을 만든다.
+ * 제목은 트리를 바꾸지 않는 별도 공개 커밋으로 들어온다. 하네스는 React 가 <title> 을 실제로 그리게 해(호이스팅 — 입양은 하이드레이션
+ * 때만이라 이 하네스에 닿지 않는다) 그 두 커밋을 만든다.
  * - 프레임(공지 영역)은 memo 라 경로 커밋(treeKey 변경)에서만 다시 그려진다 — head 만 다시 그려지는 커밋에서는 레이아웃 effect 가 돌지 않는다.
  * - Next 공지기 모방은 경로 커밋에서만 읽고, 빈 제목이면 첫 h1 을 읽는다(app-router-announcer.js).
  * - act 없이 실제 스케줄러로 커밋한다 — 전환 커밋의 passive 가 관찰 콜백(마이크로태스크)보다 늦는 순서를 지킨다(transition 테스트와 같은 이유).
@@ -251,7 +251,7 @@ async function enterLateFromList(strict = false): Promise<string | undefined> {
 beforeEach(() => {
   previousActEnvironment = Reflect.get(globalThis, 'IS_REACT_ACT_ENVIRONMENT');
   Reflect.set(globalThis, 'IS_REACT_ACT_ENVIRONMENT', false);
-  document.head.querySelectorAll('title').forEach((element) => element.remove());
+  document.querySelectorAll('title').forEach((element) => element.remove());
 });
 
 afterEach(() => {
@@ -341,7 +341,7 @@ describe('ClubsRouteAnnouncer — 제목 연속성 가드(Next 16.4 head 재렌�
     expect(announced()).toEqual([CLUB_TITLE]);
   });
 
-  it('틈 동안 숨지 않은 <title> 이 바로 마운트되면 React 는 새 요소를 자리 표시 앞에 넣는다 — 자리 표시 글자는 그대로이고, 보이던 목록 제목을 이은 뒤 자리 표시를 지운다', async () => {
+  it('틈 동안 숨지 않은 <title> 이 바로 마운트되면 자리 표시 글자는 그대로이고, 보이던 목록 제목을 이은 뒤 자리 표시를 지워 <title> 이 1개 남는다', async () => {
     await mountAt('/clubs', { intercepted: false, underlyingKey: '', head: ready(listHead()) });
     await pushRoute('/clubs/7', { intercepted: true, underlyingKey: '', head: modalHead(), detailTitle: null });
     const placeholder = document.head.querySelector(PLACEHOLDER_SELECTOR);
