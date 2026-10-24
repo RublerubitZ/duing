@@ -8,6 +8,8 @@ import { useRoutePathname } from '@/app/_lib/useRoutePathname';
 type Props = {
   /** 지금 커밋이 인터셉트 상세인지 — ClubsSlotFrame 의 판별 값. */
   intercepted: boolean;
+  /** 밑 화면(children) 세그먼트 경로 — 목록이면 ''. 들어오는 커밋에서 직전 제목을 이을지 가른다. */
+  underlyingKey: string;
 };
 
 /**

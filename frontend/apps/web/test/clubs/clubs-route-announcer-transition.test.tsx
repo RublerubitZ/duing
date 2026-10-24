@@ -36,14 +36,16 @@ type AppProps = {
   detailTitle?: string | null;
   /** false 면 clubs 레이아웃 밖 화면이라 프레임(공지 영역)이 빠진다. */
   inClubsLayout?: boolean;
+  /** 밑 화면(children) 세그먼트 경로 — 목록이면 ''. */
+  underlyingKey?: string;
 };
 
-function App({ intercepted, headKey, headTitle, detailTitle, inClubsLayout = true }: AppProps) {
+function App({ intercepted, headKey, headTitle, detailTitle, inClubsLayout = true, underlyingKey = '' }: AppProps) {
   return (
     <>
       <title key={headKey}>{headTitle}</title>
       {detailTitle !== undefined && <DetailTitleProbe title={detailTitle} />}
-      {inClubsLayout && <ClubsRouteAnnouncer intercepted={intercepted} />}
+      {inClubsLayout && <ClubsRouteAnnouncer intercepted={intercepted} underlyingKey={underlyingKey} />}
     </>
   );
 }
@@ -113,7 +115,11 @@ afterEach(() => {
 describe('ClubsRouteAnnouncer — 인터셉트를 떠나는 전환 커밋(act 없음)', () => {
   it('head 가 다른 화면(같은 레이아웃의 회원 화면)으로 — 탭 제목은 새 화면 것이고 영역은 아무것도 알리지 않는다', async () => {
     await enterIntercept();
-    await commit('/clubs/7/member/notices', { intercepted: false, headKey: 'member', headTitle: SITE_TITLE }, SITE_TITLE);
+    await commit(
+      '/clubs/7/member/notices',
+      { intercepted: false, headKey: 'member', headTitle: SITE_TITLE, underlyingKey: '7/member/notices' },
+      SITE_TITLE,
+    );
     expect(document.title).toBe(SITE_TITLE);
     expect(regionTexts.filter((text) => text !== '')).toEqual([]);
   });

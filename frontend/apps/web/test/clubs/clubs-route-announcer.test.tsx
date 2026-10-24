@@ -37,7 +37,18 @@ type HarnessProps = {
   detailTitle?: string | null;
   /** 상세→상세에서 상세를 새로 마운트하려고 바꾼다. */
   detailKey?: string;
+  /** 밑 화면(children) 세그먼트 경로 — ClubsSlotFrame 이 넘기는 값. 생략하면 인터셉트 밖은 주소에서, 인터셉트 동안은 직전 값을 쓴다. */
+  underlying?: string;
 };
+
+// 인터셉트 동안 밑 화면은 진입 직전 것 그대로다(목록 위 인터셉트면 '').
+let lastUnderlying = '';
+
+function withUnderlying(props: HarnessProps): HarnessProps {
+  const underlying = props.underlying ?? (props.intercepted ? lastUnderlying : navigation.pathname.replace(/^\/clubs\/?/, ''));
+  lastUnderlying = underlying;
+  return { ...props, underlying };
+}
 
 // Next 공지기가 커밋마다 읽은 제목 — 콘텐츠 뒤 형제라 같은 커밋에서 공지 영역 effect 뒤에 읽는다(app-router.js).
 const nextAnnouncerReads: string[] = [];
@@ -49,11 +60,11 @@ function NextAnnouncerProbe() {
   return null;
 }
 
-function Harness({ intercepted, detailTitle, detailKey }: HarnessProps) {
+function Harness({ intercepted, detailTitle, detailKey, underlying = '' }: HarnessProps) {
   return (
     <>
       {detailTitle !== undefined && <DetailTitleProbe key={detailKey} title={detailTitle} />}
-      <ClubsRouteAnnouncer intercepted={intercepted} />
+      <ClubsRouteAnnouncer intercepted={intercepted} underlyingKey={underlying} />
       <NextAnnouncerProbe />
     </>
   );
@@ -73,8 +84,8 @@ const regionObservers: MutationObserver[] = [];
 function renderAt(pathname: string, props: HarnessProps, wrap: (node: ReactNode) => ReactNode = (node) => node) {
   window.history.replaceState(null, '', pathname);
   navigation.pathname = pathname;
-  const view = render(wrap(<Harness {...props} />));
-  return { rerender: (next: HarnessProps) => view.rerender(wrap(<Harness {...next} />)) };
+  const view = render(wrap(<Harness {...withUnderlying(props)} />));
+  return { rerender: (next: HarnessProps) => view.rerender(wrap(<Harness {...withUnderlying(next)} />)) };
 }
 
 // 앞으로 — 주소를 쌓고 경로를 바꾼다(뒤따르는 rerender 가 그 경로 커밋이다).
@@ -117,6 +128,7 @@ afterEach(() => {
   cleanup();
   regionObservers.splice(0).forEach((observer) => observer.disconnect());
   nextAnnouncerReads.length = 0;
+  lastUnderlying = '';
   window.history.replaceState(null, '', '/');
   navigation.pathname = '/clubs';
 });
@@ -311,11 +323,11 @@ describe('ClubsRouteAnnouncer — Next 공지기가 놓치는 인터셉트 전�
       view.rerender({ intercepted: false });
     });
     await settle();
-    // 뒤로 — 돌아온 인터셉트 엔트리의 head 는 숨은 목록 것이고, 상세 데이터는 사라져(쿼리 gc) 늦게 온다.
+    // 뒤로 — 돌아온 인터셉트 엔트리의 head 는 숨은 목록 것이고(밑 화면이 회원 화면에서 목록으로 바뀐다), 상세 데이터는 사라져(쿼리 gc) 늦게 온다.
     popToPath('/clubs/7');
     act(() => {
       rerenderHeadTitle(LIST_TITLE);
-      view.rerender({ intercepted: true, detailTitle: null });
+      view.rerender({ intercepted: true, detailTitle: null, underlying: '' });
     });
     await settle();
     view.rerender({ intercepted: true, detailTitle: '밴드부' });
