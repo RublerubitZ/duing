@@ -23,6 +23,7 @@ vi.mock('next/navigation', () => ({
 import { useDocumentTitle } from '@/app/_lib/useDocumentTitle';
 import { ROUTER_REFRESH_EVENT } from '@/app/_lib/useGuardedRouter';
 import { ClubsRouteAnnouncer, TITLE_PLACEHOLDER_ATTRIBUTE } from '@/app/clubs/_components/ClubsRouteAnnouncer';
+import { TITLE_PLACEHOLDER_ATTRIBUTE as E2E_TITLE_PLACEHOLDER_ATTRIBUTE } from '@/e2e/title-placeholder';
 
 const LIST_TITLE = '동아리 탐색 | 두잉';
 const SITE_TITLE = '두잉 | 대구대학교 동아리 플랫폼';
@@ -278,6 +279,10 @@ afterEach(() => {
 });
 
 describe('ClubsRouteAnnouncer — 제목 연속성 가드(Next 16.4 head 재렌더 모양)', () => {
+  it('E2E 가 문자열로 적은 자리 표시 표식이 컴포넌트 상수와 같다', () => {
+    expect(E2E_TITLE_PLACEHOLDER_ATTRIBUTE).toBe(TITLE_PLACEHOLDER_ATTRIBUTE);
+  });
+
   it.each([
     ['기본', false],
     ['StrictMode', true],

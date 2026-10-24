@@ -4,6 +4,7 @@ import {
   assertListKeptAcrossDetail,
   blockViewBeacons,
   describeScrollRestoration,
+  expectCleanTitles,
   gotoList,
   visibleCards,
   waitForInterceptedDetail,
@@ -21,6 +22,10 @@ test.beforeEach(async ({ page, browserName }) => {
   // 기기 지정이 워커에 먹지 않으면 크로미엄으로 돌아 판정이 무의미하다 — 먼저 확인한다.
   expect(browserName).toBe('webkit');
   await blockViewBeacons(page);
+});
+
+test.afterEach(async ({ page }) => {
+  await expectCleanTitles(page);
 });
 
 test('목록 → 인터셉트 상세(탭) → 뒤로 — 카드 노드가 그대로 남고 탭 제목이 목록 제목으로 돌아온다', async ({ page }) => {

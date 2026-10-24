@@ -4,6 +4,7 @@ import {
   ROUTE_TIMEOUT_MS,
   blockViewBeacons,
   detailHeading,
+  expectCleanTitles,
   gotoList,
   readCardClubId,
   readCardClubName,
@@ -20,6 +21,10 @@ import {
  */
 test.beforeEach(async ({ page }) => {
   await blockViewBeacons(page);
+});
+
+test.afterEach(async ({ page }) => {
+  await expectCleanTitles(page);
 });
 
 /** 서버가 먼저 그린 목록(data-explore-server-list)이 실제 목록으로 바뀐 뒤의 첫 카드 — 실제로 전환을 여는 노드를 본다. */

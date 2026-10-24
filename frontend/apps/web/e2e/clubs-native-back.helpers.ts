@@ -1,5 +1,7 @@
 import { expect, test, type APIRequestContext, type Locator, type Page, type Route } from '@playwright/test';
 
+import { TITLE_PLACEHOLDER_ATTRIBUTE } from './title-placeholder';
+
 /**
  * 동아리 목록 유지(스펙 P1) E2E 공용 — dev 서버(:3000)·로컬 BE 기준. 크로미엄(clubs-native-back.spec.ts)·웹킷 iPhone
  * (clubs-native-back.webkit.spec.ts)이 같이 쓴다. 판별은 ClubsSlotFrame 표식(data-clubs-slot·data-clubs-hidden-list)으로 한다.
@@ -12,12 +14,14 @@ const HERO_ACTIVITY_SKELETON_LABEL = '대표 활동 불러오는 중';
 export const ROUTE_TIMEOUT_MS = 30_000;
 
 type AnnouncementSample = { t: number; source: 'next' | 'own'; text: string };
+type TabTitleSample = { t: number; text: string };
 type ScrollPosition = 'top' | 'middle' | 'bottom';
 type DetailLength = 'short' | 'long';
 
 declare global {
   interface Window {
     __clubsAnnouncements?: AnnouncementSample[];
+    __clubsTabTitles?: TabTitleSample[];
     __clubsReplaceTargets?: string[];
   }
 }
@@ -229,14 +233,22 @@ export function describeScrollRestoration(): void {
 // 라우트 공지 영역(ClubsRouteAnnouncer)은 ClubsSlotFrame 루트의 마지막 자식이다 — 자리까지 고정해 modal 안의 다른 role="status" 를 잡지 않는다.
 const OWN_ANNOUNCER_SELECTOR = '[data-clubs-slot] > [role="status"]:last-child';
 
-/** Next 공지기와 라이브 영역의 글자 변화를 rAF 마다 적는다(문서마다 새로 — addInitScript). */
+/** Next 공지기·라이브 영역의 글자와 탭 제목 변화를 rAF 마다 적는다(문서마다 새로 — addInitScript). */
 export async function recordRouteAnnouncements(page: Page): Promise<void> {
   await page.addInitScript((ownAnnouncerSelector) => {
     const samples: AnnouncementSample[] = [];
+    const tabTitles: TabTitleSample[] = [];
     window.__clubsAnnouncements = samples;
+    window.__clubsTabTitles = tabTitles;
     let lastNextText = '';
     let lastOwnText = '';
+    let lastTabTitle: string | null = null;
     const poll = () => {
+      // 탭 제목 — 프레임마다 재므로 그려진 값만 남는다(head 틈·공개 사이의 커밋 안 값은 잡히지 않는다).
+      if (document.title !== lastTabTitle) {
+        tabTitles.push({ t: performance.now(), text: document.title });
+        lastTabTitle = document.title;
+      }
       const nextText =
         document.querySelector('next-route-announcer')?.shadowRoot?.getElementById('__next-route-announcer__')?.textContent ?? '';
       const ownText = document.querySelector(ownAnnouncerSelector)?.textContent ?? '';
@@ -278,6 +290,36 @@ export async function announcementsBetween(page: Page, from: number, to: number)
 }
 
 export const announcedText = (entry: string) => entry.slice(entry.indexOf(':') + 1);
+
+/** [from, to) 동안 보인 탭 제목 — from 시점의 제목부터 바뀐 순서대로(recordRouteAnnouncements 가 적은 값). */
+export async function tabTitlesBetween(page: Page, from: number, to: number): Promise<string[]> {
+  const samples = await page.evaluate(() => window.__clubsTabTitles ?? []);
+  const titles: string[] = [];
+  for (const sample of samples) {
+    if (sample.t >= to) break;
+    if (sample.t < from) titles.splice(0, titles.length, sample.text);
+    else if (titles.at(-1) !== sample.text) titles.push(sample.text);
+  }
+  return titles;
+}
+
+/**
+ * 문서의 HTML <title> 이 하나뿐이고 공지 영역의 자리 표시가 남지 않았다(스펙 2026-10-24 제목 연속성 §2). 하드 로드한 상세는 스트리밍
+ * 메타데이터라 <title> 이 body 에 있어 head 로 한정하지 않는다(SVG <title> 은 뺀다). 공개는 커밋보다 늦을 수 있어 자동 재시도로 본다.
+ */
+export async function expectCleanTitles(page: Page): Promise<void> {
+  // 두 값을 한 번에 본다 — 나가는 틈의 자리 표시 하나만 있는 순간에도 개수는 1 이다. 목록 head 가 늦게 올 수 있어 이동만큼 기다린다.
+  await expect
+    .poll(
+      () =>
+        page.evaluate((placeholderAttribute) => {
+          const titles = [...document.getElementsByTagName('title')].filter((element) => element instanceof HTMLTitleElement);
+          return { titles: titles.length, placeholders: titles.filter((element) => element.hasAttribute(placeholderAttribute)).length };
+        }, TITLE_PLACEHOLDER_ATTRIBUTE),
+      { timeout: ROUTE_TIMEOUT_MS },
+    )
+    .toEqual({ titles: 1, placeholders: 0 });
+}
 
 /** 상세 API 를 늦춰 인터셉트 커밋이 데이터보다 먼저 오게 한다(늦은 진입). 돌려준 함수가 지연을 푼다. */
 export async function delayClubDetailApi(page: Page, clubId: number, delayMs: number): Promise<() => Promise<void>> {
