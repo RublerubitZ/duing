@@ -23,7 +23,7 @@ type ReasonCode = (typeof REASON_CODE_VALUES)[number];
 
 const reportFormSchema = z.object({
   reasonCode: z.enum(REASON_CODE_VALUES, {
-    errorMap: () => ({ message: '신고 사유를 선택해주세요.' }),
+    error: '신고 사유를 선택해주세요.',
   }),
   detail: z.string().max(1000, '상세 내용은 1000자 이하여야 합니다.').optional(),
 });

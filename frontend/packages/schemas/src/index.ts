@@ -70,18 +70,18 @@ export const signupSchema = z.object({
     .regex(/^\d{8}$/, '학번은 8자리 숫자여야 합니다.'),
   name: userNameSchema,
   password: passwordSchema,
-  grade: z.enum(GRADE_VALUES, { errorMap: () => ({ message: '학년을 선택해주세요.' }) }),
-  college: z.enum(COLLEGE_VALUES, { errorMap: () => ({ message: '단과대학을 선택해주세요.' }) }),
+  grade: z.enum(GRADE_VALUES, { error: '학년을 선택해주세요.' }),
+  college: z.enum(COLLEGE_VALUES, { error: '단과대학을 선택해주세요.' }),
   major: majorSchema,
   verificationToken: z
     .string()
     .min(1, '휴대폰 인증을 완료해주세요.')
     .max(36, '휴대폰 인증 정보가 올바르지 않습니다.'),
   termsOfServiceAgreed: z.literal(true, {
-    errorMap: () => ({ message: '이용약관에 동의해야 합니다.' }),
+    error: '이용약관에 동의해야 합니다.',
   }),
   privacyPolicyAgreed: z.literal(true, {
-    errorMap: () => ({ message: '개인정보 수집·이용에 동의해야 합니다.' }),
+    error: '개인정보 수집·이용에 동의해야 합니다.',
   }),
 });
 
@@ -482,11 +482,11 @@ const REPORT_REASON_CODE_VALUES = [
 
 export const submitReportSchema = z.object({
   targetType: z.enum(REPORT_TARGET_TYPE_VALUES, {
-    errorMap: () => ({ message: '신고 대상 유형을 선택해주세요.' }),
+    error: '신고 대상 유형을 선택해주세요.',
   }),
   targetId: z.number().int().positive('신고 대상 ID가 유효하지 않습니다.'),
   reasonCode: z.enum(REPORT_REASON_CODE_VALUES, {
-    errorMap: () => ({ message: '신고 사유를 선택해주세요.' }),
+    error: '신고 사유를 선택해주세요.',
   }),
   detail: z
     .string()
@@ -582,7 +582,7 @@ export const createGlobalEventSchema = z
       .optional()
       .or(z.literal('')),
     category: z.enum(['FAIR', 'FESTIVAL', 'APPLICATION', 'CONTEST', 'UNION', 'OTHER'], {
-      errorMap: () => ({ message: '카테고리를 선택해주세요.' }),
+      error: '카테고리를 선택해주세요.',
     }),
   })
   .refine((data) => new Date(data.endAt) >= new Date(data.startAt), {
@@ -643,7 +643,7 @@ const optionalDay = (label: string) =>
   z.preprocess(
     (raw) => (raw === '' || raw === undefined || raw === null ? undefined : raw),
     z.coerce
-      .number({ invalid_type_error: `${label}은 숫자여야 합니다.` })
+      .number({ error: `${label}은 숫자여야 합니다.` })
       .int(`${label}은 정수여야 합니다.`)
       .min(1, `${label}은 1~28 사이여야 합니다.`)
       .max(28, `${label}은 1~28 사이여야 합니다.`)
@@ -656,14 +656,14 @@ export const createFeePolicySchema = z
   .object({
     name: z.string().min(1, '정책 이름은 필수입니다.').max(100, '정책 이름은 100자 이하여야 합니다.'),
     amount: z.coerce
-      .number({ invalid_type_error: '금액은 숫자여야 합니다.' })
+      .number({ error: '금액은 숫자여야 합니다.' })
       .int('금액은 정수여야 합니다.')
       .min(1, '금액은 1원 이상이어야 합니다.'),
     billingType: z.enum(['MONTHLY', 'SEMESTER', 'YEARLY', 'ONE_TIME'], {
-      errorMap: () => ({ message: '회비 유형을 선택해주세요.' }),
+      error: '회비 유형을 선택해주세요.',
     }),
     targetType: z.enum(['ALL_MEMBERS', 'SELECTED_MEMBERS'], {
-      errorMap: () => ({ message: '청구 대상을 선택해주세요.' }),
+      error: '청구 대상을 선택해주세요.',
     }),
     autoIssue: z.boolean().default(false),
     issueDay: optionalDay('발행일'),
@@ -710,11 +710,11 @@ export type CreateFeePolicyInput = z.infer<typeof createFeePolicySchema>;
 // AUTO_MATCHED 는 수동 기록 불가(시스템 전용) — enum 에 포함하지 않는다.
 export const recordPaymentSchema = z.object({
   amount: z.coerce
-    .number({ invalid_type_error: '납부 금액을 입력해 주세요.' })
+    .number({ error: '납부 금액을 입력해 주세요.' })
     .int('납부 금액은 정수여야 합니다.')
     .positive('납부 금액은 1원 이상이어야 합니다.'),
   method: z.enum(['CASH', 'TRANSFER', 'OTHER'], {
-    errorMap: () => ({ message: '납부 수단을 선택해 주세요.' }),
+    error: '납부 수단을 선택해 주세요.',
   }),
   paidAt: z.string().min(1, '납부일은 필수입니다.'),
   memo: z.string().max(200, '메모는 200자 이하여야 합니다.').optional(),
@@ -784,7 +784,7 @@ export const toGenerateBillsPayload = (input: GenerateBillsInput): GenerateBills
 //   accountHolder @NotBlank @Size(max=50)
 export const feeAccountSchema = z.object({
   bank: z.enum(BANKS, {
-    errorMap: () => ({ message: '은행을 선택해주세요.' }),
+    error: '은행을 선택해주세요.',
   }),
   accountNumber: z
     .string()
@@ -818,13 +818,13 @@ const CASHBOOK_EXPENSE_CODES = ['MT', 'DINING', 'SNACK', 'SUPPLY', 'MARKETING', 
 
 export const createCashbookEntrySchema = z
   .object({
-    entryType: z.enum(['INCOME', 'EXPENSE'], { errorMap: () => ({ message: '수입/지출을 선택해 주세요.' }) }),
+    entryType: z.enum(['INCOME', 'EXPENSE'], { error: '수입/지출을 선택해 주세요.' }),
     categoryCode: z.enum(['FEE', 'SPONSOR', 'SUBSIDY', 'MT', 'DINING', 'SNACK', 'SUPPLY', 'MARKETING', 'OTHER'], {
-      errorMap: () => ({ message: '카테고리를 선택해 주세요.' }),
+      error: '카테고리를 선택해 주세요.',
     }),
     customCategory: z.string().max(40, '직접입력 카테고리는 40자 이하여야 합니다.').optional(),
     amount: z.coerce
-      .number({ invalid_type_error: '금액은 숫자여야 합니다.' })
+      .number({ error: '금액은 숫자여야 합니다.' })
       .int('금액은 정수여야 합니다.')
       .positive('금액은 1원 이상이어야 합니다.'),
     description: z.string().min(1, '설명은 필수입니다.').max(100, '설명은 100자 이하여야 합니다.'),
