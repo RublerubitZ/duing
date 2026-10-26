@@ -8,6 +8,9 @@ import { passwordSchema } from './password';
 
 export { passwordSchema } from './password';
 
+// 운영 CSP 의 script-src 에 'unsafe-eval' 이 없다 — zod 4 JIT(new Function)는 객체 스키마를 만들 때 켜지므로 그 전에 끈다.
+z.config({ jitless: true });
+
 const GRADE_VALUES = ['FRESHMAN', 'SOPHOMORE', 'JUNIOR', 'SENIOR', 'ON_LEAVE', 'GRADUATED'] as const;
 const COLLEGE_VALUES = [
   'PUBLIC_LEADERS',

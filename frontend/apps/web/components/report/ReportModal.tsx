@@ -21,6 +21,9 @@ type Props = {
 const REASON_CODE_VALUES = ['SPAM', 'FRAUD', 'INAPPROPRIATE', 'IMPERSONATION', 'OTHER'] as const;
 type ReasonCode = (typeof REASON_CODE_VALUES)[number];
 
+// 운영 CSP 의 script-src 에 'unsafe-eval' 이 없다 — zod 4 JIT(new Function)는 객체 스키마를 만들 때 켜지므로 그 전에 끈다.
+z.config({ jitless: true });
+
 const reportFormSchema = z.object({
   reasonCode: z.enum(REASON_CODE_VALUES, {
     error: '신고 사유를 선택해주세요.',
