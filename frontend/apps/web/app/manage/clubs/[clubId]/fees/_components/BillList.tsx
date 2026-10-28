@@ -25,6 +25,8 @@ import { ButtonSpinner } from '@/components/loading/Spinner';
 
 type BillListProps = {
   clubId: number;
+  /** 처음 상태 필터 — 운영진 홈 회비 연체 행은 OVERDUE 로 연다. 없으면 전체. */
+  initialStatusFilter?: FeeStatus | '';
 };
 
 const PAGE_SIZE = 20;
@@ -43,9 +45,9 @@ const inputCls =
 // 부원 검색 드롭다운에 한 번에 보여줄 최대 결과 수.
 const MEMBER_SEARCH_LIMIT = 8;
 
-export function BillList({ clubId }: BillListProps) {
+export function BillList({ clubId, initialStatusFilter = '' }: BillListProps) {
   const [page, setPage] = useState(0);
-  const [statusFilter, setStatusFilter] = useState<FeeStatus | ''>('');
+  const [statusFilter, setStatusFilter] = useState<FeeStatus | ''>(initialStatusFilter);
   const [periodFilter, setPeriodFilter] = useState('');
   const [selectedMember, setSelectedMember] = useState<ClubMember | null>(null);
   const [memberQuery, setMemberQuery] = useState('');
