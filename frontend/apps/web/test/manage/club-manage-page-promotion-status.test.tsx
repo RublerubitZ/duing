@@ -12,6 +12,10 @@ import type { LatestPromotionRequest } from '@duing/types';
 vi.mock('@/app/manage/_components/dashboard/DashboardCardGrid', () => ({
   DashboardCardGrid: () => null,
 }));
+// 머리말 보조 줄도 업무 큐 API 를 여러 개 부른다 — 이 파일은 홍보 요청 상태만 본다.
+vi.mock('@/app/manage/_components/dashboard/DashboardHeadline', () => ({
+  DashboardHeadline: () => null,
+}));
 
 import ClubManagePage from '@/app/manage/clubs/[clubId]/page';
 import { ToastProvider } from '@/app/_components/toast/ToastProvider';
