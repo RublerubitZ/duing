@@ -31,7 +31,8 @@ type Props = {
 };
 
 export function FaqPageFallback({ page, categories }: Props) {
-  if (page === null) return <RouteLoading />;
+  // 빈 목록도 로딩 화면 — 빈 래퍼만 그렸다가 FaqPage 의 빈 상태 문구가 끼어들며 아래가 밀리지 않게(라우트도 빈 목록은 null 로 넘긴다).
+  if (page === null || page.content.length === 0) return <RouteLoading />;
 
   return (
     // FaqPage 와 같은 최상위 정적 div(손으로 맞춤)

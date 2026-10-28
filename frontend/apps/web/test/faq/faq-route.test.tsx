@@ -41,7 +41,7 @@ vi.mock('@/app/faq/_pages/FaqPage', async () => {
   };
 });
 
-// fallback 트리(InfoTabs·HomeFooter)가 부른다 — Task 3 서버 렌더 테스트와 같은 모킹. 탐침은 useSearchParams 를 부르지 않는다.
+// fallback 트리(InfoTabs·HomeFooter)가 부른다 — faq-page-fallback-ssr.test.tsx 와 같은 모킹. 탐침은 useSearchParams 를 부르지 않는다.
 vi.mock('next/navigation', () => ({
   usePathname: () => '/faq',
   useSelectedLayoutSegment: () => null,
@@ -88,6 +88,16 @@ describe('자주 묻는 질문 라우트 — 24시간 ISR', () => {
     expect(fetchPublicFaqListMock).toHaveBeenCalledWith(DEFAULT_FAQ_LIST_PARAMS);
     expect(fetchPublicFaqCategoriesMock).toHaveBeenCalledTimes(1);
     expect(fetchPublicFaqCategoriesMock).toHaveBeenCalledWith();
+  });
+
+  it('두 조회는 기다리지 않고 함께 보낸다 — 순서대로 await 하면 재생성이 두 왕복만큼 늦어진다', () => {
+    // 목록이 끝나지 않아도 카테고리 조회가 이미 나갔어야 한다.
+    fetchPublicFaqListMock.mockReturnValue(new Promise(() => {}));
+    fetchPublicFaqCategoriesMock.mockResolvedValue({ status: 'found', data: faqCategories });
+
+    void FaqRoute();
+
+    expect(fetchPublicFaqCategoriesMock).toHaveBeenCalledTimes(1);
   });
 
   it('목록·카테고리를 화면 키로 시드하고(updatedAt 0), 서버 HTML 에 질문·답변·빈 카테고리 칩을 담는다', async () => {

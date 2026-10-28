@@ -57,15 +57,21 @@ function outlineSubtree(element: Element, depth: number): string[] {
 }
 
 /**
- * 첫 행 자리를 정하는 것을 문서 순서대로 펼친다 — 페이지 루트에서 첫 행 버튼(첫 button[aria-controls])까지의 조상(▸)과,
+ * 첫 행 자리를 정하는 것을 문서 순서대로 펼친다 — 페이지 루트에서 첫 행 버튼(첫 질문을 담은 button[aria-controls])까지의 조상(▸)과,
  * 각 조상 앞에 놓인 형제(행 위 줄)의 하위 트리. 실제 화면을 감싼 Provider 들은 DOM 을 앞에 남기지 않아 페이지 루트가 곧
  * 렌더 컨테이너의 첫 자식이다.
  */
 function outlineAboveFirstRow(container: HTMLElement): string[] {
   const pageRoot = container.firstElementChild;
   if (pageRoot === null) throw new Error('페이지 루트가 없다');
-  const firstRowButton = pageRoot.querySelector('button[aria-controls]');
-  if (firstRowButton === null) throw new Error(`${describeElement(pageRoot)} 에 첫 행 버튼(button[aria-controls])이 없다`);
+  const firstQuestion = faqListPage.content[0]?.question ?? '';
+  const firstRowButton =
+    Array.from(pageRoot.querySelectorAll('button[aria-controls]')).find((button) =>
+      button.textContent?.includes(firstQuestion),
+    ) ?? null;
+  if (firstQuestion === '' || firstRowButton === null) {
+    throw new Error(`${describeElement(pageRoot)} 에 첫 질문(${firstQuestion})을 담은 행 버튼이 없다`);
+  }
   const ancestors: Element[] = [];
   for (let node: Element | null = firstRowButton; node !== null && node !== pageRoot; node = node.parentElement) {
     ancestors.unshift(node);

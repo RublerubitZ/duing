@@ -46,7 +46,8 @@ describe('FaqPageFallback — 서버 렌더', () => {
     expect(consoleSpies.warn).not.toHaveBeenCalled();
     // Suspense 안 SSR 오류는 renderToString 이 삼키고 <!--$!--> 표식만 남긴다.
     expect(html).not.toContain('<!--$!-->');
-    expect(html).toContain('자주 묻는 질문');
+    // InfoTabs·푸터에도 같은 문구가 있어 제목 요소로 좁힌다.
+    expect(html).toMatch(/<h1[^>]*>자주 묻는 질문<\/h1>/);
     expect(html).toContain('두잉은 어떤 서비스인가요?');
     expect(html).toContain('우리 동아리도 두잉에 등록할 수 있나요?');
     // 답변은 접힌 패널 안에 있어도 HTML 에 있어야 한다(크롤러 본문).
@@ -64,7 +65,7 @@ describe('FaqPageFallback — 서버 렌더', () => {
     expect(html).toContain('aria-label="질문 검색"');
     expect(html).toContain('readOnly=""');
     expect(html).not.toContain('disabled=""');
-    // 피드백 위젯은 뺀다 — useToast 가 프로바이더 밖이면 throw 한다.
+    // 피드백 위젯은 뺀다 — 하이드레이션되지 않아 동작하지 않고, 문구가 크롤러 본문에 섞인다.
     expect(html).not.toContain('도움됐어요');
     expect(html).toContain('href="/me/inquiries/new"');
   });
@@ -88,6 +89,14 @@ describe('FaqPageFallback — 서버 렌더', () => {
     expect(html).toContain('role="status"');
     expect(html).toContain('aria-label="페이지 불러오는 중"');
     expect(html).not.toContain('두잉은 어떤 서비스인가요?');
+    expect(html).not.toContain('>기타</button>');
+  });
+
+  it('빈 목록이 와도 로딩 화면을 그린다 — 빈 래퍼만 그리면 교체 때 빈 상태 문구가 끼어들며 아래가 밀린다', () => {
+    const emptyPage = { ...faqListPage, content: [], totalElements: 0, totalPages: 0, hasNext: false };
+    const html = renderToString(<FaqPageFallback page={emptyPage} categories={faqCategories} />);
+
+    expect(html).toContain('aria-label="페이지 불러오는 중"');
     expect(html).not.toContain('>기타</button>');
   });
 

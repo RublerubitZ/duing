@@ -21,6 +21,8 @@ export const metadata: Metadata = {
 // 데이터를 시드해 JS 가 이어받을 때 스켈레톤 없이 이어지게 한다(updatedAt 0 이라 마운트 때 다시 받는다).
 // 빈 목록·장애면 시드 없이 지금 로딩 화면이다. 런타임 재생성 장애는 두 로더 모두 throw 해 직전 캐시본을 유지하고,
 // 빌드 국면에서 백엔드가 응답하지 않으면 시드 없는 셸로 만들어져 다음 재생성(최대 24시간 뒤)까지 남는다.
+// 쿼리로 들어오면(/faq?category=…·?keyword=…·?page=…) JS 가 로드되기 전 잠깐 기본 목록이 보였다가 스켈레톤을 거쳐 그 조건의
+// 목록으로 바뀐다. ?item= 이면 목록 위에 딥링크 카드가 끼어든다(정적 라우트라 HTML 은 쿼리와 상관없이 하나다).
 // ⚠️ cookies()·headers()·searchParams 를 읽으면 동적 라우트가 돼 요청마다 함수가 돈다 — 쓰지 말 것.
 export const revalidate = 86400;
 
@@ -32,13 +34,13 @@ export default async function Page() {
   // 빈 목록은 기본 목록으로 쓰지 않는다 — 복구 중 같은 순간의 빈 200 이 24시간 굳지 않게(동아리 탐색·소식과 같은 규칙).
   const defaultList =
     listContent.status === 'found' && listContent.data.content.length > 0 ? listContent.data : null;
-  // 목록이 없으면 카테고리도 시드하지 않는다 — 화면이 스켈레톤부터 시작하는 지금 동작 그대로.
-  const categories = defaultList !== null && categoriesContent.status === 'found' ? categoriesContent.data : null;
+  const categories = categoriesContent.status === 'found' ? categoriesContent.data : null;
   const page = (
     <Suspense fallback={<FaqPageFallback page={defaultList} categories={categories} />}>
       <FaqPage />
     </Suspense>
   );
+  // 목록이 없으면 카테고리도 시드하지 않는다 — 화면이 스켈레톤부터 시작하는 지금 동작 그대로(fallback 도 로딩 화면이다).
   if (defaultList === null) return page;
   return (
     <SeededQuery queryKey={federationFaqQueryKeys.list(DEFAULT_FAQ_LIST_PARAMS)} data={defaultList}>

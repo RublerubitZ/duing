@@ -2,8 +2,8 @@
 
 // FAQ 아코디언 행 — 실제 화면(FaqPage)과 서버 기본 목록(FaqPageFallback)이 같은 행을 쓴다. pinned 뱃지·카테고리 캡션이
 // 필요해 자체 렌더한다. 서버 컴포넌트가 그리므로 props 는 직렬화 가능한 값만 둔다(함수 prop 은 RSC 렌더가 throw 한다).
-// 서버 기본 목록은 피드백 위젯을 뺀다(withFeedback=false) — 접힌 패널 안이라 높이에 영향이 없고, 위젯의 useToast 는
-// 프로바이더 밖이면 throw 한다.
+// 서버 기본 목록은 피드백 위젯을 뺀다(withFeedback=false) — 하이드레이션되지 않아 눌러도 동작하지 않고, 답변마다 붙는
+// "이 답변이 도움이 되었나요?" 문구가 크롤러 본문에 섞인다. 접힌 패널 안이라 빼도 높이는 같다.
 
 import { useId, useState } from 'react';
 

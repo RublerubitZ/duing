@@ -111,6 +111,8 @@ describe('FaqPage', () => {
     expect(screen.getByText('탈퇴')).toBeInTheDocument();
     // 정상 목록에는 '이전 내용일 수 있다' 안내가 붙지 않는다(안내 줄은 data 가 있는 실패에서만).
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    // 실제 화면 행은 피드백 위젯을 단다(서버 기본 목록만 withFeedback=false).
+    expect(screen.getAllByText('이 답변이 도움이 되었나요?')).toHaveLength(2);
   });
 
   it('URL 의 category·keyword·page 가 목록 조회 훅 인자로 매핑된다 (page 는 0-based 변환)', () => {

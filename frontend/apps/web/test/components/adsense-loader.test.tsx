@@ -53,7 +53,7 @@ describe('AdSenseLoader — 게시자 콘텐츠가 있는 공개 화면에서만
   // 게시자 콘텐츠가 없는 공개 화면 — 예약 현황·캠퍼스 일정은 도구 화면이다.
   // 애드센스는 게시자 콘텐츠가 없거나 탐색·행동 목적인 화면의 광고를 금지한다.
   it.each(['/facilities', '/facilities/1', '/calendar'])(
-    '콘텐츠가 없는 도구·빈 화면 %s 는 거부된다',
+    '게시자 콘텐츠가 없는 도구 화면 %s 는 거부된다',
     (pathname) => {
       expect(isAdSenseAllowedPath(pathname)).toBe(false);
     },
