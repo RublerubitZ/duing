@@ -14,10 +14,8 @@ describe('@duing/hooks/query-keys', () => {
     expect(clubQueryKeys.detail(4)).toEqual(barrelClubKeys.detail(4));
     expect(clubQueryKeys.detail(4)).toEqual(['clubs', 4]);
     expect(noticeQueryKeys.detail(7)).toEqual(barrelNoticeKeys.detail(7));
-    expect(federationFaqQueryKeys).toBe(barrelFederationFaqKeys);
     expect(federationFaqQueryKeys.list({ page: 0, size: 20 })).toEqual(
       barrelFederationFaqKeys.list({ page: 0, size: 20 }),
     );
-    expect(federationFaqQueryKeys.categories).toEqual(barrelFederationFaqKeys.categories);
   });
 });

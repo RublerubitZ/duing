@@ -372,8 +372,9 @@ describe('fetchPublicFaqList', () => {
     const page = faqPage(['동아리는 어떻게 가입하나요?', '회비는 어디서 확인하나요?']);
     federationFaqsListMock.mockResolvedValue(page);
 
-    await expect(fetchPublicFaqList({ page: 0, size: 20 })).resolves.toEqual({ status: 'found', data: page });
-    expect(federationFaqsListMock).toHaveBeenCalledWith({ page: 0, size: 20 });
+    const params = { categoryId: 3, keyword: '회비', page: 1, size: 20 };
+    await expect(fetchPublicFaqList(params)).resolves.toEqual({ status: 'found', data: page });
+    expect(federationFaqsListMock).toHaveBeenCalledWith(params);
   });
 
   it('빌드 국면 장애면 unavailable(셸), 런타임 장애면 throw(직전 캐시본 유지)', async () => {

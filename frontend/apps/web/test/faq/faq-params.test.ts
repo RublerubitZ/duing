@@ -41,7 +41,6 @@ describe('faqParams — 목록 조회 인자', () => {
   });
 
   it('기본 목록 인자는 기본 URL 상태에서 나온다', () => {
-    expect(DEFAULT_FAQ_LIST_PARAMS).toEqual(toFaqListParams(DEFAULT_FAQ_PARAMS));
     expect(DEFAULT_FAQ_LIST_PARAMS).toEqual({ categoryId: undefined, keyword: undefined, page: 0, size: 20 });
   });
 

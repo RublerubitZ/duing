@@ -118,7 +118,7 @@ export function fetchPublicNoticeList(params: {
   return loadPublicList(() => client().notices.list(params));
 }
 
-/** 공개 FAQ 목록 한 페이지 — 익명 조회라 백엔드가 공개 질문만 준다. 목록 로더라 404 도 장애로 본다. */
+/** 공개 FAQ 목록 한 페이지 — 공개 API 라 로그인과 무관하게 공개 질문만 온다. 목록 로더라 404 도 장애로 본다. */
 export function fetchPublicFaqList(params: {
   categoryId?: number;
   keyword?: string;
@@ -128,7 +128,7 @@ export function fetchPublicFaqList(params: {
   return loadPublicList(() => client().federationFaqs.list(params));
 }
 
-/** 공개 FAQ 카테고리 — 익명 조회. 목록 로더라 404 도 장애다(런타임은 throw — 칩 없는 HTML 이 재생성 주기만큼 남지 않게). */
+/** 공개 FAQ 카테고리. 목록 로더라 404 도 장애다(런타임은 throw — 칩 없는 HTML 이 재생성 주기만큼 남지 않게). */
 export function fetchPublicFaqCategories(): Promise<PublicContent<FederationFaqCategory[]>> {
   return loadPublicList(() => client().federationFaqCategories.list());
 }

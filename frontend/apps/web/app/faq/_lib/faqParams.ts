@@ -20,7 +20,7 @@ export const DEFAULT_FAQ_PARAMS: FaqParams = {
 };
 
 /** FAQ 목록 한 페이지 크기 — 화면(FaqPage)과 서버 시드가 같은 키를 만들도록 한곳에 둔다. */
-export const FAQ_PAGE_SIZE = 20;
+const FAQ_PAGE_SIZE = 20;
 
 /** 목록 조회 인자 — useFederationFaqListQuery 의 인자 형태(훅 쪽 타입은 export 되지 않는다). */
 export type FaqListParams = { categoryId?: number; keyword?: string; page: number; size: number };
