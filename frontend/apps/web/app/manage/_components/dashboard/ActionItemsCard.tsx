@@ -44,7 +44,7 @@ export function ActionItemsCard({ clubId }: { clubId: number }) {
                     {/* 행 전체가 링크 하나 — 같은 이름의 버튼이 여러 개 생기지 않게 처리 문구는 span 이다. */}
                     <Link
                       href={toRoute(row.href)}
-                      className="flex min-h-11 flex-wrap items-center gap-x-3 gap-y-1 rounded-md px-2 py-2 transition hover:bg-sage-tint focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sage"
+                      className="flex min-h-11 flex-wrap items-center gap-x-3 gap-y-1 rounded-md px-2 py-2 transition hover:bg-sage-tint focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink"
                     >
                       <span className="min-w-0 flex-1 basis-56">
                         <span className="block text-sm font-medium text-charcoal">{row.label}</span>
