@@ -466,9 +466,11 @@ export function useClubOperationItems(clubId: number | undefined): {
   // 게이트와 묶는다 — 상태가 미사용으로 바뀌거나 조회에 실패하면 비활성 쿼리에 남은 옛 캐시를 쓰지 않는다.
   const bankPendingCount = bankPendingEnabled ? bankPendingQuery.data?.totalElements : undefined;
   const bookings = bookingsQuery.data;
+  // 자정을 넘기면 다시 계산한다 — 데이터가 그대로여도 지난 거절 예약이 어제 기준으로 남지 않게.
+  const todayKst = todayKstDateString(new Date());
   const items = useMemo(
     () => buildOperationItems({ pendingJoinRequests: joinRequests, feeSummary, bankPendingCount, bookings }, new Date()),
-    [joinRequests, feeSummary, bankPendingCount, bookings],
+    [joinRequests, feeSummary, bankPendingCount, bookings, todayKst],
   );
 
   return {

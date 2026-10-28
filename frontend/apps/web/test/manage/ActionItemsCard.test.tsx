@@ -53,6 +53,10 @@ describe('ActionItemsCard', () => {
     expect(screen.queryByRole('button')).not.toBeInTheDocument();
     expect(within(links[3]!).getByText('거절됨')).toBeInTheDocument();
     expect(within(links[3]!).getByText('예약 보기')).toBeInTheDocument();
+    // 칩과 처리 문구는 한 묶음 — 따로 줄바꿈하면 행마다 처리 문구 자리가 달라진다.
+    const chipGroup = within(links[3]!).getByText('거절됨').parentElement;
+    expect(chipGroup).toBe(within(links[3]!).getByText('예약 보기').parentElement);
+    expect(chipGroup).not.toBe(links[3]);
   });
 
   it('맥락 문구는 말줄임하지 않는다(모바일에서 모집명이 잘리지 않게)', () => {

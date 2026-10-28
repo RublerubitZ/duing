@@ -74,7 +74,7 @@ export function ApplicantSummaryCard({ clubId }: { clubId: number }) {
             >
               <span className="block text-xs text-charcoal-3">{tile.label}</span>
               <span className="mt-1 block text-xl font-bold tabular-nums text-charcoal">{tile.value}</span>
-              {tile.sub ? <span className="block text-[11px] text-charcoal-3">{tile.sub}</span> : null}
+              {tile.sub ? <span className="block break-keep text-[11px] text-charcoal-3">{tile.sub}</span> : null}
             </Link>
           </li>
         ))}

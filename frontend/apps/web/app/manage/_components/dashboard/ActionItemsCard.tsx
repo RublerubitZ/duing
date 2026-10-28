@@ -48,15 +48,18 @@ export function ActionItemsCard({ clubId }: { clubId: number }) {
                     >
                       <span className="min-w-0 flex-1 basis-56">
                         <span className="block text-sm font-medium text-charcoal">{row.label}</span>
-                        <span className="block break-words text-xs text-charcoal-3">{row.context}</span>
+                        <span className="block break-words break-keep text-xs text-charcoal-3">{row.context}</span>
                       </span>
-                      {row.chip ? (
-                        <span className={cn('shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold tabular-nums', TASK_CHIP_TONE_CLASS[row.chip.tone])}>
-                          {row.chip.text}
+                      {/* 칩과 처리 문구는 함께 줄을 바꾼다 — 따로 바꾸면 행마다 처리 문구 자리가 달라진다. */}
+                      <span className="ml-auto flex shrink-0 items-center gap-2">
+                        {row.chip ? (
+                          <span className={cn('shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold tabular-nums', TASK_CHIP_TONE_CLASS[row.chip.tone])}>
+                            {row.chip.text}
+                          </span>
+                        ) : null}
+                        <span className="shrink-0 rounded-md border border-sage-soft bg-paper px-3 py-1.5 text-xs font-semibold text-ink">
+                          {row.actionLabel}
                         </span>
-                      ) : null}
-                      <span className="shrink-0 rounded-md border border-sage-soft bg-sage-tint px-3 py-1.5 text-xs font-semibold text-ink">
-                        {row.actionLabel}
                       </span>
                     </Link>
                   </li>
