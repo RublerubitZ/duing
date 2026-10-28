@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { BankTransactionSearchParams, SyncBankTransactionsPayload } from '@duing/types';
 import { useApiClient } from './api-context';
 import { bankQueryKeys } from './bankQueryKeys';
+import { cashbookQueryKeys } from './cashbookQueryKeys';
 import { feeQueryKeys } from './feeQueryKeys';
 import { retryUnlessStatuses } from './retry';
 
@@ -32,7 +33,12 @@ export function useBankSyncMutation(clubId: number) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (payload: SyncBankTransactionsPayload) => client.leader.fees.bank.sync(clubId, payload),
-    onSettled: () => invalidateBankAndFees(queryClient, clubId),
+    // 동기화는 서버에서 장부 항목도 만든다(GeneralBankTransactionSyncService) — 장부도 다시 받는다.
+    // 승인·무시·해제는 장부를 바꾸지 않아 공용 invalidateBankAndFees 에는 넣지 않는다.
+    onSettled: () => {
+      invalidateBankAndFees(queryClient, clubId);
+      queryClient.invalidateQueries({ queryKey: cashbookQueryKeys.byClub(clubId) });
+    },
   });
 }
 
