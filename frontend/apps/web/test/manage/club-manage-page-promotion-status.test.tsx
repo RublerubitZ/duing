@@ -123,6 +123,10 @@ describe('운영 홈 — 최근 홍보 요청 상태 배지', () => {
     expect(await screen.findByText('검토 대기 중 · 2026.10.21 제출')).toBeInTheDocument();
     expect(promotionButton()).toHaveAttribute('aria-disabled', 'true');
     expect(promotionButton()).toHaveAccessibleDescription('검토 대기 중 · 2026.10.21 제출');
+    // 제목 블록이 min-w-0 이면 좁은 폭에서 날짜 줄이 버튼 밑으로 겹친다 — 최소 폭을 남겨 버튼이 다음 줄로 내려가게 한다.
+    const titleBlock = screen.getByRole('heading', { level: 1 }).parentElement;
+    expect(titleBlock).toHaveClass('flex-1');
+    expect(titleBlock).not.toHaveClass('min-w-0');
   });
 
   it('검토 대기 중인 버튼은 Tab 으로 닿지만 눌러도 모달을 열지 않는다', async () => {

@@ -40,7 +40,7 @@ export default function ClubManagePage({
       {/* 배지는 lg 이상에서 버튼 옆, 그 아래(모바일·사이드바가 붙는 md 구간)에서는 줄을 바꿔 헤더 아래로 — 제목·버튼 줄을 밀지 않는다. */}
       <header className="mb-8 flex flex-wrap items-center gap-2">
         {/* 제목과 보조 줄은 한 블록 — 배지(order-last basis-full)보다 위에 남는다. */}
-        <div className="min-w-0 flex-1">
+        <div className="flex-1">
           <h1 className="text-xl font-bold">
             {currentManagedClub?.clubName ?? '동아리'}
           </h1>
