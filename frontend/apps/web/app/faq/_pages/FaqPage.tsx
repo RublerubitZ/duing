@@ -21,9 +21,7 @@ import { HomeFooter } from '../../_components/HomeFooter';
 import { toRoute } from '../../_lib/route';
 import { FaqDeepLinkCard } from '../_components/FaqDeepLinkCard';
 import { FaqFeedback } from '../_components/FaqFeedback';
-import { parseFaqParams, serializeFaqParams, type FaqParams } from '../_lib/faqParams';
-
-const PAGE_SIZE = 20;
+import { parseFaqParams, serializeFaqParams, toFaqListParams, type FaqParams } from '../_lib/faqParams';
 
 function FaqAccordionRow({ faq, index }: { faq: FederationFaqItem; index: number }) {
   const [open, setOpen] = useState(false);
@@ -121,12 +119,7 @@ export function FaqPage() {
   );
 
   const categoriesQuery = useFederationFaqCategoriesQuery();
-  const listQuery = useFederationFaqListQuery({
-    categoryId: params.categoryId !== 'ALL' ? params.categoryId : undefined,
-    keyword: params.keyword || undefined,
-    page: params.page - 1,
-    size: PAGE_SIZE,
-  });
+  const listQuery = useFederationFaqListQuery(toFaqListParams(params));
 
   const items = listQuery.data?.content ?? [];
   const totalPages = listQuery.data?.totalPages ?? 0;
