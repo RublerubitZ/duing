@@ -21,7 +21,6 @@ import { clubEventKeys } from './clubEventQueryKeys';
 import { isTodayKst, todayKstDateString } from './dashboardDate';
 import { retryUnlessStatuses } from './retry';
 import {
-  ACTION_ITEM_PREVIEW_COUNT,
   aggregateApplicantTotals,
   buildActionItems,
   buildClosedRecruitmentItems,
@@ -94,10 +93,9 @@ export function useApplicantSummary(clubId: number | undefined): {
   };
 }
 
-/** 카드1: 처리 필요 업무 — 총 건수 + 정렬된 상위 미리보기 */
+/** 카드1: 처리 필요 업무 — 정렬된 모집 업무 목록과 총 건수 */
 export function useClubActionItems(clubId: number | undefined): {
   items: ActionItem[];
-  preview: ActionItem[];
   totalCount: number;
   isLoading: boolean;
   isError: boolean;
@@ -211,7 +209,6 @@ export function useClubActionItems(clubId: number | undefined): {
 
   return {
     items,
-    preview: items.slice(0, ACTION_ITEM_PREVIEW_COUNT),
     totalCount: items.length,
     isLoading:
       recruitments.isLoading ||
@@ -390,7 +387,7 @@ export function useClubFeedCounts(clubId: number | undefined): {
   };
 }
 
-// 은행 훅(bank.ts)과 같은 정책 — 자동매칭 미사용 403 은 정상 상태라 재시도하지 않는다.
+// 은행 훅(bank.ts)과 같은 정책 — 비운영진 403 은 재시도해도 결과가 같아 다시 묻지 않는다.
 const retryUnlessBankForbidden = retryUnlessStatuses(403);
 const BANK_PENDING_PARAMS = { status: 'PENDING' } as const;
 
@@ -463,7 +460,7 @@ export function useClubOperationItems(clubId: number | undefined): {
 
   const joinRequests = joinRequestsQuery.data;
   const feeSummary = feeSummaryQuery.data;
-  // 게이트와 묶는다 — 상태가 미사용으로 바뀌거나 조회에 실패하면 비활성 쿼리에 남은 옛 캐시를 쓰지 않는다.
+  // 게이트와 묶는다 — 자동매칭이 꺼졌거나 상태를 아직 못 받았으면 비활성 쿼리에 남은 옛 캐시를 쓰지 않는다.
   const bankPendingCount = bankPendingEnabled ? bankPendingQuery.data?.totalElements : undefined;
   const bookings = bookingsQuery.data;
   // 자정을 넘기면 다시 계산한다 — 데이터가 그대로여도 지난 거절 예약이 어제 기준으로 남지 않게.

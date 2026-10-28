@@ -12,7 +12,7 @@ export const FEE_TABS: { id: FeeTab; label: string }[] = [
   { id: 'cashbook', label: '장부' },
 ];
 
-const FEE_STATUSES: FeeStatus[] = ['PENDING', 'PAID', 'PARTIAL_PAID', 'OVERDUE', 'CANCELLED'];
+export const FEE_STATUSES: FeeStatus[] = ['PENDING', 'PAID', 'PARTIAL_PAID', 'OVERDUE', 'CANCELLED'];
 
 /** `?tab=` 값 → 처음 탭. 모르는 값·배열·없음은 정책 탭. */
 export function parseFeeTab(value: string | string[] | undefined): FeeTab {

@@ -21,7 +21,6 @@ import { daysUntilKst, parseKstInstant, todayKstDateString } from './dashboardDa
 
 /** 진행 중 모집 카드에서 D-day 강조(coral)를 적용하는 잔여 일수 윈도 */
 export const CLOSING_SOON_DAYS = 3;
-export const ACTION_ITEM_PREVIEW_COUNT = 3;
 
 /** 모집 1건 + 그 모집의 통계·면접 라운드 묶음 */
 export type RecruitmentDashboardInput = {
@@ -234,14 +233,20 @@ const OPERATION_PRIORITY: Record<OperationItemType, number> = {
   FACILITY_BOOKING_ATTENTION: 9,
 };
 
-export const DASHBOARD_TASK_GROUP_ORDER: DashboardTaskGroupKey[] = ['NOW', 'WAITING', 'INFO'];
+export const DASHBOARD_TASK_GROUP_ORDER: readonly DashboardTaskGroupKey[] = ['NOW', 'WAITING', 'INFO'];
 
-/** 누군가 결과를 기다리거나 기한이 지났으면 지금 처리(스펙 §4.2). */
+/** 누군가 결과를 기다리거나 기한이 지났으면 지금 처리. */
 export function dashboardTaskGroupOf(task: DashboardTask): DashboardTaskGroupKey {
   if (task.source === 'OPERATION') {
-    if (task.item.type === 'FEE_OVERDUE') return 'NOW';
-    if (task.item.type === 'FACILITY_BOOKING_ATTENTION') return 'INFO';
-    return 'WAITING';
+    switch (task.item.type) {
+      case 'FEE_OVERDUE':
+        return 'NOW';
+      case 'FACILITY_BOOKING_ATTENTION':
+        return 'INFO';
+      case 'JOIN_REQUESTS_PENDING':
+      case 'BANK_REVIEW_PENDING':
+        return 'WAITING';
+    }
   }
   switch (task.item.type) {
     case 'CLOSED_RECRUITMENT_UNDECIDED':

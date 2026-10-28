@@ -18,6 +18,7 @@ import { feeStatusChip, feeStatusLabel, formatWon } from '@/app/_lib/feeLabels';
 import { scrollToPaginatedListStart } from '@/app/_lib/paginationScroll';
 import { toRoute } from '@/app/_lib/route';
 
+import { FEE_STATUSES } from '../_lib/feeTabs';
 import { RecordPaymentDialog } from './RecordPaymentDialog';
 import { PaymentHistory } from './PaymentHistory';
 import { LoadingGate } from '@/components/loading/LoadingGate';
@@ -30,14 +31,6 @@ type BillListProps = {
 };
 
 const PAGE_SIZE = 20;
-
-const STATUS_OPTIONS: FeeStatus[] = [
-  'PENDING',
-  'PAID',
-  'PARTIAL_PAID',
-  'OVERDUE',
-  'CANCELLED',
-];
 
 const inputCls =
   'rounded-md border border-line px-3 py-2 text-sm outline-none transition-colors focus-visible:border-ink focus-visible:ring-1 focus-visible:ring-ink';
@@ -146,7 +139,7 @@ export function BillList({ clubId, initialStatusFilter = '' }: BillListProps) {
             className={inputCls}
           >
             <option value="">전체</option>
-            {STATUS_OPTIONS.map((status) => (
+            {FEE_STATUSES.map((status) => (
               <option key={status} value={status}>
                 {feeStatusLabel(status)}
               </option>
@@ -468,5 +461,5 @@ function CancelBillConfirm({ clubId, bill, memberName, onClose }: CancelBillConf
 }
 
 function isFeeStatus(value: string): value is FeeStatus {
-  return STATUS_OPTIONS.some((status) => status === value);
+  return FEE_STATUSES.some((status) => status === value);
 }
