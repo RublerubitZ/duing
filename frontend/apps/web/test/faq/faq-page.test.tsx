@@ -1,4 +1,4 @@
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, within } from '@testing-library/react';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import type { FederationFaqItem } from '@duing/types';
 
@@ -235,5 +235,77 @@ describe('FaqPage', () => {
     fireEvent.click(screen.getByRole('button', { name: '가입' }));
 
     expect(mockRouterReplace).toHaveBeenCalledWith('/faq?category=3', { scroll: false });
+  });
+});
+
+describe('FaqPage — 불러오기 실패', () => {
+  beforeEach(() => {
+    mockSearchParams = new URLSearchParams();
+    mockUseFederationFaqCategoriesQuery.mockReset().mockReturnValue({ data: [] });
+    mockUseFederationFaqDetailQuery
+      .mockReset()
+      .mockReturnValue({ data: undefined, isLoading: false, isError: false });
+  });
+
+  it('다시 불러오기가 실패해도 이미 보이던 목록은 그대로 두고, 위에 다시 시도 안내를 띄운다', () => {
+    const refetch = vi.fn();
+    // TanStack Query v5 는 데이터가 있는 상태에서 재요청이 실패하면 status 를 error(isSuccess false)로 바꾸되 data 는 남긴다.
+    // 24시간 ISR 시드로 첫 화면을 그린 뒤 마운트 재요청이 시간 초과로 끝나는 경우가 이 상태다.
+    mockUseFederationFaqListQuery.mockReset().mockReturnValue({
+      ...makeListResponse([makeFaqItem({ id: 1, question: '이미 보이던 질문' })]),
+      isSuccess: false,
+      isError: true,
+      isFetching: false,
+      error: new Error('요청 시간이 초과되었습니다.'),
+      refetch,
+    });
+
+    render(<FaqPage />);
+
+    expect(screen.getByText('이미 보이던 질문')).toBeInTheDocument();
+    expect(screen.queryByText('FAQ를 불러오지 못했습니다')).not.toBeInTheDocument();
+    const staleNotice = screen.getByRole('alert');
+    expect(staleNotice).toHaveTextContent(
+      '최신 질문을 불러오지 못했습니다. 지금 보이는 목록은 이전 내용일 수 있습니다.',
+    );
+    fireEvent.click(within(staleNotice).getByRole('button', { name: '다시 시도' }));
+    expect(refetch).toHaveBeenCalledTimes(1);
+  });
+
+  it('목록을 다시 불러오는 동안에는 안내의 버튼을 막고 진행 중임을 알린다 — 연타가 진행 중 요청을 취소·재시작하지 않게', () => {
+    mockUseFederationFaqListQuery.mockReset().mockReturnValue({
+      ...makeListResponse([makeFaqItem({ id: 1, question: '이미 보이던 질문' })]),
+      isSuccess: false,
+      isError: true,
+      isFetching: true,
+      error: new Error('요청 시간이 초과되었습니다.'),
+      refetch: vi.fn(),
+    });
+
+    render(<FaqPage />);
+
+    expect(
+      within(screen.getByRole('alert')).getByRole('button', { name: '다시 불러오는 중…' }),
+    ).toBeDisabled();
+  });
+
+  it('처음 불러오기가 실패해 보여 줄 목록이 없으면 오류 문구만 보이고 목록·안내 줄은 없다', () => {
+    mockUseFederationFaqListQuery.mockReset().mockReturnValue({
+      data: undefined,
+      isLoading: false,
+      isSuccess: false,
+      isError: true,
+      isFetching: false,
+      error: new Error('요청 시간이 초과되었습니다.'),
+      refetch: vi.fn(),
+    });
+
+    render(<FaqPage />);
+
+    expect(screen.getByText('FAQ를 불러오지 못했습니다')).toBeInTheDocument();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(
+      screen.queryByText('아직 등록된 질문이 없어요 · 궁금한 점은 아래 1:1 문의로 보내주세요'),
+    ).not.toBeInTheDocument();
   });
 });

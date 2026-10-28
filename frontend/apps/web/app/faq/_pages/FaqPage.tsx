@@ -217,11 +217,31 @@ export function FaqPage() {
         {listQuery.isLoading && (
           <ListRowsSkeleton rows={6} rowClassName="h-[64px] rounded-[20px]" label="FAQ 목록 불러오는 중" />
         )}
-        {listQuery.isError && (
+        {listQuery.isError && !listQuery.data && (
           <p className="py-12 text-center text-[13px] text-coral-deep">FAQ를 불러오지 못했습니다</p>
         )}
 
-        {listQuery.isSuccess && (
+        {/* 재요청이 실패해도 이미 받은 목록은 남긴다 — TanStack Query 5 는 이때 isSuccess 를 내리지만 data 는 유지한다.
+            24시간 ISR 시드로 그린 첫 화면이 마운트 재요청 실패로 통째로 오류 문구로 바뀌지 않게 한다. */}
+        {listQuery.isError && listQuery.data && (
+          <div
+            role="alert"
+            className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-line bg-paper px-4 py-3 text-[13px] text-charcoal-2"
+          >
+            <span>최신 질문을 불러오지 못했습니다. 지금 보이는 목록은 이전 내용일 수 있습니다.</span>
+            {/* 연타가 진행 중 요청을 취소·재시작하지 않게 막는다(refetch 의 cancelRefetch 기본값이 true). */}
+            <button
+              type="button"
+              className="btn btn-secondary btn-sm"
+              disabled={listQuery.isFetching}
+              onClick={() => void listQuery.refetch()}
+            >
+              {listQuery.isFetching ? '다시 불러오는 중…' : '다시 시도'}
+            </button>
+          </div>
+        )}
+
+        {listQuery.data !== undefined && (
           <>
             {items.length === 0 ? (
               <p className="py-12 text-center text-[13px] text-charcoal-3">
