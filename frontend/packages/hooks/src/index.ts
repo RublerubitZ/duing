@@ -312,6 +312,8 @@ export {
   useActiveRecruitments,
   useApplicantSummary,
   useClubActionItems,
+  useClubOperationItems,
+  useDashboardTaskQueue,
   useTodaySchedule,
   useClubFeedCounts,
 } from './dashboard';
