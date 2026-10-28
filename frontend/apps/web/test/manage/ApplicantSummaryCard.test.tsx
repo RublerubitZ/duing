@@ -2,7 +2,13 @@ import { render, screen } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
 import type { ApplicantStatusTotals, RecruitmentSummary } from '@duing/types';
 
-vi.mock('next/link', () => ({ default: ({ children, href }: { children: React.ReactNode; href: string }) => <a href={href}>{children}</a> }));
+vi.mock('next/link', () => ({
+  default: ({ children, href, className }: { children: React.ReactNode; href: string; className?: string }) => (
+    <a href={href} className={className}>
+      {children}
+    </a>
+  ),
+}));
 vi.mock('@/app/_lib/route', () => ({ toRoute: (path: string) => path }));
 
 const mockUseApplicantSummary = vi.fn();
@@ -27,7 +33,11 @@ describe('ApplicantSummaryCard(지원자 현황 띠)', () => {
       isLoading: false, isError: false,
     });
     render(<ApplicantSummaryCard clubId={1} />);
-    expect(screen.getByText('2026 2학기 신입 부원 모집 · 총 27명')).toBeInTheDocument();
+    // 긴 모집명만 말줄임되고 인원은 따로 남는다
+    const recruitmentTitle = screen.getByText('2026 2학기 신입 부원 모집');
+    expect(recruitmentTitle).toHaveClass('truncate');
+    expect(recruitmentTitle).toHaveAttribute('title', '2026 2학기 신입 부원 모집');
+    expect(screen.getByText(/총 27명/)).toBeInTheDocument();
     expect(screen.getByText('검토 대기')).toBeInTheDocument();
     expect(screen.getByText('12명')).toBeInTheDocument();
     expect(screen.getByText('지원 완료 9 + 보류 3')).toBeInTheDocument();
@@ -38,7 +48,10 @@ describe('ApplicantSummaryCard(지원자 현황 띠)', () => {
     // 옛 5칸의 단독 칸은 없다
     expect(screen.queryByText('보류')).not.toBeInTheDocument();
     expect(screen.queryByText('지원 완료')).not.toBeInTheDocument();
-    expect(screen.getAllByRole('link').filter((link) => link.getAttribute('href') === '/manage/clubs/1/applicants')).toHaveLength(4);
+    const tileLinks = screen.getAllByRole('link').filter((link) => link.getAttribute('href') === '/manage/clubs/1/applicants');
+    expect(tileLinks).toHaveLength(4);
+    // 보조 문구가 있는 칸만 길어지지 않게 네 칸이 행 높이를 채운다
+    for (const tileLink of tileLinks) expect(tileLink).toHaveClass('h-full');
     expect(screen.getByRole('link', { name: '모집별 통계 보기' })).toHaveAttribute('href', '/manage/clubs/1/recruitments');
   });
 
