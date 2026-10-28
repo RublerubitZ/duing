@@ -15,6 +15,8 @@ export default function FacilityBookingsPage({
   const { clubId: clubIdParam } = use(params);
   const { tab } = use(searchParams);
   const currentClubId = Number(clubIdParam);
+  const initialTab = parseManageTab(tab);
 
-  return <FacilityBookingsView clubId={currentClubId} initialTab={parseManageTab(tab)} />;
+  // 주소의 쿼리만 바뀐 이동은 같은 컴포넌트 상태를 남긴다 — key 로 다시 마운트해 탭이 주소를 따라오게 한다.
+  return <FacilityBookingsView key={initialTab} clubId={currentClubId} initialTab={initialTab} />;
 }
