@@ -56,6 +56,18 @@ describe('FeeLedgerCard', () => {
     expect(container.querySelector('[data-testid="fee-rate-bar"]')).toHaveStyle({ width: '100%' });
   });
 
+  it('연체가 있을 때만 연체 건수를 경고 색으로 그린다', () => {
+    mockCashbookSummary.mockReturnValue(success(cashbook));
+    mockFeeSummary.mockReturnValue(success(fee({ overdueCount: 4 })));
+    const { unmount } = render(<FeeLedgerCard clubId={7} />);
+    expect(screen.getByText('4건')).toHaveClass('text-coral-deep');
+    unmount();
+
+    mockFeeSummary.mockReturnValue(success(fee({ overdueCount: 0 })));
+    render(<FeeLedgerCard clubId={7} />);
+    expect(screen.getByText('0건')).not.toHaveClass('text-coral-deep');
+  });
+
   it('수납 요약만 실패하면 장부 잔액 + 일부 실패 안내', () => {
     mockFeeSummary.mockReturnValue(failure);
     mockCashbookSummary.mockReturnValue(success(cashbook));

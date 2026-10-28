@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useCashbookSummaryQuery, useClubFeeSummaryQuery } from '@duing/hooks';
+import { cn } from '@/app/_lib/cn';
 import { formatWon } from '@/app/_lib/feeLabels';
 import { toRoute } from '@/app/_lib/route';
 import { DashboardCard } from './DashboardCard';
@@ -49,7 +50,9 @@ export function FeeLedgerCard({ clubId }: { clubId: number }) {
               </p>
               <dl className="mt-3 grid grid-cols-[minmax(0,1fr)_auto] gap-x-3 gap-y-1.5 text-xs">
                 <dt className="text-charcoal-3">연체</dt>
-                <dd className="text-right font-semibold tabular-nums text-coral-deep">{feeSummary.overdueCount}건</dd>
+                <dd className={cn('text-right font-semibold tabular-nums', feeSummary.overdueCount > 0 ? 'text-coral-deep' : 'text-ink')}>
+                  {feeSummary.overdueCount}건
+                </dd>
                 <dt className="text-charcoal-3">기한 전 미납</dt>
                 <dd className="text-right font-semibold tabular-nums">{feeSummary.pendingCount + feeSummary.partialPaidCount}건</dd>
                 <dt className="text-charcoal-3">미납액</dt>
