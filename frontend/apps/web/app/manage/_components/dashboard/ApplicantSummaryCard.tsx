@@ -62,7 +62,7 @@ export function ApplicantSummaryCard({ clubId }: { clubId: number }) {
       // 정상 빈 상태는 "—" 칸으로 보이고, 실패하면서 0명일 때만 카드의 오류 안내로 보낸다.
       isEmpty={isError && totals.total === 0}
       footer={
-        <Link href={toRoute(`/manage/clubs/${clubId}/recruitments`)} className="text-xs font-medium text-ink hover:underline">
+        <Link href={toRoute(`/manage/clubs/${clubId}/recruitments`)} className="inline-flex min-h-11 items-center text-xs font-medium text-ink hover:underline">
           모집별 통계 보기
         </Link>
       }

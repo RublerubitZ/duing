@@ -27,7 +27,7 @@ export function FeeLedgerCard({ clubId }: { clubId: number }) {
       isError={feeSummaryQuery.isError || cashbookSummaryQuery.isError}
       isEmpty={!feeSummary && !cashbookSummary}
       footer={
-        <Link href={toRoute(`/manage/clubs/${clubId}/fees`)} className="text-xs font-medium text-ink hover:underline">
+        <Link href={toRoute(`/manage/clubs/${clubId}/fees`)} className="inline-flex min-h-11 items-center text-xs font-medium text-ink hover:underline">
           회비 관리
         </Link>
       }

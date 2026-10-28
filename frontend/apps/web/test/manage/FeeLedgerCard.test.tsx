@@ -2,7 +2,7 @@ import { render, screen } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
 import type { CashbookSummary, FeeBillSummary } from '@duing/types';
 
-vi.mock('next/link', () => ({ default: ({ children, href }: { children: React.ReactNode; href: string }) => <a href={href}>{children}</a> }));
+vi.mock('next/link', () => ({ default: ({ children, href, className }: { children: React.ReactNode; href: string; className?: string }) => <a href={href} className={className}>{children}</a> }));
 
 const mockFeeSummary = vi.fn();
 const mockCashbookSummary = vi.fn();
@@ -39,6 +39,8 @@ describe('FeeLedgerCard', () => {
     expect(screen.getByText('1,284,500원')).toBeInTheDocument();
     expect(screen.queryByText(/원원/)).not.toBeInTheDocument();
     expect(screen.getByRole('link', { name: '회비 관리' })).toHaveAttribute('href', '/manage/clubs/7/fees');
+    // 글자 높이(약 16px)만으로는 손가락으로 누르기 어렵다 — 터치 영역 44px.
+    expect(screen.getByRole('link', { name: '회비 관리' })).toHaveClass('min-h-11');
   });
 
   it('청구가 0건이면 안내 문구를 보이고 장부 잔액은 남긴다', () => {

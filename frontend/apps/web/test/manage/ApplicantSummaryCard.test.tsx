@@ -65,6 +65,8 @@ describe('ApplicantSummaryCard(지원자 현황 띠)', () => {
     // 칸 안의 span 들이 붙어 읽히지 않게 링크 이름을 문장으로 준다
     expect(screen.getByRole('link', { name: '검토 대기 12명, 지원 완료 9 + 보류 3' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: '모집별 통계 보기' })).toHaveAttribute('href', '/manage/clubs/1/recruitments');
+    // 글자 높이(약 16px)만으로는 손가락으로 누르기 어렵다 — 터치 영역 44px.
+    expect(screen.getByRole('link', { name: '모집별 통계 보기' })).toHaveClass('min-h-11');
   });
 
   it('진행 중 모집이 없으면 숫자 대신 — 와 "진행 중 모집 없음"', () => {
