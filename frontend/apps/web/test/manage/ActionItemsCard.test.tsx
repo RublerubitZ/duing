@@ -60,6 +60,10 @@ describe('ActionItemsCard', () => {
     // 행보다 넓으면 묶음 안에서 줄을 바꾼다 — 줄지도 감기지도 않으면 좁은 폭·큰 글씨에서 카드 밖으로 넘친다.
     expect(chipGroup).toHaveClass('flex-wrap', 'justify-end');
     expect(chipGroup).not.toHaveClass('shrink-0');
+    // 칩 하나가 행보다 넓으면 칩 안에서 어절 단위로 감긴다 — 줄지 않으면 320px·130% 글씨에서 행 밖으로 나간다.
+    const chip = within(links[3]!).getByText('거절됨');
+    expect(chip).toHaveClass('max-w-full', 'break-keep');
+    expect(chip).not.toHaveClass('shrink-0');
   });
 
   it('맥락 문구는 말줄임하지 않는다(모바일에서 모집명이 잘리지 않게)', () => {

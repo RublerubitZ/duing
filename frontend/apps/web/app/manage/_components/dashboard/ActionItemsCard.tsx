@@ -53,7 +53,7 @@ export function ActionItemsCard({ clubId }: { clubId: number }) {
                       {/* 칩과 처리 문구는 함께 줄을 바꾼다 — 따로 바꾸면 행마다 처리 문구 자리가 달라진다. */}
                       <span className="ml-auto flex flex-wrap items-center justify-end gap-2">
                         {row.chip ? (
-                          <span className={cn('shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold tabular-nums', TASK_CHIP_TONE_CLASS[row.chip.tone])}>
+                          <span className={cn('max-w-full break-keep rounded-full px-2 py-0.5 text-xs font-semibold tabular-nums', TASK_CHIP_TONE_CLASS[row.chip.tone])}>
                             {row.chip.text}
                           </span>
                         ) : null}
