@@ -34,10 +34,17 @@ describe('DashboardHeadline', () => {
     expect(container.textContent).toMatch(/^\d{1,2}월 \d{1,2}일 [월화수목금토일]요일 · 처리할 업무 3건$/);
   });
 
+  it('좁은 폭에서도 날짜와 건수가 각각 한 덩어리로 줄바꿈된다(낱말 중간에서 끊기지 않음)', () => {
+    mockQueue.mockReturnValue({ groups: [], totalCount: 3, isLoading: false, isError: false });
+    render(<DashboardHeadline clubId={1} />);
+    expect(screen.getByText(/요일$/)).toHaveClass('whitespace-nowrap');
+    expect(screen.getByText('처리할 업무 3건')).toHaveClass('whitespace-nowrap');
+  });
+
   it('0건이면 "처리할 업무 없음"', () => {
     mockQueue.mockReturnValue({ groups: [], totalCount: 0, isLoading: false, isError: false });
-    render(<DashboardHeadline clubId={1} />);
-    expect(screen.getByText(/· 처리할 업무 없음$/)).toBeInTheDocument();
+    const { container } = render(<DashboardHeadline clubId={1} />);
+    expect(container.textContent).toMatch(/· 처리할 업무 없음$/);
   });
 
   it.each([

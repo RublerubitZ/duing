@@ -14,10 +14,16 @@ export function DashboardHeadline({ clubId }: { clubId: number }) {
 
   // 로딩 중이거나 일부 실패면 과소 집계가 사실처럼 보이지 않게 건수(와 구분자)를 뺀다.
   const countText = isLoading || isError ? null : totalCount > 0 ? `처리할 업무 ${totalCount}건` : '처리할 업무 없음';
+  // 한글은 음절마다 줄이 갈릴 수 있어, 날짜·건수를 각각 묶어 `·` 양옆에서만 줄바꿈되게 한다.
   return (
     <p className="mt-1 min-h-5 text-sm text-charcoal-2">
-      {HEADLINE_DATE_FORMATTER.format(new Date())}
-      {countText ? ` · ${countText}` : null}
+      <span className="whitespace-nowrap">{HEADLINE_DATE_FORMATTER.format(new Date())}</span>
+      {countText ? (
+        <>
+          {' · '}
+          <span className="whitespace-nowrap">{countText}</span>
+        </>
+      ) : null}
     </p>
   );
 }
