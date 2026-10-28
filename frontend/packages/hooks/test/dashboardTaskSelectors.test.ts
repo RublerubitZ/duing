@@ -98,6 +98,22 @@ describe('buildOperationItems', () => {
       { type: 'BANK_REVIEW_PENDING', count: 2 },
     ]);
   });
+
+  it('시설 예약은 화면에 쓰는 필드를 그대로 옮긴다', () => {
+    expect(
+      buildOperationItems({ ...emptyInput, bookings: [booking({ bookingId: 7, status: 'CONFLICT' })] }, JUST_AFTER_KST_MIDNIGHT),
+    ).toEqual([
+      {
+        type: 'FACILITY_BOOKING_ATTENTION',
+        bookingId: 7,
+        roomName: '학생회관 B103',
+        date: '2026-10-28',
+        startTime: '18:00:00',
+        endTime: '20:00:00',
+        status: 'CONFLICT',
+      },
+    ]);
+  });
 });
 
 const recruitmentItem = (over: Partial<ActionItem> & Pick<ActionItem, 'type'>): ActionItem => ({
@@ -143,6 +159,19 @@ describe('groupDashboardTasks', () => {
       [{ type: 'FEE_OVERDUE', count: 2 }],
     );
     expect(groups.map((group) => group.key)).toEqual(['NOW', 'WAITING']);
+
+    const allGroups = groupDashboardTasks(
+      [
+        recruitmentItem({ type: 'APPLICANTS_AWAITING_REVIEW', count: 3 }),
+        recruitmentItem({ type: 'CLOSED_RECRUITMENT_UNDECIDED', recruitmentId: 3, count: 1 }),
+      ],
+      [
+        { type: 'FACILITY_BOOKING_ATTENTION', bookingId: 1, roomName: 'A', date: '2026-10-28', startTime: '18:00:00', endTime: '20:00:00', status: 'REJECTED' },
+        { type: 'FEE_OVERDUE', count: 2 },
+      ],
+    );
+    expect(allGroups.map((group) => group.key)).toEqual(['NOW', 'WAITING', 'INFO']);
+    expect(allGroups[0]?.tasks.map((task) => task.item.type)).toEqual(['CLOSED_RECRUITMENT_UNDECIDED', 'FEE_OVERDUE']);
   });
 
   it('묶음 안에서 기한 있는 항목이 먼저, 그다음 종류 우선순위(모집 6종 → 회비 → 가입 → 은행 → 시설)', () => {

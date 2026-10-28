@@ -124,4 +124,27 @@ describe('useDashboardTaskQueue', () => {
     expect(result.current.totalCount).toBe(4);
     expect(result.current.groups.map((group) => group.key)).toEqual(['NOW', 'WAITING', 'INFO']);
   });
+
+  it('진행 중 모집의 검토 대기도 운영 업무와 함께 센다', async () => {
+    server.use(
+      http.get(`*/clubs/${CLUB_ID}/recruitments`, () =>
+        ok([
+          { id: 1, clubId: CLUB_ID, clubName: '두잉', title: '봄 모집', startDate: '2026-06-01', endDate: '2026-06-30',
+            capacity: 20, status: 'OPEN', displayStatus: 'OPEN', effectivelyOpen: true,
+            applicationMode: 'SELF', externalFormUrl: null, useInterview: false, targetRole: 'MEMBER' },
+        ]),
+      ),
+      http.get('*/leader/recruitments/1/stats/summary', () =>
+        ok({ total: 3, submitted: 2, onHold: 1, interviewPending: 0, accepted: 0, rejected: 0, capacity: 20, ratio: 0 }),
+      ),
+    );
+    const { result } = renderHook(() => useDashboardTaskQueue(CLUB_ID), { wrapper: makeWrapper(newQueryClient()) });
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(result.current.isError).toBe(false);
+    expect(result.current.totalCount).toBe(5);
+    const waiting = result.current.groups.find((group) => group.key === 'WAITING');
+    expect(
+      waiting?.tasks.some((task) => task.source === 'RECRUITMENT' && task.item.type === 'APPLICANTS_AWAITING_REVIEW'),
+    ).toBe(true);
+  });
 });

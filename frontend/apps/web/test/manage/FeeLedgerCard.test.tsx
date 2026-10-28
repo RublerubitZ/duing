@@ -23,7 +23,8 @@ const failure = { data: undefined, isLoading: false, isError: true };
 
 describe('FeeLedgerCard', () => {
   it('필터 없는 전체 기준으로 수납률·금액·연체·기한 전 미납·잔액을 그린다', () => {
-    mockFeeSummary.mockReturnValue(success(fee()));
+    // 기한 전 미납 = 대기 + 부분 납부 — 부분 납부를 빼먹으면 5건이 된다.
+    mockFeeSummary.mockReturnValue(success(fee({ pendingCount: 5, partialPaidCount: 1 })));
     mockCashbookSummary.mockReturnValue(success(cashbook));
     render(<FeeLedgerCard clubId={7} />);
     expect(mockFeeSummary).toHaveBeenCalledWith(7, {});
@@ -33,7 +34,7 @@ describe('FeeLedgerCard', () => {
     expect(screen.getByText('78.3%')).toBeInTheDocument();
     expect(screen.getByText('총 1,080,000원 / 1,380,000원')).toBeInTheDocument();
     expect(screen.getByText('4건')).toBeInTheDocument();
-    expect(screen.getByText('6건')).toBeInTheDocument();
+    expect(screen.getByText('기한 전 미납').nextElementSibling).toHaveTextContent('6건');
     expect(screen.getByText('300,000원')).toBeInTheDocument();
     expect(screen.getByText('1,284,500원')).toBeInTheDocument();
     expect(screen.queryByText(/원원/)).not.toBeInTheDocument();
