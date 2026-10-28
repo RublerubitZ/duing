@@ -143,3 +143,17 @@ describe('FacilityBookingsView', () => {
     expect(mockBookingsQuery.current.refetch).toHaveBeenCalled();
   });
 });
+
+describe('FacilityBookingsView 처음 탭', () => {
+  it('initialTab=PAST 면 지난 예약 탭으로 연다', () => {
+    mockBookingsQuery.current = { ...mockBookingsQuery.current, data: [makeBooking({ bookingId: 9, status: 'REJECTED', date: PAST })] };
+    render(<FacilityBookingsView clubId={1} initialTab="PAST" />);
+    expect(screen.getByRole('tab', { name: /지난 예약/ })).toHaveAttribute('aria-selected', 'true');
+  });
+
+  it('initialTab 이 없으면 진행중 탭(기존과 같음)', () => {
+    mockBookingsQuery.current = { ...mockBookingsQuery.current, data: [] };
+    render(<FacilityBookingsView clubId={1} />);
+    expect(screen.getByRole('tab', { name: /진행중/ })).toHaveAttribute('aria-selected', 'true');
+  });
+});

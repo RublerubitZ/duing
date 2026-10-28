@@ -7,7 +7,6 @@ import type {
 } from '@duing/types';
 import {
   CLOSING_SOON_DAYS,
-  ACTION_ITEM_PREVIEW_COUNT,
   buildActionItems,
   buildClosedRecruitmentItems,
   countAwaitingReview,
@@ -346,6 +345,5 @@ describe('sortTodaySchedule', () => {
 describe('constants', () => {
   it('상수 노출', () => {
     expect(CLOSING_SOON_DAYS).toBe(3);
-    expect(ACTION_ITEM_PREVIEW_COUNT).toBe(3);
   });
 });

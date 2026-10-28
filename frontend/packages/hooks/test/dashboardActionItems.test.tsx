@@ -48,14 +48,14 @@ afterEach(() => server.resetHandlers());
 afterAll(() => server.close());
 
 describe('useClubActionItems', () => {
-  it('총 건수 + 정렬된 미리보기(최대 3) 반환', async () => {
+  it('총 건수 + 정렬된 목록 반환', async () => {
     const { result } = renderHook(() => useClubActionItems(10), { wrapper: makeWrapper(newQueryClient()) });
     await waitFor(() => expect(result.current.isLoading).toBe(false));
     // 검토 대기(5) + 미확정 라운드(7) = 2건
     expect(result.current.totalCount).toBe(2);
-    expect(result.current.preview.length).toBeLessThanOrEqual(3);
+    expect(result.current.items).toHaveLength(2);
     // 기한 없음 → 타입 우선순위로 미확정 라운드가 먼저
-    expect(result.current.preview[0]?.type).toBe('INTERVIEW_ROUND_UNCONFIRMED');
+    expect(result.current.items[0]?.type).toBe('INTERVIEW_ROUND_UNCONFIRMED');
   });
 
   it('useInterview=false 모집은 interview-rounds를 호출하지 않고 통계 기반 액션만 반환', async () => {
@@ -80,7 +80,7 @@ describe('useClubActionItems', () => {
       // 통계 기반 검토 대기(submitted 2 + onHold 3 = 5)만 1건
       expect(result.current.totalCount).toBe(1);
     });
-    expect(result.current.preview[0]?.type).toBe('APPLICANTS_AWAITING_REVIEW');
+    expect(result.current.items[0]?.type).toBe('APPLICANTS_AWAITING_REVIEW');
     expect(result.current.isError).toBe(false);
   });
 
@@ -103,7 +103,7 @@ describe('useClubActionItems', () => {
     expect(roundNeeded?.count).toBe(2);
     expect(roundNeeded?.recruitmentId).toBe(1);
     // 기한 없는 항목 중 최상위 타입 우선순위 → 미리보기 첫 항목
-    expect(result.current.preview[0]?.type).toBe('INTERVIEW_ROUND_NEEDED');
+    expect(result.current.items[0]?.type).toBe('INTERVIEW_ROUND_NEEDED');
   });
 
   it('마감 모집에 미결 지원이 남아 있으면 마감 모집 결과 미확정 항목', async () => {
@@ -145,7 +145,7 @@ describe('useClubActionItems', () => {
     const { result } = renderHook(() => useClubActionItems(10), { wrapper: makeWrapper(newQueryClient()) });
     await waitFor(() => expect(result.current.isLoading).toBe(false));
     expect(result.current.totalCount).toBe(0);
-    expect(result.current.preview.length).toBe(0);
+    expect(result.current.items).toHaveLength(0);
     expect(result.current.isError).toBe(false);
   });
 
@@ -187,8 +187,8 @@ describe('useClubActionItems', () => {
       expect(result.current.isLoading).toBe(false);
       expect(result.current.totalCount).toBe(2);
     });
-    expect(result.current.preview[0]).toMatchObject({ type: 'APPLICANTS_AWAITING_REVIEW', recruitmentId: 1 });
-    expect(result.current.preview[1]).toMatchObject({ type: 'CLOSED_RECRUITMENT_UNDECIDED', recruitmentId: 3, count: 1 });
+    expect(result.current.items[0]).toMatchObject({ type: 'APPLICANTS_AWAITING_REVIEW', recruitmentId: 1 });
+    expect(result.current.items[1]).toMatchObject({ type: 'CLOSED_RECRUITMENT_UNDECIDED', recruitmentId: 3, count: 1 });
     expect(result.current.isError).toBe(false);
   });
 });

@@ -3,6 +3,7 @@ import {
   MANAGE_TAB_KEYS,
   MANAGE_TAB_LABELS,
   manageTabOf,
+  parseManageTab,
 } from '@/app/manage/clubs/[clubId]/facility-bookings/_lib/bookingTabs';
 
 const TODAY = '2026-07-20'; // 형식 검증용 고정 입력(타임밤 아님)
@@ -29,5 +30,14 @@ describe('manageTabOf', () => {
     expect(MANAGE_TAB_KEYS).toEqual(['ACTIVE', 'PAST']);
     expect(MANAGE_TAB_LABELS.ACTIVE).toBe('진행중');
     expect(MANAGE_TAB_LABELS.PAST).toBe('지난 예약');
+  });
+});
+
+describe('parseManageTab', () => {
+  it('past 면 지난 예약, 그 외·배열·없음은 진행중', () => {
+    expect(parseManageTab('past')).toBe('PAST');
+    expect(parseManageTab('PAST')).toBe('ACTIVE');
+    expect(parseManageTab(['past'])).toBe('ACTIVE');
+    expect(parseManageTab(undefined)).toBe('ACTIVE');
   });
 });

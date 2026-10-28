@@ -3,22 +3,29 @@ import { useQuery, useQueries } from '@tanstack/react-query';
 import type {
   ActionItem,
   ApplicantStatusTotals,
+  DashboardTaskGroup,
   InterviewRoundSummary,
+  OperationItem,
   RecruitmentSummary,
   TodayScheduleItem,
 } from '@duing/types';
 import { useApiClient } from './api-context';
+import { bankQueryKeys } from './bankQueryKeys';
 import { clubQueryKeys } from './clubQueryKeys';
+import { facilityQueryKeys } from './facilityQueryKeys';
+import { feeQueryKeys } from './feeQueryKeys';
 import { statsQueryKeys } from './statsQueryKeys';
 import { interviewRoundKeys } from './interviewRoundQueryKeys';
 import { clubNoticeKeys } from './clubMembershipQueryKeys';
 import { clubEventKeys } from './clubEventQueryKeys';
 import { isTodayKst, todayKstDateString } from './dashboardDate';
+import { retryUnlessStatuses } from './retry';
 import {
-  ACTION_ITEM_PREVIEW_COUNT,
   aggregateApplicantTotals,
   buildActionItems,
   buildClosedRecruitmentItems,
+  buildOperationItems,
+  groupDashboardTasks,
   sortActionItems,
   sortTodaySchedule,
   type ClosedRecruitmentDashboardInput,
@@ -86,10 +93,9 @@ export function useApplicantSummary(clubId: number | undefined): {
   };
 }
 
-/** 카드1: 처리 필요 업무 — 총 건수 + 정렬된 상위 미리보기 */
+/** 카드1: 처리 필요 업무 — 정렬된 모집 업무 목록과 총 건수 */
 export function useClubActionItems(clubId: number | undefined): {
   items: ActionItem[];
-  preview: ActionItem[];
   totalCount: number;
   isLoading: boolean;
   isError: boolean;
@@ -203,7 +209,6 @@ export function useClubActionItems(clubId: number | undefined): {
 
   return {
     items,
-    preview: items.slice(0, ACTION_ITEM_PREVIEW_COUNT),
     totalCount: items.length,
     isLoading:
       recruitments.isLoading ||
@@ -379,5 +384,127 @@ export function useClubFeedCounts(clubId: number | undefined): {
     eventCount: eventsQuery.data?.length ?? 0,
     isLoading: noticesQuery.isLoading || eventsQuery.isLoading,
     isError: noticesQuery.isError || eventsQuery.isError,
+  };
+}
+
+// 은행 훅(bank.ts)과 같은 정책 — 비운영진 403 은 재시도해도 결과가 같아 다시 묻지 않는다.
+const retryUnlessBankForbidden = retryUnlessStatuses(403);
+const BANK_PENDING_PARAMS = { status: 'PENDING' } as const;
+
+/**
+ * 운영 업무(가입 요청·회비 연체·은행 입금 검토·시설 예약 결과) — 홈 업무 큐의 모집 외 출처.
+ * 기존 훅은 enabled·staleTime 을 받지 않아 여기서 useQuery 를 직접 쓴다. 키·client 메서드는 각 화면과 같아
+ * 캐시를 공유하고, 그 화면들의 mutation 무효화가 홈에도 닿는다.
+ */
+export function useClubOperationItems(clubId: number | undefined): {
+  items: OperationItem[];
+  isLoading: boolean;
+  isError: boolean;
+} {
+  const client = useApiClient();
+  const enabled = clubId !== undefined;
+
+  const joinRequestsQuery = useQuery({
+    queryKey: enabled ? clubQueryKeys.joinRequests(clubId, 'PENDING') : ['clubs', undefined, 'join-requests', 'PENDING'],
+    queryFn: () => {
+      if (clubId === undefined) throw new Error('clubId is required');
+      return client.joinCodes.listRequests(clubId, 'PENDING');
+    },
+    enabled,
+    ...DASHBOARD_QUERY_OPTIONS,
+  });
+
+  const feeSummaryQuery = useQuery({
+    queryKey: enabled ? feeQueryKeys.summary(clubId, {}) : ['fee', 'summary', undefined, {}],
+    queryFn: () => {
+      if (clubId === undefined) throw new Error('clubId is required');
+      return client.leader.fees.summary(clubId, {});
+    },
+    enabled,
+    ...DASHBOARD_QUERY_OPTIONS,
+  });
+
+  const bankStatusQuery = useQuery({
+    queryKey: enabled ? bankQueryKeys.matchingStatus(clubId) : ['bank', 'matching-status', undefined],
+    queryFn: () => {
+      if (clubId === undefined) throw new Error('clubId is required');
+      return client.leader.fees.bank.status(clubId);
+    },
+    enabled,
+    retry: retryUnlessBankForbidden,
+    ...DASHBOARD_QUERY_OPTIONS,
+  });
+
+  // 미사용 동아리는 목록을 부르지 않는다. 비활성 쿼리의 isLoading 은 false 라 큐가 로딩에 갇히지 않는다(isPending 금지).
+  const bankPendingEnabled = enabled && bankStatusQuery.data?.enabled === true;
+  const bankPendingQuery = useQuery({
+    queryKey: enabled ? bankQueryKeys.transactions(clubId, BANK_PENDING_PARAMS) : ['bank', 'transactions', undefined, BANK_PENDING_PARAMS],
+    queryFn: () => {
+      if (clubId === undefined) throw new Error('clubId is required');
+      return client.leader.fees.bank.list(clubId, BANK_PENDING_PARAMS);
+    },
+    enabled: bankPendingEnabled,
+    retry: retryUnlessBankForbidden,
+    ...DASHBOARD_QUERY_OPTIONS,
+  });
+
+  const bookingsQuery = useQuery({
+    queryKey: enabled ? facilityQueryKeys.clubBookings(clubId) : ['facilities', 'club-bookings', 'none'],
+    queryFn: () => {
+      if (clubId === undefined) throw new Error('clubId is required');
+      return client.facilityBookings.list(clubId);
+    },
+    enabled,
+    ...DASHBOARD_QUERY_OPTIONS,
+  });
+
+  const joinRequests = joinRequestsQuery.data;
+  const feeSummary = feeSummaryQuery.data;
+  // 게이트와 묶는다 — 자동매칭이 꺼졌거나 상태를 아직 못 받았으면 비활성 쿼리에 남은 옛 캐시를 쓰지 않는다.
+  const bankPendingCount = bankPendingEnabled ? bankPendingQuery.data?.totalElements : undefined;
+  const bookings = bookingsQuery.data;
+  // 자정을 넘기면 다시 계산한다 — 데이터가 그대로여도 지난 거절 예약이 어제 기준으로 남지 않게.
+  const todayKst = todayKstDateString(new Date());
+  const items = useMemo(
+    () => buildOperationItems({ pendingJoinRequests: joinRequests, feeSummary, bankPendingCount, bookings }, new Date()),
+    [joinRequests, feeSummary, bankPendingCount, bookings, todayKst],
+  );
+
+  return {
+    items,
+    isLoading:
+      joinRequestsQuery.isLoading ||
+      feeSummaryQuery.isLoading ||
+      bankStatusQuery.isLoading ||
+      bankPendingQuery.isLoading ||
+      bookingsQuery.isLoading,
+    isError:
+      joinRequestsQuery.isError ||
+      feeSummaryQuery.isError ||
+      bankStatusQuery.isError ||
+      // 게이트가 닫힌 뒤(관리자가 자동매칭을 끔) 비활성 쿼리에 남은 옛 오류로 "일부 실패"가 머물지 않게.
+      (bankPendingEnabled && bankPendingQuery.isError) ||
+      bookingsQuery.isError,
+  };
+}
+
+/** 홈 업무 큐 — 모집 업무 + 운영 업무를 묶음으로. 큐 카드와 머리말이 각각 부르지만 쿼리 키가 같아 요청은 한 번이다. */
+export function useDashboardTaskQueue(clubId: number | undefined): {
+  groups: DashboardTaskGroup[];
+  totalCount: number;
+  isLoading: boolean;
+  isError: boolean;
+} {
+  const actionItems = useClubActionItems(clubId);
+  const operationItems = useClubOperationItems(clubId);
+  const groups = useMemo(
+    () => groupDashboardTasks(actionItems.items, operationItems.items),
+    [actionItems.items, operationItems.items],
+  );
+  return {
+    groups,
+    totalCount: actionItems.items.length + operationItems.items.length,
+    isLoading: actionItems.isLoading || operationItems.isLoading,
+    isError: actionItems.isError || operationItems.isError,
   };
 }

@@ -8,6 +8,7 @@ import { toRoute } from '../../../_lib/route';
 import { PromotionRequestModal } from './_components/PromotionRequestModal';
 import { promotionRequestBadgeText, promotionRequestStatusChip } from './_lib/promotionRequestStatus';
 import { DashboardCardGrid } from '../../_components/dashboard/DashboardCardGrid';
+import { DashboardHeadline } from '../../_components/dashboard/DashboardHeadline';
 
 // 권한 가드는 [clubId]/layout.tsx 의 ManageGuard 공통이라 이 페이지에는 두지 않는다.
 export default function ClubManagePage({
@@ -38,9 +39,13 @@ export default function ClubManagePage({
     <div className="duing mx-auto max-w-5xl px-6 py-8">
       {/* 배지는 lg 이상에서 버튼 옆, 그 아래(모바일·사이드바가 붙는 md 구간)에서는 줄을 바꿔 헤더 아래로 — 제목·버튼 줄을 밀지 않는다. */}
       <header className="mb-8 flex flex-wrap items-center gap-2">
-        <h1 className="flex-1 text-xl font-bold">
-          {currentManagedClub?.clubName ?? '동아리'}
-        </h1>
+        {/* 제목과 보조 줄은 한 블록 — 배지(order-last basis-full)보다 위에 남는다. */}
+        <div className="flex-1">
+          <h1 className="text-xl font-bold">
+            {currentManagedClub?.clubName ?? '동아리'}
+          </h1>
+          <DashboardHeadline clubId={currentClubId} />
+        </div>
         {latestPromotionRequest && promotionBadgeText !== null && (
           <p className="order-last basis-full lg:order-none lg:basis-auto">
             <span
