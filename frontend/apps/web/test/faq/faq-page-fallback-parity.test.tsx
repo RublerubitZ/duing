@@ -44,9 +44,12 @@ afterAll(() => server.close());
 const indent = (depth: number, text: string) => `${'  '.repeat(depth)}${text}`;
 
 // 클래스는 문자열 그대로 비교한다(공용 상수의 cn 결과까지 같아야 한다). 입력은 style 속성(fontFamily)도 높이에 영향을 준다.
+// 자식 요소가 없는 요소는 글자도 비교한다 — 손으로 맞춘 제목·부제 문구가 한쪽만 바뀌면 모바일 줄 수가 달라져 첫 행이 밀린다.
 const describeElement = (element: Element) => {
   const description = `${element.tagName.toLowerCase()} "${element.getAttribute('class') ?? ''}"`;
-  return element.tagName === 'INPUT' ? `${description} style="${element.getAttribute('style') ?? ''}"` : description;
+  if (element.tagName === 'INPUT') return `${description} style="${element.getAttribute('style') ?? ''}"`;
+  const leafText = element.children.length === 0 ? (element.textContent ?? '').trim() : '';
+  return leafText ? `${description} text="${leafText}"` : description;
 };
 
 function outlineSubtree(element: Element, depth: number): string[] {
