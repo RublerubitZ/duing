@@ -3,8 +3,18 @@ import { describe, it, expect, vi } from 'vitest';
 import type { ApplicantStatusTotals, RecruitmentSummary } from '@duing/types';
 
 vi.mock('next/link', () => ({
-  default: ({ children, href, className }: { children: React.ReactNode; href: string; className?: string }) => (
-    <a href={href} className={className}>
+  default: ({
+    children,
+    href,
+    className,
+    'aria-label': ariaLabel,
+  }: {
+    children: React.ReactNode;
+    href: string;
+    className?: string;
+    'aria-label'?: string;
+  }) => (
+    <a href={href} className={className} aria-label={ariaLabel}>
       {children}
     </a>
   ),
@@ -52,6 +62,8 @@ describe('ApplicantSummaryCard(지원자 현황 띠)', () => {
     expect(tileLinks).toHaveLength(4);
     // 보조 문구가 있는 칸만 길어지지 않게 네 칸이 행 높이를 채운다
     for (const tileLink of tileLinks) expect(tileLink).toHaveClass('h-full');
+    // 칸 안의 span 들이 붙어 읽히지 않게 링크 이름을 문장으로 준다
+    expect(screen.getByRole('link', { name: '검토 대기 12명, 지원 완료 9 + 보류 3' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: '모집별 통계 보기' })).toHaveAttribute('href', '/manage/clubs/1/recruitments');
   });
 
@@ -61,6 +73,7 @@ describe('ApplicantSummaryCard(지원자 현황 띠)', () => {
     render(<ApplicantSummaryCard clubId={1} />);
     expect(screen.getByText('진행 중 모집 없음')).toBeInTheDocument();
     expect(screen.getAllByText('—')).toHaveLength(4);
+    expect(screen.getByRole('link', { name: '합격, 진행 중 모집 없음' })).toBeInTheDocument();
   });
 
   it('진행 중 모집이 2건 이상이면 합산 문구', () => {

@@ -36,6 +36,9 @@ export function ApplicantSummaryCard({ clubId }: { clubId: number }) {
     { label: APPLICATION_STATUS_OPERATOR_LABEL.ACCEPTED, value: value(totals.accepted) },
     { label: APPLICATION_STATUS_OPERATOR_LABEL.REJECTED, value: value(totals.rejected) },
   ];
+  // 칸 안의 span 들이 붙어 읽히지 않게 링크 이름을 문장으로 준다.
+  const tileLinkLabel = (tile: (typeof tiles)[number]) =>
+    hasActiveRecruitment ? `${tile.label} ${tile.value}${tile.sub ? `, ${tile.sub}` : ''}` : `${tile.label}, 진행 중 모집 없음`;
 
   return (
     <DashboardCard
@@ -70,6 +73,7 @@ export function ApplicantSummaryCard({ clubId }: { clubId: number }) {
           <li key={tile.label}>
             <Link
               href={toRoute(`/manage/clubs/${clubId}/applicants`)}
+              aria-label={tileLinkLabel(tile)}
               className="block h-full min-h-11 rounded-md border border-line bg-paper p-3 transition hover:border-sage focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink"
             >
               <span className="block text-xs text-charcoal-3">{tile.label}</span>
