@@ -8,6 +8,9 @@ vi.mock('next/link', () => ({
 }));
 
 vi.mock('@duing/hooks', () => ({
+  CLOSING_SOON_DAYS: 3,
+  formatRelativeTime: () => '',
+  useDashboardTaskQueue: () => ({ groups: [], totalCount: 0, isLoading: false, isError: false }),
   useClubActionItems: () => ({
     items: [],
     preview: [],
