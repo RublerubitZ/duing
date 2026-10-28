@@ -241,7 +241,7 @@ export function FaqPage() {
           </div>
         )}
 
-        {listQuery.data !== undefined && (
+        {listQuery.data && (
           <>
             {items.length === 0 ? (
               <p className="py-12 text-center text-[13px] text-charcoal-3">

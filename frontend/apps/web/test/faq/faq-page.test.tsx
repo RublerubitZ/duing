@@ -109,6 +109,8 @@ describe('FaqPage', () => {
     expect(screen.getByText('고정')).toBeInTheDocument();
     expect(screen.getByText('가입')).toBeInTheDocument();
     expect(screen.getByText('탈퇴')).toBeInTheDocument();
+    // 정상 목록에는 '이전 내용일 수 있다' 안내가 붙지 않는다(안내 줄은 data 가 있는 실패에서만).
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
 
   it('URL 의 category·keyword·page 가 목록 조회 훅 인자로 매핑된다 (page 는 0-based 변환)', () => {
@@ -287,6 +289,9 @@ describe('FaqPage — 불러오기 실패', () => {
     expect(
       within(screen.getByRole('alert')).getByRole('button', { name: '다시 불러오는 중…' }),
     ).toBeDisabled();
+    // 다시 받는 동안에도 목록 위에 스켈레톤을 겹치지 않는다 — 로딩 표시는 보여 줄 data 가 없을 때(isLoading)뿐이다.
+    expect(screen.queryByLabelText('FAQ 목록 불러오는 중')).not.toBeInTheDocument();
+    expect(screen.getByText('이미 보이던 질문')).toBeInTheDocument();
   });
 
   it('처음 불러오기가 실패해 보여 줄 목록이 없으면 오류 문구만 보이고 목록·안내 줄은 없다', () => {
@@ -303,7 +308,8 @@ describe('FaqPage — 불러오기 실패', () => {
     render(<FaqPage />);
 
     expect(screen.getByText('FAQ를 불러오지 못했습니다')).toBeInTheDocument();
-    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    // '이전 내용일 수 있다' 안내 줄은 보여 줄 목록이 있을 때만 — 문구로 확인한다(전체 오류에 role 을 붙여도 흔들리지 않게).
+    expect(screen.queryByText(/최신 질문을 불러오지 못했습니다/)).not.toBeInTheDocument();
     expect(
       screen.queryByText('아직 등록된 질문이 없어요 · 궁금한 점은 아래 1:1 문의로 보내주세요'),
     ).not.toBeInTheDocument();
