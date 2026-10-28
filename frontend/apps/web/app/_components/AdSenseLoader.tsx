@@ -3,12 +3,13 @@
 import { useRoutePathname } from '@/app/_lib/useRoutePathname';
 
 /**
- * 광고 로더를 실을 공개 화면 — 게시자 콘텐츠(동아리 소개·소식·서비스 소개·약관)가 있는 곳만 둔다.
- * 여기 없는 경로는 전부 거부(기본 거부)다. 예약 현황(`/facilities`)·캠퍼스 일정(`/calendar`)은 도구 화면이고
- * `/faq` 는 등록된 질문이 0건이라 뺐다 — 애드센스는 게시자 콘텐츠가 없거나 탐색·행동 목적인 화면의 광고를
- * 금지한다(Google 게시자 정책 "게시자 콘텐츠가 없는 화면에 Google 게재 광고"). FAQ 를 채우면 다시 넣는다.
+ * 광고 로더를 실을 공개 화면 — 게시자 콘텐츠(동아리 소개·소식·서비스 소개·약관·FAQ)가 있는 곳만 둔다.
+ * 여기 없는 경로는 전부 거부(기본 거부)다. 예약 현황(`/facilities`)·캠퍼스 일정(`/calendar`)은 도구 화면이라 뺐다 —
+ * 애드센스는 게시자 콘텐츠가 없거나 탐색·행동 목적인 화면의 광고를 금지한다(Google 게시자 정책 "게시자 콘텐츠가 없는
+ * 화면에 Google 게재 광고"). `/faq` 는 서버가 질문·답변을 초기 HTML 에 그린다(24시간 ISR) — 공개 FAQ 를 0건으로
+ * 만들면 다시 뺀다.
  */
-const ALLOWED_PREFIXES = ['/clubs', '/notices', '/introduce', '/terms'] as const;
+const ALLOWED_PREFIXES = ['/clubs', '/notices', '/introduce', '/terms', '/faq'] as const;
 
 /** 동아리 부원 전용 영역(공지·일정) — `/clubs` 허용 프리픽스 안에 있지만 MemberAccessGuard 뒤 회원 전용이다. */
 const MEMBER_AREA_PATTERN = /^\/clubs\/[^/]+\/member(\/|$)/;

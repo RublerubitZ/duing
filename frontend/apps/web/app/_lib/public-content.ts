@@ -6,6 +6,8 @@ import type {
   ClubHeroActivity,
   ClubSearchParams,
   ClubSummary,
+  FederationFaqCategory,
+  FederationFaqItem,
   NoticeCardItem,
   NoticeDetail,
   NoticeSource,
@@ -114,6 +116,21 @@ export function fetchPublicNoticeList(params: {
   size: number;
 }): Promise<PublicContent<PageResponse<NoticeCardItem>>> {
   return loadPublicList(() => client().notices.list(params));
+}
+
+/** 공개 FAQ 목록 한 페이지 — 공개 API 라 로그인과 무관하게 공개 질문만 온다. 목록 로더라 404 도 장애로 본다. */
+export function fetchPublicFaqList(params: {
+  categoryId?: number;
+  keyword?: string;
+  page: number;
+  size: number;
+}): Promise<PublicContent<PageResponse<FederationFaqItem>>> {
+  return loadPublicList(() => client().federationFaqs.list(params));
+}
+
+/** 공개 FAQ 카테고리. 목록 로더라 404 도 장애다(런타임은 throw — 칩 없는 HTML 이 재생성 주기만큼 남지 않게). */
+export function fetchPublicFaqCategories(): Promise<PublicContent<FederationFaqCategory[]>> {
+  return loadPublicList(() => client().federationFaqCategories.list());
 }
 
 // 백엔드 페이지 크기 상한(PageableConfig max 100).
