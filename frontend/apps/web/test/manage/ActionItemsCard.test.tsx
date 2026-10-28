@@ -57,6 +57,9 @@ describe('ActionItemsCard', () => {
     const chipGroup = within(links[3]!).getByText('거절됨').parentElement;
     expect(chipGroup).toBe(within(links[3]!).getByText('예약 보기').parentElement);
     expect(chipGroup).not.toBe(links[3]);
+    // 행보다 넓으면 묶음 안에서 줄을 바꾼다 — 줄지도 감기지도 않으면 좁은 폭·큰 글씨에서 카드 밖으로 넘친다.
+    expect(chipGroup).toHaveClass('flex-wrap', 'justify-end');
+    expect(chipGroup).not.toHaveClass('shrink-0');
   });
 
   it('맥락 문구는 말줄임하지 않는다(모바일에서 모집명이 잘리지 않게)', () => {
