@@ -2,8 +2,8 @@ import type { ReportReasonCode, ReportTargetType } from './admin';
 import type { BookingStatus } from './facility';
 import type { FederationInquiryStatus } from './federationInquiry';
 
-/** 총동연 홈 처리 대기열의 영역. 동아리 승인은 신청 시각이 없어 대기열 밖에서 건수로만 다룬다. */
-export type AdminTriageArea = 'REPORT' | 'INQUIRY' | 'FACILITY' | 'RECRUITMENT' | 'PROMOTION' | 'SUCCESSION';
+/** 총동연 홈 처리 대기열의 영역. 칸 키와 같다(동아리 승인은 pending-counts clubApproval). */
+export type AdminTriageArea = 'REPORT' | 'INQUIRY' | 'FACILITY' | 'RECRUITMENT' | 'PROMOTION' | 'SUCCESSION' | 'CLUB_APPROVAL';
 
 /**
  * 대기열 한 행 — 식별자·대기 시작 시각·표시용 원자료만 담고 href·문구는 web 이 만든다.
@@ -42,7 +42,8 @@ export type AdminTriageItem =
       pendingApplicationCount: number;
     }
   | { area: 'PROMOTION'; id: number; waitingSince: string; clubName: string; title: string }
-  | { area: 'SUCCESSION'; id: number; waitingSince: string; clubName: string; requesterName: string };
+  | { area: 'SUCCESSION'; id: number; waitingSince: string; clubName: string; requesterName: string }
+  | { area: 'CLUB_APPROVAL'; id: number; /** 승인 대기에 들어온 시각 */ waitingSince: string; clubName: string };
 
 /** 영역 하나의 목록 상태 — 상태별로 나뉜 하위 목록(문의·시설)과 끝 페이지를 묶은 결과. */
 export type AdminTriageAreaState = {
@@ -54,13 +55,15 @@ export type AdminTriageAreaState = {
 };
 
 export type AdminTriageQueue = {
-  /** 오래 기다린 순 상위 10건(동아리 승인 제외) */
+  /** 오래 기다린 순 상위 10건 */
   items: AdminTriageItem[];
   areas: Record<AdminTriageArea, AdminTriageAreaState>;
   /** 1:1 문의 칸 링크용 — 접수·답변중 목록의 전체 건수. 받기 전이면 undefined */
   inquiryTotals: { received: number | undefined; inProgress: number | undefined };
   /** 영역 하나라도 로딩 */
   isLoading: boolean;
+  /** 받은 승인 대기 동아리에 시각 필드가 없다(옛 백엔드) — 칸은 '신청 시각 —'로 물러선다. */
+  clubApprovalTimeUnknown: boolean;
   /** 영역 하나라도 실패 */
   isError: boolean;
 };
