@@ -1,10 +1,12 @@
 'use client';
 
 import { useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import type { PromotionRequestStatus } from '@duing/types';
 import { useAdminPromotionRequestListQuery } from '@duing/hooks';
 import { Pagination } from '@/components/Pagination';
 import { LoadingGate } from '@/components/loading/LoadingGate';
+import { pickSearchParam } from '../../_lib/searchParamChoice';
 import { AdminPromotionRequestsFilterBar } from '../_components/AdminPromotionRequestsFilterBar';
 import { AdminPromotionRequestsTable } from '../_components/AdminPromotionRequestsTable';
 import { PROMOTION_REQUEST_STATUS_LABEL } from '../_lib/promotionRequestLabels';
@@ -19,7 +21,14 @@ const STATUS_TABS: (PromotionRequestStatus | 'ALL')[] = [
 ];
 
 export function AdminPromotionRequestsListPage() {
-  const [statusFilter, setStatusFilter] = useState<PromotionRequestStatus | 'ALL'>('ALL');
+  const searchParams = useSearchParams();
+  // 총동연 홈 영역 칸이 ?status= 로 첫 탭을 고른다. 주소만 바뀐 이동(사이드바로 같은 메뉴)에도 첫 값부터 다시 시작하도록 key 로 초기화한다.
+  const initialStatus = pickSearchParam(searchParams.get('status'), STATUS_TABS) ?? 'ALL';
+  return <AdminPromotionRequestsList key={initialStatus} initialStatus={initialStatus} />;
+}
+
+function AdminPromotionRequestsList({ initialStatus }: { initialStatus: PromotionRequestStatus | 'ALL' }) {
+  const [statusFilter, setStatusFilter] = useState<PromotionRequestStatus | 'ALL'>(initialStatus);
   const [clubIdInput, setClubIdInput] = useState('');
   const [page, setPage] = useState(0);
 

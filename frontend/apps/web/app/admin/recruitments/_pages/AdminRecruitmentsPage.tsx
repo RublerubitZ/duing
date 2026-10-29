@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 
 import { useAdminRecruitmentsQuery } from '@duing/hooks';
 import type { AdminRecruitmentSort, ApplicationMode, RecruitmentStatus } from '@duing/types';
@@ -12,6 +13,7 @@ import { ListRowsSkeleton } from '@/components/loading/Skeleton';
 import { ConsoleCard } from '../../_components/ConsoleCard';
 import { ErrorState } from '../../_components/ErrorState';
 import { useDebouncedValue } from '../../_hooks/useDebouncedValue';
+import { pickSearchParam } from '../../_lib/searchParamChoice';
 import {
   AdminRecruitmentsTable,
   PENDING_ATTENTION_DAYS,
@@ -36,15 +38,38 @@ const SORT_OPTIONS: { label: string; value: AdminRecruitmentSort }[] = [
   { label: '오래 방치된 순', value: 'STALE' },
 ];
 
+const STATUS_VALUES = STATUS_OPTIONS.flatMap((option) => (option.value ? [option.value] : []));
+const SORT_VALUES = SORT_OPTIONS.map((option) => option.value);
+
 const inputCls =
   'w-full rounded-md border border-line bg-paper px-3 py-2 text-sm text-charcoal transition-colors placeholder:text-charcoal-3 focus-visible:border-ink focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring';
 
 export function AdminRecruitmentsPage() {
-  // 검색어·필터는 전부 컴포넌트 상태다 — 동아리명이 주소에 실리면 방문 기록·referrer 로 새어나간다.
+  const searchParams = useSearchParams();
+  // 상태·정렬 첫 값만 주소에서 읽는다(총동연 홈 "미처리 지원 모집" 칸). 주소만 바뀐 이동에도 첫 값부터 다시 시작하도록 key 로 초기화한다.
+  const initialStatus = pickSearchParam(searchParams.get('status'), STATUS_VALUES);
+  const initialSort = pickSearchParam(searchParams.get('sort'), SORT_VALUES) ?? 'LATEST';
+  return (
+    <AdminRecruitmentsList
+      key={`${initialStatus ?? 'ALL'}:${initialSort}`}
+      initialStatus={initialStatus}
+      initialSort={initialSort}
+    />
+  );
+}
+
+function AdminRecruitmentsList({
+  initialStatus,
+  initialSort,
+}: {
+  initialStatus: RecruitmentStatus | undefined;
+  initialSort: AdminRecruitmentSort;
+}) {
+  // 검색어는 컴포넌트 상태다 — 동아리명이 주소에 실리면 방문 기록·referrer 로 새어나간다. 상태·정렬은 첫 값만 주소에서 받는다.
   const [input, setInput] = useState('');
-  const [statusFilter, setStatusFilter] = useState<RecruitmentStatus | undefined>(undefined);
+  const [statusFilter, setStatusFilter] = useState<RecruitmentStatus | undefined>(initialStatus);
   const [modeFilter, setModeFilter] = useState<ApplicationMode | undefined>(undefined);
-  const [sort, setSort] = useState<AdminRecruitmentSort>('LATEST');
+  const [sort, setSort] = useState<AdminRecruitmentSort>(initialSort);
   const router = useGuardedRouter();
 
   const debouncedQuery = useDebouncedValue(input.trim(), 300);

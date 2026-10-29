@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 
 import type { FederationInquiryStatus } from '@duing/types';
 import { formatDateTimeKst, useAdminFederationInquiryListQuery } from '@duing/hooks';
@@ -14,6 +15,7 @@ import {
   INQUIRY_STATUS_BADGE_CLASS,
   INQUIRY_STATUS_LABEL,
 } from '@/app/_lib/federationInquiryLabels';
+import { pickSearchParam } from '../../_lib/searchParamChoice';
 
 const PAGE_SIZE = 20;
 
@@ -26,7 +28,14 @@ const STATUS_TABS: (FederationInquiryStatus | 'ALL')[] = [
 ];
 
 export function AdminInquiriesListPage() {
-  const [statusFilter, setStatusFilter] = useState<FederationInquiryStatus | 'ALL'>('ALL');
+  const searchParams = useSearchParams();
+  // 총동연 홈 영역 칸이 ?status= 로 첫 탭을 고른다. 주소만 바뀐 이동(사이드바로 같은 메뉴)에도 첫 값부터 다시 시작하도록 key 로 초기화한다.
+  const initialStatus = pickSearchParam(searchParams.get('status'), STATUS_TABS) ?? 'ALL';
+  return <AdminInquiriesList key={initialStatus} initialStatus={initialStatus} />;
+}
+
+function AdminInquiriesList({ initialStatus }: { initialStatus: FederationInquiryStatus | 'ALL' }) {
+  const [statusFilter, setStatusFilter] = useState<FederationInquiryStatus | 'ALL'>(initialStatus);
   const [keywordInput, setKeywordInput] = useState('');
   const [keyword, setKeyword] = useState('');
   const [page, setPage] = useState(0);
