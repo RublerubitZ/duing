@@ -248,4 +248,49 @@ describe('useAdminTriageQueue', () => {
     await waitFor(() => expect(itemKeys(result.current.items)).toEqual(['REPORT:1']));
     expect(result.current.areas.REPORT.rowCount).toBe(1);
   });
+
+  it('재조회가 실패해도 받은 목록은 그대로 두고 실패로 보지 않는다', async () => {
+    server.use(http.get('*/admin/reports', () => ok(pageOf([report(1, hoursAgo(1))]))));
+    const queryClient = newQueryClient();
+    const { result } = renderHook(() => useAdminTriageQueue(), { wrapper: makeWrapper(queryClient) });
+    await waitFor(() => expect(itemKeys(result.current.items)).toEqual(['REPORT:1']));
+
+    server.use(http.get('*/admin/reports', () => fail()));
+    await act(async () => {
+      await queryClient.invalidateQueries({ queryKey: adminQueryKeys.reportsAll });
+    });
+    await waitFor(() =>
+      expect(queryClient.getQueryState(adminQueryKeys.reportsList({ status: 'PENDING', page: 0, size: 100 }))?.status).toBe('error'),
+    );
+
+    expect(result.current.areas.REPORT.status).toBe('ready');
+    expect(itemKeys(result.current.items)).toEqual(['REPORT:1']);
+    expect(result.current.isError).toBe(false);
+  });
+
+  it('끝 페이지 재조회가 실패해도 받은 끝 페이지 행을 그대로 둔다', async () => {
+    let tailPageFails = false;
+    server.use(
+      http.get('*/admin/reports', ({ request }) => {
+        if (pageParam(request) === 0) return ok(pageOf([report(1, hoursAgo(1))], 150));
+        return tailPageFails ? fail() : ok(pageOf([report(2, hoursAgo(300))], 150, pageParam(request)));
+      }),
+    );
+    const queryClient = newQueryClient();
+    const { result } = renderHook(() => useAdminTriageQueue(), { wrapper: makeWrapper(queryClient) });
+    await waitFor(() => expect(itemKeys(result.current.items)).toEqual(['REPORT:2', 'REPORT:1']));
+
+    tailPageFails = true;
+    await act(async () => {
+      await queryClient.invalidateQueries({ queryKey: adminQueryKeys.reportsAll });
+    });
+    await waitFor(() =>
+      expect(queryClient.getQueryState(adminQueryKeys.reportsList({ status: 'PENDING', page: 1, size: 100 }))?.status).toBe('error'),
+    );
+
+    // tailFailed 도 data 기준이다 — 받아 둔 끝 페이지가 있으면 오래된 순이 그대로 맞다.
+    expect(result.current.areas.REPORT.status).toBe('ready');
+    expect(itemKeys(result.current.items)).toEqual(['REPORT:2', 'REPORT:1']);
+    expect(result.current.isError).toBe(false);
+  });
 });
