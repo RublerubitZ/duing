@@ -63,6 +63,7 @@ Du-ing 전체(backend/frontend/DB)의 날짜·시간 처리 정책. 2026-07 타�
 | AdminApplicationDetailResponse.AdminStatusHistoryItem.changedAt | application_status_histories.created_at | system | 위 StatusHistoryItem.changedAt 과 같은 컬럼·같은 변환 |
 | DraftResponse.updatedAt | application_drafts.updated_at | system | ApplicationDraft#create·#replace 무클럭 now() |
 | AdminClubSummaryResponse.statusChangedAt | clubs.status_changed_at | system | Club#changeStatus 무클럭 now() |
+| AdminClubSummaryResponse.pendingSince | (파생 — 저장 컬럼 없음) clubs.status_changed_at ?? clubs.created_at | system | Club#approvalPendingSince — 승인 대기(PENDING_APPROVAL)일 때만, 아니면 null. Club#changeStatus 무클럭 now() / BaseEntity @CreatedDate |
 | ClubEventDetailResponse.createdAt/updatedAt | club_events.* | system | BaseEntity (startAt/endAt은 Schedule 유지) |
 | ClubMember{Export,History,…}Response.joinedAt/createdAt | club_members·club_member_histories.created_at | system | BaseEntity (joinedAt = created_at 알리아스) |
 | SuccessionRequest{Detail,Summary}Response.createdAt/handledAt | leader_succession_requests.* | system | BaseEntity / LeaderSuccessionRequest#process 무클럭 now() (승인·거절 공용) |

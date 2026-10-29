@@ -24,7 +24,8 @@ public record AdminClubSummaryResponse(
         boolean facilitySecuredTimeTarget,
         String rejectionReason,
         Instant statusChangedAt,
-        String statusChangedByName
+        String statusChangedByName,
+        Instant pendingSince
 ) {
     public static AdminClubSummaryResponse from(AdminClubSummaryQuery summaryQuery) {
         return new AdminClubSummaryResponse(
@@ -43,7 +44,8 @@ public record AdminClubSummaryResponse(
                 summaryQuery.facilitySecuredTimeTarget(),
                 summaryQuery.rejectionReason(),
                 TimeMapper.systemWallClockToInstant(summaryQuery.statusChangedAt()),
-                summaryQuery.statusChangedByName()
+                summaryQuery.statusChangedByName(),
+                TimeMapper.systemWallClockToInstant(summaryQuery.pendingSince())
         );
     }
 }

@@ -216,7 +216,8 @@ public class ClubRepositoryImpl implements ClubRepositoryCustom {
                 source.isFacilitySecuredTimeTarget(),
                 source.getRejectionReason(),
                 source.getStatusChangedAt(),
-                row.get(actor.name)
+                row.get(actor.name),
+                source.approvalPendingSince()
         );
     }
 

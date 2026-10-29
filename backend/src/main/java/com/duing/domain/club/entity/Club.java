@@ -284,6 +284,17 @@ public class Club extends BaseEntity {
         this.statusChangedAt = LocalDateTime.now();
     }
 
+    /**
+     * 승인 대기에 들어온 시각. 대기로 들어오는 길은 생성(status_changed_at 없음)과 반려 뒤 재대기(changeStatus 가 기록)
+     * 둘뿐이라 마지막 상태 변경 시각, 없으면 생성 시각이다. 대기 상태가 아니면 null. 둘 다 system regime 벽시계다(TIMEZONE.md).
+     */
+    public LocalDateTime approvalPendingSince() {
+        if (this.status != ClubStatus.PENDING_APPROVAL) {
+            return null;
+        }
+        return this.statusChangedAt != null ? this.statusChangedAt : getCreatedAt();
+    }
+
     /** 폐쇄 가능 여부 검증. 운영 중단(INACTIVE) 또는 거절(REJECTED) 상태만 허용한다. */
     public void validateClosable() {
         if (this.status != ClubStatus.INACTIVE && this.status != ClubStatus.REJECTED) {
