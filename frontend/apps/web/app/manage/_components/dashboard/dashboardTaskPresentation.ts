@@ -1,6 +1,7 @@
 import { CLOSING_SOON_DAYS, formatRelativeTime } from '@duing/hooks';
 
 import { BOOKING_STATUS_META, bookingDateLabel, bookingTimeLabel } from '@/app/_lib/bookingDisplay';
+import { waitingDaysTone } from '@/components/dashboard/dashboardChipTone';
 
 import { ACTION_ITEM_TYPE_LABEL, OPERATION_ITEM_TYPE_LABEL } from './dashboard-labels';
 
@@ -65,6 +66,10 @@ function responseDeadlineChip(daysLeft: number): TaskRowModel['chip'] {
   return { text, tone: daysLeft <= CLOSING_SOON_DAYS ? 'soon' : 'info' };
 }
 
+function pendingDaysChip(pendingDays: number): TaskRowModel['chip'] {
+  return { text: pendingDays === 0 ? '미처리 오늘' : `미처리 ${pendingDays}일`, tone: waitingDaysTone(pendingDays) };
+}
+
 function presentRecruitment(clubId: number, item: ActionItem): TaskRowModel {
   return {
     key: `${item.type}-${item.recruitmentId}-${item.roundId ?? ''}`,
@@ -73,7 +78,9 @@ function presentRecruitment(clubId: number, item: ActionItem): TaskRowModel {
     chip:
       item.type === 'INTERVIEW_RESPONSE_UNCOLLECTED' && item.daysLeft !== undefined
         ? responseDeadlineChip(item.daysLeft)
-        : null,
+        : item.type === 'APPLICANTS_AWAITING_REVIEW' && item.pendingDays !== undefined
+          ? pendingDaysChip(item.pendingDays)
+          : null,
     actionLabel: ACTION_ITEM_ACTION_LABEL[item.type],
     href: recruitmentHref(clubId, item),
   };

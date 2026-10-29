@@ -34,6 +34,21 @@ describe('presentDashboardTask — 모집 업무', () => {
     expect(presentDashboardTask(10, recruitment({ type: 'APPLICANTS_AWAITING_REVIEW', count: 12 }), NOW).chip).toBeNull();
   });
 
+  it.each([
+    [0, '미처리 오늘', 'info'],
+    [2, '미처리 2일', 'info'],
+    [3, '미처리 3일', 'soon'],
+    [6, '미처리 6일', 'soon'],
+    [7, '미처리 7일', 'late'],
+  ] as const)('검토 대기 지원자 미처리 칩 pendingDays=%s → %s(%s)', (pendingDays, text, tone) => {
+    const row = presentDashboardTask(10, recruitment({ type: 'APPLICANTS_AWAITING_REVIEW', count: 3, pendingDays }), NOW);
+    expect(row.chip).toEqual({ text, tone });
+  });
+
+  it('미처리 일수가 없으면(보류만 남음·옛 백엔드) 검토 대기 지원자 칩이 없다', () => {
+    expect(presentDashboardTask(10, recruitment({ type: 'APPLICANTS_AWAITING_REVIEW', count: 3 }), NOW).chip).toBeNull();
+  });
+
   // roundId 없는 면접 항목은 라운드 랜딩(/interview)으로 — 옛 ActionItemsCard 테스트가 보던 경로를 여기서 잇는다.
   it.each([
     ['APPLICANTS_AWAITING_REVIEW', '검토 대기 지원자', '지원자 검토', '/manage/clubs/10/recruitments/1/applicants'],
