@@ -44,7 +44,8 @@ describe('AdminTriageQueueCard', () => {
     expect(rows).toHaveLength(3);
     expect(within(rows[0]!).getAllByRole('link')).toHaveLength(1);
     expect(within(rows[0]!).getByRole('link')).toHaveAttribute('href', '/admin/reports/1');
-    expect(rows[0]).toHaveTextContent('신고');
+    expect(within(rows[0]!).getByText('신고')).toHaveClass('text-coral-deep');
+    expect(within(rows[1]!).getByText('홍보 요청')).not.toHaveClass('text-coral-deep');
     expect(rows[0]).toHaveTextContent('9일');
     expect(rows[0]).toHaveTextContent('신고 검토');
     expect(within(rows[1]!).getByRole('link')).toHaveAttribute('href', '/admin/promotion-requests/5');
