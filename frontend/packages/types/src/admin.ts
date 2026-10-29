@@ -531,6 +531,23 @@ export type AdminPendingCounts = {
   totalPendingCount: number;
 };
 
+/** 처리 대기 추이의 하루 — 그날 하루 끝(다음 날 00:01 KST) 남은 대기 건수 합계. 기록이 없는 날은 null(0 과 다르다). */
+export type AdminPendingTrendDay = {
+  /** KST 날짜 "YYYY-MM-DD" */
+  date: string;
+  totalPendingCount: number | null;
+};
+
+/**
+ * GET /admin/pending-trend 응답 — 총동연 홈 처리 대기 추이.
+ * days 는 지난 13일(오래된 날부터, 마지막이 KST 어제). 오늘 값은 이 응답에 없다 — 머리말과 같은 pending-counts 의
+ * totalPendingCount 를 쓴다. recentFlow 는 최근 7일(롤링) 접수·처리로 신고·문의·시설 예약·홍보·회장 승계만 센다.
+ */
+export type AdminPendingTrend = {
+  days: AdminPendingTrendDay[];
+  recentFlow: { days: number; receivedCount: number; handledCount: number };
+};
+
 /**
  * GET /admin/profile-check 응답 — 학기별 사용자 정보 확인 팝업의 설정과 확인 현황(총동연).
  *

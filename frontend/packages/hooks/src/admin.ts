@@ -30,6 +30,18 @@ export function useAdminPendingCountsQuery() {
   });
 }
 
+/**
+ * 총동연 홈 처리 대기 추이. 키가 pendingCounts() 아래라 처리 뮤테이션의 pendingCounts 무효화가 이 쿼리도 다시
+ * 불러온다(접수·처리 숫자가 처리 직후 바뀐다). staleTime 은 pending-counts 와 같은 전역 기본값.
+ */
+export function useAdminPendingTrendQuery() {
+  const client = useApiClient();
+  return useQuery({
+    queryKey: adminQueryKeys.pendingTrend(),
+    queryFn: () => client.admin.pendingTrend(),
+  });
+}
+
 export function useAdminClubsQuery(params: AdminClubSearchParams = {}) {
   const client = useApiClient();
   return useQuery({
