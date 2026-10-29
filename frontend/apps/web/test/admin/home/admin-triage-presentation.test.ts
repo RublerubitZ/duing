@@ -29,6 +29,10 @@ describe('waitingChip — KST 날짜 차이', () => {
   ])('%s → %s(%s)', (waitingSince, text, tone) => {
     expect(waitingChip(waitingSince, NOW)).toEqual({ text, tone });
   });
+
+  it('자정 직후에는 1시간 전 접수도 달력 기준 1일이다(오프셋 없는 값은 KST)', () => {
+    expect(waitingChip('2026-10-28T23:30:00', new Date('2026-10-28T15:30:00Z'))).toEqual({ text: '1일', tone: 'info' });
+  });
 });
 
 describe('presentTriageItem', () => {
@@ -111,6 +115,10 @@ describe('영역 칸', () => {
     ['건수를 모르고 행이 있으면 가장 오래된 기간', undefined, area({ rowCount: 1, oldestWaitingSince: '2026-10-22T03:00:00Z' }), '가장 오래된 건 7일'],
   ])('%s', (_label, count, areaState, expected) => {
     expect(triageTileSubline(count, areaState, NOW)).toBe(expected);
+  });
+
+  it('칸 보조 줄도 달력 기준이다 — 자정 직후 1시간 전 접수는 1일', () => {
+    expect(triageTileSubline(2, area({ rowCount: 1, oldestWaitingSince: '2026-10-28T23:30:00' }), new Date('2026-10-28T15:30:00Z'))).toBe('가장 오래된 건 1일');
   });
 
   it.each<[number | undefined, string]>([
