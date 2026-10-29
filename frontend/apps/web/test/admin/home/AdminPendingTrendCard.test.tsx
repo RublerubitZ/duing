@@ -68,7 +68,27 @@ describe('AdminPendingTrendCard', () => {
     const figure = screen.getByRole('img');
     const table = screen.getByRole('table');
     expect(figure.contains(table)).toBe(false);
-    expect(screen.getByText('날짜별 보기').tagName).toBe('SUMMARY');
+    const summary = screen.getByText('날짜별 보기');
+    expect(summary.tagName).toBe('SUMMARY');
+    // inline-flex 면 list-item 이 풀려 펼침 표시(▶)가 사라진다 — 터치 높이는 py 로 채운다(jsdom 은 레이아웃을 계산하지 않아 클래스로 고정).
+    expect(summary).not.toHaveClass('inline-flex');
+    expect(summary).toHaveClass('py-3.5');
+  });
+
+  it('막대 높이 — 최댓값(오늘)은 막대 영역 120px 를 다 쓰고, 막대 줄 높이는 라벨 띠를 rem 으로 더한다', () => {
+    render(<AdminPendingTrendCard />);
+    const todayColumn = screen.getByTitle('오늘 지금 · 28건');
+    expect(todayColumn.querySelector('[data-bar]')).toHaveStyle({ height: '120px' });
+    // px 고정 높이면 글씨 확대(130%) 때 rem 라벨 띠가 라벨 붙은 막대를 깎는다 — jsdom 은 레이아웃이 없어 클래스로 고정.
+    expect(todayColumn.parentElement).toHaveClass('h-[calc(120px+1.25rem)]');
+  });
+
+  it('1건 이상은 최댓값이 커도 4px 이상이라 0건(2px 토막)과 구분된다', () => {
+    mockTrend.mockReturnValue(loaded(trendOf([1, 0, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50])));
+    mockCounts.mockReturnValue(countsWithTotal(100));
+    render(<AdminPendingTrendCard />);
+    expect(screen.getByTitle('10월 17일 하루 끝 · 1건').querySelector('[data-bar]')).toHaveStyle({ height: '4px' });
+    expect(screen.getByTitle('10월 18일 하루 끝 · 0건').querySelector('[data-bar]')).toHaveStyle({ height: '2px' });
   });
 
   it('0건과 기록 없음을 구분한다 — 0 은 2px 토막·"0건", 기록 없음은 점선·"기록 없음"과 범례', () => {

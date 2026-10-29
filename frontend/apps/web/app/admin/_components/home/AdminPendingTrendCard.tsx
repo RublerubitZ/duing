@@ -25,7 +25,7 @@ import {
 import type { PendingTrendBar } from '@duing/hooks';
 import type { AdminPendingTrend } from '@duing/types';
 
-// 막대 영역 120px + 값 라벨 띠(11px 글자·16px 줄 + 4px 간격) — 라벨이 카드 위로 넘치지 않게 높이에 포함한다.
+// 막대 줄 = 막대 영역 120px + 값 라벨 띠(1rem 줄 + 0.25rem 간격, 글씨 크기를 따라 커진다) — 글씨를 키워도 라벨이 막대 높이를 먹지 않는다.
 const BAR_AREA_HEIGHT_PX = 120;
 
 export function AdminPendingTrendCard() {
@@ -79,7 +79,7 @@ function PendingTrendBody({ trend, todayTotal }: { trend: AdminPendingTrend; tod
     <>
       <p className="break-keep text-sm text-charcoal-2">{summary}</p>
       <figure role="img" aria-label={summary} className="mt-3">
-        <div className="flex h-[140px] items-end gap-0.5">
+        <div className="flex h-[calc(120px+1.25rem)] items-end gap-0.5">
           {bars.map((bar) => (
             <PendingTrendBarColumn
               key={bar.date}
@@ -97,7 +97,7 @@ function PendingTrendBody({ trend, todayTotal }: { trend: AdminPendingTrend; tod
       {bars.some((bar) => bar.kind === 'missing') ? <p className="mt-1 text-xs text-charcoal-3">{MISSING_DAY_LEGEND}</p> : null}
       {/* 표는 figure 밖 형제 — role=img 의 자식은 보조기기에서 빠지고, 툴팁(title)은 키보드·터치로 볼 수 없다. */}
       <details className="mt-2">
-        <summary className="inline-flex min-h-11 cursor-pointer items-center rounded text-xs font-medium text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink">
+        <summary className="w-fit cursor-pointer rounded py-3.5 text-xs font-medium text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink">
           날짜별 보기
         </summary>
         <table className="mt-1 w-full text-xs">
@@ -138,7 +138,8 @@ function PendingTrendBarColumn({ bar, maxValue, showLabel }: { bar: PendingTrend
           data-bar
           className={cn('w-full max-w-[16px]', bar.isToday ? 'bg-ink-deep' : 'bg-sage-deep', bar.value > 0 && 'rounded-t')}
           // 0 은 2px 토막으로 보인다 — 높이 0 막대는 기록 없음(점선)과 구분되지 않는다.
-          style={{ height: bar.value === 0 ? '2px' : `${(bar.value / maxValue) * BAR_AREA_HEIGHT_PX}px` }}
+          // 1건 이상은 최소 4px — 최댓값이 크면 비율 높이가 0 토막(2px)보다 얇아져 0건으로 읽힌다.
+          style={{ height: bar.value === 0 ? '2px' : `${Math.max(4, (bar.value / maxValue) * BAR_AREA_HEIGHT_PX)}px` }}
         />
       ) : bar.kind === 'missing' ? (
         <div data-bar-missing className="h-0 w-full max-w-[16px] border-t-2 border-dashed border-charcoal-3" />
