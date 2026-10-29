@@ -10,6 +10,7 @@ class ClubApprovalPendingSinceTest {
     @Test
     @DisplayName("반려 뒤 다시 승인 대기로 돌리면 승인 대기 시작은 마지막 상태 변경 시각이다")
     void repeatedPendingUsesStatusChangedAt() {
+        // 저장하지 않은 엔티티라 createdAt 이 null 이다 — status_changed_at 이 created_at 보다 앞서는 우선순위는 AdminClubsListControllerTest 가 본다.
         Club club = Club.create("테스트", ClubCategory.ACADEMIC, "분과", "설명", null);
         club.changeStatus(ClubStatus.REJECTED, "활동 계획서 보완", 1L);
         club.changeStatus(ClubStatus.PENDING_APPROVAL, null, 2L);
