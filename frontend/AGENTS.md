@@ -240,7 +240,7 @@ export const useAuthStore = create<AuthState>((set) => ({
 - import 는 반드시 서브패스(`react-icons/fa6`)로 — Next 기본 `optimizePackageImports` 가 서브패스만 트리셰이킹한다
 
 ### 날짜/시간 표시 (상세: [/TIMEZONE.md](../TIMEZONE.md))
-- 시각 표시는 `@duing/hooks` 공통 유틸만: `formatDateTimeKst`/`formatDateKst`/`formatTimeKst`/`formatRelativeTime` (+ 특수 포맷 `kstDateTimeFormatter`, KST 날짜 연산 `kstDateString`/`isTodayKst`/`daysUntilKst`)
+- 시각 표시는 `@duing/hooks` 공통 유틸만: `formatDateTimeKst`/`formatDateKst`/`formatTimeKst`/`formatRelativeTime` (+ 특수 포맷 `kstDateTimeFormatter`, KST 날짜 연산 `kstDateString`/`isTodayKst`/`daysUntilKst`/`daysSinceKst`)
 - 금지: timeZone 없는 `toLocaleString()`류, 시각 문자열 `slice()`, `getHours()` 등 로컬 게터, 화면별 지역 포맷 함수 — Event 필드는 `…Z`(UTC)라 slice 시 UTC 숫자가 노출됨
 - 백엔드 계약: Event Time은 `…Z` 절대시각, Schedule Time(행사·면접·모집)은 오프셋 없는 KST 벽시계 — 공통 유틸이 둘 다 자동 처리
 

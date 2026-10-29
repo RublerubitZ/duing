@@ -66,6 +66,19 @@ describe('ActionItemsCard', () => {
     expect(chip).not.toHaveClass('shrink-0');
   });
 
+  it('검토 대기 지원자의 미처리 칩은 처리 문구와 함께 행 링크 이름에 들어간다', () => {
+    const staleGroups: DashboardTaskGroup[] = [
+      { key: 'NOW', tasks: [
+        { source: 'RECRUITMENT', item: { type: 'APPLICANTS_AWAITING_REVIEW', recruitmentId: 2, recruitmentTitle: '신입 부원 모집', count: 3, pendingDays: 7 } },
+      ] },
+    ];
+    mockQueue.mockReturnValue({ groups: staleGroups, totalCount: 1, isLoading: false, isError: false });
+    render(<ActionItemsCard clubId={10} />);
+    const link = screen.getByRole('link', { name: /미처리 7일/ });
+    expect(link).toHaveAccessibleName(/지원자 검토/);
+    expect(link).toHaveAttribute('href', '/manage/clubs/10/recruitments/2/applicants');
+  });
+
   it('맥락 문구는 말줄임하지 않는다(모바일에서 모집명이 잘리지 않게)', () => {
     mockQueue.mockReturnValue({ groups, totalCount: 4, isLoading: false, isError: false });
     render(<ActionItemsCard clubId={10} />);

@@ -1,12 +1,14 @@
 import { describe, it, expect } from 'vitest';
 import type {
   ActionItem,
+  DashboardTask,
   FacilityBookingSummary,
   FeeBillSummary,
   JoinRequestSummary,
   OperationItem,
 } from '@duing/types';
 import {
+  STALE_WAITING_DAYS,
   buildOperationItems,
   dashboardTaskGroupOf,
   groupDashboardTasks,
@@ -131,6 +133,16 @@ describe('dashboardTaskGroupOf', () => {
     expect(dashboardTaskGroupOf({ source: 'RECRUITMENT', item: recruitmentItem({ type }) })).toBe(group);
   });
 
+  it(`검토 대기 지원자는 미처리가 ${STALE_WAITING_DAYS}일(KST) 이상이면 지금 처리, 아니면 처리 대기`, () => {
+    const task = (pendingDays: number | undefined): DashboardTask => ({
+      source: 'RECRUITMENT',
+      item: recruitmentItem({ type: 'APPLICANTS_AWAITING_REVIEW', count: 3, ...(pendingDays === undefined ? {} : { pendingDays }) }),
+    });
+    expect(dashboardTaskGroupOf(task(undefined))).toBe('WAITING');
+    expect(dashboardTaskGroupOf(task(STALE_WAITING_DAYS - 1))).toBe('WAITING');
+    expect(dashboardTaskGroupOf(task(STALE_WAITING_DAYS))).toBe('NOW');
+  });
+
   it('면접 응답 미수집은 응답 마감이 지났을 때만 지금 처리', () => {
     const task = (daysLeft: number | undefined) => ({
       source: 'RECRUITMENT' as const,
@@ -194,6 +206,30 @@ describe('groupDashboardTasks', () => {
       'JOIN_REQUESTS_PENDING',
       'BANK_REVIEW_PENDING',
     ]);
+  });
+
+  it('검토 대기 지원자끼리는 미처리 일수가 큰(오래 기다린) 모집이 먼저', () => {
+    const groups = groupDashboardTasks(
+      [
+        recruitmentItem({ type: 'APPLICANTS_AWAITING_REVIEW', recruitmentId: 1, count: 2, pendingDays: 8 }),
+        recruitmentItem({ type: 'APPLICANTS_AWAITING_REVIEW', recruitmentId: 2, count: 2, pendingDays: 12 }),
+      ],
+      [],
+    );
+    const nowGroup = groups.find((group) => group.key === 'NOW');
+    expect(nowGroup?.tasks.map((task) => (task.source === 'RECRUITMENT' ? task.item.recruitmentId : null))).toEqual([2, 1]);
+  });
+
+  it('검토 대기 지원자끼리는 미처리 일수가 있는 모집이 없는 모집보다 먼저', () => {
+    const groups = groupDashboardTasks(
+      [
+        recruitmentItem({ type: 'APPLICANTS_AWAITING_REVIEW', recruitmentId: 1, count: 2 }),
+        recruitmentItem({ type: 'APPLICANTS_AWAITING_REVIEW', recruitmentId: 2, count: 2, pendingDays: 2 }),
+      ],
+      [],
+    );
+    const waiting = groups.find((group) => group.key === 'WAITING');
+    expect(waiting?.tasks.map((task) => (task.source === 'RECRUITMENT' ? task.item.recruitmentId : null))).toEqual([2, 1]);
   });
 
   it('시설끼리는 예약일 → 시작 시각 → bookingId 순', () => {

@@ -193,6 +193,9 @@ export function useClubActionItems(clubId: number | undefined): {
 
   const roundsByRecruitmentId = roundsQueries.roundsByRecruitmentId;
   const candidateCountByRecruitmentId = candidatesQueries.candidateCountByRecruitmentId;
+  // 자정 뒤 첫 렌더에서 다시 계산한다(타이머 없음) — 데이터가 그대로여도 미처리 일수·면접 응답 기한이 어제 기준으로 남지 않게.
+  // shortcut: 열어 둔 채 리렌더가 없으면 어제 기준으로 남는다(미처리 7일 올림·면접 응답 기한), 불만이 나오면 자정 타이머를 단다.
+  const todayKst = todayKstDateString(new Date());
   const items = useMemo(() => {
     const inputs: RecruitmentDashboardInput[] = list.map((recruitment, index) => ({
       recruitment,
@@ -205,7 +208,7 @@ export function useClubActionItems(clubId: number | undefined): {
       stats: closedStatsQueries.data[index],
     }));
     return sortActionItems([...buildActionItems(inputs, new Date()), ...buildClosedRecruitmentItems(closedInputs)]);
-  }, [list, statsQueries.data, roundsByRecruitmentId, candidateCountByRecruitmentId, closedSelfList, closedStatsQueries.data]);
+  }, [list, statsQueries.data, roundsByRecruitmentId, candidateCountByRecruitmentId, closedSelfList, closedStatsQueries.data, todayKst]);
 
   return {
     items,
@@ -463,7 +466,8 @@ export function useClubOperationItems(clubId: number | undefined): {
   // 게이트와 묶는다 — 자동매칭이 꺼졌거나 상태를 아직 못 받았으면 비활성 쿼리에 남은 옛 캐시를 쓰지 않는다.
   const bankPendingCount = bankPendingEnabled ? bankPendingQuery.data?.totalElements : undefined;
   const bookings = bookingsQuery.data;
-  // 자정을 넘기면 다시 계산한다 — 데이터가 그대로여도 지난 거절 예약이 어제 기준으로 남지 않게.
+  // 자정 뒤 첫 렌더에서 다시 계산한다(타이머 없음) — 데이터가 그대로여도 지난 거절 예약이 어제 기준으로 남지 않게.
+  // shortcut: 열어 둔 채 리렌더가 없으면 어제 기준으로 남는다(지난 거절·충돌 예약), 불만이 나오면 자정 타이머를 단다.
   const todayKst = todayKstDateString(new Date());
   const items = useMemo(
     () => buildOperationItems({ pendingJoinRequests: joinRequests, feeSummary, bankPendingCount, bookings }, new Date()),

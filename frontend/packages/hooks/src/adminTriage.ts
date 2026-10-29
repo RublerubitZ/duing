@@ -166,7 +166,7 @@ export function useAdminTriageQueue(): AdminTriageQueue {
   const promotion = areaOf([promotions]);
   const succession = areaOf([successions]);
   const pendingClubs = pendingClubsQuery.data?.content;
-  // shortcut: 배포 틈·BE 롤백 대비 — 롤백 기준 릴리스에 BE-1 이 들어가면 플래그와 칸의 null 분기만 지운다(맨 아래 줄은 목록 실패 폴백으로 남는다).
+  // shortcut: 배포 틈·백엔드 롤백 대비 — #1589(관리자 동아리 목록 pendingSince)가 든 릴리스가 롤백 기준이 되면 이 플래그와 칸의 null 분기만 지운다(맨 아래 줄은 목록 실패 폴백으로 남는다).
   const clubApprovalTimeUnknown = pendingClubs !== undefined && pendingClubs.some((club) => club.pendingSince === undefined);
   const clubApproval = areaOf([
     {

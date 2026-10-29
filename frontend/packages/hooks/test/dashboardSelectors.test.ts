@@ -11,6 +11,7 @@ import {
   buildClosedRecruitmentItems,
   countAwaitingReview,
   countUndecided,
+  groupDashboardTasks,
   sortActionItems,
   aggregateApplicantTotals,
   sortTodaySchedule,
@@ -225,6 +226,52 @@ describe('buildActionItems', () => {
       NOW,
     );
     expect(items.some((i) => i.type === 'INTERVIEW_ROUND_NEEDED')).toBe(false);
+  });
+
+  it('검토 대기에 미처리가 있으면 가장 오래된 미처리부터 지난 KST 날짜 수를 싣는다', () => {
+    const items = buildActionItems(
+      [dashboardInput({ stats: stats({ submitted: 2, onHold: 1, oldestPendingSubmittedAt: '2026-06-05T03:00:00Z' }) })],
+      NOW,
+    );
+    expect(items.find((item) => item.type === 'APPLICANTS_AWAITING_REVIEW')).toMatchObject({ count: 3, pendingDays: 7 });
+  });
+
+  it('보류만 남았거나(미처리 0) 시각을 모르면 미처리 일수를 싣지 않는다', () => {
+    const onHoldOnly = buildActionItems(
+      [dashboardInput({ stats: stats({ submitted: 0, onHold: 2, oldestPendingSubmittedAt: '2026-06-01T03:00:00Z' }) })],
+      NOW,
+    );
+    const legacyBackend = buildActionItems([dashboardInput({ stats: stats({ submitted: 2 }) })], NOW);
+    const nullTime = buildActionItems([dashboardInput({ stats: stats({ submitted: 2, oldestPendingSubmittedAt: null }) })], NOW);
+    for (const items of [onHoldOnly, legacyBackend, nullTime]) {
+      expect(items.find((item) => item.type === 'APPLICANTS_AWAITING_REVIEW')).not.toHaveProperty('pendingDays');
+    }
+  });
+
+  it('미처리 일수는 KST 날짜로 센다 — 자정 직후면 1시간 전 제출도 1일', () => {
+    const items = buildActionItems(
+      [dashboardInput({ stats: stats({ submitted: 1, oldestPendingSubmittedAt: '2026-06-11T14:30:00Z' }) })], // KST 6/11 23:30
+      new Date('2026-06-11T15:30:00Z'), // KST 6/12 00:30
+    );
+    expect(items.find((item) => item.type === 'APPLICANTS_AWAITING_REVIEW')).toMatchObject({ pendingDays: 1 });
+  });
+
+  it('KST 날짜로 7일째가 되는 0시에 지금 처리로 올라가고, 칩이 읽는 일수도 같은 값이다', () => {
+    const awaitingAt = (now: Date) => {
+      const items = buildActionItems(
+        [dashboardInput({ stats: stats({ submitted: 1, oldestPendingSubmittedAt: '2026-06-05T14:30:00Z' }) })], // KST 6/5 23:30
+        now,
+      );
+      const group = groupDashboardTasks(items, []).find((candidate) =>
+        candidate.tasks.some((task) => task.source === 'RECRUITMENT' && task.item.type === 'APPLICANTS_AWAITING_REVIEW'),
+      );
+      return {
+        pendingDays: items.find((item) => item.type === 'APPLICANTS_AWAITING_REVIEW')?.pendingDays,
+        group: group?.key,
+      };
+    };
+    expect(awaitingAt(new Date('2026-06-11T14:59:00Z'))).toEqual({ pendingDays: 6, group: 'WAITING' }); // KST 6/11 23:59
+    expect(awaitingAt(new Date('2026-06-11T15:01:00Z'))).toEqual({ pendingDays: 7, group: 'NOW' }); // KST 6/12 00:01
   });
 });
 

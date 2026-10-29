@@ -1,7 +1,8 @@
-import { daysUntilKst } from '@duing/hooks';
+import { daysSinceKst } from '@duing/hooks/datetime';
 
 import { bookingDateLabel, bookingTimeLabel } from '@/app/_lib/bookingDisplay';
 import { INQUIRY_STATUS_LABEL } from '@/app/_lib/federationInquiryLabels';
+import { waitingDaysTone } from '@/components/dashboard/dashboardChipTone';
 
 import { REPORT_REASON_LABEL, REPORT_TARGET_TYPE_LABEL } from '../../reports/_lib/reportLabels';
 
@@ -29,12 +30,9 @@ export type TriageRowModel = {
   href: `/${string}`;
 };
 
-/** 기다린 날 수(KST 날짜 차이). 기기 시계가 늦어 미래로 보이는 값은 0. */
-const waitingDays = (waitingSince: string, now: Date): number => Math.max(0, -daysUntilKst(waitingSince, now));
-
 export const waitingChip = (waitingSince: string, now: Date): TriageRowModel['chip'] => {
-  const days = waitingDays(waitingSince, now);
-  return { text: days === 0 ? '오늘' : `${days}일`, tone: days >= 7 ? 'late' : days >= 3 ? 'soon' : 'info' };
+  const days = daysSinceKst(waitingSince, now);
+  return { text: days === 0 ? '오늘' : `${days}일`, tone: waitingDaysTone(days) };
 };
 
 export const presentTriageItem = (item: AdminTriageItem, now: Date): TriageRowModel => {
@@ -139,7 +137,7 @@ export const triageTileSubline = (count: number | undefined, area: AdminTriageAr
   if (area.status === 'loading') return '';
   if (area.status === 'error') return '—';
   if (area.oldestWaitingSince !== null) {
-    const days = waitingDays(area.oldestWaitingSince, now);
+    const days = daysSinceKst(area.oldestWaitingSince, now);
     return days === 0 ? '오늘 접수' : `가장 오래된 건 ${days}일`;
   }
   // 건수는 1건 이상인데 목록이 비었으면 두 요청 사이에 바뀐 것 — 확인되지 않은 "대기 없음"을 쓰지 않는다.
