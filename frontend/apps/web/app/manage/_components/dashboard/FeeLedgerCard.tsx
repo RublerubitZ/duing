@@ -5,7 +5,7 @@ import { useCashbookSummaryQuery, useClubFeeSummaryQuery } from '@duing/hooks';
 import { cn } from '@/app/_lib/cn';
 import { formatWon } from '@/app/_lib/feeLabels';
 import { toRoute } from '@/app/_lib/route';
-import { DashboardCard } from './DashboardCard';
+import { DashboardCard } from '@/components/dashboard/DashboardCard';
 
 // 필터 없는 전체 기준 — 회비 요약은 회비 관리 화면 기본값과 같은 키라 캐시를 공유하고, 둘 다 그 화면의 동아리 단위 무효화가 닿는다.
 const ALL_BILLS = {};

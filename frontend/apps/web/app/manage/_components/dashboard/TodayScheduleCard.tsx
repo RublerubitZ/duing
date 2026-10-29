@@ -4,7 +4,7 @@ import Link from 'next/link';
 import type { TodayScheduleItem } from '@duing/types';
 import { useTodaySchedule, formatTimeKst } from '@duing/hooks';
 import { toRoute } from '@/app/_lib/route';
-import { DashboardCard } from './DashboardCard';
+import { DashboardCard } from '@/components/dashboard/DashboardCard';
 
 function ScheduleRow({ clubId, item }: { clubId: number; item: TodayScheduleItem }) {
   const label = (

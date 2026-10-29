@@ -201,6 +201,8 @@ export function useUpdateClubStatusMutation() {
       queryClient.invalidateQueries({ queryKey: clubQueryKeys.all });
       // 사이드바 뱃지 — 승인/반려 즉시 승인 대기 수가 줄어야 한다.
       queryClient.invalidateQueries({ queryKey: adminQueryKeys.pendingCounts() });
+      // 운영 중단 전환은 진행 중 모집을 일괄 마감한다 — 총동연 홈 대기열·모집 목록에 마감된 모집이 남지 않게.
+      queryClient.invalidateQueries({ queryKey: adminQueryKeys.recruitmentsAll });
     },
   });
 }
@@ -216,6 +218,11 @@ export function useCloseClubMutation() {
       queryClient.invalidateQueries({ queryKey: clubQueryKeys.detail(clubId) });
       queryClient.invalidateQueries({ queryKey: adminQueryKeys.clubActivityEventsAll(clubId) });
       queryClient.invalidateQueries({ queryKey: clubQueryKeys.all });
+      // 폐쇄는 대기 승계 취소·모집 마감·홍보 요청 반려를 함께 한다 — 사이드바 배지·총동연 홈 대기열에 처리된 건이 남지 않게.
+      queryClient.invalidateQueries({ queryKey: adminQueryKeys.pendingCounts() });
+      queryClient.invalidateQueries({ queryKey: adminQueryKeys.recruitmentsAll });
+      queryClient.invalidateQueries({ queryKey: adminQueryKeys.leaderSuccessionAll });
+      queryClient.invalidateQueries({ queryKey: adminQueryKeys.promotionRequestsAll });
     },
   });
 }

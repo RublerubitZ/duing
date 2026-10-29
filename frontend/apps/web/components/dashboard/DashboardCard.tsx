@@ -1,5 +1,6 @@
-import type { ReactNode } from 'react';
 import { LoadingGate } from '@/components/loading/LoadingGate';
+
+import type { ReactNode } from 'react';
 
 type DashboardCardProps = {
   title: string;

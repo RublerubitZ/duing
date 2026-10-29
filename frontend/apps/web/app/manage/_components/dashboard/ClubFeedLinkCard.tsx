@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useClubFeedCounts } from '@duing/hooks';
 import { toRoute } from '@/app/_lib/route';
-import { DashboardCard } from './DashboardCard';
+import { DashboardCard } from '@/components/dashboard/DashboardCard';
 
 export function ClubFeedLinkCard({ clubId }: { clubId: number }) {
   const { noticeCount, eventCount, isLoading, isError } = useClubFeedCounts(clubId);

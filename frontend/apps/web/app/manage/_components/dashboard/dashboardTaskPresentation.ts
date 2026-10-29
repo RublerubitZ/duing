@@ -5,14 +5,13 @@ import { BOOKING_STATUS_META, bookingDateLabel, bookingTimeLabel } from '@/app/_
 import { ACTION_ITEM_TYPE_LABEL, OPERATION_ITEM_TYPE_LABEL } from './dashboard-labels';
 
 import type { ActionItem, ActionItemType, DashboardTask, DashboardTaskGroupKey, OperationItem } from '@duing/types';
-
-export type TaskChipTone = 'late' | 'soon' | 'info';
+import type { DashboardChipTone } from '@/components/dashboard/dashboardChipTone';
 
 export type TaskRowModel = {
   key: string;
   label: string;
   context: string;
-  chip: { text: string; tone: TaskChipTone } | null;
+  chip: { text: string; tone: DashboardChipTone } | null;
   actionLabel: string;
   href: `/${string}`;
 };
@@ -21,13 +20,6 @@ export const DASHBOARD_TASK_GROUP_LABEL: Record<DashboardTaskGroupKey, string> =
   NOW: '지금 처리',
   WAITING: '처리 대기',
   INFO: '확인만',
-};
-
-// 배지 deep 토큰 대비 규약 — 토큰/10·/20 배경엔 *.deep 글자. 토큰 쌍 대비는 test/a11y/deep-token-contrast 가 고정한다.
-export const TASK_CHIP_TONE_CLASS: Record<TaskChipTone, string> = {
-  late: 'bg-coral/10 text-coral-deep',
-  soon: 'bg-warm/20 text-warm-deep',
-  info: 'bg-graysoft text-charcoal-2',
 };
 
 const ACTION_ITEM_ACTION_LABEL: Record<ActionItemType, string> = {

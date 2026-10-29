@@ -317,6 +317,7 @@ export {
   useTodaySchedule,
   useClubFeedCounts,
 } from './dashboard';
+export { useAdminTriageQueue } from './adminTriage';
 export {
   useClubFeePoliciesQuery,
   useCreateFeePolicyMutation,
