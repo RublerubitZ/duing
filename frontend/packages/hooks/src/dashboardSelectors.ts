@@ -17,7 +17,7 @@ import type {
   StatsSummary,
   TodayScheduleItem,
 } from '@duing/types';
-import { daysUntilKst, parseKstInstant, todayKstDateString } from './dashboardDate';
+import { daysSinceKst, daysUntilKst, parseKstInstant, todayKstDateString } from './dashboardDate';
 
 /** 진행 중 모집 카드에서 D-day 강조(coral)를 적용하는 잔여 일수 윈도 */
 export const CLOSING_SOON_DAYS = 3;
@@ -49,11 +49,21 @@ export function buildActionItems(inputs: RecruitmentDashboardInput[], now: Date)
   for (const { recruitment, stats, rounds, candidateCount } of inputs) {
     const base = { recruitmentId: recruitment.id, recruitmentTitle: recruitment.title };
 
-    // 검토 대기 지원자
+    // 검토 대기 지원자 — 미처리(보류 제외) 가장 오래된 제출부터 지난 날도 싣는다.
+    // 카운트와 MIN 은 서버에서 별도 쿼리라 순간적으로 어긋날 수 있어 미처리 수가 있을 때만 쓴다.
     if (stats) {
       const awaiting = countAwaitingReview(stats);
       if (awaiting > 0) {
-        items.push({ type: 'APPLICANTS_AWAITING_REVIEW', ...base, count: awaiting });
+        const pendingDays =
+          stats.submitted > 0 && typeof stats.oldestPendingSubmittedAt === 'string'
+            ? daysSinceKst(stats.oldestPendingSubmittedAt, now)
+            : undefined;
+        items.push({
+          type: 'APPLICANTS_AWAITING_REVIEW',
+          ...base,
+          count: awaiting,
+          ...(pendingDays === undefined ? {} : { pendingDays }),
+        });
       }
     }
 
@@ -259,6 +269,8 @@ export function dashboardTaskGroupOf(task: DashboardTask): DashboardTaskGroupKey
     case 'INTERVIEW_RESPONSE_UNCOLLECTED':
       return task.item.daysLeft !== undefined && task.item.daysLeft < 0 ? 'NOW' : 'WAITING';
     case 'APPLICANTS_AWAITING_REVIEW':
+      // 가장 오래된 미처리가 STALE_WAITING_DAYS(KST 날짜) 이상이면 지금 처리로 올린다. 칩과 같은 미리 계산된 값을 읽는다.
+      return task.item.pendingDays !== undefined && task.item.pendingDays >= STALE_WAITING_DAYS ? 'NOW' : 'WAITING';
     case 'INTERVIEW_ROUND_NEEDED':
       return 'WAITING';
   }

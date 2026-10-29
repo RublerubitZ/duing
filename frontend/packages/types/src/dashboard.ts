@@ -20,6 +20,8 @@ export type ActionItem = {
   count?: number;
   /** 마감/기한까지 남은 일수. 음수면 경과 */
   daysLeft?: number;
+  /** 가장 오래된 미처리 지원서부터 지난 KST 날짜 수 — APPLICANTS_AWAITING_REVIEW 에만, 미처리가 있을 때만 */
+  pendingDays?: number;
 };
 
 export type TodayScheduleKind = 'INTERVIEW' | 'EVENT';

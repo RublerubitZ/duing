@@ -193,6 +193,8 @@ export function useClubActionItems(clubId: number | undefined): {
 
   const roundsByRecruitmentId = roundsQueries.roundsByRecruitmentId;
   const candidateCountByRecruitmentId = candidatesQueries.candidateCountByRecruitmentId;
+  // 자정을 넘기면 다시 계산한다 — 데이터가 그대로여도 미처리 일수·면접 응답 기한이 어제 기준으로 남지 않게.
+  const todayKst = todayKstDateString(new Date());
   const items = useMemo(() => {
     const inputs: RecruitmentDashboardInput[] = list.map((recruitment, index) => ({
       recruitment,
@@ -205,7 +207,7 @@ export function useClubActionItems(clubId: number | undefined): {
       stats: closedStatsQueries.data[index],
     }));
     return sortActionItems([...buildActionItems(inputs, new Date()), ...buildClosedRecruitmentItems(closedInputs)]);
-  }, [list, statsQueries.data, roundsByRecruitmentId, candidateCountByRecruitmentId, closedSelfList, closedStatsQueries.data]);
+  }, [list, statsQueries.data, roundsByRecruitmentId, candidateCountByRecruitmentId, closedSelfList, closedStatsQueries.data, todayKst]);
 
   return {
     items,

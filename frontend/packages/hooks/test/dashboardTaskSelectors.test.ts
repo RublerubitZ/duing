@@ -1,12 +1,14 @@
 import { describe, it, expect } from 'vitest';
 import type {
   ActionItem,
+  DashboardTask,
   FacilityBookingSummary,
   FeeBillSummary,
   JoinRequestSummary,
   OperationItem,
 } from '@duing/types';
 import {
+  STALE_WAITING_DAYS,
   buildOperationItems,
   dashboardTaskGroupOf,
   groupDashboardTasks,
@@ -129,6 +131,16 @@ describe('dashboardTaskGroupOf', () => {
     ['INTERVIEW_ROUND_NEEDED', 'WAITING'],
   ] as const)('모집 업무 %s → %s', (type, group) => {
     expect(dashboardTaskGroupOf({ source: 'RECRUITMENT', item: recruitmentItem({ type }) })).toBe(group);
+  });
+
+  it(`검토 대기 지원자는 미처리가 ${STALE_WAITING_DAYS}일(KST) 이상이면 지금 처리, 아니면 처리 대기`, () => {
+    const task = (pendingDays: number | undefined): DashboardTask => ({
+      source: 'RECRUITMENT',
+      item: recruitmentItem({ type: 'APPLICANTS_AWAITING_REVIEW', count: 3, ...(pendingDays === undefined ? {} : { pendingDays }) }),
+    });
+    expect(dashboardTaskGroupOf(task(undefined))).toBe('WAITING');
+    expect(dashboardTaskGroupOf(task(STALE_WAITING_DAYS - 1))).toBe('WAITING');
+    expect(dashboardTaskGroupOf(task(STALE_WAITING_DAYS))).toBe('NOW');
   });
 
   it('면접 응답 미수집은 응답 마감이 지났을 때만 지금 처리', () => {
