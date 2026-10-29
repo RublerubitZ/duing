@@ -10,13 +10,10 @@ vi.mock('next/link', () => ({
 
 const mockQueue = vi.fn();
 const mockCounts = vi.fn();
-vi.mock('@duing/hooks', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@duing/hooks')>();
-  return {
-    useAdminTriageQueue: () => mockQueue(),
-    useAdminPendingCountsQuery: () => mockCounts(),
-  } satisfies Partial<Record<keyof typeof import('@duing/hooks'), unknown>>;
-});
+vi.mock('@duing/hooks', () => ({
+  useAdminTriageQueue: () => mockQueue(),
+  useAdminPendingCountsQuery: () => mockCounts(),
+}) satisfies Partial<Record<keyof typeof import('@duing/hooks'), unknown>>);
 
 import { AdminTriageTiles } from '@/app/admin/_components/home/AdminTriageTiles';
 import { NOW_ISO, PENDING_COUNTS, readyArea, triageQueue } from './adminHome.data';
