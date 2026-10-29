@@ -34,6 +34,7 @@ afterEach(() => {
 
 describe('AdminTriageTiles', () => {
   it('7칸이 건수·보조 줄과 함께 대기 건이 먼저 보이는 목록으로 이어진다', () => {
+    mockQueue.mockReturnValue(triageQueue({ areas: { ...triageQueue().areas, REPORT: readyArea('2026-10-26T01:00:00Z'), CLUB_APPROVAL: readyArea('2026-10-27T03:00:00Z') } }));
     render(<AdminTriageTiles />);
     const links = screen.getAllByRole('link');
     expect(links.map((link) => link.getAttribute('href'))).toEqual([
@@ -46,7 +47,7 @@ describe('AdminTriageTiles', () => {
       '/admin/clubs',
     ]);
     expect(links[0]).toHaveTextContent('신고 미처리2건가장 오래된 건 3일');
-    expect(links[6]).toHaveTextContent('동아리 승인3건신청 시각 —');
+    expect(links[6]).toHaveTextContent('동아리 승인3건가장 오래된 건 2일');
   });
 
   it('신고 칸은 늘 2칸 폭이고, 건수가 있을 때만 경고색이다', () => {
@@ -70,7 +71,13 @@ describe('AdminTriageTiles', () => {
     mockCounts.mockReturnValue({ data: undefined, isError: true });
     render(<AdminTriageTiles />);
     expect(screen.queryByText(/^\d+건$/)).toBeNull();
-    expect(screen.getByRole('link', { name: /동아리 승인/ })).toHaveTextContent(/^동아리 승인$/);
+    expect(screen.getByRole('link', { name: /동아리 승인/ })).not.toHaveTextContent(/\d+건/);
+  });
+
+  it('승인 대기 시각을 모르면(옛 백엔드) 동아리 승인 칸은 신청 시각 — 로 물러선다', () => {
+    mockQueue.mockReturnValue(triageQueue({ clubApprovalTimeUnknown: true }));
+    render(<AdminTriageTiles />);
+    expect(screen.getByRole('link', { name: /동아리 승인/ })).toHaveTextContent('동아리 승인3건신청 시각 —');
   });
 
   it('목록을 받지 못한 칸의 대시는 스크린 리더에 말로 읽힌다', () => {

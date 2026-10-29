@@ -30,10 +30,12 @@ export function triageQueue(overrides: Partial<AdminTriageQueue> = {}): AdminTri
       RECRUITMENT: readyArea(),
       PROMOTION: readyArea(),
       SUCCESSION: readyArea(),
+      CLUB_APPROVAL: readyArea(),
     },
     inquiryTotals: { received: 0, inProgress: 0 },
     isLoading: false,
     isError: false,
+    clubApprovalTimeUnknown: false,
     ...overrides,
   };
 }
@@ -44,3 +46,4 @@ export const REPORT_ITEM: AdminTriageItem = {
 export const PROMOTION_ITEM: AdminTriageItem = {
   area: 'PROMOTION', id: 5, waitingSince: '2026-10-28T03:00:00Z', clubName: '코드브루', title: '정기 공연 홍보',
 };
+export const CLUB_ITEM: AdminTriageItem = { area: 'CLUB_APPROVAL', id: 61, waitingSince: '2026-10-19T03:00:00Z', clubName: '새 동아리' };

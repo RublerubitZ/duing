@@ -20,7 +20,7 @@ vi.mock('@duing/hooks', async (importOriginal) => {
 });
 
 import { AdminTriageQueueCard } from '@/app/admin/_components/home/AdminTriageQueueCard';
-import { NOW_ISO, PENDING_COUNTS, PROMOTION_ITEM, REPORT_ITEM, triageQueue } from './adminHome.data';
+import { CLUB_ITEM, NOW_ISO, PENDING_COUNTS, PROMOTION_ITEM, REPORT_ITEM, readyArea, triageQueue } from './adminHome.data';
 
 const NO_CLUB_APPROVAL = { ...PENDING_COUNTS, clubApproval: 0 };
 
@@ -52,7 +52,7 @@ describe('AdminTriageQueueCard', () => {
     expect(screen.queryByRole('button')).toBeNull();
   });
 
-  it('동아리 승인은 시각 없이 맨 아래 한 줄로, 승인 대기가 있을 때만 둔다', () => {
+  it('동아리 승인을 대기열 행으로 못 넣었으면 건수만 아는 맨 아래 한 줄로, 승인 대기가 있을 때만 둔다', () => {
     const { rerender } = render(<AdminTriageQueueCard />);
     const rows = screen.getAllByRole('listitem');
     expect(rows.at(-1)).toHaveTextContent('승인 대기 3건');
@@ -62,6 +62,35 @@ describe('AdminTriageQueueCard', () => {
     mockCounts.mockReturnValue({ data: NO_CLUB_APPROVAL, isError: false });
     rerender(<AdminTriageQueueCard />);
     expect(screen.queryByText(/승인 대기/)).toBeNull();
+  });
+
+  it('승인 대기 동아리는 시각 순 행으로 들어가고, 그러면 건수만 아는 맨 아래 줄은 없다', () => {
+    mockQueue.mockReturnValue(
+      triageQueue({ items: [REPORT_ITEM, CLUB_ITEM], areas: { ...triageQueue().areas, CLUB_APPROVAL: readyArea(CLUB_ITEM.waitingSince) } }),
+    );
+    render(<AdminTriageQueueCard />);
+    const clubRow = screen.getAllByRole('listitem')[1]!;
+    expect(within(clubRow).getByText('동아리 승인')).toBeInTheDocument();
+    expect(clubRow).toHaveTextContent('새 동아리');
+    expect(clubRow).toHaveTextContent('승인 대기');
+    expect(within(clubRow).getByRole('link')).toHaveAttribute('href', '/admin/clubs');
+    expect(screen.queryByText('신청 시각을 알 수 없어요')).toBeNull();
+  });
+
+  it('승인 대기 목록을 받지 못하면 건수만 아는 맨 아래 줄로 승인 대기를 남기고 일부 실패를 알린다', () => {
+    mockQueue.mockReturnValue(
+      triageQueue({ items: [REPORT_ITEM], isError: true, areas: { ...triageQueue().areas, CLUB_APPROVAL: { status: 'error', rowCount: 0, oldestWaitingSince: null } } }),
+    );
+    render(<AdminTriageQueueCard />);
+    expect(screen.getByText('승인 대기 3건')).toBeInTheDocument();
+    expect(screen.getByText('일부 정보를 불러오지 못했어요.')).toBeInTheDocument();
+  });
+
+  it('대기열 행이 없어도 건수만 아는 승인 대기 줄이 있으면 빈 안내를 띄우지 않는다', () => {
+    mockQueue.mockReturnValue(triageQueue());
+    render(<AdminTriageQueueCard />);
+    expect(screen.getByText('승인 대기 3건')).toBeInTheDocument();
+    expect(screen.queryByText('처리할 대기 건이 없어요')).toBeNull();
   });
 
   it('대기 건이 없으면 빈 안내를 띄운다', () => {
