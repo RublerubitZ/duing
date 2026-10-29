@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { AdminTriageAreaState, AdminTriageItem } from '@duing/types';
 import {
   ADMIN_TRIAGE_TILES,
+  clubApprovalFallbackShown,
   presentTriageItem,
   triageQueueSummary,
   triageTileHref,
@@ -60,6 +61,10 @@ describe('presentTriageItem', () => {
     [
       { area: 'SUCCESSION', id: 6, waitingSince: '2026-10-26T03:00:00Z', clubName: '코드브루', requesterName: '이회장' },
       { title: '코드브루', context: '요청자 이회장', actionLabel: '요청 검토', href: '/admin/leader-succession/6', isDanger: false, areaLabel: '회장 승계' },
+    ],
+    [
+      { area: 'CLUB_APPROVAL', id: 7, waitingSince: '2026-10-26T03:00:00Z', clubName: '새 동아리' },
+      { title: '새 동아리', context: '승인 대기', actionLabel: '승인 검토', href: '/admin/clubs', isDanger: false, areaLabel: '동아리 승인' },
     ],
   ])('%o', (item, expected) => {
     expect(presentTriageItem(item, NOW)).toMatchObject({ key: `${item.area}:${item.id}`, ...expected });
@@ -127,6 +132,17 @@ describe('영역 칸', () => {
     [undefined, ''],
   ])('동아리 승인 칸 보조 줄 (건수 %s)', (count, expected) => {
     expect(triageTileSubline(count, null, NOW)).toBe(expected);
+  });
+});
+
+describe('clubApprovalFallbackShown — 건수만 아는 동아리 승인 줄', () => {
+  it.each<[string, number, AdminTriageAreaState, boolean]>([
+    ['시각 모름·목록 실패·한 페이지 초과·건수와 목록 어긋남 — 영역 행 0', 3, area({ rowCount: 0 }), true],
+    ['실패 상태여도 행이 없으면 줄을 둔다', 3, area({ status: 'error', rowCount: 0 }), true],
+    ['동아리 행이 대기열에 들어갔으면 줄이 없다', 3, area({ rowCount: 2, oldestWaitingSince: '2026-10-20T00:00:00Z' }), false],
+    ['승인 대기가 없으면 줄이 없다', 0, area({ rowCount: 0 }), false],
+  ])('%s', (_label, count, areaState, expected) => {
+    expect(clubApprovalFallbackShown(count, areaState)).toBe(expected);
   });
 });
 

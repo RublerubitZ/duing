@@ -19,7 +19,11 @@ export function AdminTriageTiles() {
           const count = pendingCounts?.[tile.countKey];
           // 0건에 경고색을 칠하면 경고가 배경이 된다 — 위험 칸도 건수가 있을 때만.
           const isAlert = tile.isDanger && (count ?? 0) > 0;
-          const subline = triageTileSubline(count, tile.key === 'CLUB_APPROVAL' ? null : queue.areas[tile.key], now);
+          const subline = triageTileSubline(
+            count,
+            tile.key === 'CLUB_APPROVAL' && queue.clubApprovalTimeUnknown ? null : queue.areas[tile.key],
+            now,
+          );
           return (
             <li key={tile.key} className={cn(tile.isDanger && 'col-span-2')}>
               <Link

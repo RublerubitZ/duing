@@ -1,4 +1,5 @@
 import type {
+  AdminClubSummary,
   AdminFacilityBookingSummary,
   AdminFederationInquirySummary,
   AdminPromotionRequestSummary,
@@ -24,6 +25,7 @@ const AREA_ORDER: Record<AdminTriageArea, number> = {
   RECRUITMENT: 3,
   PROMOTION: 4,
   SUCCESSION: 5,
+  CLUB_APPROVAL: 6,
 };
 
 /**
@@ -83,6 +85,14 @@ export const successionTriageItem = (request: AdminSuccessionSummary): AdminTria
   clubName: request.clubName,
   requesterName: request.requester.name,
 });
+
+/** 승인 대기 동아리 중 대기 시작 시각이 있는 것만 항목으로 — null 은 서버가 '대기 아님'이라 한 것, 부재는 옛 백엔드라 넣지 않는다. */
+export const pendingClubTriageItems = (clubs: AdminClubSummary[]): AdminTriageItem[] =>
+  clubs.flatMap((club): AdminTriageItem[] =>
+    typeof club.pendingSince === 'string'
+      ? [{ area: 'CLUB_APPROVAL', id: club.id, waitingSince: club.pendingSince, clubName: club.name }]
+      : [],
+  );
 
 /** 진행 중 모집 중 가장 오래된 미처리 지원서가 168시간 이상(경계 포함) 기다린 것. */
 export const staleRecruitmentTriageItems = (recruitments: AdminRecruitmentListItem[], now: Date): AdminTriageItem[] => {

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type {
+  AdminClubSummary,
   AdminFacilityBookingSummary,
   AdminFederationInquirySummary,
   AdminPromotionRequestSummary,
@@ -15,6 +16,7 @@ import {
   mergeTriageQueue,
   oldestTailPages,
   oldestWaitingSince,
+  pendingClubTriageItems,
   promotionTriageItem,
   reportTriageItem,
   staleRecruitmentTriageItems,
@@ -36,6 +38,13 @@ const recruitment = (recruitmentId: number, overrides: Partial<AdminRecruitmentL
   status: 'OPEN', displayStatus: 'OPEN', applicantCount: 5, startDate: '2026-10-01', endDate: '2026-11-30',
   closedAt: null, updatedAt: '2026-10-20T00:00:00Z', pendingApplicationCount: 3, oldestPendingSubmittedAt: null,
   operatorsLastActiveAt: null, ...overrides,
+});
+
+const pendingClub = (id: number, pendingSince: string | null | undefined): AdminClubSummary => ({
+  id, name: `동아리 ${id}`, category: 'ACADEMIC', division: null, college: null, logoUrl: null,
+  status: 'PENDING_APPROVAL', tags: [], leaderId: null, leaderName: null, leaderStudentId: null,
+  centralClub: false, facilitySecuredTimeTarget: false, rejectionReason: null, statusChangedAt: null,
+  statusChangedByName: null, ...(pendingSince === undefined ? {} : { pendingSince }),
 });
 
 describe('oldestTailPages — 최신순 목록에서 가장 오래된 10건이 든 페이지', () => {
@@ -144,5 +153,21 @@ describe('oldestWaitingSince', () => {
   it('가장 이른 대기 시작 시각을 원래 문자열 그대로 돌려주고, 행이 없으면 null', () => {
     expect(oldestWaitingSince([reportItem(1, '2026-10-21T00:00:00Z'), promotionItem(2, '2026-10-19T00:00:00Z')])).toBe('2026-10-19T00:00:00Z');
     expect(oldestWaitingSince([])).toBeNull();
+  });
+});
+
+describe('pendingClubTriageItems — 승인 대기 동아리', () => {
+  it('승인 대기 시작 시각이 있는 동아리만 대기열 항목으로 옮긴다', () => {
+    expect(pendingClubTriageItems([pendingClub(61, '2026-10-20T01:00:00Z'), pendingClub(62, null), pendingClub(63, undefined)])).toEqual([
+      { area: 'CLUB_APPROVAL', id: 61, waitingSince: '2026-10-20T01:00:00Z', clubName: '동아리 61' },
+    ]);
+  });
+});
+
+describe('mergeTriageQueue — 동아리 승인', () => {
+  it('같은 시각이면 동아리 승인은 회장 승계보다도 뒤다', () => {
+    const club: AdminTriageItem = { area: 'CLUB_APPROVAL', id: 1, waitingSince: '2026-10-20T00:00:00Z', clubName: '코드브루' };
+    const succession: AdminTriageItem = { area: 'SUCCESSION', id: 9, waitingSince: '2026-10-20T00:00:00Z', clubName: '코드브루', requesterName: '이회장' };
+    expect(mergeTriageQueue([club, succession]).map((item) => item.area)).toEqual(['SUCCESSION', 'CLUB_APPROVAL']);
   });
 });

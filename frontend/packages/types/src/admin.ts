@@ -27,6 +27,8 @@ export type AdminClubSummary = {
   rejectionReason: string | null;
   statusChangedAt: string | null;
   statusChangedByName: string | null;
+  /** 승인 대기에 들어온 시각(승인 대기가 아니면 null). 필드가 없으면 옛 백엔드 — 총동연 홈이 '시각 모름'으로 물러선다. */
+  pendingSince?: string | null;
 };
 
 // === 시설 예약 오픈일(총동연) — 시설별 booking_open_date ===

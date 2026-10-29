@@ -6,7 +6,7 @@ import { cn } from '@/app/_lib/cn';
 import { toRoute } from '@/app/_lib/route';
 import { DashboardCard } from '@/components/dashboard/DashboardCard';
 import { DASHBOARD_CHIP_TONE_CLASS } from '@/components/dashboard/dashboardChipTone';
-import { presentTriageItem, triageQueueSummary } from './adminTriagePresentation';
+import { clubApprovalFallbackShown, presentTriageItem, triageQueueSummary } from './adminTriagePresentation';
 
 const ROW_LINK_CLASS =
   'flex min-h-11 flex-wrap items-center gap-x-3 gap-y-1 rounded-md px-2 py-2 transition hover:bg-sage-tint focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink';
@@ -21,6 +21,7 @@ export function AdminTriageQueueCard() {
   const countsFailed = pendingCounts === undefined && pendingCountsQuery.isError;
   const clubApprovalCount = pendingCounts?.clubApproval ?? 0;
   const summary = triageQueueSummary(queue.items.length, pendingCounts?.totalPendingCount);
+  const showClubApprovalFallback = clubApprovalFallbackShown(clubApprovalCount, queue.areas.CLUB_APPROVAL);
   const now = new Date();
 
   return (
@@ -29,7 +30,7 @@ export function AdminTriageQueueCard() {
       // 목록이 먼저 0행으로 끝나도 건수(동아리 승인 줄)가 정해지기 전에는 "없어요"를 띄우지 않는다.
       isLoading={queue.isLoading || (countsLoading && queue.items.length === 0)}
       isError={queue.isError || countsFailed}
-      isEmpty={queue.items.length === 0 && clubApprovalCount === 0}
+      isEmpty={queue.items.length === 0 && !showClubApprovalFallback}
       emptyText="처리할 대기 건이 없어요"
     >
       {/* 요약은 카드 머리(줄바꿈 없는 justify-between) 대신 본문 첫 줄 — 좁은 폭·큰 글씨에서 넘치지 않게. */}
@@ -67,9 +68,9 @@ export function AdminTriageQueueCard() {
             </li>
           );
         })}
-        {clubApprovalCount > 0 ? (
+        {showClubApprovalFallback ? (
           <li>
-            {/* 동아리 승인은 응답에 신청 시각이 없어 오래된 순에 넣지 못한다 — 맨 아래 한 줄. */}
+            {/* 동아리 승인을 시각 순 행으로 못 넣었을 때(시각 모름·목록 실패 등) 건수만 아는 한 줄 — 승인 대기가 홈에서 사라지지 않게. */}
             <Link href={toRoute('/admin/clubs')} className={ROW_LINK_CLASS}>
               <span className="min-w-0 flex-1 basis-56">
                 <span className="flex flex-wrap items-center gap-x-2 gap-y-0.5">

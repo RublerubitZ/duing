@@ -34,6 +34,7 @@ afterEach(() => {
 
 describe('AdminTriageTiles', () => {
   it('7칸이 건수·보조 줄과 함께 대기 건이 먼저 보이는 목록으로 이어진다', () => {
+    mockQueue.mockReturnValue(triageQueue({ areas: { ...triageQueue().areas, REPORT: readyArea('2026-10-26T01:00:00Z'), CLUB_APPROVAL: readyArea('2026-10-27T03:00:00Z') } }));
     render(<AdminTriageTiles />);
     const links = screen.getAllByRole('link');
     expect(links.map((link) => link.getAttribute('href'))).toEqual([
@@ -46,7 +47,7 @@ describe('AdminTriageTiles', () => {
       '/admin/clubs',
     ]);
     expect(links[0]).toHaveTextContent('신고 미처리2건가장 오래된 건 3일');
-    expect(links[6]).toHaveTextContent('동아리 승인3건신청 시각 —');
+    expect(links[6]).toHaveTextContent('동아리 승인3건가장 오래된 건 2일');
   });
 
   it('신고 칸은 늘 2칸 폭이고, 건수가 있을 때만 경고색이다', () => {
@@ -67,10 +68,23 @@ describe('AdminTriageTiles', () => {
   });
 
   it('건수를 받기 전·받지 못했으면 칸에 건수를 그리지 않는다', () => {
-    mockCounts.mockReturnValue({ data: undefined, isError: true });
-    render(<AdminTriageTiles />);
+    // 칸은 건수 data 만 본다 — 받기 전(isError false)과 받지 못함(isError true)이 같은 칸을 그린다.
+    // 건수를 모르고 받은 승인 대기 목록이 비었으면(ready·0곳) 보조 줄은 목록을 따라 '대기 없음'이다.
+    mockCounts.mockReturnValue({ data: undefined, isError: false });
+    const { rerender } = render(<AdminTriageTiles />);
     expect(screen.queryByText(/^\d+건$/)).toBeNull();
-    expect(screen.getByRole('link', { name: /동아리 승인/ })).toHaveTextContent(/^동아리 승인$/);
+    expect(screen.getByRole('link', { name: /동아리 승인/ })).toHaveTextContent(/^동아리 승인대기 없음$/);
+
+    mockCounts.mockReturnValue({ data: undefined, isError: true });
+    rerender(<AdminTriageTiles />);
+    expect(screen.queryByText(/^\d+건$/)).toBeNull();
+    expect(screen.getByRole('link', { name: /동아리 승인/ })).toHaveTextContent(/^동아리 승인대기 없음$/);
+  });
+
+  it('승인 대기 시각을 모르면(옛 백엔드) 동아리 승인 칸은 신청 시각 — 로 물러선다', () => {
+    mockQueue.mockReturnValue(triageQueue({ clubApprovalTimeUnknown: true }));
+    render(<AdminTriageTiles />);
+    expect(screen.getByRole('link', { name: /동아리 승인/ })).toHaveTextContent('동아리 승인3건신청 시각 —');
   });
 
   it('목록을 받지 못한 칸의 대시는 스크린 리더에 말로 읽힌다', () => {

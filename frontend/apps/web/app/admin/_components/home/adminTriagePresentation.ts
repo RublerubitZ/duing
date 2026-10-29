@@ -15,6 +15,7 @@ export const ADMIN_TRIAGE_AREA_LABEL: Record<AdminTriageArea, string> = {
   RECRUITMENT: '미처리 지원',
   PROMOTION: '홍보 요청',
   SUCCESSION: '회장 승계',
+  CLUB_APPROVAL: '동아리 승인',
 };
 
 export type TriageRowModel = {
@@ -77,10 +78,13 @@ export const presentTriageItem = (item: AdminTriageItem, now: Date): TriageRowMo
       return { ...base, title: `${item.clubName} · ${item.title}`, context: null, actionLabel: '요청 검토', href: `/admin/promotion-requests/${item.id}` };
     case 'SUCCESSION':
       return { ...base, title: item.clubName, context: `요청자 ${item.requesterName}`, actionLabel: '요청 검토', href: `/admin/leader-succession/${item.id}` };
+    case 'CLUB_APPROVAL':
+      // 승인은 동아리 관리 목록의 상태 변경으로 한다(목록 기본 필터가 승인 대기).
+      return { ...base, title: item.clubName, context: '승인 대기', actionLabel: '승인 검토', href: '/admin/clubs' };
   }
 };
 
-export type TriageTileKey = AdminTriageArea | 'CLUB_APPROVAL';
+export type TriageTileKey = AdminTriageArea;
 
 export type TriageTile = {
   key: TriageTileKey;
@@ -123,7 +127,7 @@ export const triageTileHref = (key: TriageTileKey, inquiryTotals: AdminTriageQue
 };
 
 /**
- * 칸 보조 줄(스펙 §5.4). count 는 서버 건수(받기 전·실패면 undefined), area 는 대기열 영역 상태(동아리 승인은 null).
+ * 칸 보조 줄(스펙 §5.4). count 는 서버 건수(받기 전·실패면 undefined), area 는 대기열 영역 상태(동아리 승인 시각을 모르면 null).
  * "대기 없음"은 건수를, 기간은 목록을 따른다.
  */
 export const triageTileSubline = (count: number | undefined, area: AdminTriageAreaState | null, now: Date): string => {
@@ -141,6 +145,13 @@ export const triageTileSubline = (count: number | undefined, area: AdminTriageAr
   // 건수는 1건 이상인데 목록이 비었으면 두 요청 사이에 바뀐 것 — 확인되지 않은 "대기 없음"을 쓰지 않는다.
   return count === undefined ? '대기 없음' : '—';
 };
+
+/**
+ * 동아리 승인을 대기열 행으로 못 넣었을 때(시각 모름·목록 실패·한 페이지 초과·두 요청 사이 어긋남 — 모두 영역 행 0)
+ * 건수만 아는 맨 아래 줄을 둔다. 카드의 줄과 빈 상태 판정이 이 함수 하나를 쓴다.
+ */
+export const clubApprovalFallbackShown = (clubApprovalCount: number, area: AdminTriageAreaState): boolean =>
+  clubApprovalCount > 0 && area.rowCount === 0;
 
 /** 대기열 요약 줄 — 시각 있는 표시 행 수와 서버 전체 건수. 둘 다 없으면 null. */
 export const triageQueueSummary = (shownCount: number, totalPendingCount: number | undefined): string | null => {
