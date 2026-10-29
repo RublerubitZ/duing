@@ -10,7 +10,6 @@ vi.mock('@duing/hooks', async (importOriginal) => {
   return {
     // 변환 모듈이 쓰는 순수 유틸은 실제 구현을 쓴다.
     CLOSING_SOON_DAYS: actual.CLOSING_SOON_DAYS,
-    STALE_WAITING_DAYS: actual.STALE_WAITING_DAYS,
     formatRelativeTime: actual.formatRelativeTime,
     useDashboardTaskQueue: (clubId: number) => mockQueue(clubId),
   } satisfies Partial<Record<keyof typeof import('@duing/hooks'), unknown>>;

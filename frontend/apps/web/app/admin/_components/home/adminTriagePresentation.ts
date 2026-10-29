@@ -1,4 +1,4 @@
-import { daysSinceKst } from '@duing/hooks';
+import { daysSinceKst } from '@duing/hooks/datetime';
 
 import { bookingDateLabel, bookingTimeLabel } from '@/app/_lib/bookingDisplay';
 import { INQUIRY_STATUS_LABEL } from '@/app/_lib/federationInquiryLabels';
