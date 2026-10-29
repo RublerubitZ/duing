@@ -127,7 +127,7 @@ describe('mergeTriageQueue', () => {
 
   it(`가장 오래된 ${ADMIN_TRIAGE_QUEUE_LIMIT}건까지만 남긴다`, () => {
     const items = Array.from({ length: 12 }, (_, index) => reportItem(index + 1, `2026-10-${String(10 + index).padStart(2, '0')}T00:00:00Z`));
-    const merged = mergeTriageQueue(items);
+    const merged = mergeTriageQueue(items.slice().reverse());
     expect(merged).toHaveLength(ADMIN_TRIAGE_QUEUE_LIMIT);
     expect(merged.map((item) => item.id)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
   });

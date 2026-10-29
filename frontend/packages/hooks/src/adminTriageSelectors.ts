@@ -30,13 +30,13 @@ const AREA_ORDER: Record<AdminTriageArea, number> = {
  * 최신순 목록(서버 정렬 고정)에서 가장 오래된 QUEUE_LIMIT 건(전체 인덱스 N−10..N−1)이 든 페이지 중,
  * 이미 받은 첫 페이지를 뺀 번호. 끝 페이지에 10건이 안 들면 바로 앞 페이지도 받는다.
  */
-export function oldestTailPages(totalElements: number, totalPages: number, pageSize: number): number[] {
+export const oldestTailPages = (totalElements: number, totalPages: number, pageSize: number): number[] => {
   // 페이지 크기는 응답의 size — 서버가 요청 크기(100)보다 작게 자르면 그 크기로 페이지 번호가 매겨진다.
   if (totalElements <= pageSize || totalPages < 2) return [];
   const lastPage = totalPages - 1;
   const lastPageCount = totalElements - pageSize * lastPage;
   return lastPageCount < ADMIN_TRIAGE_QUEUE_LIMIT && lastPage >= 2 ? [lastPage - 1, lastPage] : [lastPage];
-}
+};
 
 export const reportTriageItem = (report: AdminReportSummary): AdminTriageItem => ({
   area: 'REPORT',
@@ -84,7 +84,7 @@ export const successionTriageItem = (request: AdminSuccessionSummary): AdminTria
 });
 
 /** 진행 중 모집 중 가장 오래된 미처리 지원서가 168시간 이상(경계 포함) 기다린 것. */
-export function staleRecruitmentTriageItems(recruitments: AdminRecruitmentListItem[], now: Date): AdminTriageItem[] {
+export const staleRecruitmentTriageItems = (recruitments: AdminRecruitmentListItem[], now: Date): AdminTriageItem[] => {
   const cutoffMs = now.getTime() - STALE_PENDING_MS;
   return recruitments.flatMap((recruitment): AdminTriageItem[] => {
     const submittedAt = recruitment.oldestPendingSubmittedAt;
@@ -101,12 +101,12 @@ export function staleRecruitmentTriageItems(recruitments: AdminRecruitmentListIt
       },
     ];
   });
-}
+};
 
 const waitingMs = (item: AdminTriageItem): number => parseKstInstant(item.waitingSince).getTime();
 
 /** (영역, 식별자)로 중복을 빼고 오래 기다린 순 → 영역 순서 → 식별자 순으로 정렬해 상위 QUEUE_LIMIT 건. */
-export function mergeTriageQueue(items: AdminTriageItem[]): AdminTriageItem[] {
+export const mergeTriageQueue = (items: AdminTriageItem[]): AdminTriageItem[] => {
   // 끝 페이지를 받는 사이 새 건이 들어오면 페이지 경계가 밀려 같은 건이 두 번 온다.
   const seenKeys = new Set<string>();
   const uniqueItems = items.filter((item) => {
@@ -121,11 +121,11 @@ export function mergeTriageQueue(items: AdminTriageItem[]): AdminTriageItem[] {
         waitingMs(left) - waitingMs(right) || AREA_ORDER[left.area] - AREA_ORDER[right.area] || left.id - right.id,
     )
     .slice(0, ADMIN_TRIAGE_QUEUE_LIMIT);
-}
+};
 
-export function oldestWaitingSince(items: AdminTriageItem[]): string | null {
+export const oldestWaitingSince = (items: AdminTriageItem[]): string | null => {
   return items.reduce<string | null>(
     (oldest, item) => (oldest === null || waitingMs(item) < parseKstInstant(oldest).getTime() ? item.waitingSince : oldest),
     null,
   );
-}
+};
