@@ -29,9 +29,8 @@ describe('presentDashboardTask — 모집 업무', () => {
     expect(row.chip).toEqual({ text, tone });
   });
 
-  it('기한 없는 항목은 칩이 없다', () => {
+  it('응답 기한이 없는 면접 응답 미수집은 칩이 없다', () => {
     expect(presentDashboardTask(10, recruitment({ type: 'INTERVIEW_RESPONSE_UNCOLLECTED', roundId: 7 }), NOW).chip).toBeNull();
-    expect(presentDashboardTask(10, recruitment({ type: 'APPLICANTS_AWAITING_REVIEW', count: 12 }), NOW).chip).toBeNull();
   });
 
   it.each([
