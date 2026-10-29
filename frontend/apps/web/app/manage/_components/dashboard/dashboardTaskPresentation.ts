@@ -43,9 +43,14 @@ function recruitmentHref(clubId: number, item: ActionItem): `/${string}` {
         return `/manage/clubs/${clubId}/recruitments/${item.recruitmentId}/interview`;
       }
       return `/manage/clubs/${clubId}/recruitments/${item.recruitmentId}/interview/rounds/${item.roundId}`;
+    case 'APPLICANTS_AWAITING_REVIEW':
+      // 미처리 칩(presentRecruitment)과 같은 조건 — 칩이 보이는 행만 서버 미처리 알림처럼 미처리 필터로 연다.
+      // 칩이 없으면 보류만 남았을 수 있어(인원은 보류 포함) 필터 없이 연다.
+      return item.pendingDays === undefined
+        ? `/manage/clubs/${clubId}/recruitments/${item.recruitmentId}/applicants`
+        : `/manage/clubs/${clubId}/recruitments/${item.recruitmentId}/applicants?status=SUBMITTED`;
     case 'INTERVIEW_RESULT_PENDING':
       // 합/불 결정은 지원자 목록에서 처리하므로 지원자 페이지로 이동 (라운드 귀속 정보는 행 텍스트로만 표시)
-    case 'APPLICANTS_AWAITING_REVIEW':
     case 'CLOSED_RECRUITMENT_UNDECIDED':
       // 마감 모집이면 지원자 화면이 최종 결과 확정 전용으로 열린다
       return `/manage/clubs/${clubId}/recruitments/${item.recruitmentId}/applicants`;
