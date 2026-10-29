@@ -168,7 +168,7 @@ class AdminPendingTrendQueryServiceIntegrationTest extends IntegrationTestBase {
     }
 
     @Test
-    @DisplayName("시설 예약은 승인·반려 결정 시각(KST 벽시계)으로 처리를 세고, 동아리 취소·충돌 뒤 관리자 취소는 처리로 세지 않는다")
+    @DisplayName("시설 예약은 승인·반려 결정 시각으로 처리를 세고, 동아리 취소·충돌 뒤 관리자 취소는 처리로 세지 않는다")
     void countsBookingsByDecisionTimeAndIgnoresCancellations() {
         FacilityBooking approved = saveBooking();
         approved.approve(studentUserId, LocalDateTime.now(clock), LocalDateTime.now(clock));

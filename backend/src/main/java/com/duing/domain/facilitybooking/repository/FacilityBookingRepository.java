@@ -70,6 +70,7 @@ public interface FacilityBookingRepository
     /**
      * 처리 대기 추이 — 최근 처리(승인·반려 decided_at). decided_at 은 now(seoulClock) 으로 기록돼 <b>seoul regime</b> 이다 —
      * 기준 시각도 LocalDateTime.now(clock) 으로 만든다(systemNow 를 쓰면 prod 에서 창이 9시간 넓어진다).
+     * 충돌 뒤 재승인은 decided_at 이 덮여 다시 처리로 센다.
      */
     long countByDecidedAtGreaterThanEqual(LocalDateTime since);
 
