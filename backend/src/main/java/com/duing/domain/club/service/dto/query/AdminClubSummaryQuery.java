@@ -26,6 +26,7 @@ public record AdminClubSummaryQuery(
         boolean facilitySecuredTimeTarget,
         String rejectionReason,
         LocalDateTime statusChangedAt,
-        String statusChangedByName
+        String statusChangedByName,
+        LocalDateTime pendingSince
 ) {
 }
