@@ -6,6 +6,7 @@ import { setupServer } from 'msw/node';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { createApiClient } from '@duing/api';
 import type {
+  AdminClubSummary,
   AdminFacilityBookingSummary,
   AdminFederationInquirySummary,
   AdminPromotionRequestSummary,
@@ -100,6 +101,7 @@ beforeEach(() => {
     http.get('*/admin/recruitments', () => ok([])),
     http.get('*/admin/promotion-requests', () => ok(pageOf([]))),
     http.get('*/admin/leader-succession-requests', () => ok(pageOf([]))),
+    http.get('*/admin/clubs', () => ok(pageOf([]))),
   );
 });
 afterEach(() => server.resetHandlers());
@@ -292,5 +294,69 @@ describe('useAdminTriageQueue', () => {
     expect(result.current.areas.REPORT.status).toBe('ready');
     expect(itemKeys(result.current.items)).toEqual(['REPORT:2', 'REPORT:1']);
     expect(result.current.isError).toBe(false);
+  });
+});
+
+const pendingClub = (id: number, pendingSince: string | null | undefined): AdminClubSummary => ({
+  id, name: `동아리 ${id}`, category: 'ACADEMIC', division: null, college: null, logoUrl: null,
+  status: 'PENDING_APPROVAL', tags: [], leaderId: null, leaderName: null, leaderStudentId: null,
+  centralClub: false, facilitySecuredTimeTarget: false, rejectionReason: null, statusChangedAt: null,
+  statusChangedByName: null, ...(pendingSince === undefined ? {} : { pendingSince }),
+});
+
+describe('useAdminTriageQueue — 동아리 승인', () => {
+  it('승인 대기 동아리를 대기 시작 순으로 대기열에 섞고, 승인 대기 목록을 한 번 받는다', async () => {
+    const oldestClubAt = hoursAgo(200);
+    server.use(
+      http.get('*/admin/clubs', () => ok(pageOf([pendingClub(61, hoursAgo(20)), pendingClub(62, oldestClubAt)]))),
+      http.get('*/admin/reports', () => ok(pageOf([report(1, hoursAgo(50))]))),
+    );
+    const queryClient = newQueryClient();
+    const { result } = renderHook(() => useAdminTriageQueue(), { wrapper: makeWrapper(queryClient) });
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    expect(itemKeys(result.current.items)).toEqual(['CLUB_APPROVAL:62', 'REPORT:1', 'CLUB_APPROVAL:61']);
+    expect(result.current.areas.CLUB_APPROVAL).toEqual({ status: 'ready', rowCount: 2, oldestWaitingSince: oldestClubAt });
+    expect(result.current.clubApprovalTimeUnknown).toBe(false);
+    expect(requestsTo('/admin/clubs')).toEqual([{ status: 'PENDING_APPROVAL', page: '0', size: '100' }]);
+    expect(queryClient.getQueryData(adminQueryKeys.clubsList({ status: 'PENDING_APPROVAL', page: 0, size: 100 }))).toBeDefined();
+  });
+
+  it('응답에 승인 대기 시작 시각 필드가 없으면(옛 백엔드) 동아리 항목을 넣지 않고 시각 모름으로 둔다', async () => {
+    server.use(http.get('*/admin/clubs', () => ok(pageOf([pendingClub(61, undefined)]))));
+    const { result } = renderHook(() => useAdminTriageQueue(), { wrapper: makeWrapper(newQueryClient()) });
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    expect(result.current.clubApprovalTimeUnknown).toBe(true);
+    expect(itemKeys(result.current.items)).toEqual([]);
+    expect(result.current.areas.CLUB_APPROVAL).toMatchObject({ status: 'ready', rowCount: 0 });
+  });
+
+  it('승인 대기가 한 페이지(100곳)를 넘으면 오래된 건이 빠질 수 있어 동아리 항목을 버리되 실패로 보지 않는다', async () => {
+    server.use(http.get('*/admin/clubs', () => ok(pageOf([pendingClub(61, hoursAgo(20))], 101))));
+    const { result } = renderHook(() => useAdminTriageQueue(), { wrapper: makeWrapper(newQueryClient()) });
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    expect(itemKeys(result.current.items)).toEqual([]);
+    expect(result.current.areas.CLUB_APPROVAL).toMatchObject({ status: 'ready', rowCount: 0 });
+    expect(result.current.isError).toBe(false);
+  });
+
+  it('승인 대기 목록을 받지 못하면 동아리 영역만 실패로 두고 다른 행은 남긴다', async () => {
+    server.use(
+      http.get('*/admin/clubs', () => fail()),
+      http.get('*/admin/reports', () => ok(pageOf([report(1, hoursAgo(50))]))),
+    );
+    const { result } = renderHook(() => useAdminTriageQueue(), { wrapper: makeWrapper(newQueryClient()) });
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    expect(result.current.areas.CLUB_APPROVAL).toMatchObject({ status: 'error', rowCount: 0 });
+    expect(itemKeys(result.current.items)).toEqual(['REPORT:1']);
+    expect(result.current.isError).toBe(true);
+    expect(result.current.clubApprovalTimeUnknown).toBe(false);
   });
 });

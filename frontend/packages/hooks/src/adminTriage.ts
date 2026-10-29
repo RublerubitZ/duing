@@ -1,6 +1,7 @@
 import { useQueries, useQuery, type QueryKey } from '@tanstack/react-query';
 import type {
   AdminBookingQueueParams,
+  AdminClubSearchParams,
   AdminFederationInquirySummary,
   AdminPromotionRequestSearchParams,
   AdminRecruitmentSearchParams,
@@ -21,6 +22,7 @@ import {
   mergeTriageQueue,
   oldestTailPages,
   oldestWaitingSince,
+  pendingClubTriageItems,
   promotionTriageItem,
   reportTriageItem,
   staleRecruitmentTriageItems,
@@ -39,6 +41,8 @@ type PageQuery<Row> = { queryKey: QueryKey; queryFn: () => Promise<PageResponse<
 const PENDING_BOOKING_PARAMS: AdminBookingQueueParams = { status: 'PENDING', page: 0, size: ADMIN_TRIAGE_QUEUE_LIMIT };
 // 목록 화면의 "진행 중 · 오래 방치된 순"과 같은 키 — 영역 칸으로 연 목록과 캐시를 공유한다.
 const STALE_RECRUITMENT_PARAMS: AdminRecruitmentSearchParams = { status: 'OPEN', sort: 'STALE' };
+// 승인 대기 동아리 — 이름순 고정 목록이라 한 페이지(100곳)를 받는다. 동아리 상태 변경·폐쇄가 clubsAll 을 무효화한다.
+const PENDING_CLUB_PARAMS: AdminClubSearchParams = { status: 'PENDING_APPROVAL', page: 0, size: ADMIN_TRIAGE_PAGE_SIZE };
 
 // data 유무가 기준이다 — 재조회가 실패해도 받은 목록은 그대로 쓴다(사이드바 배지와 같은 기준).
 const queryStatus = (query: { data: unknown; isError: boolean }): ListStatus =>
@@ -142,6 +146,12 @@ export function useAdminTriageQueue(): AdminTriageQueue {
     return { queryKey: adminQueryKeys.leaderSuccessionList(params), queryFn: () => client.admin.leaderSuccession.list(params) };
   }, successionTriageItem);
 
+  const pendingClubsQuery = useQuery({
+    queryKey: adminQueryKeys.clubsList(PENDING_CLUB_PARAMS),
+    queryFn: () => client.admin.clubs.list(PENDING_CLUB_PARAMS),
+    ...DASHBOARD_QUERY_OPTIONS,
+  });
+
   // 렌더 시점의 지금 — 열어 둔 화면에서도 168시간 경계가 흘러간다(고정 memo 금지).
   const now = new Date();
   const report = areaOf([reports]);
@@ -155,7 +165,19 @@ export function useAdminTriageQueue(): AdminTriageQueue {
   ]);
   const promotion = areaOf([promotions]);
   const succession = areaOf([successions]);
-  const areaList = [report, inquiry, facility, recruitment, promotion, succession];
+  const pendingClubs = pendingClubsQuery.data?.content;
+  // shortcut: 배포 틈·BE 롤백 대비 — 롤백 기준 릴리스에 BE-1 이 들어가면 플래그와 칸의 null 분기만 지운다(맨 아래 줄은 목록 실패 폴백으로 남는다).
+  const clubApprovalTimeUnknown = pendingClubs !== undefined && pendingClubs.some((club) => club.pendingSince === undefined);
+  const clubApproval = areaOf([
+    {
+      ...singleSubList(pendingClubsQuery, (clubPage) => (clubApprovalTimeUnknown ? [] : pendingClubTriageItems(clubPage.content))),
+      // 이름순이라 한 페이지를 넘으면 오래된 건이 빠질 수 있다 — 다른 목록처럼 통째로 버린다(요청 실패가 아니라 상태는 그대로).
+      // 동아리는 총동연만 만들어 사실상 도달하지 않는다. 행 링크(/admin/clubs)도 이름순 20건 페이지라 20곳을 넘으면 첫 페이지에 없을 수 있다.
+      // 건수(pending-counts)까지 실패하면 칸 보조 줄이 '대기 없음'으로 보일 수 있다(두 조건이 겹칠 때만).
+      tailFailed: (pendingClubsQuery.data?.totalElements ?? 0) > ADMIN_TRIAGE_PAGE_SIZE,
+    },
+  ]);
+  const areaList = [report, inquiry, facility, recruitment, promotion, succession, clubApproval];
 
   return {
     items: mergeTriageQueue(areaList.flatMap((area) => area.items)),
@@ -166,8 +188,10 @@ export function useAdminTriageQueue(): AdminTriageQueue {
       RECRUITMENT: recruitment.state,
       PROMOTION: promotion.state,
       SUCCESSION: succession.state,
+      CLUB_APPROVAL: clubApproval.state,
     },
     inquiryTotals: { received: receivedInquiries.totalElements, inProgress: inProgressInquiries.totalElements },
+    clubApprovalTimeUnknown,
     isLoading: areaList.some((area) => area.state.status === 'loading'),
     isError: areaList.some((area) => area.state.status === 'error'),
   };
