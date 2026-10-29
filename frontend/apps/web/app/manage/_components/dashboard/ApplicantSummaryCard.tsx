@@ -7,7 +7,7 @@ import {
   APPLICATION_STATUS_OPERATOR_LABEL,
 } from '@/app/_constants/application-status';
 import { toRoute } from '@/app/_lib/route';
-import { DashboardCard } from './DashboardCard';
+import { DashboardCard } from '@/components/dashboard/DashboardCard';
 
 /** 진행 중(raw OPEN) 모집은 동아리당 최대 1건(V38) — 2건 이상은 방어용 표기. */
 function summaryCaption(recruitmentTitles: string[], total: number): { title: string | null; rest: string } {
