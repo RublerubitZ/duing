@@ -297,6 +297,19 @@ function compareTasks(left: DashboardTask, right: DashboardTask): number {
   const byPriority = taskPriority(left) - taskPriority(right);
   if (byPriority !== 0) return byPriority;
   if (
+    left.source === 'RECRUITMENT' &&
+    right.source === 'RECRUITMENT' &&
+    left.item.type === 'APPLICANTS_AWAITING_REVIEW' &&
+    right.item.type === 'APPLICANTS_AWAITING_REVIEW'
+  ) {
+    // 오래 기다린 순 — 총동연 대기열과 같은 원칙. 미처리 일수가 없는 쪽은 뒤, 같으면 입력 순서 유지.
+    const leftPending = left.item.pendingDays;
+    const rightPending = right.item.pendingDays;
+    if (leftPending !== undefined && rightPending !== undefined) return rightPending - leftPending;
+    if ((leftPending !== undefined) !== (rightPending !== undefined)) return leftPending !== undefined ? -1 : 1;
+    return 0;
+  }
+  if (
     left.source === 'OPERATION' &&
     right.source === 'OPERATION' &&
     left.item.type === 'FACILITY_BOOKING_ATTENTION' &&

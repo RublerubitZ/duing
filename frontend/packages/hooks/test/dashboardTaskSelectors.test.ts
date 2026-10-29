@@ -208,6 +208,30 @@ describe('groupDashboardTasks', () => {
     ]);
   });
 
+  it('검토 대기 지원자끼리는 미처리 일수가 큰(오래 기다린) 모집이 먼저', () => {
+    const groups = groupDashboardTasks(
+      [
+        recruitmentItem({ type: 'APPLICANTS_AWAITING_REVIEW', recruitmentId: 1, count: 2, pendingDays: 8 }),
+        recruitmentItem({ type: 'APPLICANTS_AWAITING_REVIEW', recruitmentId: 2, count: 2, pendingDays: 12 }),
+      ],
+      [],
+    );
+    const nowGroup = groups.find((group) => group.key === 'NOW');
+    expect(nowGroup?.tasks.map((task) => (task.source === 'RECRUITMENT' ? task.item.recruitmentId : null))).toEqual([2, 1]);
+  });
+
+  it('검토 대기 지원자끼리는 미처리 일수가 있는 모집이 없는 모집보다 먼저', () => {
+    const groups = groupDashboardTasks(
+      [
+        recruitmentItem({ type: 'APPLICANTS_AWAITING_REVIEW', recruitmentId: 1, count: 2 }),
+        recruitmentItem({ type: 'APPLICANTS_AWAITING_REVIEW', recruitmentId: 2, count: 2, pendingDays: 2 }),
+      ],
+      [],
+    );
+    const waiting = groups.find((group) => group.key === 'WAITING');
+    expect(waiting?.tasks.map((task) => (task.source === 'RECRUITMENT' ? task.item.recruitmentId : null))).toEqual([2, 1]);
+  });
+
   it('시설끼리는 예약일 → 시작 시각 → bookingId 순', () => {
     const facility = (bookingId: number, date: string, startTime: string): OperationItem => ({
       type: 'FACILITY_BOOKING_ATTENTION', bookingId, roomName: 'A', date, startTime, endTime: '23:00:00', status: 'REJECTED',
