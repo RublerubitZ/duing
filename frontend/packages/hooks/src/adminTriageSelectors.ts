@@ -29,6 +29,7 @@ const AREA_ORDER: Record<AdminTriageArea, number> = {
 /**
  * 최신순 목록(서버 정렬 고정)에서 가장 오래된 QUEUE_LIMIT 건(전체 인덱스 N−10..N−1)이 든 페이지 중,
  * 이미 받은 첫 페이지를 뺀 번호. 끝 페이지에 10건이 안 들면 바로 앞 페이지도 받는다.
+ * 페이지 크기가 ADMIN_TRIAGE_QUEUE_LIMIT 이상이라는 전제다 — 더 작으면 오래된 10건이 세 페이지 이상에 걸친다.
  */
 export const oldestTailPages = (totalElements: number, totalPages: number, pageSize: number): number[] => {
   // 페이지 크기는 응답의 size — 서버가 요청 크기(100)보다 작게 자르면 그 크기로 페이지 번호가 매겨진다.
@@ -103,6 +104,7 @@ export const staleRecruitmentTriageItems = (recruitments: AdminRecruitmentListIt
   });
 };
 
+// shortcut: 정렬 비교마다 시각 문자열을 다시 파싱하고, 칸·대기열 카드가 같은 훅을 불러 두 번 합친다 — 영역마다 100건씩 차는 규모가 되면 훅에서 입력 data 기준으로 memo 한다.
 const waitingMs = (item: AdminTriageItem): number => parseKstInstant(item.waitingSince).getTime();
 
 /** (영역, 식별자)로 중복을 빼고 오래 기다린 순 → 영역 순서 → 식별자 순으로 정렬해 상위 QUEUE_LIMIT 건. */

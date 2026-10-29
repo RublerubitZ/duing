@@ -73,6 +73,14 @@ describe('AdminTriageTiles', () => {
     expect(screen.getByRole('link', { name: /동아리 승인/ })).toHaveTextContent(/^동아리 승인$/);
   });
 
+  it('목록을 받지 못한 칸의 대시는 스크린 리더에 말로 읽힌다', () => {
+    mockQueue.mockReturnValue(
+      triageQueue({ areas: { ...triageQueue().areas, REPORT: { status: 'error', rowCount: 0, oldestWaitingSince: null } } }),
+    );
+    render(<AdminTriageTiles />);
+    expect(screen.getByRole('link', { name: /신고 미처리/ })).toHaveTextContent('목록을 확인하지 못했어요');
+  });
+
   it('1:1 문의는 접수가 비고 답변중만 남았으면 답변중 탭으로 연다', () => {
     mockQueue.mockReturnValue(triageQueue({ inquiryTotals: { received: 0, inProgress: 2 } }));
     render(<AdminTriageTiles />);

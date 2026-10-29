@@ -2,11 +2,11 @@ import { daysUntilKst } from '@duing/hooks';
 
 import { bookingDateLabel, bookingTimeLabel } from '@/app/_lib/bookingDisplay';
 import { INQUIRY_STATUS_LABEL } from '@/app/_lib/federationInquiryLabels';
-import type { DashboardChipTone } from '@/components/dashboard/dashboardChipTone';
 
 import { REPORT_REASON_LABEL, REPORT_TARGET_TYPE_LABEL } from '../../reports/_lib/reportLabels';
 
 import type { AdminPendingCounts, AdminTriageArea, AdminTriageAreaState, AdminTriageItem, AdminTriageQueue } from '@duing/types';
+import type { DashboardChipTone } from '@/components/dashboard/dashboardChipTone';
 
 export const ADMIN_TRIAGE_AREA_LABEL: Record<AdminTriageArea, string> = {
   REPORT: '신고',

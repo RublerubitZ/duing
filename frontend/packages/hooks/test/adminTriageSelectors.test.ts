@@ -85,12 +85,15 @@ describe('staleRecruitmentTriageItems — 서버 배지와 같은 168시간 경�
         recruitment(4, { status: 'CLOSED', displayStatus: 'CLOSED', oldestPendingSubmittedAt: '2026-10-01T00:00:00Z' }),
         // KST 10/22 23:59 — 달력으로는 7일이지만 168시간이 안 됐다 → 제외
         recruitment(5, { oldestPendingSubmittedAt: '2026-10-22T14:59:00.000Z' }),
+        // 기간은 끝났지만 raw OPEN — 아직 심사 기간이라 서버 배지와 같이 포함
+        recruitment(6, { status: 'OPEN', displayStatus: 'CLOSED', oldestPendingSubmittedAt: '2026-10-01T00:00:00Z' }),
       ],
       NOW,
     );
 
     expect(items).toEqual([
       { area: 'RECRUITMENT', id: 1, waitingSince: '2026-10-22T03:00:00.000Z', clubName: '코드브루', title: '2026 2학기 신입 모집', pendingApplicationCount: 3 },
+      { area: 'RECRUITMENT', id: 6, waitingSince: '2026-10-01T00:00:00Z', clubName: '코드브루', title: '2026 2학기 신입 모집', pendingApplicationCount: 3 },
     ]);
   });
 });

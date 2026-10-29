@@ -44,7 +44,7 @@ export function AdminFeeAuditCard() {
           <dd className="text-right font-semibold tabular-nums text-ink">{todayActivityCount}건</dd>
           <dt className="break-keep text-charcoal-2">수납률(금액)</dt>
           <dd className="text-right tabular-nums text-ink">{feeDashboard.collectionRate}%</dd>
-          <dt className="break-keep text-charcoal-2">미납액</dt>
+          <dt className="break-keep text-charcoal-2">미수금</dt>
           <dd className="text-right tabular-nums text-ink">{formatWon(feeDashboard.totalOutstanding)}</dd>
           <dt className="break-keep text-charcoal-2">회비 쓰는 동아리</dt>
           <dd className="text-right tabular-nums text-ink">

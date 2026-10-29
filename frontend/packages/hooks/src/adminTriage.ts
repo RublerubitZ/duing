@@ -58,6 +58,7 @@ function useOldestFirstPages<Row>(pageQuery: (page: number) => PageQuery<Row>, t
   const tailPageQueries = useQueries({
     queries: tailPages.map((page) => ({ ...pageQuery(page), ...DASHBOARD_QUERY_OPTIONS })),
   });
+  // shortcut: 건수가 끝 페이지 경계를 넘는 재조회(예: 200→201건)에는 새 끝 페이지 키가 로딩이라 영역이 잠깐 로딩으로 돌아간다, 100건 넘는 영역이 흔해지면 직전 결과를 유지한다.
   const status = combineStatus([queryStatus(firstPageQuery), ...tailPageQueries.map(queryStatus)]);
   const totalElements = firstPage?.totalElements;
   const tailFailed = tailPageQueries.some((query) => queryStatus(query) === 'error');

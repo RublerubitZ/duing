@@ -39,7 +39,7 @@ describe('AdminFeeAuditCard', () => {
     expect(screen.getByText('진행중 의견').nextElementSibling).toHaveTextContent('4건');
     expect(screen.getByText('오늘 회비 활동').nextElementSibling).toHaveTextContent('12건');
     expect(screen.getByText('수납률(금액)').nextElementSibling).toHaveTextContent('81%');
-    expect(screen.getByText('미납액').nextElementSibling).toHaveTextContent('1,900,000원');
+    expect(screen.getByText('미수금').nextElementSibling).toHaveTextContent('1,900,000원');
     expect(screen.getByText('회비 쓰는 동아리').nextElementSibling).toHaveTextContent('27 / 62곳');
     expect(screen.getByRole('link', { name: '회비 감사' })).toHaveAttribute('href', '/admin/fees');
   });
@@ -89,7 +89,7 @@ describe('AdminFeeAuditCard', () => {
     render(<AdminFeeAuditCard />);
     expect(screen.getByText('진행중 의견').nextElementSibling).toHaveTextContent('0건');
     expect(screen.getByText('오늘 회비 활동').nextElementSibling).toHaveTextContent('0건');
-    expect(screen.getByText('미납액').nextElementSibling).toHaveTextContent('0원');
+    expect(screen.getByText('미수금').nextElementSibling).toHaveTextContent('0원');
     expect(screen.getByRole('link', { name: '회비 감사' })).toBeInTheDocument();
   });
 });
