@@ -32,12 +32,21 @@ beforeEach(() => {
 });
 
 describe('AdminPendingTrendCard', () => {
-  it('제목·기간·판단 문장을 보이고, 같은 문장을 막대 묶음 이름으로 쓴다', () => {
+  it('제목·기간·판단 문장을 보이고, 막대 묶음 이름은 문장과 따로 둬 문장이 두 번 읽히지 않는다', () => {
     render(<AdminPendingTrendCard />);
     expect(screen.getByRole('heading', { name: '처리 대기 추이' })).toBeInTheDocument();
     expect(screen.getByText('최근 14일')).toBeInTheDocument();
     expect(screen.getByText('10월 17일보다 10건 늘었어요')).toBeInTheDocument();
-    expect(screen.getByRole('img', { name: '10월 17일보다 10건 늘었어요' })).toBeInTheDocument();
+    expect(screen.getByRole('img', { name: '최근 14일 처리 대기 막대그래프' })).toBeInTheDocument();
+    expect(screen.queryByRole('img', { name: '10월 17일보다 10건 늘었어요' })).toBeNull();
+  });
+
+  it('날짜별 표는 이름이 있고, 날짜 칸이 행 머리라 값마다 날짜가 함께 읽힌다', () => {
+    render(<AdminPendingTrendCard />);
+    const table = screen.getByRole('table', { name: '날짜별 남은 대기' });
+    const rowHeaders = within(table).getAllByRole('rowheader');
+    expect(rowHeaders).toHaveLength(14);
+    expect(rowHeaders.at(-1)).toHaveTextContent('오늘 지금');
   });
 
   it('todayBarReadsPendingCountsTotal — 오늘 막대·표는 머리말과 같은 pending-counts 합계를 쓴다', () => {
@@ -121,6 +130,21 @@ describe('AdminPendingTrendCard', () => {
     render(<AdminPendingTrendCard />);
     expect(screen.getByRole('status', { name: '불러오는 중' })).toBeInTheDocument();
     expect(screen.queryByRole('img')).toBeNull();
+  });
+
+  it('추이를 받는 중이면 오늘 값이 와 있어도 카드 전체가 로딩이다', () => {
+    mockTrend.mockReturnValue(loading());
+    render(<AdminPendingTrendCard />);
+    expect(screen.getByRole('status', { name: '불러오는 중' })).toBeInTheDocument();
+    expect(screen.queryByRole('img')).toBeNull();
+  });
+
+  it('추이 실패여도 오늘 값을 받는 중이면 로딩이고, 실패 문구는 아직 띄우지 않는다', () => {
+    mockTrend.mockReturnValue(failed());
+    mockCounts.mockReturnValue(loading());
+    render(<AdminPendingTrendCard />);
+    expect(screen.getByRole('status', { name: '불러오는 중' })).toBeInTheDocument();
+    expect(screen.queryByText('불러오지 못했어요. 잠시 후 다시 시도해 주세요.')).toBeNull();
   });
 
   it('기록이 2개 미만이면 막대 대신 안내와 접수·처리 줄만 보인다', () => {
