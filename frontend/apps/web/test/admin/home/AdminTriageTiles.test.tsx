@@ -13,7 +13,8 @@ const mockCounts = vi.fn();
 vi.mock('@duing/hooks', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@duing/hooks')>();
   return {
-    daysUntilKst: actual.daysUntilKst,
+    daysSinceKst: actual.daysSinceKst,
+    STALE_WAITING_DAYS: actual.STALE_WAITING_DAYS,
     useAdminTriageQueue: () => mockQueue(),
     useAdminPendingCountsQuery: () => mockCounts(),
   } satisfies Partial<Record<keyof typeof import('@duing/hooks'), unknown>>;

@@ -22,6 +22,9 @@ import { daysUntilKst, parseKstInstant, todayKstDateString } from './dashboardDa
 /** 진행 중 모집 카드에서 D-day 강조(coral)를 적용하는 잔여 일수 윈도 */
 export const CLOSING_SOON_DAYS = 3;
 
+/** 미처리 대기가 이 일수(KST 날짜) 이상이면 늦은 것 — 두 콘솔의 칩 톤·운영진 '지금 처리'가 같이 쓴다. 서버 미처리 알림의 168시간 경계와는 다른 규칙이다(합치지 않는다). */
+export const STALE_WAITING_DAYS = 7;
+
 /** 모집 1건 + 그 모집의 통계·면접 라운드 묶음 */
 export type RecruitmentDashboardInput = {
   recruitment: RecruitmentSummary;

@@ -298,7 +298,7 @@ export {
   useMyInterviewQuery,
   useRespondAvailabilityMutation,
 } from './applicantInterview';
-export { parseKstInstant, daysUntilKst, todayKstDateString } from './dashboardDate';
+export { parseKstInstant, daysUntilKst, daysSinceKst, todayKstDateString } from './dashboardDate';
 export {
   formatDateTimeKst,
   formatDateKst,
@@ -306,7 +306,7 @@ export {
   formatRelativeTime,
   kstDateTimeFormatter,
 } from './datetime';
-export { CLOSING_SOON_DAYS, countAwaitingReview, countUndecided } from './dashboardSelectors';
+export { CLOSING_SOON_DAYS, STALE_WAITING_DAYS, countAwaitingReview, countUndecided } from './dashboardSelectors';
 export {
   DASHBOARD_QUERY_OPTIONS,
   useActiveRecruitments,
