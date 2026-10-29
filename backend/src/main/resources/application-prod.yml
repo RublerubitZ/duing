@@ -105,6 +105,11 @@ duing:
       enabled: ${DUING_UPLOAD_PURGE_ENABLED:true}
       delete-enabled: ${DUING_UPLOAD_PURGE_DELETE_ENABLED:false}
       grace: ${DUING_UPLOAD_PURGE_GRACE:PT24H}
+  # 처리 대기 추이 일별 기록 잡(매일 00:01 KST) — 다른 잡들과 동일한 하드코딩 관례로 운영 기본 활성화한다(하루 한 줄 삽입만).
+  # DUING_ADMIN_PENDING_SNAPSHOT_ENABLED=false 로 끌 수 있다. 끄면 그날부터 추이 막대가 "기록 없음"으로 남는다.
+  admin:
+    pending-snapshot:
+      enabled: ${DUING_ADMIN_PENDING_SNAPSHOT_ENABLED:true}
   # 기간 종료 모집 자동 마감 잡(매일 00:40 KST) — 다른 잡들과 동일한 하드코딩 관례로 운영 기본 활성화한다(할 일이 남지 않은
   # 모집만 닫는다). DUING_RECRUITMENT_AUTO_CLOSE_ENABLED=false 로 끌 수 있다.
   recruitment:
