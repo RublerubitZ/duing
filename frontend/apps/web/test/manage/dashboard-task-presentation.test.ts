@@ -44,8 +44,21 @@ describe('presentDashboardTask — 모집 업무', () => {
     expect(row.chip).toEqual({ text, tone });
   });
 
-  it('미처리 일수가 없으면(보류만 남음·옛 백엔드) 검토 대기 지원자 칩이 없다', () => {
-    expect(presentDashboardTask(10, recruitment({ type: 'APPLICANTS_AWAITING_REVIEW', count: 3 }), NOW).chip).toBeNull();
+  // 보류만 남은 모집을 미처리 필터로 열면 "N명"이던 행이 빈 목록이 된다
+  it('미처리 일수가 없으면(보류만 남음·옛 백엔드) 칩 없이 필터 없는 지원자 목록으로 연다', () => {
+    const row = presentDashboardTask(10, recruitment({ type: 'APPLICANTS_AWAITING_REVIEW', count: 3 }), NOW);
+    expect(row.chip).toBeNull();
+    expect(row.href).toBe('/manage/clubs/10/recruitments/1/applicants');
+  });
+
+  it.each([0, 7])('미처리 칩이 있으면(pendingDays=%s) 미처리 필터 목록으로 연다 — 서버 미처리 알림과 같은 목적지', (pendingDays) => {
+    const row = presentDashboardTask(10, recruitment({ type: 'APPLICANTS_AWAITING_REVIEW', count: 3, pendingDays }), NOW);
+    expect(row.href).toBe('/manage/clubs/10/recruitments/1/applicants?status=SUBMITTED');
+  });
+
+  it('미처리 일수는 검토 대기 지원자 행의 링크만 바꾼다', () => {
+    const row = presentDashboardTask(10, recruitment({ type: 'INTERVIEW_RESULT_PENDING', pendingDays: 7 }), NOW);
+    expect(row.href).toBe('/manage/clubs/10/recruitments/1/applicants');
   });
 
   // roundId 없는 면접 항목은 라운드 랜딩(/interview)으로 — 옛 ActionItemsCard 테스트가 보던 경로를 여기서 잇는다.

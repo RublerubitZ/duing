@@ -76,7 +76,7 @@ describe('ActionItemsCard', () => {
     render(<ActionItemsCard clubId={10} />);
     const link = screen.getByRole('link', { name: /미처리 7일/ });
     expect(link).toHaveAccessibleName(/지원자 검토/);
-    expect(link).toHaveAttribute('href', '/manage/clubs/10/recruitments/2/applicants');
+    expect(link).toHaveAttribute('href', '/manage/clubs/10/recruitments/2/applicants?status=SUBMITTED');
   });
 
   it('맥락 문구는 말줄임하지 않는다(모바일에서 모집명이 잘리지 않게)', () => {
