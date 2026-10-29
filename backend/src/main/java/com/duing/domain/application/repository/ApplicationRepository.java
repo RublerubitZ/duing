@@ -119,6 +119,8 @@ public interface ApplicationRepository extends JpaRepository<Application, Long>,
     /**
      * 총동연 모집 목록의 미처리 열 — 모집별 SUBMITTED 지원서 수와 가장 오래된 제출 시각(created_at, system regime).
      * 미처리 정의는 리마인더 후보와 같다(보류·합격·불합격은 처리, 철회는 소프트 삭제라 제외).
+     * 운영진 통계 요약(GeneralRecruitmentStatsService#getSummary)도 이 쿼리를 단건({@code List.of(recruitmentId)})으로 쓴다 —
+     * 미처리 정의를 바꾸면 두 화면이 같이 바뀐다.
      * 미처리가 없는 모집은 행이 없다. 빈 컬렉션으로 부르지 않는다({@code IN ()} 은 SQL 오류).
      */
     @Query(value = """
