@@ -17,6 +17,16 @@ public interface FederationInquiryRepository extends JpaRepository<FederationInq
     // 관리자 콘솔 미처리 건수 — 미답변은 RECEIVED·IN_PROGRESS 두 상태에 걸쳐 있어 In 으로 받는다.
     long countByStatusIn(Collection<FederationInquiryStatus> statuses);
 
+    /** 처리 대기 추이 — 최근 접수(감사 created_at, system regime). 작성자 삭제(soft-delete) 건은 빠진다. */
+    long countByCreatedAtGreaterThanEqual(LocalDateTime since);
+
+    /**
+     * 처리 대기 추이 — 최근 처리. 답변 시각, 답변 없이 닫혔으면 닫은 시각(둘 다 무클럭 now() = system regime).
+     * 답변 뒤 닫은 건은 답변 시각으로만 센다 — 한 문의를 두 번 처리로 세지 않는다.
+     */
+    @Query("SELECT COUNT(inquiry) FROM FederationInquiry inquiry WHERE COALESCE(inquiry.answeredAt, inquiry.closedAt) >= :since")
+    long countHandledSince(@Param("since") LocalDateTime since);
+
     // 도배 가드 (b): 최근 24시간 생성 건수 — '삭제→재작성' 루프 우회를 막기 위해 soft delete 포함이어야
     // 하므로 native. (@SQLRestriction 은 native 에 적용되지 않는다)
     @Query(value = "select count(*) from federation_inquiry "

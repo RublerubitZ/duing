@@ -64,6 +64,15 @@ public interface FacilityBookingRepository
     // 관리자 콘솔 미처리 건수 — 조치가 필요한 상태가 둘(승인 대기·충돌)이라 In 으로 받는다.
     long countByStatusIn(Collection<BookingStatus> statuses);
 
+    /** 처리 대기 추이 — 최근 접수(감사 created_at, system regime). 예약은 동아리 신청 경로 하나로만 생긴다. */
+    long countByCreatedAtGreaterThanEqual(LocalDateTime since);
+
+    /**
+     * 처리 대기 추이 — 최근 처리(승인·반려 decided_at). decided_at 은 now(seoulClock) 으로 기록돼 <b>seoul regime</b> 이다 —
+     * 기준 시각도 LocalDateTime.now(clock) 으로 만든다(systemNow 를 쓰면 prod 에서 창이 9시간 넓어진다).
+     */
+    long countByDecidedAtGreaterThanEqual(LocalDateTime since);
+
     /**
      * 오늘 접수(생성) 건수 — 상태 무관(처리 완료돼도 오늘 접수는 접수). createdAt 은 JPA 감사가 저장 존(JVM 기본)
      * 으로 기록하므로, 호출부가 KST 하루 경계를 같은 저장 존 LocalDateTime 으로 변환해 넘긴다(§9.7·§5.3).
