@@ -68,10 +68,17 @@ describe('AdminTriageTiles', () => {
   });
 
   it('건수를 받기 전·받지 못했으면 칸에 건수를 그리지 않는다', () => {
-    mockCounts.mockReturnValue({ data: undefined, isError: true });
-    render(<AdminTriageTiles />);
+    // 칸은 건수 data 만 본다 — 받기 전(isError false)과 받지 못함(isError true)이 같은 칸을 그린다.
+    // 건수를 모르고 받은 승인 대기 목록이 비었으면(ready·0곳) 보조 줄은 목록을 따라 '대기 없음'이다.
+    mockCounts.mockReturnValue({ data: undefined, isError: false });
+    const { rerender } = render(<AdminTriageTiles />);
     expect(screen.queryByText(/^\d+건$/)).toBeNull();
-    expect(screen.getByRole('link', { name: /동아리 승인/ })).not.toHaveTextContent(/\d+건/);
+    expect(screen.getByRole('link', { name: /동아리 승인/ })).toHaveTextContent(/^동아리 승인대기 없음$/);
+
+    mockCounts.mockReturnValue({ data: undefined, isError: true });
+    rerender(<AdminTriageTiles />);
+    expect(screen.queryByText(/^\d+건$/)).toBeNull();
+    expect(screen.getByRole('link', { name: /동아리 승인/ })).toHaveTextContent(/^동아리 승인대기 없음$/);
   });
 
   it('승인 대기 시각을 모르면(옛 백엔드) 동아리 승인 칸은 신청 시각 — 로 물러선다', () => {

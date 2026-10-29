@@ -331,7 +331,7 @@ describe('useAdminTriageQueue — 동아리 승인', () => {
 
     expect(result.current.clubApprovalTimeUnknown).toBe(true);
     expect(itemKeys(result.current.items)).toEqual([]);
-    expect(result.current.areas.CLUB_APPROVAL).toMatchObject({ status: 'ready', rowCount: 0 });
+    expect(result.current.areas.CLUB_APPROVAL).toMatchObject({ status: 'ready', rowCount: 0, oldestWaitingSince: null });
   });
 
   it('승인 대기가 한 페이지(100곳)를 넘으면 오래된 건이 빠질 수 있어 동아리 항목을 버리되 실패로 보지 않는다', async () => {
@@ -341,8 +341,19 @@ describe('useAdminTriageQueue — 동아리 승인', () => {
     await waitFor(() => expect(result.current.isLoading).toBe(false));
 
     expect(itemKeys(result.current.items)).toEqual([]);
-    expect(result.current.areas.CLUB_APPROVAL).toMatchObject({ status: 'ready', rowCount: 0 });
+    expect(result.current.areas.CLUB_APPROVAL).toMatchObject({ status: 'ready', rowCount: 0, oldestWaitingSince: null });
     expect(result.current.isError).toBe(false);
+    expect(result.current.clubApprovalTimeUnknown).toBe(false);
+  });
+
+  it('승인 대기가 정확히 한 페이지(100곳)면 상한 안이라 동아리 행을 그대로 넣는다', async () => {
+    server.use(http.get('*/admin/clubs', () => ok(pageOf([pendingClub(61, hoursAgo(20))], 100))));
+    const { result } = renderHook(() => useAdminTriageQueue(), { wrapper: makeWrapper(newQueryClient()) });
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    expect(itemKeys(result.current.items)).toEqual(['CLUB_APPROVAL:61']);
+    expect(result.current.areas.CLUB_APPROVAL).toMatchObject({ status: 'ready', rowCount: 1 });
   });
 
   it('승인 대기 목록을 받지 못하면 동아리 영역만 실패로 두고 다른 행은 남긴다', async () => {

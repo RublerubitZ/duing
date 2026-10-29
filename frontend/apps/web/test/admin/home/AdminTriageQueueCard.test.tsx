@@ -66,10 +66,10 @@ describe('AdminTriageQueueCard', () => {
 
   it('승인 대기 동아리는 시각 순 행으로 들어가고, 그러면 건수만 아는 맨 아래 줄은 없다', () => {
     mockQueue.mockReturnValue(
-      triageQueue({ items: [REPORT_ITEM, CLUB_ITEM], areas: { ...triageQueue().areas, CLUB_APPROVAL: readyArea(CLUB_ITEM.waitingSince) } }),
+      triageQueue({ items: [CLUB_ITEM, REPORT_ITEM], areas: { ...triageQueue().areas, CLUB_APPROVAL: readyArea(CLUB_ITEM.waitingSince) } }),
     );
     render(<AdminTriageQueueCard />);
-    const clubRow = screen.getAllByRole('listitem')[1]!;
+    const clubRow = screen.getAllByRole('listitem')[0]!;
     expect(within(clubRow).getByText('동아리 승인')).toBeInTheDocument();
     expect(clubRow).toHaveTextContent('새 동아리');
     expect(clubRow).toHaveTextContent('승인 대기');
