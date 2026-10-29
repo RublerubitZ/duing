@@ -80,7 +80,7 @@ class LeaderRecruitmentStatsSummaryControllerTest extends IntegrationTestBase {
         clubMemberRepository.save(ClubMember.asLeader(savedClub, leaderUser));
 
         recruitment = recruitmentRepository.save(Recruitment.createWithOptions(savedClub, "신입 모집", "내용",
-                LocalDate.now().minusDays(3), LocalDate.now().plusDays(7), 10, ApplicationMode.SELF, null,
+                LocalDate.now(clock).minusDays(30), LocalDate.now(clock).plusDays(7), 10, ApplicationMode.SELF, null,
                 false, TargetRole.MEMBER, null, null, false));
     }
 
