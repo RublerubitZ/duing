@@ -146,6 +146,7 @@ export { federationInquiryQueryKeys } from './federationInquiryQueryKeys';
 export { useFileUploadMutation } from './files';
 export {
   useAdminPendingCountsQuery,
+  useAdminPendingTrendQuery,
   useAdminClubMembersQuery,
   useAdminClubsQuery,
   useAdminClubDetailQuery,
@@ -318,6 +319,8 @@ export {
   useClubFeedCounts,
 } from './dashboard';
 export { useAdminTriageQueue } from './adminTriage';
+export { buildPendingTrendBars, pendingTrendComparison, recordedDayCount } from './adminPendingTrend';
+export type { PendingTrendBar, PendingTrendComparison } from './adminPendingTrend';
 export {
   useClubFeePoliciesQuery,
   useCreateFeePolicyMutation,

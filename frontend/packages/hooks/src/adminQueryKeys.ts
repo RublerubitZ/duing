@@ -26,6 +26,8 @@ export const adminQueryKeys = {
   all: ['admin'] as const,
   // 사이드바 뱃지 — 각 도메인 처리 뮤테이션이 성공하면 이 키만 무효화해 뱃지를 즉시 줄인다.
   pendingCounts: () => ['admin', 'pending-counts'] as const,
+  // 총동연 홈 처리 대기 추이 — pendingCounts 접두 아래라, 처리 뮤테이션의 pendingCounts 무효화가 추이(접수·처리 숫자)도 다시 불러온다.
+  pendingTrend: () => ['admin', 'pending-counts', 'trend'] as const,
   // 학기별 사용자 정보 확인 팝업 — 설정·현황이 한 응답이라 파라미터 축이 없다. 저장 성공 시 이 키만 무효화한다.
   profileCheck: () => [...adminQueryKeys.all, 'profile-check'] as const,
   clubsAll: ['admin', 'clubs'] as const,
