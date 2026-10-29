@@ -6,9 +6,13 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.duing.domain.application.entity.ApplicationStatus;
+import com.duing.domain.application.repository.ApplicationRepository;
+import com.duing.domain.application.repository.PendingApplicationStatsRow;
 import com.duing.domain.club.entity.Club;
 import com.duing.domain.clubmember.service.ClubAuthService;
 import com.duing.domain.recruitment.entity.Recruitment;
@@ -17,7 +21,9 @@ import com.duing.domain.recruitment.repository.RecruitmentRepository;
 import com.duing.domain.recruitment.stats.repository.RecruitmentStatsRepositoryCustom;
 import com.duing.domain.recruitment.stats.service.dto.query.StatsSummaryQuery;
 import java.time.Clock;
+import java.time.LocalDateTime;
 import java.util.EnumMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
@@ -30,6 +36,7 @@ class RecruitmentStatsSummaryServiceTest {
     private RecruitmentRepository recruitmentRepository;
     private RecruitmentStatsRepositoryCustom recruitmentStatsRepository;
     private ClubAuthService clubAuthService;
+    private ApplicationRepository applicationRepository;
     private GeneralRecruitmentStatsService recruitmentStatsService;
 
     @BeforeEach
@@ -37,10 +44,12 @@ class RecruitmentStatsSummaryServiceTest {
         recruitmentRepository = mock(RecruitmentRepository.class);
         recruitmentStatsRepository = mock(RecruitmentStatsRepositoryCustom.class);
         clubAuthService = mock(ClubAuthService.class);
+        applicationRepository = mock(ApplicationRepository.class);
         recruitmentStatsService = new GeneralRecruitmentStatsService(
                 recruitmentRepository,
                 recruitmentStatsRepository,
                 clubAuthService,
+                applicationRepository,
                 Clock.systemDefaultZone()
         );
     }
@@ -212,5 +221,44 @@ class RecruitmentStatsSummaryServiceTest {
 
         assertThatThrownBy(() -> recruitmentStatsService.getSummary(nonExistentRecruitmentId, currentUserId))
                 .isInstanceOf(RecruitmentException.RecruitmentNotFoundException.class);
+    }
+
+    @Test
+    @DisplayName("미처리 지원서가 있으면 가장 오래된 미처리 제출 시각을 함께 돌려준다")
+    void returnsOldestPendingSubmittedAt() {
+        mockRecruitmentWithCapacity(1L, 10L, 10);
+        when(recruitmentStatsRepository.findSummaryByRecruitmentId(1L)).thenReturn(buildStatusMap(2, 0, 0, 0, 0));
+        LocalDateTime oldestSubmittedAt = LocalDateTime.of(2026, 10, 20, 9, 30);
+        PendingApplicationStatsRow pendingStatsRow = mock(PendingApplicationStatsRow.class);
+        when(pendingStatsRow.getOldestSubmittedAt()).thenReturn(oldestSubmittedAt);
+        when(applicationRepository.findPendingStatsByRecruitmentIds(List.of(1L))).thenReturn(List.of(pendingStatsRow));
+
+        StatsSummaryQuery summary = recruitmentStatsService.getSummary(1L, 100L);
+
+        assertThat(summary.oldestPendingSubmittedAt()).isEqualTo(oldestSubmittedAt);
+    }
+
+    @Test
+    @DisplayName("미처리 지원서가 없으면 가장 오래된 미처리 제출 시각은 비어 있다")
+    void returnsNullOldestPendingSubmittedAtWithoutPending() {
+        mockRecruitmentWithCapacity(1L, 10L, 10);
+        when(recruitmentStatsRepository.findSummaryByRecruitmentId(1L)).thenReturn(buildStatusMap(0, 2, 0, 0, 0));
+        when(applicationRepository.findPendingStatsByRecruitmentIds(List.of(1L))).thenReturn(List.of());
+
+        StatsSummaryQuery summary = recruitmentStatsService.getSummary(1L, 100L);
+
+        assertThat(summary.oldestPendingSubmittedAt()).isNull();
+    }
+
+    @Test
+    @DisplayName("동아리 운영진이 아니면 미처리 집계를 조회하지 않는다")
+    void doesNotQueryPendingStatsWhenNotManager() {
+        mockRecruitmentWithCapacity(1L, 10L, 10);
+        doThrow(new AccessDeniedException("해당 동아리의 운영진(LEADER/OFFICER)만 가능한 작업입니다."))
+                .when(clubAuthService).requireManagerOrHidden(eq(999L), eq(10L), any());
+
+        assertThatThrownBy(() -> recruitmentStatsService.getSummary(1L, 999L))
+                .isInstanceOf(AccessDeniedException.class);
+        verify(applicationRepository, never()).findPendingStatsByRecruitmentIds(any());
     }
 }

@@ -1,6 +1,8 @@
 package com.duing.domain.recruitment.stats.controller.dto.response;
 
 import com.duing.domain.recruitment.stats.service.dto.query.StatsSummaryQuery;
+import com.duing.global.time.TimeMapper;
+import java.time.Instant;
 
 public record StatsSummaryResponse(
         long total,
@@ -10,7 +12,8 @@ public record StatsSummaryResponse(
         long accepted,
         long rejected,
         int capacity,
-        double ratio
+        double ratio,
+        Instant oldestPendingSubmittedAt
 ) {
 
     public static StatsSummaryResponse from(StatsSummaryQuery statsSummaryQuery) {
@@ -22,7 +25,8 @@ public record StatsSummaryResponse(
                 statsSummaryQuery.accepted(),
                 statsSummaryQuery.rejected(),
                 statsSummaryQuery.capacity(),
-                statsSummaryQuery.ratio()
+                statsSummaryQuery.ratio(),
+                TimeMapper.systemWallClockToInstant(statsSummaryQuery.oldestPendingSubmittedAt())
         );
     }
 }

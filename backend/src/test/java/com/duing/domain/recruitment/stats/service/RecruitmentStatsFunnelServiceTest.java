@@ -11,6 +11,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.duing.domain.application.entity.ApplicationStatus;
+import com.duing.domain.application.repository.ApplicationRepository;
 import com.duing.domain.club.entity.Club;
 import com.duing.domain.clubmember.service.ClubAuthService;
 import com.duing.domain.recruitment.entity.Recruitment;
@@ -43,6 +44,7 @@ class RecruitmentStatsFunnelServiceTest {
                 recruitmentRepository,
                 recruitmentStatsRepository,
                 clubAuthService,
+                mock(ApplicationRepository.class),
                 Clock.systemDefaultZone()
         );
     }
