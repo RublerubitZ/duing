@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -78,7 +78,17 @@ describe('AdminTriageTiles', () => {
       triageQueue({ areas: { ...triageQueue().areas, REPORT: { status: 'error', rowCount: 0, oldestWaitingSince: null } } }),
     );
     render(<AdminTriageTiles />);
-    expect(screen.getByRole('link', { name: /신고 미처리/ })).toHaveTextContent('목록을 확인하지 못했어요');
+    const reportLink = screen.getByRole('link', { name: /신고 미처리/ });
+    expect(reportLink).toHaveTextContent('가장 오래된 건을 확인할 수 없어요');
+    expect(within(reportLink).getByText('—')).toHaveAttribute('aria-hidden', 'true');
+  });
+
+  it('건수는 있는데 받은 목록이 비었을 때도 대시를 같은 문구로 읽힌다', () => {
+    mockQueue.mockReturnValue(
+      triageQueue({ areas: { ...triageQueue().areas, REPORT: { status: 'ready', rowCount: 0, oldestWaitingSince: null } } }),
+    );
+    render(<AdminTriageTiles />);
+    expect(screen.getByRole('link', { name: /신고 미처리/ })).toHaveTextContent('신고 미처리2건—가장 오래된 건을 확인할 수 없어요');
   });
 
   it('1:1 문의는 접수가 비고 답변중만 남았으면 답변중 탭으로 연다', () => {

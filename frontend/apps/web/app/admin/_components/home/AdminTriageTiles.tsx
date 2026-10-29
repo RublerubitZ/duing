@@ -34,11 +34,11 @@ export function AdminTriageTiles() {
                 </span>
                 <span className="min-h-7 text-xl font-bold tabular-nums text-ink">{count === undefined ? null : `${count}건`}</span>
                 <span className="min-h-4 break-keep text-xs text-charcoal-3">
-                  {/* 스크린 리더가 대시 하나는 흔히 건너뛴다 — 목록 실패·건수 불일치를 말로 읽힌다. */}
+                  {/* 스크린 리더가 대시 하나는 흔히 건너뛴다 — 목록을 받지 못했을 때도, 건수와 받은 목록이 어긋날 때도 가장 오래된 건을 알 수 없다고 말로 읽힌다. */}
                   {subline === '—' ? (
                     <>
                       <span aria-hidden="true">—</span>
-                      <span className="sr-only">목록을 확인하지 못했어요</span>
+                      <span className="sr-only">가장 오래된 건을 확인할 수 없어요</span>
                     </>
                   ) : (
                     subline

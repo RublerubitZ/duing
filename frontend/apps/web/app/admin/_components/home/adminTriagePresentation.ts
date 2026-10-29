@@ -56,11 +56,12 @@ export const presentTriageItem = (item: AdminTriageItem, now: Date): TriageRowMo
       return { ...base, title: item.title, context: INQUIRY_STATUS_LABEL[item.status], actionLabel: '답변 작성', href: `/admin/inquiries/${item.id}` };
     case 'FACILITY':
       // 시설 예약은 건별 주소가 없어 검토 탭으로 간다 — 탭 기본 카드가 승인 대기라 충돌 건은 어느 카드에서 찾을지 적는다.
+      // 충돌 기간은 상태가 바뀐 시각이 아니라 신청일부터 센다(응답에 전이 시각이 없다).
       // 삭제된 동아리는 서버가 이름을 빈 문자열로 준다.
       return {
         ...base,
         title: `${item.clubName || '삭제된 동아리'} · ${item.roomName}`,
-        context: `${bookingDateLabel(item.date)} ${bookingTimeLabel(item.startTime, item.endTime)}${item.status === 'CONFLICT' ? ' · 충돌(충돌·의심 카드에서 확인)' : ''}`,
+        context: `${bookingDateLabel(item.date)} ${bookingTimeLabel(item.startTime, item.endTime)}${item.status === 'CONFLICT' ? ' · 충돌(신청일 기준, 충돌·의심 카드에서 확인)' : ''}`,
         actionLabel: '예약 검토',
         href: '/admin/facility-bookings?tab=review',
       };

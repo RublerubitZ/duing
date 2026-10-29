@@ -47,7 +47,7 @@ describe('presentTriageItem', () => {
     ],
     [
       { area: 'FACILITY', id: 3, waitingSince: '2026-10-26T03:00:00Z', clubName: '', roomName: '학생회관 B103', date: '2026-11-04', startTime: '18:00:00', endTime: '20:00:00', status: 'CONFLICT' },
-      { title: '삭제된 동아리 · 학생회관 B103', context: '11월 4일 (수) 18:00~20:00 · 충돌(충돌·의심 카드에서 확인)', actionLabel: '예약 검토', href: '/admin/facility-bookings?tab=review', isDanger: false, areaLabel: '시설 예약' },
+      { title: '삭제된 동아리 · 학생회관 B103', context: '11월 4일 (수) 18:00~20:00 · 충돌(신청일 기준, 충돌·의심 카드에서 확인)', actionLabel: '예약 검토', href: '/admin/facility-bookings?tab=review', isDanger: false, areaLabel: '시설 예약' },
     ],
     [
       { area: 'RECRUITMENT', id: 4, waitingSince: '2026-10-20T03:00:00Z', clubName: '코드브루', title: '신입 모집', pendingApplicationCount: 3 },
