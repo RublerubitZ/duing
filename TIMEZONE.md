@@ -52,7 +52,7 @@ Du-ing 전체(backend/frontend/DB)의 날짜·시간 처리 정책. 2026-07 타�
 
 **writer 근거는 `파일#메서드` 로 적는다 — 줄번호는 리팩터링마다 드리프트해 오히려 틀린 정보가 된다.**
 
-### Group 1 — application/draft/club/clubevent/clubmember/favorite/globalevent/joincode/notice/notification/promotion/recruitment/report/user
+### Group 1 — adminconsole/application/draft/club/clubevent/clubmember/favorite/globalevent/joincode/notice/notification/promotion/recruitment/report/user
 
 | 응답DTO.필드 | 원본 테이블.컬럼 | regime | writer 근거 |
 |---|---|---|---|
@@ -80,6 +80,8 @@ Du-ing 전체(backend/frontend/DB)의 날짜·시간 처리 정책. 2026-07 타�
 | AdminRecruitment{Summary,Detail}Response.updatedAt | recruitment.updated_at | system | BaseEntity @LastModifiedDate — 같은 응답의 closedAt·joinLink.joinExpiresAt(seoul) 과 regime 이 갈린다 |
 | AdminRecruitment{Summary,Detail}Response.closedAt | recruitment.closed_at | **seoul** | 위 RecruitmentSummaryResponse.closedAt 과 같은 컬럼·같은 변환(총동연 콘솔이 강제 마감 판단 근거로 쓴다) |
 | AdminRecruitmentSummaryResponse.oldestPendingSubmittedAt · StatsSummaryResponse.oldestPendingSubmittedAt | MIN(applications.created_at) (SUBMITTED·미삭제) | system | BaseEntity @CreatedDate — 위 ApplicantDetailResponse.submittedAt 과 같은 컬럼·같은 변환(GeneralAdminRecruitmentQueryService#search 가 변환) / GeneralRecruitmentStatsService#getSummary 가 같은 쿼리를 단건으로 재사용, StatsSummaryResponse#from 이 변환(운영진 통계 요약) |
+| AdminPendingTrendResponse.days[].date | admin_pending_snapshot.snapshot_date (DATE) | seoul(날짜) | AdminPendingSnapshotJob 이 LocalDate.now(seoulClock).minusDays(1) 로 기록(KST 어제), 조회도 LocalDate.now(seoulClock) 기준 13일. 같은 행의 recorded_at 은 TIMESTAMPTZ·Instant(응답 미노출) |
+| AdminPendingTrendResponse.recentFlow (응답 시각 없음 — 7일 창 계산) | report.created_at·handled_at, federation_inquiry.created_at·answered_at·closed_at, facility_booking.created_at, promotion_request.created_at·handled_at, leader_succession_request.created_at·handled_at / facility_booking.decided_at | system / **seoul** | AdminPendingTrendQueryService#recentFlow — system 열은 TimeMapper.systemNow(clock).minusDays(7), decided_at 만 LocalDateTime.now(clock).minusDays(7)(GeneralFacilityBookingAdminService#approve·#reject now(clock)) |
 | AdminRecruitmentSummaryResponse.operatorsLastActiveAt | MAX(auth_sessions.last_used_at) + MAX(users.last_login_at) (회장·임원) | **seoul** + system | 아래 MySessionResponse.lastUsedAt(seoul)·AdminUserDetailResponse.lastLoginAt(system) 과 같은 컬럼 — GeneralAdminRecruitmentQueryService#search 가 각각 seoulWallClockToInstant·systemWallClockToInstant 로 바꾼 뒤 늦은 값. 벽시계 그대로 비교하면 prod 에서 9시간 어긋난다 |
 | JoinRequest{Summary,Detail}Response.requestedAt | club_join_request.created_at | system | BaseEntity @CreatedDate |
 | JoinRequestDetailResponse.reviewedAt | club_join_request.reviewed_at | **seoul** | GeneralJoinRequestService#applyDecision(#decide·#bulkApprove 공용) 과 #createRequest(자동 승인 경로) 가 now(clock) — 같은 DTO 의 requestedAt(system) 과 regime 이 갈린다 |
