@@ -225,6 +225,11 @@ duing:
       window: ${DUING_UPLOAD_PURGE_WINDOW:PT24H}
       # claim(PURGING) 뒤 실삭제까지 유예(#1258) — 그 사이 참조가 생기면 다음 실행이 ACTIVE 로 되돌린다.
       grace: ${DUING_UPLOAD_PURGE_GRACE:PT24H}
+  admin:
+    pending-snapshot:
+      # 총동연 홈 처리 대기 추이 일별 기록 잡(매일 00:01 Asia/Seoul) — KST 어제 하루 끝 남은 대기 건수를 admin_pending_snapshot 에
+      # 한 줄 남긴다. 기본 비활성 — 운영에서 DUING_ADMIN_PENDING_SNAPSHOT_ENABLED=true(application-prod.yml)로 활성화한다.
+      enabled: ${DUING_ADMIN_PENDING_SNAPSHOT_ENABLED:false}
   recruitment:
     auto-close:
       # 기간 종료 모집 자동 마감 잡(매일 00:40 Asia/Seoul) — 종료일 다음 날부터 7일이 지났고 결과 없는 지원·진행 중 면접
