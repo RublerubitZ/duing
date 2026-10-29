@@ -87,8 +87,9 @@ class LeaderRecruitmentStatsSummaryControllerTest extends IntegrationTestBase {
     @Test
     @DisplayName("미처리 지원서가 있으면 가장 오래된 미처리 제출 시각을 절대시각으로 돌려준다")
     void returnsOldestPendingSubmittedAt() {
-        LocalDateTime oldestSubmittedAt = submittedAgo(saveApplication(), Duration.ofDays(9));
+        // 나중에 저장한 지원서가 더 오래됐다 — 저장 순서가 아니라 제출 시각으로 고르는지 본다.
         submittedAgo(saveApplication(), Duration.ofDays(2));
+        LocalDateTime oldestSubmittedAt = submittedAgo(saveApplication(), Duration.ofDays(9));
 
         String oldestPendingSubmittedAt = RestAssured
                 .given()
