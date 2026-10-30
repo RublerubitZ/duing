@@ -27,7 +27,7 @@ function statusesWith(overrides: Record<string, Partial<AdminJobStatus>>): Admin
   return { jobs: JOB_KEYS.map((job) => ({ ...healthyStatus(job), ...overrides[job] })) };
 }
 
-const loaded = (data: unknown) => ({ data, isError: false });
+const loaded = (data: unknown, dataUpdatedAt = Date.now()) => ({ data, isError: false, dataUpdatedAt });
 const failed = () => ({ data: undefined, isError: true });
 const loading = () => ({ data: undefined, isError: false });
 
@@ -85,6 +85,19 @@ describe('AdminJobStatusCard', () => {
     expect(screen.getByText('삭제된 문의 내용이 보관 기간을 넘겨 남아 있을 수 있어요')).toBeInTheDocument();
     expect(screen.queryByText(/^확인 필요/)).toBeNull();
     expect(screen.queryByRole('link', { name: '1:1 문의' })).toBeNull();
+  });
+
+  it('상대 시각은 응답을 받은 시각 기준이다 — 같은 응답을 다시 받아도 다시 그려진다', () => {
+    const finishedAtMillis = Date.now() - 2 * 60 * 60 * 1000;
+    const finishedAt = new Date(finishedAtMillis).toISOString();
+    mockJobStatuses.mockReturnValue(
+      loaded(
+        statusesWith({ FACILITY_RESERVATION_CRAWL: { lastFinishedAt: finishedAt, lastSucceededAt: finishedAt } }),
+        finishedAtMillis + 8 * 60 * 1000,
+      ),
+    );
+    render(<AdminJobStatusCard />);
+    expect(screen.getByText('8분 전 수집 성공')).toBeInTheDocument();
   });
 
   it('모르는 작업 키는 그리지 않고 경고 수에서도 뺀다', () => {
