@@ -73,10 +73,8 @@ class JobRunRecorderTest extends IntegrationTestBase {
 
         jobRunRecorder.record(MonitoredJob.FACILITY_RESERVATION_CRAWL, startedNow(), JobRunOutcome.SUCCESS, 10, 0);
         assertThat(runOf(MonitoredJob.FACILITY_RESERVATION_CRAWL).getConsecutiveUnhealthyRuns()).isZero();
-        // 전체 줄 수가 아니라 이 키만 센다 — 매칭 플래그를 켠 다른 캐시된 컨텍스트의 크론이 같은 DB 에 다른 키 줄을 쓸 수 있다.
-        assertThat(scheduledJobRunRepository.findAll())
-                .filteredOn(run -> run.getJobKey().equals(MonitoredJob.FACILITY_RESERVATION_CRAWL.name()))
-                .hasSize(1);
+        // 테스트 스케줄러는 크론을 돌리지 않고(NoOpTaskScheduler, #1442) 테이블은 테스트마다 비워져, 다른 키로 잘못 쓰는 회귀도 여기서 잡힌다.
+        assertThat(scheduledJobRunRepository.count()).isEqualTo(1);
     }
 
     @Test
