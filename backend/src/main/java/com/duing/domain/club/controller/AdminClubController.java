@@ -49,7 +49,7 @@ public class AdminClubController implements AdminClubApi {
             @RequestParam(required = false) String keyword,
             Pageable pageable
     ) {
-        AdminClubSearchCondition condition = new AdminClubSearchCondition(status, category, division, keyword);
+        AdminClubSearchCondition condition = new AdminClubSearchCondition(status, category, division, keyword, false);
         Page<AdminClubSummaryResponse> page = clubService.searchForAdmin(condition, pageable)
                 .map(AdminClubSummaryResponse::from);
         return ResponseEntity.ok(ApiResponse.success(PageResponse.from(page)));
