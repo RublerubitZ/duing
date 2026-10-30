@@ -59,6 +59,7 @@ class AdminJobStatusControllerTest extends IntegrationTestBase {
     @DisplayName("작업 다섯 개를 순서대로 주고, 기록 없는 작업도 값 키를 null 로 남긴다")
     void returnsFiveJobsInOrderWithNullKeysForMissingRuns() {
         jobRunRecorder.record(MonitoredJob.RECRUITMENT_AUTO_CLOSE, Instant.now(clock), JobRunOutcome.SUCCESS, 2, 0);
+        jobRunRecorder.record(MonitoredJob.FEDERATION_INQUIRY_PURGE, Instant.now(clock), JobRunOutcome.FAILED, 0, 0);
 
         RestAssured
                 .given()
@@ -85,16 +86,21 @@ class AdminJobStatusControllerTest extends IntegrationTestBase {
                     .body("data.jobs[1].resultCount", nullValue())
                     .body("data.jobs[2].job", equalTo("FACILITY_RESERVATION_CRAWL"))
                     .body("data.jobs[3].job", equalTo("FACILITY_BOOKING_MATCHING"))
-                    .body("data.jobs[4].job", equalTo("FEDERATION_INQUIRY_PURGE"));
+                    .body("data.jobs[4].job", equalTo("FEDERATION_INQUIRY_PURGE"))
+                    .body("data.jobs[4].lastOutcome", equalTo("FAILED"))
+                    .body("data.jobs[4].lastFinishedAt", notNullValue())
+                    .body("data.jobs[4]", hasKey("lastSucceededAt"))
+                    .body("data.jobs[4].lastSucceededAt", nullValue());
     }
 
     @Test
-    @DisplayName("DB 에 지금 모르는 작업 키 줄이 있어도 200 과 다섯 줄을 준다 — 키를 더한 이미지에서 롤백해도 깨지지 않는다")
+    @DisplayName("DB 에 지금 모르는 작업 키·결과 값 줄이 있어도 200 과 다섯 줄을 준다 — 키·결과 값을 더한 이미지에서 롤백해도 깨지지 않는다")
     void ignoresUnknownJobKeyRows() {
+        // 'SKIPPED' 는 지금 JobRunOutcome 에 없다 — 이 줄을 엔티티로 읽으면(findAll) enum 변환이 터져 500 이 된다.
         jdbcTemplate.update("""
                 INSERT INTO scheduled_job_run (job_key, last_started_at, last_finished_at, last_outcome,
                         last_result_count, last_failed_count, last_succeeded_at, consecutive_unhealthy_runs)
-                VALUES ('RETIRED_JOB', now(), now(), 'SUCCESS', 0, 0, now(), 0)
+                VALUES ('RETIRED_JOB', now(), now(), 'SKIPPED', 0, 0, now(), 0)
                 """);
 
         RestAssured
