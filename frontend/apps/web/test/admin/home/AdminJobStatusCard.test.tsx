@@ -47,7 +47,8 @@ describe('AdminJobStatusCard', () => {
     }
     expect(screen.queryByText(/^확인 필요/)).toBeNull();
     expect(screen.queryByText('두잉 담당자에게 알려 주세요')).toBeNull();
-    expect(screen.queryByRole('link', { name: '두잉팀 카카오 문의' })).toBeNull();
+    // 평소 카드에는 링크가 하나도 없다 — 링크 이름이 바뀌어도 이 확인이 공허해지지 않게 개수로 본다
+    expect(screen.queryAllByRole('link')).toHaveLength(0);
   });
 
   it('경고가 있으면 개수·배지·안내와 연락 경로 셋을 보이고, 그 줄에만 업무 영향과 직접 할 일을 붙인다', () => {
@@ -63,11 +64,12 @@ describe('AdminJobStatusCard', () => {
     expect(screen.getByText('시설 예약 관리에서 직접 확정할 수 있어요')).toBeInTheDocument();
     expect(screen.queryByText('시설 예약 현황이 최신이 아닐 수 있어요')).toBeNull();
 
-    const kakao = screen.getByRole('link', { name: '두잉팀 카카오 문의' });
+    const kakao = screen.getByRole('link', { name: '두잉팀 카카오 문의 (새 창)' });
     expect(kakao).toHaveAttribute('href', 'https://open.kakao.com/o/s6JruOzi');
     expect(kakao).toHaveAttribute('target', '_blank');
     expect(kakao).toHaveAttribute('rel', 'noopener noreferrer');
-    expect(screen.getByRole('link', { name: '메일 보내기 duing.official@gmail.com' })).toHaveAttribute(
+    // 메일 주소는 화면 글자로 보인다(메일 앱이 없는 PC 에서도 옮겨 적을 수 있게)
+    expect(screen.getByRole('link', { name: 'duing.official@gmail.com' })).toHaveAttribute(
       'href',
       'mailto:duing.official@gmail.com',
     );
@@ -87,7 +89,7 @@ describe('AdminJobStatusCard', () => {
     expect(screen.queryByRole('link', { name: '1:1 문의' })).toBeNull();
   });
 
-  it('상대 시각은 응답을 받은 시각 기준이다 — 같은 응답을 다시 받아도 다시 그려진다', () => {
+  it('상대 시각은 지금이 아니라 응답을 받은 시각(dataUpdatedAt) 기준이다', () => {
     const finishedAtMillis = Date.now() - 2 * 60 * 60 * 1000;
     const finishedAt = new Date(finishedAtMillis).toISOString();
     mockJobStatuses.mockReturnValue(
@@ -121,10 +123,11 @@ describe('AdminJobStatusCard', () => {
     expect(screen.getByText('불러오지 못했어요. 잠시 후 다시 시도해 주세요.')).toBeInTheDocument();
   });
 
-  it('연락 링크는 터치 높이 44px(min-h-11)다', () => {
+  it('연락 링크는 터치 높이 44px(min-h-11)이고 키보드 포커스 링(ring-ink)이 있다', () => {
     mockJobStatuses.mockReturnValue(loaded(statusesWith({ RECRUITMENT_AUTO_CLOSE: { health: 'FAILED', lastOutcome: 'FAILED' } })));
     render(<AdminJobStatusCard />);
-    expect(screen.getByRole('link', { name: '두잉팀 카카오 문의' })).toHaveClass('min-h-11');
-    expect(screen.getByRole('link', { name: '1:1 문의' })).toHaveClass('min-h-11');
+    for (const name of ['두잉팀 카카오 문의 (새 창)', 'duing.official@gmail.com', '1:1 문의']) {
+      expect(screen.getByRole('link', { name })).toHaveClass('min-h-11', 'focus-visible:ring-2', 'focus-visible:ring-ink');
+    }
   });
 });
