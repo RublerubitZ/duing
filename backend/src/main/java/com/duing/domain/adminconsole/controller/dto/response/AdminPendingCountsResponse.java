@@ -31,7 +31,7 @@ public record AdminPendingCountsResponse(
                 + "(총동연 동아리 목록 needsPendingCleanup=true 와 같은 집합)", example = "1")
         long inactiveClubPending,
 
-        @Schema(description = "위 항목의 총합", example = "34")
+        @Schema(description = "위 항목의 총합", example = "35")
         long totalPendingCount
 ) {
 
