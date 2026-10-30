@@ -80,15 +80,23 @@ class AdminJobStatusQueryServiceTest {
     @DisplayName("작업 다섯 개를 선언 순서대로 주고, 기록이 없는 작업도 줄을 빠뜨리지 않는다")
     void returnsEveryJobInDeclarationOrder() {
         enableAllJobs();
-        givenRuns(runOf(MonitoredJob.FACILITY_RESERVATION_CRAWL, Duration.ofMinutes(5), JobRunOutcome.SUCCESS, 0));
+        // 실패한 기록은 마지막 성공 시각이 마지막 종료 시각과 다르다 — 두 값이 섞이지 않고 그대로 나가는지 본다
+        ScheduledJobRun failedPurge = runOf(MonitoredJob.FEDERATION_INQUIRY_PURGE, Duration.ofHours(2), JobRunOutcome.FAILED, 1);
+        when(failedPurge.getLastSucceededAt()).thenReturn(NOW.minus(Duration.ofHours(30)));
+        givenRuns(runOf(MonitoredJob.FACILITY_RESERVATION_CRAWL, Duration.ofMinutes(5), JobRunOutcome.SUCCESS, 0), failedPurge);
 
         AdminJobStatusQuery result = serviceBootedAt(BOOTED_LONG_AGO).getJobStatuses();
 
         assertThat(result.jobs()).extracting(JobStatusQuery::job).containsExactly(MonitoredJob.values());
         JobStatusQuery autoClose = statusOf(result, MonitoredJob.RECRUITMENT_AUTO_CLOSE);
         assertThat(autoClose.lastFinishedAt()).isNull();
+        assertThat(autoClose.lastSucceededAt()).isNull();
         assertThat(autoClose.lastOutcome()).isNull();
         assertThat(autoClose.resultCount()).isNull();
+        assertThat(autoClose.failedCount()).isNull();
+        JobStatusQuery purge = statusOf(result, MonitoredJob.FEDERATION_INQUIRY_PURGE);
+        assertThat(purge.lastFinishedAt()).isEqualTo(NOW.minus(Duration.ofHours(2)));
+        assertThat(purge.lastSucceededAt()).isEqualTo(NOW.minus(Duration.ofHours(30)));
         JobStatusQuery crawl = statusOf(result, MonitoredJob.FACILITY_RESERVATION_CRAWL);
         assertThat(crawl.health()).isEqualTo(JobHealth.OK);
         assertThat(crawl.lastFinishedAt()).isEqualTo(NOW.minus(Duration.ofMinutes(5)));
@@ -143,7 +151,9 @@ class AdminJobStatusQueryServiceTest {
         enableAllJobs();
         givenRuns(runOf(MonitoredJob.RECRUITMENT_AUTO_CLOSE, Duration.ofHours(26), JobRunOutcome.SUCCESS, 0),
                 runOf(MonitoredJob.APPLICATION_PENDING_REMINDER, Duration.ofHours(26).plusSeconds(1), JobRunOutcome.SUCCESS, 0),
-                runOf(MonitoredJob.FACILITY_RESERVATION_CRAWL, Duration.ofMinutes(31), JobRunOutcome.SUCCESS, 0));
+                runOf(MonitoredJob.FACILITY_RESERVATION_CRAWL, Duration.ofMinutes(31), JobRunOutcome.SUCCESS, 0),
+                // 늦음이 연속 실패보다 먼저다 — 오래 멈춘 작업의 마지막 결과가 실패여도 늦음으로 보인다
+                runOf(MonitoredJob.FEDERATION_INQUIRY_PURGE, Duration.ofHours(27), JobRunOutcome.FAILED, 2));
 
         // 방금 재배포했다(기동 1분) — 기록이 있는 작업은 기동 유예를 받지 않는다
         AdminJobStatusQuery result = serviceBootedAt(NOW.minus(Duration.ofMinutes(1))).getJobStatuses();
@@ -151,6 +161,7 @@ class AdminJobStatusQueryServiceTest {
         assertThat(statusOf(result, MonitoredJob.RECRUITMENT_AUTO_CLOSE).health()).isEqualTo(JobHealth.OK);
         assertThat(statusOf(result, MonitoredJob.APPLICATION_PENDING_REMINDER).health()).isEqualTo(JobHealth.OVERDUE);
         assertThat(statusOf(result, MonitoredJob.FACILITY_RESERVATION_CRAWL).health()).isEqualTo(JobHealth.OVERDUE);
+        assertThat(statusOf(result, MonitoredJob.FEDERATION_INQUIRY_PURGE).health()).isEqualTo(JobHealth.OVERDUE);
     }
 
     @Test
