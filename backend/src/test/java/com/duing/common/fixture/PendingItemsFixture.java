@@ -78,12 +78,27 @@ public final class PendingItemsFixture {
         return clubJoinCodeRepository.save(ClubJoinCode.issue(club, recruitment, code, 1, 30, 7, null));
     }
 
+    /**
+     * 모집 없는 부원 초대 링크를 발급해 저장한다 — 동아리당 활성 초대 링크는 하나라(uk_club_join_code_active_invite_per_club)
+     * 동아리마다 한 번만 부른다.
+     */
+    public static ClubJoinCode saveClubInviteCode(ClubJoinCodeRepository clubJoinCodeRepository, Club club,
+                                                  LocalDateTime inviteExpiresAt) {
+        String code = String.format("I%05d", SEQUENCE.incrementAndGet() % 100_000);
+        return clubJoinCodeRepository.save(ClubJoinCode.issueClubInvite(club, code, 1, 30, inviteExpiresAt, false, null));
+    }
+
     /** 대기 가입 신청 — 실제 접수처럼 링크 자리를 하나 확보한 뒤 저장한다(거절 때 환급을 확인할 수 있게). */
     public static ClubJoinRequest savePendingJoinRequest(ClubJoinCodeRepository clubJoinCodeRepository,
                                                          ClubJoinRequestRepository clubJoinRequestRepository,
                                                          Club club, ClubJoinCode joinCode, User requester) {
         ClubJoinCode storedJoinCode = clubJoinCodeRepository.findById(joinCode.getId()).orElseThrow();
-        storedJoinCode.tryConsume();
+        if (!storedJoinCode.getClub().getId().equals(club.getId())) {
+            throw new IllegalArgumentException("다른 동아리의 가입 링크다");
+        }
+        if (!storedJoinCode.tryConsume()) {
+            throw new IllegalStateException("가입 링크 자리를 확보하지 못했다: " + joinCode.getId());
+        }
         clubJoinCodeRepository.save(storedJoinCode);
         return clubJoinRequestRepository.save(ClubJoinRequest.pending(club, requester, storedJoinCode));
     }

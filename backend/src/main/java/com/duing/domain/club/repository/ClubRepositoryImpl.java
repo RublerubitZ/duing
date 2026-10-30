@@ -340,6 +340,8 @@ public class ClubRepositoryImpl implements ClubRepositoryCustom {
     /**
      * 대기 가입 신청 행 술어(스펙 §3-1) — 위와 같은 이유로 동아리 상관 없이 두고 삭제 조건을 명시한다.
      * 신청자(users)는 조인하지 않는다 — 탈퇴한 사람의 신청도 남은 미결이다.
+     * 정리 실행은 ClubJoinRequestRepository#findAllByClubIdAndStatus(파생 쿼리)가 같은 조건으로 읽는다 —
+     * 두 벌이라 바꿀 때 함께 바꾸고, AdminClubPendingCleanupControllerTest 의 동치 테스트가 묶는다.
      */
     private static BooleanExpression pendingJoinRequestRow() {
         return clubJoinRequest.status.eq(JoinRequestStatus.PENDING)
