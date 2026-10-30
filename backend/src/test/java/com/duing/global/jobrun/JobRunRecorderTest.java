@@ -67,12 +67,16 @@ class JobRunRecorderTest extends IntegrationTestBase {
         jobRunRecorder.record(MonitoredJob.FACILITY_RESERVATION_CRAWL, startedNow(), JobRunOutcome.PARTIAL, 9, 1);
         ScheduledJobRun afterPartial = runOf(MonitoredJob.FACILITY_RESERVATION_CRAWL);
         assertThat(afterPartial.getLastSucceededAt()).isEqualTo(afterPartial.getLastFinishedAt());
+        assertThat(afterPartial.getLastResultCount()).isEqualTo(9);
         assertThat(afterPartial.getLastFailedCount()).isEqualTo(1);
         assertThat(afterPartial.getConsecutiveUnhealthyRuns()).isEqualTo(2);
 
         jobRunRecorder.record(MonitoredJob.FACILITY_RESERVATION_CRAWL, startedNow(), JobRunOutcome.SUCCESS, 10, 0);
         assertThat(runOf(MonitoredJob.FACILITY_RESERVATION_CRAWL).getConsecutiveUnhealthyRuns()).isZero();
-        assertThat(scheduledJobRunRepository.count()).isEqualTo(1);
+        // 전체 줄 수가 아니라 이 키만 센다 — 매칭 플래그를 켠 다른 캐시된 컨텍스트의 크론이 같은 DB 에 다른 키 줄을 쓸 수 있다.
+        assertThat(scheduledJobRunRepository.findAll())
+                .filteredOn(run -> run.getJobKey().equals(MonitoredJob.FACILITY_RESERVATION_CRAWL.name()))
+                .hasSize(1);
     }
 
     @Test
@@ -97,6 +101,10 @@ class JobRunRecorderTest extends IntegrationTestBase {
             status.setRollbackOnly();
         });
 
-        assertThat(runOf(MonitoredJob.FEDERATION_INQUIRY_PURGE).getLastOutcome()).isEqualTo(JobRunOutcome.FAILED);
+        ScheduledJobRun run = runOf(MonitoredJob.FEDERATION_INQUIRY_PURGE);
+        assertThat(run.getLastOutcome()).isEqualTo(JobRunOutcome.FAILED);
+        // 첫 기록이 실패여도 성공 시각은 비고 연속 실패 수는 1 부터 센다.
+        assertThat(run.getLastSucceededAt()).isNull();
+        assertThat(run.getConsecutiveUnhealthyRuns()).isEqualTo(1);
     }
 }

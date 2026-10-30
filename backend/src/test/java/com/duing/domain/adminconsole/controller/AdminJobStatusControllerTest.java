@@ -94,9 +94,9 @@ class AdminJobStatusControllerTest extends IntegrationTestBase {
     }
 
     @Test
-    @DisplayName("DB 에 지금 모르는 작업 키·결과 값 줄이 있어도 200 과 다섯 줄을 준다 — 키·결과 값을 더한 이미지에서 롤백해도 깨지지 않는다")
+    @DisplayName("DB 에 지금 모르는 작업 키 줄이 있어도 200 과 다섯 줄을 준다 — 작업 키를 더한 이미지에서 롤백해도 깨지지 않는다")
     void ignoresUnknownJobKeyRows() {
-        // 'SKIPPED' 는 지금 JobRunOutcome 에 없다 — 이 줄을 엔티티로 읽으면(findAll) enum 변환이 터져 500 이 된다.
+        // 모르는 키 줄은 아예 읽지 않으므로 그 줄의 모르는 결과 값('SKIPPED')도 견딘다 — 아는 키 줄의 모르는 결과 값은 이 테스트 범위 밖이다(JobRunOutcome Javadoc).
         jdbcTemplate.update("""
                 INSERT INTO scheduled_job_run (job_key, last_started_at, last_finished_at, last_outcome,
                         last_result_count, last_failed_count, last_succeeded_at, consecutive_unhealthy_runs)

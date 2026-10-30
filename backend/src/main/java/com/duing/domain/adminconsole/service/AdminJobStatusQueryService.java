@@ -60,6 +60,8 @@ public class AdminJobStatusQueryService {
     }
 
     private JobHealth judge(MonitoredJob job, ScheduledJobRun run, Instant now, Instant bootedAt) {
+        // 문의 파기 잡만 빈이 조건 없이 등록되고 실제 문이 properties.enabled()(Boot boolean 바인딩 — "on"·"yes" 도 참)라,
+        // 값이 "on" 이면 카드는 꺼짐인데 잡은 돌 수 있다(운영 값은 true/false 라 실제로는 생기지 않는다).
         if (!"true".equalsIgnoreCase(environment.getProperty(job.getEnabledProperty()))) {
             return JobHealth.DISABLED;
         }
