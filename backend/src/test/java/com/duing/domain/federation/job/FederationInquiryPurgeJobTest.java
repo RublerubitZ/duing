@@ -1,8 +1,11 @@
 package com.duing.domain.federation.job;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -22,6 +25,11 @@ import com.duing.domain.user.entity.User;
 import com.duing.domain.user.entity.UserRole;
 import com.duing.domain.user.repository.UserRepository;
 import com.duing.global.file.FileStorageService;
+import com.duing.global.jobrun.JobRunOutcome;
+import com.duing.global.jobrun.JobRunRecorder;
+import com.duing.global.jobrun.MonitoredJob;
+import com.duing.global.jobrun.entity.ScheduledJobRun;
+import com.duing.global.jobrun.repository.ScheduledJobRunRepository;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.time.Period;
@@ -57,6 +65,8 @@ class FederationInquiryPurgeJobTest extends IntegrationTestBase {
     @Autowired Clock clock;
     @Autowired JdbcTemplate jdbcTemplate;
     @Autowired PlatformTransactionManager platformTransactionManager;
+    @Autowired JobRunRecorder jobRunRecorder;
+    @Autowired ScheduledJobRunRepository scheduledJobRunRepository;
     @MockitoBean FileStorageService fileStorageService;
 
     private final AtomicLong sequence = new AtomicLong(System.nanoTime());
@@ -258,11 +268,13 @@ class FederationInquiryPurgeJobTest extends IntegrationTestBase {
         FederationInquiryPurgeJob disabledJob = new FederationInquiryPurgeJob(
                 new FederationInquiryPurgeProperties(false, Period.ofDays(45)),
                 clock, inquiryRepository, answerRepository, attachmentRepository,
-                fileStorageService, platformTransactionManager);
+                fileStorageService, platformTransactionManager, jobRunRecorder);
         disabledJob.run();
 
         Map<String, Object> row = inquiryRow(inquiry.getId());
         assertThat(row.get("title")).isEqualTo("비활성 잡 문의");
+        // 꺼져 바로 끝난 실행은 기록하지 않는다(꺼짐은 설정값으로 판정)
+        assertThat(scheduledJobRunRepository.findById(MonitoredJob.FEDERATION_INQUIRY_PURGE.name())).isEmpty();
     }
 
     @Test
@@ -276,11 +288,69 @@ class FederationInquiryPurgeJobTest extends IntegrationTestBase {
         FederationInquiryPurgeJob zeroWindowJob = new FederationInquiryPurgeJob(
                 new FederationInquiryPurgeProperties(true, Period.ZERO),
                 clock, inquiryRepository, answerRepository, attachmentRepository,
-                fileStorageService, platformTransactionManager);
+                fileStorageService, platformTransactionManager, jobRunRecorder);
         zeroWindowJob.run();
 
         Map<String, Object> row = inquiryRow(inquiry.getId());
         assertThat(row.get("title")).isEqualTo("오설정 문의");
+        // 보관 기간 오설정은 개발 담당이 고쳐야 하는 실패다
+        assertThat(scheduledJobRunRepository.findById(MonitoredJob.FEDERATION_INQUIRY_PURGE.name()).orElseThrow()
+                .getLastOutcome()).isEqualTo(JobRunOutcome.FAILED);
+    }
+
+    @Test
+    @DisplayName("파기를 마치면 성공과 파기한 문의 수를 기록한다")
+    void recordsSuccessWithScrubbedInquiryCount() {
+        stubFileStorage();
+        User author = saveUser();
+        softDeleteInquiry(saveInquiry(author.getId(), "기록 문의", "기록 본문"), 46);
+
+        job.run();
+
+        ScheduledJobRun run = purgeRun();
+        assertThat(run.getLastOutcome()).isEqualTo(JobRunOutcome.SUCCESS);
+        assertThat(run.getLastResultCount()).isEqualTo(1);
+        assertThat(run.getLastFailedCount()).isZero();
+    }
+
+    @Test
+    @DisplayName("첨부 삭제가 확정되지 않은 건이 있으면 일부 실패와 그 수를 기록한다")
+    void recordsPartialWhenAttachmentDeletionIsNotConfirmed() {
+        stubFileStorage();
+        when(fileStorageService.delete("resolved:federation/inquiry/keep.jpg")).thenReturn(false);
+        User author = saveUser();
+        FederationInquiry inquiry = saveInquiry(author.getId(), "첨부 문의", "첨부 본문");
+        FederationInquiryAttachment keptAttachment = attachmentRepository.save(FederationInquiryAttachment.create(
+                inquiry, "federation/inquiry/keep.jpg", "keep.jpg", "image/jpeg", 1024L, 1));
+        softDeleteInquiry(inquiry, 46);
+        softDeleteAttachment(keptAttachment, 46);
+
+        job.run();
+
+        ScheduledJobRun run = purgeRun();
+        assertThat(run.getLastOutcome()).isEqualTo(JobRunOutcome.PARTIAL);
+        assertThat(run.getLastFailedCount()).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("파기 중 예외가 나면 실패를 기록하고 같은 예외를 그대로 내보낸다")
+    void recordsFailureAndRethrowsSameException() {
+        IllegalStateException scrubFailure = new IllegalStateException("주입된 파기 실패");
+        FederationInquiryRepository failingInquiryRepository = mock(FederationInquiryRepository.class);
+        when(failingInquiryRepository.scrubExpiredDeletedInquiries(any(), anyString(), anyString())).thenThrow(scrubFailure);
+        FederationInquiryPurgeJob failingJob = new FederationInquiryPurgeJob(
+                new FederationInquiryPurgeProperties(true, Period.ofDays(45)),
+                clock, failingInquiryRepository, answerRepository, attachmentRepository,
+                fileStorageService, platformTransactionManager, jobRunRecorder);
+
+        // TransactionTemplate 은 콜백의 RuntimeException 을 같은 인스턴스로 다시 던진다
+        assertThatThrownBy(failingJob::run).isSameAs(scrubFailure);
+
+        assertThat(purgeRun().getLastOutcome()).isEqualTo(JobRunOutcome.FAILED);
+    }
+
+    private ScheduledJobRun purgeRun() {
+        return scheduledJobRunRepository.findById(MonitoredJob.FEDERATION_INQUIRY_PURGE.name()).orElseThrow();
     }
 
     // toFileUrl 은 키를 식별 가능한 URL 로 에코하고, delete 는 항상 삭제 확정(true)으로 응답한다 —

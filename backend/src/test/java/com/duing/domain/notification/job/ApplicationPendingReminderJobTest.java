@@ -1,6 +1,10 @@
 package com.duing.domain.notification.job;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import com.duing.common.IntegrationTestBase;
 import com.duing.common.TestcontainersConfiguration;
@@ -17,10 +21,16 @@ import com.duing.domain.clubmember.repository.ClubMemberRepository;
 import com.duing.domain.notification.entity.Notification;
 import com.duing.domain.notification.entity.NotificationType;
 import com.duing.domain.notification.repository.NotificationRepository;
+import com.duing.domain.notification.service.NotificationService;
 import com.duing.domain.recruitment.entity.Recruitment;
 import com.duing.domain.recruitment.repository.RecruitmentRepository;
 import com.duing.domain.user.entity.User;
 import com.duing.domain.user.repository.UserRepository;
+import com.duing.global.jobrun.JobRunOutcome;
+import com.duing.global.jobrun.JobRunRecorder;
+import com.duing.global.jobrun.MonitoredJob;
+import com.duing.global.jobrun.entity.ScheduledJobRun;
+import com.duing.global.jobrun.repository.ScheduledJobRunRepository;
 import com.duing.global.time.TimeMapper;
 import java.sql.Timestamp;
 import java.time.Clock;
@@ -53,6 +63,9 @@ class ApplicationPendingReminderJobTest extends IntegrationTestBase {
     @Autowired private NotificationRepository notificationRepository;
     @Autowired private JdbcTemplate jdbcTemplate;
     @Autowired private Clock clock;
+    @Autowired private JobRunRecorder jobRunRecorder;
+    @Autowired private ScheduledJobRunRepository scheduledJobRunRepository;
+    @Autowired private NotificationService notificationService;
 
     private final AtomicLong sequence = new AtomicLong(System.nanoTime());
 
@@ -221,5 +234,57 @@ class ApplicationPendingReminderJobTest extends IntegrationTestBase {
         assertThat(remindersOf(staff.leader())).hasSize(1);
         assertThat(remindersOf(staff.officer())).hasSize(1);
         assertThat(allReminders()).hasSize(2);
+    }
+
+    private ScheduledJobRun reminderRun() {
+        return scheduledJobRunRepository.findById(MonitoredJob.APPLICATION_PENDING_REMINDER.name()).orElseThrow();
+    }
+
+    @Test
+    @DisplayName("실제 잡(읽기 전용 트랜잭션 프록시)이 끝나면 성공과 새로 만든 알림 수를 기록한다 — 바깥 트랜잭션에 합류하지 않는다")
+    void recordsSuccessWithCreatedCountThroughReadOnlyProxy() {
+        Staff staff = saveClubWithStaff();
+        Recruitment recruitment = saveOngoingRecruitment(staff.club());
+        saveSubmittedApplicationDaysAgo(recruitment, 10);
+
+        job.run();
+
+        ScheduledJobRun run = reminderRun();
+        assertThat(run.getLastOutcome()).isEqualTo(JobRunOutcome.SUCCESS);
+        assertThat(run.getLastResultCount()).isEqualTo(allReminders().size()).isPositive();
+        assertThat(run.getLastFailedCount()).isZero();
+    }
+
+    @Test
+    @DisplayName("알림 생성이 실패하면 일부 실패와 실패 수를 기록한다")
+    void recordsPartialWhenNotificationCreationFails() {
+        Staff staff = saveClubWithStaff();
+        Recruitment recruitment = saveOngoingRecruitment(staff.club());
+        saveSubmittedApplicationDaysAgo(recruitment, 10);
+        NotificationService failingNotificationService = mock(NotificationService.class);
+        when(failingNotificationService.createIfAbsent(any())).thenThrow(new IllegalStateException("주입된 알림 실패"));
+        ApplicationPendingReminderJob failingJob = new ApplicationPendingReminderJob(
+                applicationRepository, clubMemberRepository, failingNotificationService, clock, jobRunRecorder);
+
+        failingJob.run();
+
+        ScheduledJobRun run = reminderRun();
+        assertThat(run.getLastOutcome()).isEqualTo(JobRunOutcome.PARTIAL);
+        assertThat(run.getLastResultCount()).isZero();
+        assertThat(run.getLastFailedCount()).isPositive();
+    }
+
+    @Test
+    @DisplayName("후보 조회가 실패하면 실패를 기록하고 같은 예외를 그대로 내보낸다")
+    void recordsFailureAndRethrowsSameException() {
+        IllegalStateException candidateFailure = new IllegalStateException("주입된 후보 조회 실패");
+        ApplicationRepository failingApplicationRepository = mock(ApplicationRepository.class);
+        when(failingApplicationRepository.findPendingReminderCandidates(any())).thenThrow(candidateFailure);
+        ApplicationPendingReminderJob failingJob = new ApplicationPendingReminderJob(
+                failingApplicationRepository, clubMemberRepository, notificationService, clock, jobRunRecorder);
+
+        assertThatThrownBy(failingJob::run).isSameAs(candidateFailure);
+
+        assertThat(reminderRun().getLastOutcome()).isEqualTo(JobRunOutcome.FAILED);
     }
 }

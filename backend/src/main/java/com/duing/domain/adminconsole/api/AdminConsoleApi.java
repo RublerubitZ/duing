@@ -1,5 +1,6 @@
 package com.duing.domain.adminconsole.api;
 
+import com.duing.domain.adminconsole.controller.dto.response.AdminJobStatusesResponse;
 import com.duing.domain.adminconsole.controller.dto.response.AdminPendingCountsResponse;
 import com.duing.domain.adminconsole.controller.dto.response.AdminPendingTrendResponse;
 import com.duing.global.response.ApiResponse;
@@ -22,4 +23,10 @@ public interface AdminConsoleApi {
                     + "최근 7일 접수·처리 건수(신고·문의·시설 예약·홍보·회장 승계)")
     @GetMapping("/admin/pending-trend")
     ResponseEntity<ApiResponse<AdminPendingTrendResponse>> getPendingTrend();
+
+    @Operation(summary = "자동 작업 상태 조회",
+            description = "총동연 홈 자동 작업 카드용 — 모집 자동 마감·미처리 지원 리마인더·학교 시설 예약 수집·"
+                    + "학교 반영 확인·문의 보관 기간 파기의 최근 실행 결과와 화면 상태")
+    @GetMapping("/admin/job-statuses")
+    ResponseEntity<ApiResponse<AdminJobStatusesResponse>> getJobStatuses();
 }
