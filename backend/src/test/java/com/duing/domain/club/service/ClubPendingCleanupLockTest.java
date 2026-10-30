@@ -65,6 +65,8 @@ class ClubPendingCleanupLockTest extends IntegrationTestBase {
     @Test
     @DisplayName("재활성화가 동아리 행을 잠근 사이 들어온 정리는 잠금을 기다렸다가 바뀐 상태를 보고 409 로 끝나며 지원서는 그대로다")
     void cleanupWaitsForReactivationLockAndSeesActiveStatus() throws Exception {
+        // 동아리 id 와 처리자 id 가 겹치면 두 인자를 뒤바꾼 회귀를 못 잡는다 — 일부러 어긋나게 둔다.
+        userRepository.save(UserFixture.unique());
         User admin = userRepository.save(UserFixture.admin());
         Club club = PendingItemsFixture.saveClub(clubRepository, ClubStatus.INACTIVE);
         Application application = PendingItemsFixture.saveApplication(applicationRepository,
@@ -109,6 +111,8 @@ class ClubPendingCleanupLockTest extends IntegrationTestBase {
     @Test
     @DisplayName("두 담당자가 같은 동아리를 동시에 정리하면 하나는 실제 건수, 다른 하나는 잠금을 기다렸다가 0건으로 성공한다")
     void concurrentCleanupsAreSerialized() throws Exception {
+        // 동아리 id 와 처리자 id 가 겹치면 두 인자를 뒤바꾼 회귀를 못 잡는다 — 일부러 어긋나게 둔다.
+        userRepository.save(UserFixture.unique());
         User firstAdmin = userRepository.save(UserFixture.admin());
         User secondAdmin = userRepository.save(UserFixture.admin());
         Club club = PendingItemsFixture.saveClub(clubRepository, ClubStatus.INACTIVE);

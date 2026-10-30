@@ -103,7 +103,8 @@ public interface ApplicationRepository extends JpaRepository<Application, Long>,
      * 운영 중단 동아리 남은 미결 정리(스펙 §3-1) — 그 동아리의 삭제되지 않은 모집(마감 포함)에 달린 결과 미정 지원서.
      * 판정은 ClubRepositoryImpl#undecidedApplicationRow(목록 필터·행 건수·홈 집계)와 같아야 한다 — 엔티티를 바꿔야 해서
      * JPQL 로 다시 쓴 두 번째 벌이라, 바꿀 때 함께 바꾸고 AdminClubPendingCleanupControllerTest 의 동치 테스트가 묶는다.
-     * 변경기가 recruitment.isUseInterview() 를 읽어 페치 조인한다. 삭제된 모집 제외는 @SQLRestriction 에 기대지 않고 명시한다.
+     * 변경기가 recruitment.isUseInterview() 를 읽어 페치 조인한다. 지원서 삭제 제외는 루트 엔티티의 @SQLRestriction 이 붙인다
+     * (모집 삭제 제외는 조인이라 명시).
      * 지원자(users)는 조인하지 않는다 — 탈퇴한 사람의 지원서도 정리 대상이다.
      */
     @Query("SELECT a FROM Application a JOIN FETCH a.recruitment r "

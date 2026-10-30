@@ -84,8 +84,9 @@ class AdminClubPendingCleanupControllerTest extends IntegrationTestBase {
     @BeforeEach
     void setUp() {
         RestAssured.port = port;
-        adminUser = userRepository.save(UserFixture.admin());
+        // 동아리 id 와 처리자 id 가 겹치면 두 인자를 뒤바꾼 회귀를 못 잡는다 — 일부러 어긋나게 둔다.
         User studentUser = userRepository.save(UserFixture.unique());
+        adminUser = userRepository.save(UserFixture.admin());
         adminToken = jwtTokenProvider.createToken(adminUser.getId(), adminUser.getRole().name());
         studentToken = jwtTokenProvider.createToken(studentUser.getId(), studentUser.getRole().name());
         today = LocalDate.now(clock);
@@ -139,6 +140,8 @@ class AdminClubPendingCleanupControllerTest extends IntegrationTestBase {
         ClubJoinRequest otherClubJoinRequest =
                 savePendingJoinRequest(otherClub, saveJoinCode(otherClub, otherRecruitment), saveUser());
 
+        assertThat(adminUser.getId()).as("처리자 id ≠ 동아리 id 전제").isNotEqualTo(club.getId());
+
         cleanup(club)
                 .then()
                     .statusCode(HttpStatus.OK.value())
@@ -149,6 +152,12 @@ class AdminClubPendingCleanupControllerTest extends IntegrationTestBase {
         assertThat(List.of(rowOf(submitted), rowOf(onHold), rowOf(interviewPending)))
                 .as("[제출(진행 모집), 보류(마감 모집), 면접 대기(마감 모집)]")
                 .containsOnly(new ApplicationRow("REJECTED", true));
+        // 스펙 §7 — 처리자는 실행한 총동연이다.
+        assertThat(jdbcTemplate.queryForList("SELECT changed_by FROM application_status_history WHERE application_id IN (?, ?, ?)",
+                Long.class, submitted.getId(), onHold.getId(), interviewPending.getId()))
+                .as("상태 이력 처리자").containsExactly(adminUser.getId(), adminUser.getId(), adminUser.getId());
+        assertThat(jdbcTemplate.queryForObject("SELECT reviewed_by FROM club_join_request WHERE id = ?",
+                Long.class, pendingJoinRequest.getId())).as("거절한 가입 신청 처리자").isEqualTo(adminUser.getId());
         assertThat(rowOf(accepted)).as("이미 합격").isEqualTo(new ApplicationRow("ACCEPTED", false));
         assertThat(rowOf(alreadyRejected)).as("이미 불합격").isEqualTo(new ApplicationRow("REJECTED", false));
         assertThat(rowOf(onDeletedRecruitment)).as("삭제된 모집").isEqualTo(new ApplicationRow("SUBMITTED", false));

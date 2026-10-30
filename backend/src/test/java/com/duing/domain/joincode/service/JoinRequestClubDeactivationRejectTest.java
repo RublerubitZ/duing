@@ -51,6 +51,8 @@ class JoinRequestClubDeactivationRejectTest extends IntegrationTestBase {
     @BeforeEach
     void setUp() {
         today = LocalDate.now(clock);
+        // 동아리 id 와 처리자 id 가 겹치면 두 인자를 뒤바꾼 회귀를 못 잡는다 — 일부러 어긋나게 둔다.
+        userRepository.save(UserFixture.unique());
         adminUser = userRepository.save(UserFixture.admin());
     }
 
