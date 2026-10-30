@@ -63,6 +63,7 @@ public class AdminPendingCountsQueryService {
 
     /**
      * 오래 방치된 모집은 미처리 지원서 리마인더 잡의 후보와 같은 집합이다 — 리마인더가 나가는 모집과 배지가 같아야 한다.
+     * 운영 중단 미결은 총동연 동아리 목록 필터(needsPendingCleanup=true)와 같은 판정이다 — 칸 숫자와 그 링크가 연 목록의 건수가 같아야 한다.
      */
     public AdminPendingCountsQuery getPendingCounts() {
         return AdminPendingCountsQuery.of(
@@ -73,7 +74,8 @@ public class AdminPendingCountsQueryService {
                 reportRepository.countByStatus(ReportStatus.PENDING),
                 leaderSuccessionRequestRepository.countByStatus(SuccessionStatus.PENDING),
                 applicationRepository.findPendingReminderCandidates(
-                        PendingApplicationPolicy.submittedBefore(clock)).size()
+                        PendingApplicationPolicy.submittedBefore(clock)).size(),
+                clubRepository.countInactiveClubsWithPendingItems()
         );
     }
 }

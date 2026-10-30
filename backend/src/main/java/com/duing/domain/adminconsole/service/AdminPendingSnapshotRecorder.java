@@ -34,6 +34,7 @@ public class AdminPendingSnapshotRecorder {
                 Math.toIntExact(pendingCounts.reportUnresolved()),
                 Math.toIntExact(pendingCounts.leaderSuccession()),
                 Math.toIntExact(pendingCounts.stalePendingRecruitment()),
+                Math.toIntExact(pendingCounts.inactiveClubPending()),
                 Math.toIntExact(pendingCounts.totalPendingCount()),
                 Instant.now(clock));
         return insertedRows == 1;
