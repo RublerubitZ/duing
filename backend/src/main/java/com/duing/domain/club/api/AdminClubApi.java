@@ -33,13 +33,18 @@ import org.springframework.web.bind.annotation.RequestParam;
 public interface AdminClubApi {
 
     @Operation(summary = "동아리 목록 조회 (ADMIN)",
-            description = "모든 상태(PENDING_APPROVAL/ACTIVE/INACTIVE) 동아리를 조회한다. status 미지정 시 전체 반환. 응답에 leader 정보 포함.")
+            description = "모든 상태(PENDING_APPROVAL/ACTIVE/INACTIVE) 동아리를 조회한다. status 미지정 시 전체 반환. 응답에 leader 정보 포함. "
+                    + "운영 중단(INACTIVE) 행에는 남은 미결 건수(undecidedApplicationCount — 제출·보류·면접 대기 지원서, "
+                    + "pendingJoinRequestCount — 대기 가입 신청)를 싣고, 다른 상태 행은 두 값이 null 이다.")
     @GetMapping("/admin/clubs")
     ResponseEntity<ApiResponse<PageResponse<AdminClubSummaryResponse>>> getAdminClubs(
             @Parameter(description = "상태 필터 (미지정 시 전체)") @RequestParam(required = false) ClubStatus status,
             @Parameter(description = "카테고리 필터") @RequestParam(required = false) ClubCategory category,
             @Parameter(description = "분류 필터") @RequestParam(required = false) String division,
             @Parameter(description = "이름/소개/태그/학과 키워드") @RequestParam(required = false) String keyword,
+            @Parameter(description = "true 면 정리할 남은 미결(결과 미정 지원서·대기 가입 신청)이 있는 운영 중단 동아리만 반환한다. "
+                    + "status 와 함께 오면 둘 다 건다(다른 상태를 고르면 빈 결과)")
+            @RequestParam(defaultValue = "false") boolean needsPendingCleanup,
             @Parameter(hidden = true) Pageable pageable
     );
 
