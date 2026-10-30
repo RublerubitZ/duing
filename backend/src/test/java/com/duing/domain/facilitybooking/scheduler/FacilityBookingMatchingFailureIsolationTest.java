@@ -38,6 +38,10 @@ import com.duing.domain.user.entity.Grade;
 import com.duing.domain.user.entity.User;
 import com.duing.domain.user.entity.UserRole;
 import com.duing.domain.user.repository.UserRepository;
+import com.duing.global.jobrun.JobRunOutcome;
+import com.duing.global.jobrun.MonitoredJob;
+import com.duing.global.jobrun.entity.ScheduledJobRun;
+import com.duing.global.jobrun.repository.ScheduledJobRunRepository;
 import java.lang.reflect.Field;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -72,6 +76,7 @@ class FacilityBookingMatchingFailureIsolationTest extends IntegrationTestBase {
     @Autowired ClubRepository clubRepository;
     @Autowired ClubMemberRepository clubMemberRepository;
     @Autowired UserRepository userRepository;
+    @Autowired ScheduledJobRunRepository scheduledJobRunRepository;
 
     private final AtomicLong sequence = new AtomicLong(System.nanoTime());
 
@@ -188,5 +193,29 @@ class FacilityBookingMatchingFailureIsolationTest extends IntegrationTestBase {
         verify(matchingService).verifyAndConfirm(eq(contendedBooking), anyString(), anySet(), anySet());
         assertThat(cycleResult.failedCount()).isZero();
         assertThat(cycleResult.confirmedCount()).isZero();
+    }
+
+    @Test
+    @DisplayName("정기 실행은 확정 수를 결과 수로, 예약 단위 실패와 스냅샷 없이 건너뛴 달을 실패 수로 기록한다")
+    void recordsConfirmedAndFailedCountsOnScheduledRun() throws Exception {
+        User admin = saveUser("총동연");
+        LocalDate date = bookableDate();
+        LocalDateTime generation = LocalDateTime.now();
+
+        Fixture failingFixture = fixture();
+        Long failingBooking = approvedBookingWithMatchingRows(failingFixture, admin, date, 9, 10, generation);
+        Fixture healthyFixture = fixture();
+        approvedBookingWithMatchingRows(healthyFixture, admin, date, 18, 20, generation);
+        // 오늘+2 는 이번 달·다음 달 중 한 달에만 든다 — 스냅샷은 그 달에만 두어 다른 달은 건너뛰게 한다.
+        recordSuccessSnapshot(YearMonth.from(date), generation);
+        doThrow(new IllegalStateException("주입된 처리 실패"))
+                .when(matchingService).verifyAndConfirm(eq(failingBooking), anyString(), anySet(), anySet());
+
+        scheduler.runScheduled();
+
+        ScheduledJobRun run = scheduledJobRunRepository.findById(MonitoredJob.FACILITY_BOOKING_MATCHING.name()).orElseThrow();
+        assertThat(run.getLastOutcome()).isEqualTo(JobRunOutcome.PARTIAL);
+        assertThat(run.getLastResultCount()).isEqualTo(1);
+        assertThat(run.getLastFailedCount()).as("주입 실패 1 + 스냅샷 없는 다른 달 1").isEqualTo(2);
     }
 }

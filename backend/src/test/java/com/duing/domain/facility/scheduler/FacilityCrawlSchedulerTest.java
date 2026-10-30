@@ -176,4 +176,24 @@ class FacilityCrawlSchedulerTest {
 
         verify(jobRunRecorder).record(MonitoredJob.FACILITY_RESERVATION_CRAWL, STARTED_AT, JobRunOutcome.FAILED, 0, 0);
     }
+
+    @Test
+    @DisplayName("다음 달만 전체 실패면 실패가 아니라 일부 실패이고, 다음 달에만 실패한 시설도 실패 수에 센다")
+    void recordsPartialWhenOnlyNextMonthFails() {
+        givenMonths(summary(FetchStatus.SUCCESS, 10, List.of()), summary(FetchStatus.FAILED, 0, List.of(4)));
+
+        new FacilityCrawlScheduler(crawlService, syncService, facilityRepository, clock, jobRunRecorder).runReservationCrawl();
+
+        verify(jobRunRecorder).record(MonitoredJob.FACILITY_RESERVATION_CRAWL, STARTED_AT, JobRunOutcome.PARTIAL, 10, 1);
+    }
+
+    @Test
+    @DisplayName("이번 달만 전체 실패여도 실패가 아니라 일부 실패이고, 결과 수는 이번 달 성공 시설 수다")
+    void recordsPartialWhenOnlyCurrentMonthFails() {
+        givenMonths(summary(FetchStatus.FAILED, 0, List.of(2)), summary(FetchStatus.SUCCESS, 10, List.of()));
+
+        new FacilityCrawlScheduler(crawlService, syncService, facilityRepository, clock, jobRunRecorder).runReservationCrawl();
+
+        verify(jobRunRecorder).record(MonitoredJob.FACILITY_RESERVATION_CRAWL, STARTED_AT, JobRunOutcome.PARTIAL, 0, 1);
+    }
 }
