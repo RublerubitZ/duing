@@ -78,7 +78,8 @@ function PendingTrendBody({ trend, todayTotal }: { trend: AdminPendingTrend; tod
   return (
     <>
       <p className="break-keep text-sm text-charcoal-2">{summary}</p>
-      <figure role="img" aria-label={summary} className="mt-3">
+      {/* 판단 문장은 위 문단으로 읽힌다 — 같은 문장을 이름으로 쓰면 화면 읽기 프로그램이 두 번 읽는다. */}
+      <figure role="img" aria-label="최근 14일 처리 대기 막대그래프" className="mt-3">
         <div className="flex h-[calc(120px+1.25rem)] items-end gap-0.5">
           {bars.map((bar) => (
             <PendingTrendBarColumn
@@ -100,7 +101,7 @@ function PendingTrendBody({ trend, todayTotal }: { trend: AdminPendingTrend; tod
         <summary className="w-fit cursor-pointer rounded py-3.5 text-xs font-medium text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink">
           날짜별 보기
         </summary>
-        <table className="mt-1 w-full text-xs">
+        <table aria-label="날짜별 남은 대기" className="mt-1 w-full text-xs">
           <thead>
             <tr className="text-charcoal-3">
               <th scope="col" className="py-1 text-left font-medium">날짜</th>
@@ -110,7 +111,7 @@ function PendingTrendBody({ trend, todayTotal }: { trend: AdminPendingTrend; tod
           <tbody>
             {bars.map((bar) => (
               <tr key={bar.date} className="border-t border-line">
-                <td className="py-1 text-charcoal-2">{pendingTrendBarDateText(bar)}</td>
+                <th scope="row" className="py-1 text-left font-normal text-charcoal-2">{pendingTrendBarDateText(bar)}</th>
                 <td className="py-1 text-right tabular-nums text-charcoal">{pendingTrendBarValueText(bar)}</td>
               </tr>
             ))}
