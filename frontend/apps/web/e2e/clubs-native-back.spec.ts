@@ -268,7 +268,10 @@ test.describe('라우트 공지 — 전환마다 한 곳에서 한 번(Next 공�
     await page.evaluate(() => Reflect.set(window, '__clubsSoftArrivalMark', true));
     await page.locator('header a[href="/clubs"]:visible').click();
     await waitForList(page);
-    expect(await page.evaluate(() => Reflect.get(window, '__clubsSoftArrivalMark'))).toBe(true);
+    expect(
+      await page.evaluate(() => Reflect.get(window, '__clubsSoftArrivalMark')),
+      '헤더 동아리 링크가 하드 이동이 됐다(창 표식이 사라졌다)',
+    ).toBe(true);
     // 목록 head 가 들어오기 전 진입은 수용한 경합이라(스펙 2026-10-24 §7) 목록 제목을 기다린 뒤 들어간다.
     // 기록기는 프레임마다 적으므로, 목록 제목이 그려져 기록된 뒤에 구간을 연다.
     await expect(page).toHaveTitle(LIST_TITLE);
