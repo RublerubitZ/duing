@@ -10,6 +10,7 @@ import type {
   ForceRevokeJoinCodePayload,
   AdminPendingCounts,
   AdminPendingTrend,
+  AdminJobStatuses,
   AdminSuccessionDetail,
   AdminSuccessionSearchParams,
   AdminSuccessionSummary,
@@ -116,6 +117,8 @@ export type AdminApi = {
   pendingCounts(): Promise<AdminPendingCounts>;
   /** 총동연 홈 처리 대기 추이 — 지난 13일 하루 끝 남은 대기 건수(기록 없는 날 null)와 최근 7일 접수·처리. */
   pendingTrend(): Promise<AdminPendingTrend>;
+  /** 총동연 홈 자동 작업 상태 — 작업 5개의 최근 실행 결과와 화면 상태. */
+  jobStatuses(): Promise<AdminJobStatuses>;
   clubs: {
     list(params?: AdminClubSearchParams): Promise<PageResponse<AdminClubSummary>>;
     detail(clubId: number): Promise<ClubDetail>;
@@ -358,6 +361,7 @@ export function createAdminApi(deps: {
   return {
     pendingCounts: () => jsonOk<AdminPendingCounts>(http.get('admin/pending-counts')),
     pendingTrend: () => jsonOk<AdminPendingTrend>(http.get('admin/pending-trend')),
+    jobStatuses: () => jsonOk<AdminJobStatuses>(http.get('admin/job-statuses')),
     clubs: {
       list: (params) =>
         jsonOk<PageResponse<AdminClubSummary>>(

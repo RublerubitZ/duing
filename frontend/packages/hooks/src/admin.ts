@@ -42,6 +42,23 @@ export function useAdminPendingTrendQuery() {
   });
 }
 
+/** 자동 작업 상태를 다시 받는 주기 — 10분 잡의 판정 단위(30분)보다 충분히 짧다. */
+export const ADMIN_JOB_STATUSES_REFETCH_INTERVAL_MS = 5 * 60 * 1000;
+
+/**
+ * 총동연 홈 자동 작업 상태. 앱 전역 기본값은 창 포커스 때 다시 받지 않아(providers.tsx), 그대로 두면 홈을 열어 둔 채로는
+ * "늦음"이 끝내 나타나지 않고 상대 시각("8분 전")도 멈춘다 — 포커스·5분 주기로 다시 받는다(useUnreadCountQuery 전례).
+ */
+export function useAdminJobStatusesQuery() {
+  const client = useApiClient();
+  return useQuery({
+    queryKey: adminQueryKeys.jobStatuses(),
+    queryFn: () => client.admin.jobStatuses(),
+    refetchOnWindowFocus: true,
+    refetchInterval: ADMIN_JOB_STATUSES_REFETCH_INTERVAL_MS,
+  });
+}
+
 export function useAdminClubsQuery(params: AdminClubSearchParams = {}) {
   const client = useApiClient();
   return useQuery({

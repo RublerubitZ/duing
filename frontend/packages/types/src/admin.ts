@@ -548,6 +548,38 @@ export type AdminPendingTrend = {
   recentFlow: { days: number; receivedCount: number; handledCount: number };
 };
 
+/** 총동연 홈 자동 작업 키 — 서버 MonitoredJob 선언 순서와 같다. */
+export type AdminJobKey =
+  | 'RECRUITMENT_AUTO_CLOSE'
+  | 'APPLICATION_PENDING_REMINDER'
+  | 'FACILITY_RESERVATION_CRAWL'
+  | 'FACILITY_BOOKING_MATCHING'
+  | 'FEDERATION_INQUIRY_PURGE';
+
+/** 자동 작업 한 줄의 화면 상태 — 판정은 서버가 한다. NOT_YET = 첫 실행 전, OVERDUE = 늦음, DISABLED = 꺼짐. */
+export type AdminJobHealth = 'OK' | 'PARTIAL' | 'FAILED' | 'OVERDUE' | 'NOT_YET' | 'DISABLED';
+
+/**
+ * GET /admin/job-statuses 의 한 줄. job·health 는 앞선 백엔드가 모르는 값을 보낼 수 있어 string 이다 —
+ * 화면은 아는 키만 그리고(AdminJobKey), 모르는 상태는 경고로 세지 않는다(fail-open).
+ * 시각은 ISO Instant(…Z). 기록이 없으면 job·health 를 뺀 값이 null 이다.
+ */
+export type AdminJobStatus = {
+  job: string;
+  health: string;
+  lastFinishedAt: string | null;
+  lastSucceededAt: string | null;
+  /** SUCCESS·PARTIAL·FAILED */
+  lastOutcome: string | null;
+  resultCount: number | null;
+  failedCount: number | null;
+};
+
+/** GET /admin/job-statuses 응답 — 작업 5개, 서버 순서. */
+export type AdminJobStatuses = {
+  jobs: AdminJobStatus[];
+};
+
 /**
  * GET /admin/profile-check 응답 — 학기별 사용자 정보 확인 팝업의 설정과 확인 현황(총동연).
  *

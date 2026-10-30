@@ -28,6 +28,8 @@ export const adminQueryKeys = {
   pendingCounts: () => ['admin', 'pending-counts'] as const,
   // 총동연 홈 처리 대기 추이 — pendingCounts 접두 아래라, 처리 뮤테이션의 pendingCounts 무효화가 추이(접수·처리 숫자)도 다시 불러온다.
   pendingTrend: () => ['admin', 'pending-counts', 'trend'] as const,
+  // 총동연 홈 자동 작업 상태 — pending-counts 접두에 두지 않는다(처리 동작과 무관해 무효화 대상이 아니다).
+  jobStatuses: () => ['admin', 'job-statuses'] as const,
   // 학기별 사용자 정보 확인 팝업 — 설정·현황이 한 응답이라 파라미터 축이 없다. 저장 성공 시 이 키만 무효화한다.
   profileCheck: () => [...adminQueryKeys.all, 'profile-check'] as const,
   clubsAll: ['admin', 'clubs'] as const,
