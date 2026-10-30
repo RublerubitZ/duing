@@ -67,6 +67,14 @@ describe('HomeFooter — 모바일 간소 푸터', () => {
       'target',
       '_blank',
     );
+    expect(within(mobileFooter).getByRole('link', { name: '두잉팀 카카오 문의' })).toHaveAttribute(
+      'href',
+      'https://open.kakao.com/o/s6JruOzi',
+    );
+    expect(within(mobileFooter).getByRole('link', { name: 'duing.official@gmail.com' })).toHaveAttribute(
+      'href',
+      'mailto:duing.official@gmail.com',
+    );
   });
 });
 
