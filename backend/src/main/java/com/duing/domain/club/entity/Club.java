@@ -302,6 +302,13 @@ public class Club extends BaseEntity {
         }
     }
 
+    /** 남은 미결 정리 가능 여부 검증(스펙 §4-1). 운영 중단(INACTIVE) 상태만 허용한다. */
+    public void validatePendingCleanable() {
+        if (this.status != ClubStatus.INACTIVE) {
+            throw new ClubException.ClubNotInactiveException();
+        }
+    }
+
     public void changeCentralClub(boolean next) {
         this.centralClub = next;
     }

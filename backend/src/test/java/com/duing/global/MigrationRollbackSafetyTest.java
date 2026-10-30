@@ -83,7 +83,7 @@ class MigrationRollbackSafetyTest extends IntegrationTestBase {
     }
 
     @Test
-    @DisplayName("version 을 모르는 구 이미지가 지원서를 INSERT 해도 실패하지 않고 0 이 채워진다")
+    @DisplayName("version·ended_by_club_deactivation 을 모르는 구 이미지가 지원서를 INSERT 해도 실패하지 않고 0·false 가 채워진다")
     void applicationInsertSucceedsWithoutVersionColumn() {
         Club club = clubRepository.save(ClubFixture.academic("롤백안전동아리-" + sequence.getAndIncrement()));
         User applicant = userRepository.save(UserFixture.unique());
@@ -99,6 +99,10 @@ class MigrationRollbackSafetyTest extends IntegrationTestBase {
         Long version = jdbcTemplate.queryForObject(
                 "SELECT version FROM application WHERE user_id = ?", Long.class, applicant.getId());
         assertThat(version).isZero();
+        // V138 이전 이미지도 같은 INSERT 형태라 운영 중단 표시 칸은 기본값을 받는다(스펙 §4-1).
+        Boolean endedByClubDeactivation = jdbcTemplate.queryForObject(
+                "SELECT ended_by_club_deactivation FROM application WHERE user_id = ?", Boolean.class, applicant.getId());
+        assertThat(endedByClubDeactivation).isFalse();
     }
 
     @Test

@@ -63,6 +63,19 @@ public class ClubException extends ApplicationException {
         }
     }
 
+    /**
+     * 남은 미결 정리는 운영 중단(INACTIVE) 동아리만 할 수 있다(스펙 §4-1). 같은 클래스의 상태 선조건 예외
+     * (ClubNotClosableException·InvalidClubStatusTransitionException)는 400 이지만, 이 오류는 실제로 재활성화와의
+     * 경합(다른 담당자가 그사이 상태를 바꿈)에서 나오므로 409 로 둔다 — 화면은 실패해도 목록을 다시 받는다.
+     */
+    public static class ClubNotInactiveException extends ClubException {
+        private static final String MESSAGE = "운영 중단 동아리만 남은 미결을 정리할 수 있어요.";
+
+        public ClubNotInactiveException() {
+            super(MESSAGE, HttpStatus.CONFLICT);
+        }
+    }
+
     /** 익명 조회 기록의 IP 총량 상한 초과 — 정상 탐색으로는 닿지 않는 한도다(ClubViewRateLimiter 참고). */
     public static class ClubViewRateLimitedException extends ClubException {
         private static final String MESSAGE = "잠시 후 다시 시도해주세요.";
