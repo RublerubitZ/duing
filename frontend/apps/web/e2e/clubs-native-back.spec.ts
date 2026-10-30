@@ -1,5 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 
+// 루트 메타데이터의 기본 제목(레이아웃과 같은 상수) — Next 16.4 는 인터셉트 진입 때 모달 페이지 head(제목 없음)를 이 제목으로 그린다.
+import { SITE_TITLE } from '../app/_lib/site';
 import {
   LIST_TITLE,
   ROUTE_TIMEOUT_MS,
@@ -45,8 +47,6 @@ const API_BASE_URL = process.env.E2E_API_BASE_URL ?? 'http://localhost:8080/api/
 const MEMBER_STUDENT_ID = process.env.E2E_MEMBER_STUDENT_ID;
 const MEMBER_PASSWORD = process.env.E2E_MEMBER_PASSWORD;
 const MEMBER_CLUB_ID = Number(process.env.E2E_MEMBER_CLUB_ID ?? '');
-// 루트 메타데이터의 기본 제목 — Next 16.4 는 인터셉트 진입 때 모달 페이지 head(제목 없음)를 이 제목으로 그린다.
-const SITE_TITLE = '두잉 | 대구대학교 동아리 플랫폼';
 // 늦은 진입 — 상세 API 를 이만큼 늦춘다(인터셉트 커밋이 데이터보다 확실히 먼저 오게).
 const LATE_DETAIL_DELAY_MS = 3000;
 // 공지가 뒤따라 겹치는지 보는 여유.
@@ -264,8 +264,11 @@ test.describe('라우트 공지 — 전환마다 한 곳에서 한 번(Next 공�
     await recordRouteAnnouncements(page);
     await warmUpInterceptRoute(page);
     await page.goto('/notices');
+    // 창에 표식을 둔다 — 헤더 링크가 하드 이동이 되면 창 값부터 사라진다. 소프트 도착이 아닌 경로를 보고 통과하지 않게 한다.
+    await page.evaluate(() => Reflect.set(window, '__clubsSoftArrivalMark', true));
     await page.locator('header a[href="/clubs"]:visible').click();
     await waitForList(page);
+    expect(await page.evaluate(() => Reflect.get(window, '__clubsSoftArrivalMark'))).toBe(true);
     // 목록 head 가 들어오기 전 진입은 수용한 경합이라(스펙 2026-10-24 §7) 목록 제목을 기다린 뒤 들어간다.
     // 기록기는 프레임마다 적으므로, 목록 제목이 그려져 기록된 뒤에 구간을 연다.
     await expect(page).toHaveTitle(LIST_TITLE);
@@ -419,14 +422,17 @@ test.describe('인터셉트 상세에서 로그아웃(router.refresh)', () => {
     // 로그아웃이 상세를 다시 받는다 — 지연을 풀어 다시 받은 응답이 늦지 않게 한다.
     await releaseDetailDelay();
     await page.waitForTimeout(ANNOUNCEMENT_SETTLE_MS);
-    // refresh 는 지금 주소의 RSC 를 다시 받는다 — 그 응답이 끝나면 곧 커밋돼 head 가 다시 그려진다(목록 제목).
-    const refreshFinished = page.waitForEvent('requestfinished', {
-      predicate: (finishedRequest) =>
-        finishedRequest.headers()['rsc'] === '1' &&
-        finishedRequest.headers()['next-router-prefetch'] === undefined &&
-        new URL(finishedRequest.url()).pathname === `/clubs/${clubId}`,
-      timeout: ROUTE_TIMEOUT_MS,
-    });
+    // refresh 는 인터셉트 상세에서 RSC 를 둘 다시 받는다 — 지금 주소(/clubs/<id>)와 밑 화면(/clubs). 앞의 것만 기다리면 밑 화면 응답이
+    // 남은 채 다음 단계로 넘어가 뒤로 공지 단언이 가끔 어긋났다(dev 6회 중 1회). 둘 다 끝난 뒤에 진행한다.
+    const refreshRscFinished = (pathname: string) =>
+      page.waitForEvent('requestfinished', {
+        predicate: (finishedRequest) =>
+          finishedRequest.headers()['rsc'] === '1' &&
+          finishedRequest.headers()['next-router-prefetch'] === undefined &&
+          new URL(finishedRequest.url()).pathname === pathname,
+        timeout: ROUTE_TIMEOUT_MS,
+      });
+    const refreshFinished = Promise.all([refreshRscFinished(`/clubs/${clubId}`), refreshRscFinished('/clubs')]);
 
     const logoutAt = await markTime(page);
     await page.locator('header').getByRole('button', { name: /님$/ }).click();

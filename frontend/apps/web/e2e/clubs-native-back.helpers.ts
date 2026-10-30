@@ -309,13 +309,16 @@ export async function tabTitlesBetween(page: Page, from: number, to: number): Pr
  */
 export async function expectCleanTitles(page: Page): Promise<void> {
   // 두 값을 한 번에 본다 — 나가는 틈의 자리 표시 하나만 있는 순간에도 개수는 1 이다. 목록 head 가 늦게 올 수 있어 이동만큼 기다린다.
+  // expect.poll 은 콜백이 던진 예외는 다시 시도하지 않는다 — 문서 전체 이동 중(실행 컨텍스트 파괴)의 예외는 -1 로 바꿔 다시 본다.
   await expect
     .poll(
       () =>
-        page.evaluate((placeholderAttribute) => {
-          const titles = [...document.getElementsByTagName('title')].filter((element) => element instanceof HTMLTitleElement);
-          return { titles: titles.length, placeholders: titles.filter((element) => element.hasAttribute(placeholderAttribute)).length };
-        }, TITLE_PLACEHOLDER_ATTRIBUTE),
+        page
+          .evaluate((placeholderAttribute) => {
+            const titles = [...document.getElementsByTagName('title')].filter((element) => element instanceof HTMLTitleElement);
+            return { titles: titles.length, placeholders: titles.filter((element) => element.hasAttribute(placeholderAttribute)).length };
+          }, TITLE_PLACEHOLDER_ATTRIBUTE)
+          .catch(() => ({ titles: -1, placeholders: -1 })),
       { timeout: ROUTE_TIMEOUT_MS },
     )
     .toEqual({ titles: 1, placeholders: 0 });
