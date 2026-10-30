@@ -1,10 +1,9 @@
 import Link from 'next/link';
+import { DUING_CONTACT_EMAIL, DUING_KAKAO_CHAT_URL } from '@/app/_constants/duingContact';
 import { BrandMark } from '@/components/duing/BrandMark';
 import { FooterClubApplyCta } from './FooterClubApplyCta';
 
 const linkClass = 'hover:text-ink';
-/** 두잉팀 오픈채팅 — 모바일 간소 푸터와 데스크탑 풀 푸터가 같은 주소를 쓴다. */
-const KAKAO_OPEN_CHAT_URL = 'https://open.kakao.com/o/s6JruOzi';
 
 export function HomeFooter() {
   return (
@@ -37,7 +36,7 @@ export function HomeFooter() {
             </div>
             <div className="mt-1.5">
               <a
-                href={KAKAO_OPEN_CHAT_URL}
+                href={DUING_KAKAO_CHAT_URL}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="hover:text-ink"
@@ -47,8 +46,8 @@ export function HomeFooter() {
             </div>
             <div className="mt-1.5">
               문의사항 :{' '}
-              <a href="mailto:duing.official@gmail.com" className="hover:text-ink">
-                duing.official@gmail.com
+              <a href={`mailto:${DUING_CONTACT_EMAIL}`} className="hover:text-ink">
+                {DUING_CONTACT_EMAIL}
               </a>
             </div>
             <div className="mt-3 text-charcoal-3/80">© DUING · All Rights Reserved</div>
@@ -126,7 +125,7 @@ export function HomeFooter() {
           <ul className="mt-4 flex flex-col gap-2.5 text-sm text-charcoal-2">
             <li>
               <a
-                href={KAKAO_OPEN_CHAT_URL}
+                href={DUING_KAKAO_CHAT_URL}
                 target="_blank"
                 rel="noopener noreferrer"
                 className={linkClass}
@@ -135,8 +134,8 @@ export function HomeFooter() {
               </a>
             </li>
             <li>
-              <a href="mailto:duing.official@gmail.com" className={linkClass}>
-                duing.official@gmail.com
+              <a href={`mailto:${DUING_CONTACT_EMAIL}`} className={linkClass}>
+                {DUING_CONTACT_EMAIL}
               </a>
             </li>
           </ul>
