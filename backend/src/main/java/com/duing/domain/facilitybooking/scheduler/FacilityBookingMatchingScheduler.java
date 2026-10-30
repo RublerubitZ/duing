@@ -9,7 +9,11 @@ import com.duing.domain.facilitybooking.repository.FacilityBookingRepository;
 import com.duing.domain.facilitybooking.service.FacilityAvailabilityPolicy;
 import com.duing.domain.facilitybooking.service.FacilityBookingMatchingService;
 import com.duing.domain.facilitybooking.service.OrganizationNameNormalizer;
+import com.duing.global.jobrun.JobRunOutcome;
+import com.duing.global.jobrun.JobRunRecorder;
+import com.duing.global.jobrun.MonitoredJob;
 import java.time.Clock;
+import java.time.Instant;
 import java.time.YearMonth;
 import java.util.List;
 import java.util.Map;
@@ -43,8 +47,14 @@ public class FacilityBookingMatchingScheduler {
     private final FacilityAvailabilityPolicy availabilityPolicy;
     private final ClubRepository clubRepository;
     private final Clock clock;
+    private final JobRunRecorder jobRunRecorder;
 
     private final AtomicBoolean running = new AtomicBoolean(false);
+
+    /** 한 사이클 결과 — 확정 수, 예약 단위 예상 밖 실패 수(낙관 잠금 경합 제외), 신뢰할 스냅샷이 없어 건너뛴 달 수. */
+    public record MatchingCycleResult(int confirmedCount, int failedCount, int skippedMonths) {}
+
+    private record MonthMatchResult(int confirmedCount, int failedCount) {}
 
     @Scheduled(cron = "0 3-59/10 * * * *", zone = "Asia/Seoul")
     public void runScheduled() {
@@ -52,15 +62,23 @@ public class FacilityBookingMatchingScheduler {
             log.info("FacilityBooking Matching skip: 이전 사이클이 아직 진행 중");
             return;
         }
+        Instant startedAt = Instant.now(clock);
         try {
-            runMatchingCycle();
+            MatchingCycleResult cycleResult = runMatchingCycle();
+            // 건너뛴 달도 실패로 센다 — 두 달 모두 건너뛰면 아무것도 확인하지 못한 것이다(총동연 홈 자동 작업 카드).
+            int failedCount = cycleResult.failedCount() + cycleResult.skippedMonths();
+            jobRunRecorder.record(MonitoredJob.FACILITY_BOOKING_MATCHING, startedAt,
+                    JobRunOutcome.of(failedCount), cycleResult.confirmedCount(), failedCount);
+        } catch (RuntimeException matchingFailure) {
+            jobRunRecorder.record(MonitoredJob.FACILITY_BOOKING_MATCHING, startedAt, JobRunOutcome.FAILED, 0, 0);
+            throw matchingFailure;
         } finally {
             running.set(false);
         }
     }
 
     /** 테스트에서 직접 호출 가능한 코어 — 당월·익월의 APPROVED 를 스캔한다. */
-    public void runMatchingCycle() {
+    public MatchingCycleResult runMatchingCycle() {
         YearMonth currentMonth = YearMonth.now(clock);
         // 사이클당 1회 — 정규화 후 2개 이상 동아리가 공유하는 키(오확정 위험)를 미리 모아 verifyAndConfirm 에 넘긴다.
         // 기본 확보 시간 증거 제외는 행 단위 정밀화(2026-08-27)로 decide 가 securedTail 플래그로 수행한다.
@@ -69,15 +87,22 @@ public class FacilityBookingMatchingScheduler {
         // 사이클 중 플래그가 바뀌는 시차(TOCTOU)의 최악은 보류(수동 검토)이지 오확정이 아니다(fail-closed).
         Set<String> securedOrganizationKeys = availabilityPolicy.securedOrganizationKeys();
         int confirmedCount = 0;
+        int failedCount = 0;
+        int skippedMonths = 0;
         for (YearMonth month : List.of(currentMonth, currentMonth.plusMonths(1))) {
             // 신뢰 스냅샷 사전 게이트(빠른 스킵) — 세대 결박·확정은 verifyAndConfirm 이 트랜잭션 안에서 재확인한다.
             if (!hasTrustedSnapshot(month)) {
                 log.info("FacilityBooking Matching skip month={} (스냅샷 신뢰 불가 — FAILED 또는 미기록)", month);
+                skippedMonths++;
                 continue;
             }
-            confirmedCount += matchMonth(month, collidingClubKeys, securedOrganizationKeys);
+            MonthMatchResult monthResult = matchMonth(month, collidingClubKeys, securedOrganizationKeys);
+            confirmedCount += monthResult.confirmedCount();
+            failedCount += monthResult.failedCount();
         }
-        log.info("FacilityBooking Matching done confirmed={}", confirmedCount);
+        log.info("FacilityBooking Matching done confirmed={} failed={} skippedMonths={}",
+                confirmedCount, failedCount, skippedMonths);
+        return new MatchingCycleResult(confirmedCount, failedCount, skippedMonths);
     }
 
     /** 신뢰 가능(SUCCESS·PARTIAL) 월 스냅샷 존재 여부(빠른 스킵 게이트) — PARTIAL 의 안전성은 세대 결박이
@@ -89,12 +114,12 @@ public class FacilityBookingMatchingScheduler {
                 .orElse(false);
     }
 
-    private int matchMonth(YearMonth month, Set<String> collidingClubKeys, Set<String> securedOrganizationKeys) {
+    private MonthMatchResult matchMonth(YearMonth month, Set<String> collidingClubKeys, Set<String> securedOrganizationKeys) {
         List<FacilityBooking> approvedBookings = facilityBookingRepository
                 .findByStatusAndReservationDateBetween(BookingStatus.APPROVED,
                         month.atDay(1), month.atEndOfMonth());
         if (approvedBookings.isEmpty()) {
-            return 0;
+            return new MonthMatchResult(0, 0);
         }
         Map<Long, String> clubNames = clubRepository.findNameRowsByIdIn(
                         approvedBookings.stream().map(FacilityBooking::getClubId).distinct().toList()).stream()
@@ -102,6 +127,7 @@ public class FacilityBookingMatchingScheduler {
                         ClubRepository.ClubNameProjection::getName, (first, second) -> first));
 
         int confirmedCount = 0;
+        int failedCount = 0;
         for (FacilityBooking booking : approvedBookings) {
             // 한 건 처리 실패(낙관 잠금 충돌 포함)가 잔여 예약·익월 스캔을 죽이지 않도록 예약 단위로 격리한다.
             // 검증·아카이브 재확인·세대 결박·확정은 모두 verifyAndConfirm 의 단일 트랜잭션 안에서 이뤄진다.
@@ -118,9 +144,10 @@ public class FacilityBookingMatchingScheduler {
                 log.warn("FacilityBooking Matching 경합 스킵 bookingId={} (관리자 전이 선행 — 다음 사이클 재판정)",
                         booking.getId());
             } catch (Exception exception) {
+                failedCount++;
                 log.error("FacilityBooking Matching 실패 bookingId={}", booking.getId(), exception);
             }
         }
-        return confirmedCount;
+        return new MonthMatchResult(confirmedCount, failedCount);
     }
 }

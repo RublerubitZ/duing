@@ -5,6 +5,7 @@ import static org.mockito.ArgumentMatchers.anySet;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.verify;
 
 import com.duing.common.IntegrationTestBase;
 import com.duing.common.TestcontainersConfiguration;
@@ -25,7 +26,9 @@ import com.duing.domain.facility.repository.FacilityMonthSnapshotRepository;
 import com.duing.domain.facility.repository.FacilityRepository;
 import com.duing.domain.facility.repository.FacilityReservationRepository;
 import com.duing.domain.facilitybooking.entity.BookingStatus;
+import com.duing.domain.facilitybooking.entity.FacilityBooking;
 import com.duing.domain.facilitybooking.repository.FacilityBookingRepository;
+import com.duing.domain.facilitybooking.scheduler.FacilityBookingMatchingScheduler.MatchingCycleResult;
 import com.duing.domain.facilitybooking.service.FacilityBookingAdminService;
 import com.duing.domain.facilitybooking.service.FacilityBookingMatchingService;
 import com.duing.domain.facilitybooking.service.FacilityBookingService;
@@ -46,6 +49,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 
 /**
@@ -156,12 +160,33 @@ class FacilityBookingMatchingFailureIsolationTest extends IntegrationTestBase {
         doThrow(new IllegalStateException("주입된 처리 실패"))
                 .when(matchingService).verifyAndConfirm(eq(failingBooking), anyString(), anySet(), anySet());
 
-        scheduler.runMatchingCycle();
+        MatchingCycleResult cycleResult = scheduler.runMatchingCycle();
 
+        assertThat(cycleResult.confirmedCount()).isEqualTo(1);
+        assertThat(cycleResult.failedCount()).as("주입된 한 건 실패만 센다 — 낙관 잠금 경합이 아니다").isEqualTo(1);
         assertThat(bookingRepository.findById(healthyBooking).orElseThrow().getStatus())
                 .as("실패 건 이후의 예약도 확정된다 — try/catch 격리가 제거되면 이 단언이 깨진다")
                 .isEqualTo(BookingStatus.CONFIRMED);
         assertThat(bookingRepository.findById(failingBooking).orElseThrow().getStatus())
                 .isEqualTo(BookingStatus.APPROVED);
+    }
+
+    @Test
+    @DisplayName("낙관 잠금 경합(관리자 전이 선행)은 설계상 정상 스킵이라 실패로 세지 않는다")
+    void optimisticLockContentionIsNotCountedAsFailure() throws Exception {
+        User admin = saveUser("총동연");
+        LocalDate date = bookableDate();
+        LocalDateTime generation = LocalDateTime.now();
+        Fixture contendedFixture = fixture();
+        Long contendedBooking = approvedBookingWithMatchingRows(contendedFixture, admin, date, 9, 10, generation);
+        recordSuccessSnapshot(YearMonth.from(date), generation);
+        doThrow(new ObjectOptimisticLockingFailureException(FacilityBooking.class, contendedBooking))
+                .when(matchingService).verifyAndConfirm(eq(contendedBooking), anyString(), anySet(), anySet());
+
+        MatchingCycleResult cycleResult = scheduler.runMatchingCycle();
+
+        verify(matchingService).verifyAndConfirm(eq(contendedBooking), anyString(), anySet(), anySet());
+        assertThat(cycleResult.failedCount()).isZero();
+        assertThat(cycleResult.confirmedCount()).isZero();
     }
 }
