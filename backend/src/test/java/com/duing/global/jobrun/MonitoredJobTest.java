@@ -55,6 +55,7 @@ class MonitoredJobTest {
             assertThat(condition).as(job.name()).isNotNull();
             assertThat(condition.prefix() + "." + condition.name()[0]).as(job.name()).isEqualTo(job.getEnabledProperty());
             assertThat(condition.havingValue()).as(job.name()).isEqualTo("true");
+            assertThat(condition.matchIfMissing()).as(job.name()).isFalse();
         }
     }
 

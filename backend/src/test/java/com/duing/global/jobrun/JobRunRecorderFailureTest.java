@@ -72,11 +72,12 @@ class JobRunRecorderFailureTest {
     @DisplayName("커밋 단계에서 나는 실패도 삼킨다 — try 가 트랜잭션 경계 바깥에 있다")
     void swallowsCommitFailure() {
         doThrow(new TransactionSystemException("주입된 커밋 실패")).when(platformTransactionManager).commit(any());
+        Instant startedAt = NOW.minusSeconds(90);
 
-        assertThatCode(() -> jobRunRecorder.record(MonitoredJob.FACILITY_BOOKING_MATCHING, NOW, JobRunOutcome.SUCCESS, 0, 0))
+        assertThatCode(() -> jobRunRecorder.record(MonitoredJob.FACILITY_BOOKING_MATCHING, startedAt, JobRunOutcome.SUCCESS, 0, 0))
                 .doesNotThrowAnyException();
 
-        verify(scheduledJobRunRepository).upsert("FACILITY_BOOKING_MATCHING", NOW, NOW, "SUCCESS", 0, 0);
+        verify(scheduledJobRunRepository).upsert("FACILITY_BOOKING_MATCHING", startedAt, NOW, "SUCCESS", 0, 0);
         assertThat(logAppender.list).anySatisfy(warnEvent -> assertThat(warnEvent.getLevel()).isEqualTo(Level.WARN));
     }
 }
