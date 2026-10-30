@@ -6,6 +6,7 @@ import com.duing.domain.club.controller.dto.request.CreateClubRequest;
 import com.duing.domain.club.controller.dto.request.UpdateClubCentralClubRequest;
 import com.duing.domain.club.controller.dto.request.UpdateClubFacilitySecuredTimeTargetRequest;
 import com.duing.domain.club.controller.dto.request.UpdateClubStatusRequest;
+import com.duing.domain.club.controller.dto.response.AdminClubPendingCleanupResponse;
 import com.duing.domain.club.controller.dto.response.AdminClubSummaryResponse;
 import com.duing.domain.club.controller.dto.response.ClubDetailResponse;
 import com.duing.domain.club.entity.ClubCategory;
@@ -103,6 +104,16 @@ public interface AdminClubApi {
     ResponseEntity<ApiResponse<Void>> closeClub(
             @PathVariable Long clubId,
             @Valid @RequestBody(required = false) CloseClubRequest closeClubRequest,
+            @Parameter(hidden = true) @AuthenticationPrincipal UserPrincipal currentUser
+    );
+
+    @Operation(summary = "운영 중단 동아리 남은 미결 정리",
+            description = "운영 중단(INACTIVE) 동아리의 결과 미정 지원서(제출·보류·면접 대기 — 마감 모집 포함)를 불합격으로, "
+                    + "대기 중 가입 신청을 거절(사유 '동아리 운영 중단')로 한 번에 정리하고 실제 처리 건수를 돌려준다. "
+                    + "알림은 보내지 않고 면접 라운드·일정은 그대로 둔다. 운영 중단이 아니면 409, 없거나 폐쇄된 동아리는 404.")
+    @PostMapping("/admin/clubs/{clubId}/pending-cleanup")
+    ResponseEntity<ApiResponse<AdminClubPendingCleanupResponse>> cleanupPendingItems(
+            @PathVariable Long clubId,
             @Parameter(hidden = true) @AuthenticationPrincipal UserPrincipal currentUser
     );
 }
