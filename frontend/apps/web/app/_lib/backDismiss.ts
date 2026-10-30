@@ -9,7 +9,7 @@ import { useEffect, useRef, useState } from 'react';
 // 엔트리와 같은 URL 이 된다. 그래서 판정이 어긋나 back 이 한 번 더 일어나도 화면 이동은 발생하지
 // 않는다(최악이 "아무 일도 안 일어남").
 //
-// 버전 의존 주의 — Next 15.5.18 의 app-router.js 를 읽고 확인했고 16.4.3 에서 다시 확인했다(10/31). Next 는
+// 버전 의존 주의 — Next 15.5.18 의 app-router.js 를 읽고 확인했고 16.4.3 에서 다시 확인했다(2026-10-31). Next 는
 // history.pushState/replaceState 를 패치하지만 state 에 __NA 가 있으면 조기 반환해 원본 API 를
 // 그대로 부른다. 그래서 기존 history.state 를 펼쳐 __NA·내부 트리를 우리가 직접 들고 간다
 // (Next 가 내부 필드를 복사해 준다는 동작에 기대지 않기 위해서다). state 를 통째로 갈아치우면
