@@ -126,6 +126,14 @@ describe('buildJobStatusRows — 칩·경고·영향·직접 할 일', () => {
     expect(failedAutoClose.workaround).toBe('모집 관리에서 직접 마감할 수 있어요');
     expect(onlyRow(statusOf({ job: 'FACILITY_RESERVATION_CRAWL', health: 'FAILED' })).workaround).toBeNull();
 
+    // 일부 실패도 경고다 — 영향·직접 할 일이 같이 붙는다
+    const partialAutoClose = onlyRow(
+      statusOf({ job: 'RECRUITMENT_AUTO_CLOSE', health: 'PARTIAL', lastOutcome: 'PARTIAL', failedCount: 1 }),
+    );
+    expect(partialAutoClose.isWarning).toBe(true);
+    expect(partialAutoClose.impact).toBe('기간이 끝난 모집이 "모집 중"으로 남을 수 있어요');
+    expect(partialAutoClose.workaround).toBe('모집 관리에서 직접 마감할 수 있어요');
+
     const disabledPurge = onlyRow(statusOf({ job: 'FEDERATION_INQUIRY_PURGE', health: 'DISABLED' }));
     expect(disabledPurge.isWarning).toBe(false);
     expect(disabledPurge.isDisabled).toBe(true);
@@ -157,6 +165,9 @@ describe('jobStatusHeadline', () => {
   it('경고가 있으면 개수를, 없으면 정상 문장을, 꺼짐이 있으면 개수를 덧붙인다', () => {
     expect(jobStatusHeadline([row('RECRUITMENT_AUTO_CLOSE', 'FAILED'), row('FACILITY_RESERVATION_CRAWL', 'OVERDUE')])).toBe(
       '확인이 필요한 자동 작업이 2개 있어요',
+    );
+    expect(jobStatusHeadline([row('RECRUITMENT_AUTO_CLOSE', 'PARTIAL'), row('FACILITY_RESERVATION_CRAWL', 'OK')])).toBe(
+      '확인이 필요한 자동 작업이 1개 있어요',
     );
     expect(jobStatusHeadline([row('RECRUITMENT_AUTO_CLOSE', 'OK'), row('FACILITY_RESERVATION_CRAWL', 'OK')])).toBe('모두 제때 돌고 있어요');
     expect(jobStatusHeadline([row('RECRUITMENT_AUTO_CLOSE', 'OK'), row('FEDERATION_INQUIRY_PURGE', 'DISABLED')])).toBe(
