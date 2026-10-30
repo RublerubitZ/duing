@@ -61,11 +61,12 @@ public final class PendingItemsFixture {
         switch (status) {
             case SUBMITTED -> {
             }
-            case ON_HOLD, INTERVIEW_PENDING, REJECTED -> application.transitionTo(status, true);
+            case ON_HOLD, INTERVIEW_PENDING, REJECTED -> application.transitionTo(status, recruitment.isUseInterview());
             case ACCEPTED -> {
-                application.transitionTo(ApplicationStatus.INTERVIEW_PENDING, true);
-                application.transitionTo(ApplicationStatus.ACCEPTED, true);
+                application.transitionTo(ApplicationStatus.INTERVIEW_PENDING, recruitment.isUseInterview());
+                application.transitionTo(ApplicationStatus.ACCEPTED, recruitment.isUseInterview());
             }
+            default -> throw new IllegalArgumentException("지원하지 않는 상태: " + status);
         }
         return applicationRepository.save(application);
     }

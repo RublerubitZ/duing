@@ -28,7 +28,7 @@ public record AdminClubSummaryQuery(
         LocalDateTime statusChangedAt,
         String statusChangedByName,
         LocalDateTime pendingSince,
-        // 운영 중단(INACTIVE) 동아리만 채우고(0 포함) 다른 상태는 null — 남은 미결 판정은 ClubRepositoryImpl 한 곳이다(스펙 §3-1).
+        // 운영 중단(INACTIVE) 동아리만 채우고(0 포함) 다른 상태는 null — 목록·집계의 남은 미결 판정은 ClubRepositoryImpl 이다 — 정리 실행은 각 도메인 저장소 조회를 쓰고 동치 테스트로 묶는다(스펙 §3-1).
         // 총동연 모집 목록의 pendingApplicationCount(SUBMITTED 만)와 뜻이 달라 이름을 달리한다(제출·보류·면접 대기).
         Long undecidedApplicationCount,
         Long pendingJoinRequestCount

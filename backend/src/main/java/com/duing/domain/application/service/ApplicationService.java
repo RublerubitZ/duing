@@ -46,4 +46,10 @@ public interface ApplicationService {
                                          ApplicantSearchCondition condition);
 
     void rejectActiveOnClubClosure(List<Long> recruitmentIds, Long actorAdminUserId);
+
+    /**
+     * 운영 중단 동아리 남은 미결 정리(스펙 §4-1) — 그 동아리의 삭제되지 않은 모집(마감 포함)의 결과 미정 지원서를 모두
+     * 불합격으로 바꾸고 운영 중단 표시를 남긴다. 호출자가 동아리 행을 잠근 뒤 부른다. 처리 건수를 돌려준다.
+     */
+    int rejectActiveOnClubDeactivation(Long clubId, Long actorAdminUserId);
 }

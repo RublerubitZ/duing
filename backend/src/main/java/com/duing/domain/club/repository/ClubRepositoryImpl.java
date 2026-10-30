@@ -327,6 +327,9 @@ public class ClubRepositoryImpl implements ClubRepositoryCustom {
      * 결과 미정 지원서 행 술어(스펙 §3-1) — 동아리 상관이 없어 EXISTS(동아리 상관)와 GROUP BY(club_id IN)가 같이 쓴다.
      * 모집 상태(OPEN·CLOSED)는 묻지 않는다. 서브쿼리 조인에 @SQLRestriction 이 붙는지는 문맥마다 달라 삭제 조건을 모두 명시한다.
      * 지원자(users)는 조인하지 않는다 — 탈퇴한 사람의 지원서도 남은 미결이다.
+     * 호출 측이 recruitment 기본 별칭으로 application.recruitment 를 조인해야 한다 — 조인 없이 바깥 쿼리 안에서 쓰면 다른 모집 행에 엮일 수 있다.
+     * 정리 실행은 엔티티를 바꿔야 해서 ApplicationRepository#findByClubIdAndStatusIn 이 같은 조건을 JPQL 로 다시 쓴다 —
+     * 두 벌이라 바꿀 때 함께 바꾸고, AdminClubPendingCleanupControllerTest 의 동치 테스트가 묶는다.
      */
     private static BooleanExpression undecidedApplicationRow() {
         return application.status.in(ApplicationStatus.activeSet())
