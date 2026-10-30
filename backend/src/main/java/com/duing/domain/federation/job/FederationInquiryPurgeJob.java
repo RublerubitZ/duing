@@ -6,7 +6,11 @@ import com.duing.domain.federation.repository.FederationInquiryAttachmentPurgeTa
 import com.duing.domain.federation.repository.FederationInquiryAttachmentRepository;
 import com.duing.domain.federation.repository.FederationInquiryRepository;
 import com.duing.global.file.FileStorageService;
+import com.duing.global.jobrun.JobRunOutcome;
+import com.duing.global.jobrun.JobRunRecorder;
+import com.duing.global.jobrun.MonitoredJob;
 import java.time.Clock;
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.Period;
 import java.util.List;
@@ -47,6 +51,7 @@ public class FederationInquiryPurgeJob {
     private final FileStorageService fileStorageService;
     /** scrub 벌크 2건만 이 템플릿으로 단일 짧은 트랜잭션을 연다 — 첨부는 외부 호출을 포함해 별도(per-item). */
     private final TransactionTemplate transactionTemplate;
+    private final JobRunRecorder jobRunRecorder;
 
     public FederationInquiryPurgeJob(
             FederationInquiryPurgeProperties properties,
@@ -55,7 +60,8 @@ public class FederationInquiryPurgeJob {
             FederationInquiryAnswerRepository answerRepository,
             FederationInquiryAttachmentRepository attachmentRepository,
             FileStorageService fileStorageService,
-            PlatformTransactionManager platformTransactionManager) {
+            PlatformTransactionManager platformTransactionManager,
+            JobRunRecorder jobRunRecorder) {
         this.properties = properties;
         this.clock = clock;
         this.inquiryRepository = inquiryRepository;
@@ -63,6 +69,7 @@ public class FederationInquiryPurgeJob {
         this.attachmentRepository = attachmentRepository;
         this.fileStorageService = fileStorageService;
         this.transactionTemplate = new TransactionTemplate(platformTransactionManager);
+        this.jobRunRecorder = jobRunRecorder;
     }
 
     @Scheduled(cron = "0 40 4 * * *", zone = "Asia/Seoul")
@@ -70,24 +77,34 @@ public class FederationInquiryPurgeJob {
         if (!properties.enabled()) {
             return;
         }
+        Instant startedAt = Instant.now(clock);
         Period window = properties.window();
         if (window.isZero() || window.isNegative()) {
             // 보관기간이 0/음수면 활성 직후 삭제된 문의(심하면 미래 cutoff 로 모든 soft-delete 행)까지
             // 즉시 파기되는 비가역 사고가 난다 — 오설정 시 실행하지 않고 안전하게 건너뛴다(PII 잡 전례).
             log.error("[문의 보관기간 파기] 보관기간(window={})이 유효하지 않아 실행을 건너뜁니다.", window);
+            // 개발 담당이 고쳐야 하는 상태라 총동연 홈에 실패로 드러낸다.
+            jobRunRecorder.record(MonitoredJob.FEDERATION_INQUIRY_PURGE, startedAt, JobRunOutcome.FAILED, 0, 0);
             return;
         }
-        LocalDateTime cutoff = LocalDateTime.now(clock).minus(window);
+        try {
+            LocalDateTime cutoff = LocalDateTime.now(clock).minus(window);
 
-        ScrubResult scrubResult = transactionTemplate.execute(status -> scrub(cutoff));
-        int inquiriesScrubbed = scrubResult == null ? 0 : scrubResult.inquiriesScrubbed();
-        int answersScrubbed = scrubResult == null ? 0 : scrubResult.answersScrubbed();
+            ScrubResult scrubResult = transactionTemplate.execute(status -> scrub(cutoff));
+            int inquiriesScrubbed = scrubResult == null ? 0 : scrubResult.inquiriesScrubbed();
+            int answersScrubbed = scrubResult == null ? 0 : scrubResult.answersScrubbed();
 
-        PurgeResult purgeResult = purgeAttachments(cutoff);
+            PurgeResult purgeResult = purgeAttachments(cutoff);
 
-        log.info("[문의 보관기간 파기] inquiriesScrubbed={}, answersScrubbed={}, attachmentsPurged={}, "
-                        + "attachmentsSkipped={}, cutoff={}",
-                inquiriesScrubbed, answersScrubbed, purgeResult.purged(), purgeResult.skipped(), cutoff);
+            log.info("[문의 보관기간 파기] inquiriesScrubbed={}, answersScrubbed={}, attachmentsPurged={}, "
+                            + "attachmentsSkipped={}, cutoff={}",
+                    inquiriesScrubbed, answersScrubbed, purgeResult.purged(), purgeResult.skipped(), cutoff);
+            jobRunRecorder.record(MonitoredJob.FEDERATION_INQUIRY_PURGE, startedAt,
+                    JobRunOutcome.of(purgeResult.skipped()), inquiriesScrubbed, purgeResult.skipped());
+        } catch (RuntimeException purgeFailure) {
+            jobRunRecorder.record(MonitoredJob.FEDERATION_INQUIRY_PURGE, startedAt, JobRunOutcome.FAILED, 0, 0);
+            throw purgeFailure;
+        }
     }
 
     // 문의·답변 벌크 UPDATE 2건 — 외부 호출이 없어 단일 짧은 트랜잭션으로 묶는다.
