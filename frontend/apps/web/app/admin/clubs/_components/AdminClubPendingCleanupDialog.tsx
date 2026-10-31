@@ -29,7 +29,7 @@ export function AdminClubPendingCleanupDialog({ clubName, counts, isPending, err
         if (!open && !isPending) onCancel();
       }}
     >
-      <DialogContent className="max-w-md" busy={isPending}>
+      <DialogContent busy={isPending}>
         <DialogHeader>
           <DialogTitle className="break-keep">{clubName}의 남은 미결을 정리할까요?</DialogTitle>
           {/* Description 은 p 라 목록을 담지 못한다 — asChild 로 ul 이 창 설명이 된다. */}

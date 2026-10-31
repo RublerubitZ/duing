@@ -44,15 +44,18 @@ afterAll(() => server.close());
 
 function renderPage() {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
-  return render(
+  // 다시 그릴 때도 같은 QueryClient·provider 트리를 쓴다(새 요소라야 React 가 건너뛰지 않는다).
+  const pageTree = () => (
     <ApiClientProvider client={apiClient}>
       <QueryClientProvider client={queryClient}>
         <ToastProvider>
           <AdminClubsListPage />
         </ToastProvider>
       </QueryClientProvider>
-    </ApiClientProvider>,
+    </ApiClientProvider>
   );
+  const view = render(pageTree());
+  return { ...view, rerenderPage: () => view.rerender(pageTree()) };
 }
 
 describe('AdminClubsListPage — 상태 필터 첫 값·조회 조건', () => {
@@ -71,6 +74,19 @@ describe('AdminClubsListPage — 상태 필터 첫 값·조회 조건', () => {
 
     await waitFor(() => expect(listRequests).toHaveLength(1));
     expect(listRequests[0]).toEqual({ status: 'PENDING_APPROVAL', page: '0', size: '20' });
+    expect(screen.getByRole('tab', { name: '승인 대기' })).toHaveAttribute('aria-selected', 'true');
+  });
+
+  it('주소 쿼리만 바뀌어도(사이드바로 같은 메뉴) 첫 값부터 다시 시작한다', async () => {
+    mockSearchParams.mockReturnValue(new URLSearchParams('status=INACTIVE_PENDING'));
+    const { rerenderPage } = renderPage();
+    await waitFor(() => expect(listRequests).toHaveLength(1));
+    expect(listRequests[0]).toEqual({ status: 'INACTIVE', needsPendingCleanup: 'true', page: '0', size: '20' });
+
+    mockSearchParams.mockReturnValue(new URLSearchParams());
+    rerenderPage();
+
+    await waitFor(() => expect(listRequests.at(-1)).toEqual({ status: 'PENDING_APPROVAL', page: '0', size: '20' }));
     expect(screen.getByRole('tab', { name: '승인 대기' })).toHaveAttribute('aria-selected', 'true');
   });
 
