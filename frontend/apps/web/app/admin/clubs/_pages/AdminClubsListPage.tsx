@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { ApiError } from '@duing/api';
 import {
   useAdminClubsQuery,
@@ -10,7 +11,7 @@ import {
   useUpdateClubFacilitySecuredTimeTargetMutation,
   useUpdateClubStatusMutation,
 } from '@duing/hooks';
-import type { AdminClubSummary, ClubStatus } from '@duing/types';
+import type { AdminClubSummary } from '@duing/types';
 import { scrollToPaginatedListStart } from '@/app/_lib/paginationScroll';
 import { LoadingGate } from '@/components/loading/LoadingGate';
 import { AdminClubCentralClubToggleDialog } from '../_components/AdminClubCentralClubToggleDialog';
@@ -19,7 +20,8 @@ import { AdminClubDeleteDialog } from '../_components/AdminClubDeleteDialog';
 import { AdminClubStatusChangeDialog } from '../_components/AdminClubStatusChangeDialog';
 import { AdminClubStatusFilter } from '../_components/AdminClubStatusFilter';
 import { AdminClubsTable } from '../_components/AdminClubsTable';
-import type { StatusAction, StatusFilter } from '../_lib/clubStatus';
+import { STATUS_FILTER_ORDER, statusFilterParams, type StatusAction, type StatusFilter } from '../_lib/clubStatus';
+import { pickSearchParam } from '../../_lib/searchParamChoice';
 import { toRoute } from '../../../_lib/route';
 
 const PAGE_SIZE = 20;
@@ -30,7 +32,15 @@ type DialogState = {
 };
 
 export function AdminClubsListPage() {
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>('PENDING_APPROVAL');
+  const searchParams = useSearchParams();
+  // 총동연 홈 '운영 중단 미결' 칸이 ?status=INACTIVE_PENDING 으로 첫 탭을 고른다. 주소는 첫 값으로만 읽고 탭을 바꿔도 고치지 않는다.
+  // 주소만 바뀐 이동(사이드바로 같은 메뉴)에도 첫 값부터 다시 시작하도록 key 로 초기화한다(신고·모집 목록 선례).
+  const initialFilter = pickSearchParam(searchParams.get('status'), STATUS_FILTER_ORDER) ?? 'PENDING_APPROVAL';
+  return <AdminClubsList key={initialFilter} initialFilter={initialFilter} />;
+}
+
+function AdminClubsList({ initialFilter }: { initialFilter: StatusFilter }) {
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>(initialFilter);
   const [keyword, setKeyword] = useState('');
   const [keywordDraft, setKeywordDraft] = useState('');
   const [page, setPage] = useState(0);
@@ -46,7 +56,7 @@ export function AdminClubsListPage() {
 
   const params = useMemo(
     () => ({
-      status: statusFilter === 'ALL' ? undefined : (statusFilter as ClubStatus),
+      ...statusFilterParams(statusFilter),
       keyword: keyword.trim() || undefined,
       page,
       size: PAGE_SIZE,
