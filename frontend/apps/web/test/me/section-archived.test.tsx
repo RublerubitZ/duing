@@ -80,4 +80,19 @@ describe('SectionArchived', () => {
     );
     expect(screen.getByText(/지난 지원 · 3/)).toBeInTheDocument();
   });
+
+  it('운영 중단 정리로 끝난 지원은 "🗂 선발 종료" pill 이다 — 결과 미발표와 같은 색', () => {
+    render(
+      <SectionArchived
+        applications={[make({ id: 13, status: 'REJECTED', endedByClubDeactivation: true, clubName: '중단동' })]}
+      />,
+    );
+    expect(screen.getByText(/🗂\s*선발 종료/)).toHaveClass('bg-graysoft', 'text-charcoal-2');
+    expect(screen.queryByText(/최종 불합격/)).toBeNull();
+  });
+
+  it('운영진 불합격(표시 칸 거짓)은 "📝 최종 불합격" 그대로다', () => {
+    render(<SectionArchived applications={[make({ id: 14, status: 'REJECTED', endedByClubDeactivation: false })]} />);
+    expect(screen.getByText(/📝\s*최종 불합격/)).toBeInTheDocument();
+  });
 });
