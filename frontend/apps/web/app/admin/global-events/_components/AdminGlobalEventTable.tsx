@@ -25,25 +25,25 @@ export function AdminGlobalEventTable({ items, onDeleteClick }: Props) {
       <table className="w-full text-[13.5px]">
         <thead className="bg-cream-2 text-charcoal-2">
           <tr>
-            <th className="px-4 py-3 text-left">카테고리</th>
-            <th className="px-4 py-3 text-left">제목</th>
-            <th className="px-4 py-3 text-left">기간</th>
-            <th className="px-4 py-3 text-left">장소</th>
-            <th className="px-4 py-3 w-[140px]">관리</th>
+            <th className="whitespace-nowrap px-4 py-3 text-left">카테고리</th>
+            <th className="whitespace-nowrap px-4 py-3 text-left">제목</th>
+            <th className="whitespace-nowrap px-4 py-3 text-left">기간</th>
+            <th className="whitespace-nowrap px-4 py-3 text-left">장소</th>
+            <th className="whitespace-nowrap px-4 py-3 w-[140px]">관리</th>
           </tr>
         </thead>
         <tbody>
           {items.map((item) => (
             <tr key={item.id} className="border-t border-line">
-              <td className="px-4 py-3 text-charcoal-2">
+              <td className="whitespace-nowrap px-4 py-3 text-charcoal-2">
                 {globalEventCategoryLabelOf(item.category)}
               </td>
-              <td className="px-4 py-3 text-ink font-semibold">{item.title}</td>
+              <td className="break-keep px-4 py-3 text-ink font-semibold">{item.title}</td>
               <td className="px-4 py-3 text-charcoal-2 tabular-nums text-[12.5px]">
                 {formatRange(item.startAt, item.endAt)}
               </td>
-              <td className="px-4 py-3 text-charcoal-3">{item.location ?? '—'}</td>
-              <td className="px-4 py-3">
+              <td className="break-keep px-4 py-3 text-charcoal-3">{item.location ?? '—'}</td>
+              <td className="whitespace-nowrap px-4 py-3">
                 <div className="flex items-center gap-2">
                   <Link
                     href={toRoute(`/admin/global-events/${item.id}/edit`)}

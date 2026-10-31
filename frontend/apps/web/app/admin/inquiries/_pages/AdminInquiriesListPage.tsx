@@ -142,11 +142,11 @@ function AdminInquiriesList({ initialStatus }: { initialStatus: FederationInquir
             <tbody>
               {items.map((inquiry) => (
                 <tr key={inquiry.id} className="border-t border-line hover:bg-graysoft/50">
-                  <Td>{inquiry.title}</Td>
-                  <Td>
+                  <Td className="break-keep">{inquiry.title}</Td>
+                  <Td className="whitespace-nowrap">
                     {inquiry.authorName} ({inquiry.authorStudentId})
                   </Td>
-                  <Td>
+                  <Td className="whitespace-nowrap">
                     <span
                       className={cn(
                         'inline-block px-2 py-0.5 rounded-full text-[11px] font-semibold',
@@ -156,8 +156,8 @@ function AdminInquiriesList({ initialStatus }: { initialStatus: FederationInquir
                       {INQUIRY_STATUS_LABEL[inquiry.status]}
                     </span>
                   </Td>
-                  <Td>{formatDateTimeKst(inquiry.createdAt)}</Td>
-                  <Td>
+                  <Td className="whitespace-nowrap">{formatDateTimeKst(inquiry.createdAt)}</Td>
+                  <Td className="whitespace-nowrap">
                     <Link
                       href={toRoute(`/admin/inquiries/${inquiry.id}`)}
                       className="text-[12px] text-charcoal-2 hover:text-ink hover:underline"
@@ -178,8 +178,8 @@ function AdminInquiriesList({ initialStatus }: { initialStatus: FederationInquir
 }
 
 const Th = ({ children }: { children: React.ReactNode }) => (
-  <th className="text-left px-3 py-2 font-semibold">{children}</th>
+  <th className="whitespace-nowrap text-left px-3 py-2 font-semibold">{children}</th>
 );
-const Td = ({ children }: { children: React.ReactNode }) => (
-  <td className="px-3 py-2 align-middle">{children}</td>
+const Td = ({ children, className }: { children: React.ReactNode; className?: string }) => (
+  <td className={cn('px-3 py-2 align-middle', className)}>{children}</td>
 );

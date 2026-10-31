@@ -37,7 +37,7 @@ export function AdminReportsTable({ items }: Props) {
         <tbody>
           {items.map((report) => (
             <tr key={report.id} className="border-t border-line hover:bg-graysoft/50">
-              <Td>
+              <Td className="whitespace-nowrap">
                 <span
                   className={cn(
                     'inline-block px-2 py-0.5 rounded-full text-[11px] font-semibold',
@@ -47,11 +47,11 @@ export function AdminReportsTable({ items }: Props) {
                   {REPORT_STATUS_LABEL[report.status]}
                 </span>
               </Td>
-              <Td>{REPORT_TARGET_TYPE_LABEL[report.targetType]}</Td>
-              <Td>{report.targetLabel}</Td>
-              <Td>{REPORT_REASON_LABEL[report.reasonCode]}</Td>
-              <Td>{formatDateTimeKst(report.createdAt)}</Td>
-              <Td>
+              <Td className="whitespace-nowrap">{REPORT_TARGET_TYPE_LABEL[report.targetType]}</Td>
+              <Td className="break-keep">{report.targetLabel}</Td>
+              <Td className="whitespace-nowrap">{REPORT_REASON_LABEL[report.reasonCode]}</Td>
+              <Td className="whitespace-nowrap">{formatDateTimeKst(report.createdAt)}</Td>
+              <Td className="whitespace-nowrap">
                 <Link
                   href={toRoute(`/admin/reports/${report.id}`)}
                   className="text-[12px] text-charcoal-2 hover:text-ink hover:underline"
@@ -68,8 +68,8 @@ export function AdminReportsTable({ items }: Props) {
 }
 
 const Th = ({ children }: { children: React.ReactNode }) => (
-  <th className="text-left px-3 py-2 font-semibold">{children}</th>
+  <th className="whitespace-nowrap text-left px-3 py-2 font-semibold">{children}</th>
 );
-const Td = ({ children }: { children: React.ReactNode }) => (
-  <td className="px-3 py-2 align-middle">{children}</td>
+const Td = ({ children, className }: { children: React.ReactNode; className?: string }) => (
+  <td className={cn('px-3 py-2 align-middle', className)}>{children}</td>
 );
