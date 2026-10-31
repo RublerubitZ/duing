@@ -144,7 +144,8 @@ export function ApplicationStepper({ detail, phase }: Props) {
     : resolveActiveStepIndex(phase, detail);
   const isFinalReject = detail.status === 'REJECTED' && !endedByDeactivation;
 
-  // 마감된 모집에서는 면접 phase 안내가 전부 성립하지 않는다 — 회차 생성도, 시간 선택도 막혀 있고
+  // 운영 중단 정리로 끝난 지원은 모집 상태와 상관없이 그 안내를 먼저 띄운다(정리는 OPEN·CLOSED 모집을 가리지 않는다).
+  // 그 밖에 마감된 모집에서는 면접 phase 안내가 전부 성립하지 않는다 — 회차 생성도, 시간 선택도 막혀 있고
   // 면접 카드(CTA 를 가진 쪽)도 함께 접힌다. 결과가 아직 없을 때만 종료 안내를 대신 띄운다.
   const guideDescription: string | null = endedByDeactivation
     ? APPLICATION_ENDED_BY_CLUB_DEACTIVATION_DESCRIPTION
