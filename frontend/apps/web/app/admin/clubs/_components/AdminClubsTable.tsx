@@ -7,11 +7,13 @@ import { formatDateKst } from '@duing/hooks';
 import type { AdminClubSummary } from '@duing/types';
 import { clubCategoryLabel } from '../../../clubs/[clubId]/_lib/clubCategoryLabel';
 import {
+  PENDING_CLEANUP_ACTION_LABEL,
   STATUS_ACTIONS,
   STATUS_BADGE_CLASS,
   STATUS_LABEL,
   type StatusAction,
 } from '../_lib/clubStatus';
+import { pendingCleanupCounts, pendingCleanupRowText, type PendingCleanupCounts } from '../_lib/pendingCleanup';
 
 type Props = {
   clubs: ReadonlyArray<AdminClubSummary>;
@@ -19,6 +21,7 @@ type Props = {
   onCentralClubToggleClick: (club: AdminClubSummary) => void;
   onSecuredTargetToggleClick: (club: AdminClubSummary) => void;
   onCloseClick: (club: AdminClubSummary) => void;
+  onPendingCleanupClick: (club: AdminClubSummary, counts: PendingCleanupCounts) => void;
 };
 
 export function AdminClubsTable({
@@ -27,6 +30,7 @@ export function AdminClubsTable({
   onCentralClubToggleClick,
   onSecuredTargetToggleClick,
   onCloseClick,
+  onPendingCleanupClick,
 }: Props) {
   if (clubs.length === 0) {
     return (
@@ -57,6 +61,7 @@ export function AdminClubsTable({
                 ? `${club.statusChangedByName} · ${formatDateKst(club.statusChangedAt)}`
                 : '—';
             const isRejected = club.status === 'REJECTED' && club.rejectionReason;
+            const cleanupCounts = pendingCleanupCounts(club);
             return (
               <React.Fragment key={club.id}>
                 <tr className="border-line border-b last:border-b-0">
@@ -107,6 +112,9 @@ export function AdminClubsTable({
                     >
                       {STATUS_LABEL[club.status]}
                     </span>
+                    {cleanupCounts && (
+                      <div className="mt-1 break-keep text-xs text-slate-600">{pendingCleanupRowText(cleanupCounts)}</div>
+                    )}
                   </td>
                   <td className="px-4 py-3 text-xs text-slate-500">{auditText}</td>
                   <td className="px-4 py-3 text-right">
@@ -125,6 +133,16 @@ export function AdminClubsTable({
                       >
                         {club.facilitySecuredTimeTarget ? '확보 해제' : '확보 지정'}
                       </button>
+                      {/* 옆 동작 버튼과 같은 크기(py-1 text-xs) — 이 표의 동작 버튼은 모두 같은 크기라 이것만 44px 로 키우지 않는다(스펙 §5-1). */}
+                      {cleanupCounts && (
+                        <button
+                          type="button"
+                          onClick={() => onPendingCleanupClick(club, cleanupCounts)}
+                          className="rounded-md border border-rose-200 px-2.5 py-1 text-xs font-semibold text-rose-700 hover:bg-rose-50"
+                        >
+                          {PENDING_CLEANUP_ACTION_LABEL}
+                        </button>
+                      )}
                       {actions.map((action) => (
                         <button
                           key={action.nextStatus}

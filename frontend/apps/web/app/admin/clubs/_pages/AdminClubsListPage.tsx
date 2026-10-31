@@ -1,25 +1,31 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { ApiError } from '@duing/api';
 import {
   useAdminClubsQuery,
+  useCleanupClubPendingMutation,
   useCloseClubMutation,
   useUpdateClubCentralClubMutation,
   useUpdateClubFacilitySecuredTimeTargetMutation,
   useUpdateClubStatusMutation,
 } from '@duing/hooks';
-import type { AdminClubSummary, ClubStatus } from '@duing/types';
+import type { AdminClubSummary } from '@duing/types';
 import { scrollToPaginatedListStart } from '@/app/_lib/paginationScroll';
+import { useToast } from '@/app/_components/toast/ToastProvider';
 import { LoadingGate } from '@/components/loading/LoadingGate';
 import { AdminClubCentralClubToggleDialog } from '../_components/AdminClubCentralClubToggleDialog';
 import { AdminClubSecuredTargetToggleDialog } from '../_components/AdminClubSecuredTargetToggleDialog';
 import { AdminClubDeleteDialog } from '../_components/AdminClubDeleteDialog';
+import { AdminClubPendingCleanupDialog } from '../_components/AdminClubPendingCleanupDialog';
 import { AdminClubStatusChangeDialog } from '../_components/AdminClubStatusChangeDialog';
 import { AdminClubStatusFilter } from '../_components/AdminClubStatusFilter';
 import { AdminClubsTable } from '../_components/AdminClubsTable';
-import type { StatusAction, StatusFilter } from '../_lib/clubStatus';
+import { STATUS_FILTER_ORDER, statusFilterParams, type StatusAction, type StatusFilter } from '../_lib/clubStatus';
+import { pendingCleanupResultMessage, type PendingCleanupCounts } from '../_lib/pendingCleanup';
+import { pickSearchParam } from '../../_lib/searchParamChoice';
 import { toRoute } from '../../../_lib/route';
 
 const PAGE_SIZE = 20;
@@ -30,7 +36,15 @@ type DialogState = {
 };
 
 export function AdminClubsListPage() {
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>('PENDING_APPROVAL');
+  const searchParams = useSearchParams();
+  // 총동연 홈 '운영 중단 미결' 칸이 ?status=INACTIVE_PENDING 으로 첫 탭을 고른다. 주소는 첫 값으로만 읽고 탭을 바꿔도 고치지 않는다.
+  // 주소만 바뀐 이동(사이드바로 같은 메뉴)에도 첫 값부터 다시 시작하도록 key 로 초기화한다(신고·모집 목록 선례).
+  const initialFilter = pickSearchParam(searchParams.get('status'), STATUS_FILTER_ORDER) ?? 'PENDING_APPROVAL';
+  return <AdminClubsList key={initialFilter} initialFilter={initialFilter} />;
+}
+
+function AdminClubsList({ initialFilter }: { initialFilter: StatusFilter }) {
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>(initialFilter);
   const [keyword, setKeyword] = useState('');
   const [keywordDraft, setKeywordDraft] = useState('');
   const [page, setPage] = useState(0);
@@ -43,10 +57,16 @@ export function AdminClubsListPage() {
   const [deleteDialog, setDeleteDialog] = useState<AdminClubSummary | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const closeMutation = useCloseClubMutation();
+  const [cleanupDialog, setCleanupDialog] = useState<{ club: AdminClubSummary; counts: PendingCleanupCounts } | null>(null);
+  const [cleanupError, setCleanupError] = useState<string | null>(null);
+  const cleanupMutation = useCleanupClubPendingMutation();
+  // 확정 연타 동기 가드 — isPending 은 렌더 값이라 같은 틱의 두 번째 클릭(disabled 가 그려지기 전)을 못 막는다.
+  const isCleanupSubmittingRef = useRef(false);
+  const { addToast } = useToast();
 
   const params = useMemo(
     () => ({
-      status: statusFilter === 'ALL' ? undefined : (statusFilter as ClubStatus),
+      ...statusFilterParams(statusFilter),
       keyword: keyword.trim() || undefined,
       page,
       size: PAGE_SIZE,
@@ -125,6 +145,41 @@ export function AdminClubsListPage() {
   function handleCloseCancel() {
     setDeleteDialog(null);
     setDeleteError(null);
+  }
+
+  function handlePendingCleanupClick(club: AdminClubSummary, counts: PendingCleanupCounts) {
+    setCleanupError(null);
+    setCleanupDialog({ club, counts });
+  }
+
+  function handlePendingCleanupConfirm() {
+    if (!cleanupDialog || isCleanupSubmittingRef.current) return;
+    isCleanupSubmittingRef.current = true;
+    setCleanupError(null);
+    cleanupMutation.mutate(cleanupDialog.club.id, {
+      onSuccess: (cleanupResult) => {
+        setCleanupDialog(null);
+        // 창의 건수는 목록을 받은 시점 값이다 — 실제 처리 건수는 응답으로 알린다.
+        addToast(pendingCleanupResultMessage(cleanupResult));
+      },
+      onError: (mutationError) => {
+        // 409 두 종류(상태가 바뀜·동시 수정) 모두 서버 문구 그대로. 목록은 훅의 onSettled 가 다시 받는다.
+        const message =
+          mutationError instanceof ApiError
+            ? mutationError.message
+            : '남은 미결을 정리하지 못했어요. 잠시 후 다시 시도해 주세요.';
+        setCleanupError(message);
+      },
+      // 성공·실패 모두 풀어 실패 뒤 다시 시도·창을 다시 열어 확정할 수 있게 한다.
+      onSettled: () => {
+        isCleanupSubmittingRef.current = false;
+      },
+    });
+  }
+
+  function handlePendingCleanupCancel() {
+    setCleanupDialog(null);
+    setCleanupError(null);
   }
 
   function handleCentralClubToggleClick(club: AdminClubSummary) {
@@ -248,6 +303,7 @@ export function AdminClubsListPage() {
             onCentralClubToggleClick={handleCentralClubToggleClick}
             onSecuredTargetToggleClick={handleSecuredTargetToggleClick}
             onCloseClick={handleCloseClick}
+            onPendingCleanupClick={handlePendingCleanupClick}
           />
           <footer className="mt-4 flex items-center justify-between text-xs text-slate-500">
             <span>총 {totalElements}건</span>
@@ -319,6 +375,16 @@ export function AdminClubsListPage() {
           errorMessage={deleteError}
           onConfirm={handleCloseConfirm}
           onCancel={handleCloseCancel}
+        />
+      )}
+      {cleanupDialog && (
+        <AdminClubPendingCleanupDialog
+          clubName={cleanupDialog.club.name}
+          counts={cleanupDialog.counts}
+          isPending={cleanupMutation.isPending}
+          errorMessage={cleanupError}
+          onConfirm={handlePendingCleanupConfirm}
+          onCancel={handlePendingCleanupCancel}
         />
       )}
     </main>

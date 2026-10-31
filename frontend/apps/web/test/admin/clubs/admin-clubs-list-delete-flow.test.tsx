@@ -13,6 +13,12 @@ import { AdminClubsListPage } from '@/app/admin/clubs/_pages/AdminClubsListPage'
 import { ToastProvider } from '@/app/_components/toast/ToastProvider';
 
 /* ── 모듈 모킹 ─────────────────────────────────────────────── */
+// 목록이 주소의 ?status= 첫 값을 읽는다(useSearchParams) — 앱 라우터 밖이라 mock 한다(list-initial-filter.test.tsx 선례).
+vi.mock('next/navigation', () => ({
+  useSearchParams: () => new URLSearchParams(),
+  useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
+  usePathname: () => '/admin/clubs',
+}));
 vi.mock('next/link', () => ({
   default: ({ href, children, ...rest }: { href: string; children: React.ReactNode; [key: string]: unknown }) => (
     <a href={href} {...rest}>{children}</a>
