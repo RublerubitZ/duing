@@ -140,7 +140,8 @@ export function AdminNavContent({
 
 function badgeOf(section: AdminSection, counts: AdminPendingCounts | undefined) {
   if (!section.pendingCountKey || !counts) return undefined;
-  const count = counts[section.pendingCountKey];
+  // 선택 필드(옛 백엔드에서 없을 수 있는 칸)도 키가 될 수 있다 — 없으면 배지 없음.
+  const count = counts[section.pendingCountKey] ?? 0;
   return count > 0 ? count : undefined;
 }
 

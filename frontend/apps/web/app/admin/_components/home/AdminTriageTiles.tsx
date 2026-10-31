@@ -10,12 +10,14 @@ export function AdminTriageTiles() {
   const { data: pendingCounts } = useAdminPendingCountsQuery();
   const queue = useAdminTriageQueue();
   const now = new Date();
+  // 집계를 받았는데 칸 필드가 없으면 그 항목을 모르는 옛 백엔드다 — 칸을 그리지 않는다(받기 전·실패는 다른 칸처럼 그린다).
+  const tiles = ADMIN_TRIAGE_TILES.filter((tile) => pendingCounts === undefined || pendingCounts[tile.countKey] !== undefined);
 
   return (
     <section aria-label="영역별 대기">
-      {/* 신고 칸이 2칸 폭이라 2열이면 1+3줄, 4열이면 2줄로 7칸이 외톨이 칸 없이 찬다. */}
+      {/* 8칸이 같은 폭 — 2열이면 4줄, 4열이면 2줄로 외톨이 칸 없이 찬다. 신고 칸은 맨 앞이고 건수가 있으면 경고색이라 폭을 넓히지 않아도 먼저 보인다. */}
       <ul className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        {ADMIN_TRIAGE_TILES.map((tile) => {
+        {tiles.map((tile) => {
           const count = pendingCounts?.[tile.countKey];
           // 0건에 경고색을 칠하면 경고가 배경이 된다 — 위험 칸도 건수가 있을 때만.
           const isAlert = tile.isDanger && (count ?? 0) > 0;
@@ -23,9 +25,10 @@ export function AdminTriageTiles() {
             count,
             tile.key === 'CLUB_APPROVAL' && queue.clubApprovalTimeUnknown ? null : queue.areas[tile.key],
             now,
+            tile.todayLabel,
           );
           return (
-            <li key={tile.key} className={cn(tile.isDanger && 'col-span-2')}>
+            <li key={tile.key}>
               <Link
                 href={toRoute(triageTileHref(tile.key, queue.inquiryTotals))}
                 className={cn(
