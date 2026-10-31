@@ -162,6 +162,7 @@ export {
   useCreateClubMutation,
   useUpdateClubStatusMutation,
   useCloseClubMutation,
+  useCleanupClubPendingMutation,
   useUpdateClubCentralClubMutation,
   useUpdateClubFacilitySecuredTimeTargetMutation,
   useAdminUpdateClubMutation,

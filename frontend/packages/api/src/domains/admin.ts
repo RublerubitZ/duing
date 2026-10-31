@@ -2,6 +2,7 @@ import type { KyInstance, ResponsePromise } from 'ky';
 import type {
   AdminClubSearchParams,
   AdminClubSummary,
+  AdminClubPendingCleanupResult,
   AdminClubMemberHistoryParams,
   AdminClubMemberHistoryRow,
   AdminClubActivityEvent,
@@ -126,6 +127,11 @@ export type AdminApi = {
     members(clubId: number): Promise<AdminClubMember[]>;
     /** 총동연 전용 — 잠금 필드(name/category/division/college)까지 수정 가능. */
     update(clubId: number, payload: AdminUpdateClubPayload): Promise<ClubDetail>;
+    /**
+     * 운영 중단 동아리의 남은 미결 정리 — 결과 미정 지원서 불합격·대기 가입 신청 거절(본문 없음, 200).
+     * 운영 중단이 아니면 409, 없거나 폐쇄된 동아리는 404.
+     */
+    cleanupPending(clubId: number): Promise<AdminClubPendingCleanupResult>;
   };
   /**
    * 캘린더용 전 동아리 행사 일정. ACTIVE 동아리만, 카드 정보만 준다.
@@ -375,6 +381,8 @@ export function createAdminApi(deps: {
         jsonOk<AdminClubMember[]>(http.get(`admin/clubs/${clubId}/members`)),
       update: (clubId, payload) =>
         jsonOk<ClubDetail>(http.patch(`admin/clubs/${clubId}`, { json: payload })),
+      cleanupPending: (clubId) =>
+        jsonOk<AdminClubPendingCleanupResult>(http.post(`admin/clubs/${clubId}/pending-cleanup`)),
     },
     clubEvents: {
       list: (params) =>

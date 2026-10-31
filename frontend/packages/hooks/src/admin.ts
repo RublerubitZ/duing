@@ -256,6 +256,30 @@ export function useCloseClubMutation() {
   });
 }
 
+/**
+ * 운영 중단 동아리의 남은 미결 정리(결과 미정 지원서 불합격·대기 가입 신청 거절). 성공·실패 모두 무효화한다 —
+ * 응답을 못 받았지만 서버는 커밋했거나(타임아웃), 409(그사이 재활성·동시 수정)로 끝나 목록이 낡았을 때 스스로 맞춘다(bank.ts 선례).
+ */
+export function useCleanupClubPendingMutation() {
+  const client = useApiClient();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (clubId: number) => client.admin.clubs.cleanupPending(clubId),
+    onSettled: (_cleanupResult, _cleanupError, clubId) => {
+      // 동아리 목록·총동연 홈 대기열(두 목록 모두 clubsList)
+      queryClient.invalidateQueries({ queryKey: adminQueryKeys.clubsAll });
+      // 사이드바 배지·홈 칸 — 접두 아래 추이도 함께
+      queryClient.invalidateQueries({ queryKey: adminQueryKeys.pendingCounts() });
+      // 총동연 모집 목록 미처리 열·지원자 목록·지원서 상세
+      queryClient.invalidateQueries({ queryKey: adminQueryKeys.recruitmentsAll });
+      // 가입 신청 거절 감사 행
+      queryClient.invalidateQueries({ queryKey: adminQueryKeys.clubActivityEventsAll(clubId) });
+      // 총동연 가입 링크 목록 — 링크 사용 수·대기 수
+      queryClient.invalidateQueries({ queryKey: adminQueryKeys.clubJoinCodes(clubId) });
+    },
+  });
+}
+
 export function useUpdateClubCentralClubMutation() {
   const client = useApiClient();
   const queryClient = useQueryClient();
