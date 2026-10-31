@@ -1,4 +1,4 @@
-import { daysSinceKst, formatDateKst, formatRelativeTime, formatTimeKst } from '@duing/hooks';
+import { daysSinceKst, formatDateKst, formatRelativeTime, formatTimeKst } from '@duing/hooks/datetime';
 
 import type { AdminJobHealth, AdminJobKey, AdminJobStatus } from '@duing/types';
 import type { DashboardChipTone } from '@/components/dashboard/dashboardChipTone';
@@ -15,8 +15,8 @@ type JobPresentation = {
   workaround: string | null;
   /** 정상 결과 — time 은 사람이 읽는 시각 문구 */
   okText: (time: string, count: number) => string;
-  /** 일부 실패 덧붙임 */
-  partialSuffix: (failedCount: number) => string;
+  /** 일부 실패 결과 — 성공 0건이면 "없음" 문구를 섞지 않는다("마감할 모집 없음 · 1건 실패" 같은 모순을 피한다) */
+  partialText: (time: string, count: number, failedCount: number) => string;
 };
 
 const JOB_PRESENTATIONS: Record<AdminJobKey, JobPresentation> = {
@@ -26,7 +26,8 @@ const JOB_PRESENTATIONS: Record<AdminJobKey, JobPresentation> = {
     impact: '기간이 끝난 모집이 "모집 중"으로 남을 수 있어요',
     workaround: '모집 관리에서 직접 마감할 수 있어요',
     okText: (time, count) => (count > 0 ? `${time} · ${count}건 마감` : `${time} · 마감할 모집 없음`),
-    partialSuffix: (failedCount) => ` · ${failedCount}건 실패`,
+    partialText: (time, count, failedCount) =>
+      count > 0 ? `${time} · ${count}건 마감 · ${failedCount}건 실패` : `${time} · ${failedCount}건 마감 실패`,
   },
   APPLICATION_PENDING_REMINDER: {
     name: '미처리 지원 리마인더',
@@ -34,7 +35,8 @@ const JOB_PRESENTATIONS: Record<AdminJobKey, JobPresentation> = {
     impact: '7일 넘게 기다린 지원서를 운영진이 모를 수 있어요',
     workaround: null,
     okText: (time, count) => (count > 0 ? `${time} · 운영진 알림 ${count}건` : `${time} · 보낼 알림 없음`),
-    partialSuffix: (failedCount) => ` · ${failedCount}건 실패`,
+    partialText: (time, count, failedCount) =>
+      count > 0 ? `${time} · 운영진 알림 ${count}건 · ${failedCount}건 실패` : `${time} · 운영진 알림 ${failedCount}건 실패`,
   },
   FACILITY_RESERVATION_CRAWL: {
     name: '학교 시설 예약 수집',
@@ -43,7 +45,8 @@ const JOB_PRESENTATIONS: Record<AdminJobKey, JobPresentation> = {
     workaround: null,
     okText: (time) => `${time} 수집 성공`,
     // 실패 시설 없이 일부 칸만 못 읽은 달도 일부 실패다(서버 결과는 상태로만 정한다)
-    partialSuffix: (failedCount) => (failedCount > 0 ? ` · 시설 ${failedCount}곳 수집 실패` : ' · 일부 시설 정보를 읽지 못했어요'),
+    partialText: (time, _count, failedCount) =>
+      failedCount > 0 ? `${time} · 시설 ${failedCount}곳 수집 실패` : `${time} · 일부 시설 정보를 읽지 못했어요`,
   },
   FACILITY_BOOKING_MATCHING: {
     name: '학교 반영 확인',
@@ -52,7 +55,8 @@ const JOB_PRESENTATIONS: Record<AdminJobKey, JobPresentation> = {
     workaround: '시설 예약 관리에서 직접 확정할 수 있어요',
     // "확정할 예약 없음"이 아니다 — 바로 위 "학교 반영 대기 N건" 카드와 부딪치지 않게
     okText: (time, count) => (count > 0 ? `${time} · ${count}건 확정` : `${time} · 새로 확정한 예약 없음`),
-    partialSuffix: () => ' · 일부 확인 못 함',
+    // 실패 건수에 건너뛴 달 수가 섞여 숫자를 보이지 않는다
+    partialText: (time, count) => (count > 0 ? `${time} · ${count}건 확정 · 일부 확인 못 함` : `${time} · 일부 확인 못 함`),
   },
   FEDERATION_INQUIRY_PURGE: {
     name: '문의 보관 기간 파기',
@@ -61,7 +65,8 @@ const JOB_PRESENTATIONS: Record<AdminJobKey, JobPresentation> = {
     impact: '삭제된 문의 내용이 보관 기간을 넘겨 남아 있을 수 있어요',
     workaround: null,
     okText: (time, count) => (count > 0 ? `${time} · ${count}건 파기` : `${time} · 파기할 문의 없음`),
-    partialSuffix: (failedCount) => ` · 첨부 ${failedCount}건 삭제 못 함`,
+    partialText: (time, count, failedCount) =>
+      count > 0 ? `${time} · ${count}건 파기 · 첨부 ${failedCount}건 삭제 못 함` : `${time} · 첨부 ${failedCount}건 삭제 못 함`,
   },
 };
 
@@ -105,17 +110,23 @@ function runTimeText(presentation: JobPresentation, iso: string, now: Date): str
   return presentation.cadence === 'frequent' ? formatRelativeTime(iso, now) : dailyRunTimeText(iso, now);
 }
 
+function lastSuccessText(status: AdminJobStatus, presentation: JobPresentation, now: Date): string | null {
+  return status.lastSucceededAt ? `마지막 성공 ${runTimeText(presentation, status.lastSucceededAt, now)}` : null;
+}
+
 function resultText(status: AdminJobStatus, presentation: JobPresentation, now: Date): string {
-  const lastSuccessText = status.lastSucceededAt ? `마지막 성공 ${runTimeText(presentation, status.lastSucceededAt, now)}` : null;
+  // 꺼짐·첫 실행 전은 남아 있는 옛 기록 값을 읽지 않는다
   switch (status.health) {
     case 'NOT_YET':
       return '아직 실행 기록이 없어요';
     case 'DISABLED':
       return '두잉 담당자가 꺼 두었어요';
     case 'FAILED':
-      return `마지막 실행 실패 · ${lastSuccessText ?? '성공 기록 없음'}`;
-    case 'OVERDUE':
-      return lastSuccessText ? `예정대로 돌지 않았어요 · ${lastSuccessText}` : '예정대로 돌지 않았어요';
+      return `마지막 실행 실패 · ${lastSuccessText(status, presentation, now) ?? '성공 기록 없음'}`;
+    case 'OVERDUE': {
+      const successText = lastSuccessText(status, presentation, now);
+      return successText ? `예정대로 돌지 않았어요 · ${successText}` : '예정대로 돌지 않았어요';
+    }
   }
   // OK·PARTIAL·모르는 상태 — 마지막 실행 결과로 쓴다
   if (status.lastFinishedAt === null) return '아직 실행 기록이 없어요';
@@ -123,8 +134,12 @@ function resultText(status: AdminJobStatus, presentation: JobPresentation, now: 
   if (status.health === 'OK' && status.lastOutcome !== null && status.lastOutcome !== 'SUCCESS') {
     return `${time} 잠깐 실패 · 다음 실행에서 다시 시도해요`;
   }
-  const okText = presentation.okText(time, status.resultCount ?? 0);
-  return status.health === 'PARTIAL' ? okText + presentation.partialSuffix(status.failedCount ?? 0) : okText;
+  if (status.health === 'PARTIAL') {
+    return presentation.partialText(time, status.resultCount ?? 0, status.failedCount ?? 0);
+  }
+  // 모르는 상태(앞선 백엔드)는 결과를 단정하지 않는다 — 실패 기록을 "마감할 모집 없음"처럼 안심 문장으로 읽히지 않게
+  if (status.health !== 'OK') return `${time} 실행`;
+  return presentation.okText(time, status.resultCount ?? 0);
 }
 
 /** 서버 순서를 지키고, 모르는 작업 키는 건너뛴다. */

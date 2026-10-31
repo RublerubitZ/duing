@@ -13,8 +13,9 @@ import { JOB_STATUS_CONTACT_GUIDE, buildJobStatusRows, jobStatusHeadline } from 
 import type { JobStatusRow } from './adminJobStatusPresentation';
 
 const CHIP_CLASS = 'shrink-0 break-keep rounded-full px-2 py-0.5 text-xs font-semibold';
-// 카드 푸터 링크 전례(AdminSchoolSyncCard) — 터치 높이 44px
-const CONTACT_LINK_CLASS = 'inline-flex min-h-11 items-center text-xs font-medium text-ink hover:underline';
+// 카드 푸터 링크 전례(AdminSchoolSyncCard) — 터치 높이 44px, 밝은 카드라 포커스 링은 ink(sage 는 대비 미달)
+const CONTACT_LINK_CLASS =
+  'inline-flex min-h-11 items-center rounded text-xs font-medium text-ink hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink';
 
 /** 총동연 홈 자동 작업 — 업무에 닿는 스케줄 잡 5개의 상태. 경고가 있을 때만 배지와 두잉팀 연락 경로를 보인다. */
 export function AdminJobStatusCard() {
@@ -78,11 +79,18 @@ function JobStatusItem({ row }: { row: JobStatusRow }) {
 function ContactLinks() {
   return (
     <div className="flex flex-wrap gap-x-4">
-      <a href={DUING_KAKAO_CHAT_URL} target="_blank" rel="noopener noreferrer" className={CONTACT_LINK_CLASS}>
+      <a
+        href={DUING_KAKAO_CHAT_URL}
+        target="_blank"
+        rel="noopener noreferrer"
+        aria-label="두잉팀 카카오 문의 (새 창)"
+        className={CONTACT_LINK_CLASS}
+      >
         두잉팀 카카오 문의
       </a>
-      <a href={`mailto:${DUING_CONTACT_EMAIL}`} aria-label={`메일 보내기 ${DUING_CONTACT_EMAIL}`} className={CONTACT_LINK_CLASS}>
-        메일 보내기
+      {/* 주소를 글자로 보인다 — 메일 앱이 없는 PC 에서도 옮겨 적을 수 있게(홈 푸터와 같은 표기) */}
+      <a href={`mailto:${DUING_CONTACT_EMAIL}`} className={CONTACT_LINK_CLASS}>
+        {DUING_CONTACT_EMAIL}
       </a>
       <Link href={toRoute('/me/inquiries/new')} className={CONTACT_LINK_CLASS}>
         1:1 문의

@@ -25,7 +25,7 @@ export function AdminSchoolSyncCard() {
       footer={
         <Link
           href={toRoute('/admin/facility-bookings?tab=review')}
-          className="inline-flex min-h-11 items-center text-xs font-medium text-ink hover:underline"
+          className="inline-flex min-h-11 items-center rounded text-xs font-medium text-ink hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink"
         >
           시설 예약 관리
         </Link>

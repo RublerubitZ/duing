@@ -63,20 +63,33 @@ describe('buildJobStatusRows — 결과 한 줄', () => {
     );
   });
 
-  it('일부 실패는 정상 문구에 실패 건수를 덧붙인다 — 시설 수집은 실패 시설 0곳이면 "일부 시설 정보를 읽지 못했어요"', () => {
+  it('일부 실패는 성공 건수와 실패 건수를 함께 쓴다 — 시설 수집은 실패 시설 0곳이면 "일부 시설 정보를 읽지 못했어요"', () => {
     const partial = { health: 'PARTIAL', lastOutcome: 'PARTIAL', failedCount: 1 };
     expect(onlyRow(statusOf({ job: 'RECRUITMENT_AUTO_CLOSE', ...partial })).resultText).toBe('오늘 00:40 · 2건 마감 · 1건 실패');
     expect(onlyRow(statusOf({ job: 'FEDERATION_INQUIRY_PURGE', ...partial })).resultText).toBe('오늘 00:40 · 2건 파기 · 첨부 1건 삭제 못 함');
     const crawlAt = '2026-10-30T02:52:00Z';
     expect(onlyRow(statusOf({ job: 'FACILITY_RESERVATION_CRAWL', ...partial, lastFinishedAt: crawlAt, failedCount: 2 })).resultText).toBe(
-      '8분 전 수집 성공 · 시설 2곳 수집 실패',
+      '8분 전 · 시설 2곳 수집 실패',
     );
     expect(onlyRow(statusOf({ job: 'FACILITY_RESERVATION_CRAWL', ...partial, lastFinishedAt: crawlAt, failedCount: 0 })).resultText).toBe(
-      '8분 전 수집 성공 · 일부 시설 정보를 읽지 못했어요',
+      '8분 전 · 일부 시설 정보를 읽지 못했어요',
     );
     expect(onlyRow(statusOf({ job: 'FACILITY_BOOKING_MATCHING', ...partial, lastFinishedAt: crawlAt })).resultText).toBe(
       '8분 전 · 2건 확정 · 일부 확인 못 함',
     );
+    expect(onlyRow(statusOf({ job: 'APPLICATION_PENDING_REMINDER', ...partial })).resultText).toBe('오늘 00:40 · 운영진 알림 2건 · 1건 실패');
+  });
+
+  it('일부 실패인데 성공이 0건이면 "없음" 문구를 섞지 않는다 — "마감할 모집 없음 · 1건 실패" 같은 모순이 없다', () => {
+    const partialNothingDone = { health: 'PARTIAL', lastOutcome: 'PARTIAL', resultCount: 0 };
+    expect(onlyRow(statusOf({ job: 'RECRUITMENT_AUTO_CLOSE', ...partialNothingDone, failedCount: 1 })).resultText).toBe('오늘 00:40 · 1건 마감 실패');
+    expect(onlyRow(statusOf({ job: 'APPLICATION_PENDING_REMINDER', ...partialNothingDone, failedCount: 3 })).resultText).toBe(
+      '오늘 00:40 · 운영진 알림 3건 실패',
+    );
+    expect(onlyRow(statusOf({ job: 'FEDERATION_INQUIRY_PURGE', ...partialNothingDone, failedCount: 1 })).resultText).toBe('오늘 00:40 · 첨부 1건 삭제 못 함');
+    expect(
+      onlyRow(statusOf({ job: 'FACILITY_BOOKING_MATCHING', ...partialNothingDone, failedCount: 2, lastFinishedAt: '2026-10-30T02:52:00Z' })).resultText,
+    ).toBe('8분 전 · 일부 확인 못 함');
   });
 
   it('실패·늦음·첫 실행 전·꺼짐 문구', () => {
@@ -155,7 +168,13 @@ describe('buildJobStatusRows — 칩·경고·영향·직접 할 일', () => {
     expect(rows).toHaveLength(1);
     expect(rows[0]?.chip).toBeNull();
     expect(rows[0]?.isWarning).toBe(false);
-    expect(rows[0]?.resultText).toBe('오늘 00:40 · 2건 마감');
+    // 모르는 상태는 결과를 단정하지 않는다(실패 기록을 "마감할 모집 없음"처럼 안심 문장으로 읽히지 않게)
+    expect(rows[0]?.resultText).toBe('오늘 00:40 실행');
+    const unknownFailed = buildJobStatusRows(
+      [statusOf({ job: 'RECRUITMENT_AUTO_CLOSE', health: 'PAUSED', lastOutcome: 'FAILED', resultCount: 0 })],
+      NOW,
+    );
+    expect(unknownFailed[0]?.resultText).toBe('오늘 00:40 실행');
   });
 });
 

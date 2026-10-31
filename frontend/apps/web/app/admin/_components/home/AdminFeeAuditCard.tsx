@@ -28,7 +28,7 @@ export function AdminFeeAuditCard() {
       // 값 0 이 아니라 응답이 없을 때만 빈 상태 — 실패면 빈 값 본문 대신 오류 안내가 나온다.
       isEmpty={!feeDashboard}
       footer={
-        <Link href={toRoute('/admin/fees')} className="inline-flex min-h-11 items-center text-xs font-medium text-ink hover:underline">
+        <Link href={toRoute('/admin/fees')} className="inline-flex min-h-11 items-center rounded text-xs font-medium text-ink hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink">
           회비 감사
         </Link>
       }
