@@ -60,8 +60,9 @@ function AdminClubsList({ initialFilter }: { initialFilter: StatusFilter }) {
   const [cleanupDialog, setCleanupDialog] = useState<{ club: AdminClubSummary; counts: PendingCleanupCounts } | null>(null);
   const [cleanupError, setCleanupError] = useState<string | null>(null);
   const cleanupMutation = useCleanupClubPendingMutation();
-  // 확정 연타 동기 가드 — isPending 은 렌더 값이라 같은 틱의 두 번째 클릭(disabled 가 그려지기 전)을 못 막는다.
-  const isCleanupSubmittingRef = useRef(false);
+  // 확인 창 다섯 개의 확정 연타 동기 가드 — isPending 은 렌더 값이라 같은 틱의 두 번째 클릭(disabled 가 그려지기 전)을 못 막는다.
+  // 창은 한 번에 하나만 열리므로 페이지에 하나만 둔다.
+  const isConfirmSubmittingRef = useRef(false);
   const { addToast } = useToast();
 
   const params = useMemo(
@@ -91,8 +92,9 @@ function AdminClubsList({ initialFilter }: { initialFilter: StatusFilter }) {
   }
 
   function handleDialogConfirm(rejectionReason?: string) {
-    if (!dialog) return;
+    if (!dialog || isConfirmSubmittingRef.current) return;
     setDialogError(null);
+    isConfirmSubmittingRef.current = true;
     statusMutation.mutate(
       {
         clubId: dialog.club.id,
@@ -112,6 +114,9 @@ function AdminClubsList({ initialFilter }: { initialFilter: StatusFilter }) {
               : '상태 변경에 실패했습니다.';
           setDialogError(message);
         },
+        onSettled: () => {
+          isConfirmSubmittingRef.current = false;
+        },
       },
     );
   }
@@ -127,8 +132,9 @@ function AdminClubsList({ initialFilter }: { initialFilter: StatusFilter }) {
   }
 
   function handleCloseConfirm(closureReason?: string) {
-    if (!deleteDialog) return;
+    if (!deleteDialog || isConfirmSubmittingRef.current) return;
     setDeleteError(null);
+    isConfirmSubmittingRef.current = true;
     closeMutation.mutate(
       { clubId: deleteDialog.id, payload: { ...(closureReason !== undefined && { closureReason }) } },
       {
@@ -137,6 +143,9 @@ function AdminClubsList({ initialFilter }: { initialFilter: StatusFilter }) {
           const message =
             mutationError instanceof ApiError ? mutationError.message : '삭제에 실패했습니다.';
           setDeleteError(message);
+        },
+        onSettled: () => {
+          isConfirmSubmittingRef.current = false;
         },
       },
     );
@@ -153,8 +162,8 @@ function AdminClubsList({ initialFilter }: { initialFilter: StatusFilter }) {
   }
 
   function handlePendingCleanupConfirm() {
-    if (!cleanupDialog || isCleanupSubmittingRef.current) return;
-    isCleanupSubmittingRef.current = true;
+    if (!cleanupDialog || isConfirmSubmittingRef.current) return;
+    isConfirmSubmittingRef.current = true;
     setCleanupError(null);
     cleanupMutation.mutate(cleanupDialog.club.id, {
       onSuccess: (cleanupResult) => {
@@ -172,7 +181,7 @@ function AdminClubsList({ initialFilter }: { initialFilter: StatusFilter }) {
       },
       // 성공·실패 모두 풀어 실패 뒤 다시 시도·창을 다시 열어 확정할 수 있게 한다.
       onSettled: () => {
-        isCleanupSubmittingRef.current = false;
+        isConfirmSubmittingRef.current = false;
       },
     });
   }
@@ -188,8 +197,9 @@ function AdminClubsList({ initialFilter }: { initialFilter: StatusFilter }) {
   }
 
   function handleCentralClubConfirm() {
-    if (!centralClubDialog) return;
+    if (!centralClubDialog || isConfirmSubmittingRef.current) return;
     setCentralClubError(null);
+    isConfirmSubmittingRef.current = true;
     centralClubMutation.mutate(
       { clubId: centralClubDialog.id, payload: { centralClub: !centralClubDialog.centralClub } },
       {
@@ -198,6 +208,9 @@ function AdminClubsList({ initialFilter }: { initialFilter: StatusFilter }) {
           const message =
             mutationError instanceof ApiError ? mutationError.message : '처리에 실패했습니다.';
           setCentralClubError(message);
+        },
+        onSettled: () => {
+          isConfirmSubmittingRef.current = false;
         },
       },
     );
@@ -209,8 +222,9 @@ function AdminClubsList({ initialFilter }: { initialFilter: StatusFilter }) {
   }
 
   function handleSecuredTargetConfirm() {
-    if (!securedTargetDialog) return;
+    if (!securedTargetDialog || isConfirmSubmittingRef.current) return;
     setSecuredTargetError(null);
+    isConfirmSubmittingRef.current = true;
     securedTargetMutation.mutate(
       {
         clubId: securedTargetDialog.id,
@@ -222,6 +236,9 @@ function AdminClubsList({ initialFilter }: { initialFilter: StatusFilter }) {
           const message =
             mutationError instanceof ApiError ? mutationError.message : '처리에 실패했습니다.';
           setSecuredTargetError(message);
+        },
+        onSettled: () => {
+          isConfirmSubmittingRef.current = false;
         },
       },
     );

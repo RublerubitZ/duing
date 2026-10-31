@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useLayoutEffect, useRef } from 'react';
 
 import { cn } from '../../../_lib/cn';
 import { STATUS_FILTER_LABEL, STATUS_FILTER_ORDER, type StatusFilter } from '../_lib/clubStatus';
@@ -17,7 +17,8 @@ export function AdminClubStatusFilter({ value, onChange }: Props) {
   // 주소(?status=INACTIVE_PENDING)로 끝쪽 탭에 도착하면 좁은 폭에서 선택 탭이 감싸개 밖에 걸친다 — 처음 그릴 때만 당긴다.
   // 눌러서 바꾼 탭은 이미 보이고, 주소가 바뀌면 목록 페이지가 key 로 다시 마운트한다.
   // 가로만 당긴다(scrollIntoView 는 창 세로 스크롤까지 움직일 수 있어 쓰지 않는다 — MyPageTabs 와 같다).
-  useEffect(() => {
+  // 페인트 전에 당긴다 — useEffect 면 맞추기 전 위치가 한 프레임 그려진다.
+  useLayoutEffect(() => {
     const scroller = scrollerRef.current;
     const activeTab = activeTabRef.current;
     if (!scroller || !activeTab) return;
