@@ -6,6 +6,7 @@ import { useSearchParams } from 'next/navigation';
 import { ApiError } from '@duing/api';
 import {
   useAdminClubsQuery,
+  useCleanupClubPendingMutation,
   useCloseClubMutation,
   useUpdateClubCentralClubMutation,
   useUpdateClubFacilitySecuredTimeTargetMutation,
@@ -13,14 +14,17 @@ import {
 } from '@duing/hooks';
 import type { AdminClubSummary } from '@duing/types';
 import { scrollToPaginatedListStart } from '@/app/_lib/paginationScroll';
+import { useToast } from '@/app/_components/toast/ToastProvider';
 import { LoadingGate } from '@/components/loading/LoadingGate';
 import { AdminClubCentralClubToggleDialog } from '../_components/AdminClubCentralClubToggleDialog';
 import { AdminClubSecuredTargetToggleDialog } from '../_components/AdminClubSecuredTargetToggleDialog';
 import { AdminClubDeleteDialog } from '../_components/AdminClubDeleteDialog';
+import { AdminClubPendingCleanupDialog } from '../_components/AdminClubPendingCleanupDialog';
 import { AdminClubStatusChangeDialog } from '../_components/AdminClubStatusChangeDialog';
 import { AdminClubStatusFilter } from '../_components/AdminClubStatusFilter';
 import { AdminClubsTable } from '../_components/AdminClubsTable';
 import { STATUS_FILTER_ORDER, statusFilterParams, type StatusAction, type StatusFilter } from '../_lib/clubStatus';
+import { pendingCleanupResultMessage, type PendingCleanupCounts } from '../_lib/pendingCleanup';
 import { pickSearchParam } from '../../_lib/searchParamChoice';
 import { toRoute } from '../../../_lib/route';
 
@@ -53,6 +57,10 @@ function AdminClubsList({ initialFilter }: { initialFilter: StatusFilter }) {
   const [deleteDialog, setDeleteDialog] = useState<AdminClubSummary | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const closeMutation = useCloseClubMutation();
+  const [cleanupDialog, setCleanupDialog] = useState<{ club: AdminClubSummary; counts: PendingCleanupCounts } | null>(null);
+  const [cleanupError, setCleanupError] = useState<string | null>(null);
+  const cleanupMutation = useCleanupClubPendingMutation();
+  const { addToast } = useToast();
 
   const params = useMemo(
     () => ({
@@ -135,6 +143,36 @@ function AdminClubsList({ initialFilter }: { initialFilter: StatusFilter }) {
   function handleCloseCancel() {
     setDeleteDialog(null);
     setDeleteError(null);
+  }
+
+  function handlePendingCleanupClick(club: AdminClubSummary, counts: PendingCleanupCounts) {
+    setCleanupError(null);
+    setCleanupDialog({ club, counts });
+  }
+
+  function handlePendingCleanupConfirm() {
+    if (!cleanupDialog) return;
+    setCleanupError(null);
+    cleanupMutation.mutate(cleanupDialog.club.id, {
+      onSuccess: (cleanupResult) => {
+        setCleanupDialog(null);
+        // 창의 건수는 목록을 받은 시점 값이다 — 실제 처리 건수는 응답으로 알린다.
+        addToast(pendingCleanupResultMessage(cleanupResult));
+      },
+      onError: (mutationError) => {
+        // 409 두 종류(상태가 바뀜·동시 수정) 모두 서버 문구 그대로. 목록은 훅의 onSettled 가 다시 받는다.
+        const message =
+          mutationError instanceof ApiError
+            ? mutationError.message
+            : '남은 미결을 정리하지 못했어요. 잠시 후 다시 시도해 주세요.';
+        setCleanupError(message);
+      },
+    });
+  }
+
+  function handlePendingCleanupCancel() {
+    setCleanupDialog(null);
+    setCleanupError(null);
   }
 
   function handleCentralClubToggleClick(club: AdminClubSummary) {
@@ -258,6 +296,7 @@ function AdminClubsList({ initialFilter }: { initialFilter: StatusFilter }) {
             onCentralClubToggleClick={handleCentralClubToggleClick}
             onSecuredTargetToggleClick={handleSecuredTargetToggleClick}
             onCloseClick={handleCloseClick}
+            onPendingCleanupClick={handlePendingCleanupClick}
           />
           <footer className="mt-4 flex items-center justify-between text-xs text-slate-500">
             <span>총 {totalElements}건</span>
@@ -329,6 +368,16 @@ function AdminClubsList({ initialFilter }: { initialFilter: StatusFilter }) {
           errorMessage={deleteError}
           onConfirm={handleCloseConfirm}
           onCancel={handleCloseCancel}
+        />
+      )}
+      {cleanupDialog && (
+        <AdminClubPendingCleanupDialog
+          clubName={cleanupDialog.club.name}
+          counts={cleanupDialog.counts}
+          isPending={cleanupMutation.isPending}
+          errorMessage={cleanupError}
+          onConfirm={handlePendingCleanupConfirm}
+          onCancel={handlePendingCleanupCancel}
         />
       )}
     </main>

@@ -122,3 +122,13 @@ export function applicantStatusLabel(
     ? APPLICATION_CLOSED_WITHOUT_RESULT_LABEL
     : APPLICATION_STATUS_APPLICANT_LABEL[status];
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 운영 중단 정리 축
+//
+// 총동연이 운영 중단 동아리의 남은 미결을 정리하면 지원서는 REJECTED 가 되지만, 운영진이 내린 결과가 아니라
+// "선발이 끝남"이다. 서버가 지원서에 남긴 표시 칸(endedByClubDeactivation)으로 가른다.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** 운영 중단 정리로 끝난 지원의 안내 문장 — 지원자 상세와 총동연 정리 확인 창이 같은 문장을 쓴다. */
+export const APPLICATION_ENDED_BY_CLUB_DEACTIVATION_DESCRIPTION = '동아리 운영 중단으로 선발이 끝났어요';
