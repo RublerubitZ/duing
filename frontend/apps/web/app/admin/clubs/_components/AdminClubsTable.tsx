@@ -66,7 +66,7 @@ export function AdminClubsTable({
               <React.Fragment key={club.id}>
                 <tr className="border-line border-b last:border-b-0">
                   <td className="px-4 py-3">
-                    <div className="flex items-center gap-1.5 font-medium text-slate-900">
+                    <div className="flex flex-wrap items-center gap-1.5 font-medium text-slate-900">
                       <Link
                         href={`/admin/clubs/${club.id}`}
                         className="break-keep hover:underline"

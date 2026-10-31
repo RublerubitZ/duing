@@ -45,7 +45,7 @@ export function AdminSuccessionTable({ items }: Props) {
                   {SUCCESSION_STATUS_LABEL[item.status]}
                 </span>
               </Td>
-              <Td className="whitespace-nowrap">{item.clubName}</Td>
+              <Td className="break-keep">{item.clubName}</Td>
               <Td className="whitespace-nowrap">{item.requester.name}</Td>
               <Td className="whitespace-nowrap">{formatDateTimeKst(item.createdAt)}</Td>
               <Td className="whitespace-nowrap">

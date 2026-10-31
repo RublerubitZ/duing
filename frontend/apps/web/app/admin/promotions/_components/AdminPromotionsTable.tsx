@@ -65,7 +65,7 @@ export function AdminPromotionsTable({ items, onDeleteClick }: Props) {
                   {promotion.title}
                 </Link>
               </Td>
-              <Td className="whitespace-nowrap">
+              <Td className="break-keep">
                 {promotion.club ? (
                   <span>{promotion.club.name}</span>
                 ) : (

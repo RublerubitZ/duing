@@ -49,7 +49,7 @@ export function AdminPromotionRequestsTable({ items }: Props) {
                   {PROMOTION_REQUEST_STATUS_LABEL[request.status]}
                 </span>
               </Td>
-              <Td className="whitespace-nowrap">{request.club.name}</Td>
+              <Td className="break-keep">{request.club.name}</Td>
               <Td className="whitespace-nowrap">{request.requester.name}</Td>
               <Td className="max-w-xs truncate">{request.title}</Td>
               <Td className="whitespace-nowrap">{formatDateTimeKst(request.createdAt)}</Td>
