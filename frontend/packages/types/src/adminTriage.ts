@@ -2,8 +2,16 @@ import type { ReportReasonCode, ReportTargetType } from './admin';
 import type { BookingStatus } from './facility';
 import type { FederationInquiryStatus } from './federationInquiry';
 
-/** 총동연 홈 처리 대기열의 영역. 칸 키와 같다(동아리 승인은 pending-counts clubApproval). */
-export type AdminTriageArea = 'REPORT' | 'INQUIRY' | 'FACILITY' | 'RECRUITMENT' | 'PROMOTION' | 'SUCCESSION' | 'CLUB_APPROVAL';
+/** 총동연 홈 처리 대기열의 영역. 칸 키와 같다(동아리 승인은 pending-counts clubApproval, 운영 중단 미결은 inactiveClubPending). */
+export type AdminTriageArea =
+  | 'REPORT'
+  | 'INQUIRY'
+  | 'FACILITY'
+  | 'RECRUITMENT'
+  | 'PROMOTION'
+  | 'SUCCESSION'
+  | 'CLUB_APPROVAL'
+  | 'INACTIVE_CLUB';
 
 /**
  * 대기열 한 행 — 식별자·대기 시작 시각·표시용 원자료만 담고 href·문구는 web 이 만든다.
@@ -43,7 +51,16 @@ export type AdminTriageItem =
     }
   | { area: 'PROMOTION'; id: number; waitingSince: string; clubName: string; title: string }
   | { area: 'SUCCESSION'; id: number; waitingSince: string; clubName: string; requesterName: string }
-  | { area: 'CLUB_APPROVAL'; id: number; /** 승인 대기에 들어온 시각 */ waitingSince: string; clubName: string };
+  | { area: 'CLUB_APPROVAL'; id: number; /** 승인 대기에 들어온 시각 */ waitingSince: string; clubName: string }
+  | {
+      area: 'INACTIVE_CLUB';
+      id: number;
+      /** 운영 중단으로 바뀐 시각(statusChangedAt) */
+      waitingSince: string;
+      clubName: string;
+      undecidedApplicationCount: number;
+      pendingJoinRequestCount: number;
+    };
 
 /** 영역 하나의 목록 상태 — 상태별로 나뉜 하위 목록(문의·시설)과 끝 페이지를 묶은 결과. */
 export type AdminTriageAreaState = {

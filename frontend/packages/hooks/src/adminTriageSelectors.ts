@@ -26,6 +26,7 @@ const AREA_ORDER: Record<AdminTriageArea, number> = {
   PROMOTION: 4,
   SUCCESSION: 5,
   CLUB_APPROVAL: 6,
+  INACTIVE_CLUB: 7,
 };
 
 /**
@@ -93,6 +94,27 @@ export const pendingClubTriageItems = (clubs: AdminClubSummary[]): AdminTriageIt
       ? [{ area: 'CLUB_APPROVAL', id: club.id, waitingSince: club.pendingSince, clubName: club.name }]
       : [],
   );
+
+/**
+ * 남은 미결이 있는 운영 중단 동아리 — 두 건수가 숫자이고 합이 1 이상이며 운영 중단 시각이 있을 때만 항목으로.
+ * 건수 부재는 옛 백엔드라 넣지 않는다(옛 백엔드는 needsPendingCleanup 을 무시해 운영 중단 동아리 전부를 준다).
+ */
+export const inactiveClubTriageItems = (clubs: AdminClubSummary[]): AdminTriageItem[] =>
+  clubs.flatMap((club): AdminTriageItem[] => {
+    const { undecidedApplicationCount, pendingJoinRequestCount, statusChangedAt } = club;
+    if (typeof undecidedApplicationCount !== 'number' || typeof pendingJoinRequestCount !== 'number') return [];
+    if (undecidedApplicationCount + pendingJoinRequestCount < 1 || statusChangedAt === null) return [];
+    return [
+      {
+        area: 'INACTIVE_CLUB',
+        id: club.id,
+        waitingSince: statusChangedAt,
+        clubName: club.name,
+        undecidedApplicationCount,
+        pendingJoinRequestCount,
+      },
+    ];
+  });
 
 /** 진행 중 모집 중 가장 오래된 미처리 지원서가 168시간 이상(경계 포함) 기다린 것. */
 export const staleRecruitmentTriageItems = (recruitments: AdminRecruitmentListItem[], now: Date): AdminTriageItem[] => {
