@@ -6,6 +6,7 @@ import com.duing.common.IntegrationTestBase;
 import com.duing.common.TestcontainersConfiguration;
 import com.duing.common.fixture.ClubFixture;
 import com.duing.common.fixture.ClubStaffFixture;
+import com.duing.common.fixture.PendingItemsFixture;
 import com.duing.common.fixture.UserFixture;
 import com.duing.domain.application.entity.Application;
 import com.duing.domain.application.entity.ApplicationStatus;
@@ -112,6 +113,7 @@ class AdminPendingCountsControllerTest extends IntegrationTestBase {
                     .body("data.reportUnresolved", equalTo(0))
                     .body("data.leaderSuccession", equalTo(0))
                     .body("data.stalePendingRecruitment", equalTo(0))
+                    .body("data.inactiveClubPending", equalTo(0))
                     .body("data.totalPendingCount", equalTo(0));
     }
 
@@ -270,6 +272,42 @@ class AdminPendingCountsControllerTest extends IntegrationTestBase {
                 .then()
                     .statusCode(HttpStatus.OK.value())
                     .body("data.stalePendingRecruitment", equalTo(2))
+                    // 운영 중단 동아리의 미결 지원서는 오래된 모집에서는 빠지고 운영 중단 미결로 센다(스펙 §3-1).
+                    .body("data.inactiveClubPending", equalTo(1))
+                    .body("data.totalPendingCount", equalTo(3));
+    }
+
+    @Test
+    @DisplayName("정리할 남은 미결이 있는 운영 중단 동아리 수를 세어 총합에 더한다 — 남은 것이 없는 운영 중단·운영 중 동아리는 빠진다")
+    void countsInactiveClubsWithPendingItems() {
+        LocalDate today = LocalDate.now(clock);
+        Club inactiveWithSubmitted = PendingItemsFixture.saveClub(clubRepository, ClubStatus.INACTIVE);
+        PendingItemsFixture.saveApplication(applicationRepository,
+                PendingItemsFixture.saveRecruitment(recruitmentRepository, inactiveWithSubmitted, today, true),
+                userRepository.save(UserFixture.unique()), ApplicationStatus.SUBMITTED);
+        Club inactiveWithInterviewPending = PendingItemsFixture.saveClub(clubRepository, ClubStatus.INACTIVE);
+        PendingItemsFixture.saveApplication(applicationRepository,
+                PendingItemsFixture.saveRecruitment(recruitmentRepository, inactiveWithInterviewPending, today, true),
+                userRepository.save(UserFixture.unique()), ApplicationStatus.INTERVIEW_PENDING);
+        Club inactiveWithoutPending = PendingItemsFixture.saveClub(clubRepository, ClubStatus.INACTIVE);
+        PendingItemsFixture.saveApplication(applicationRepository,
+                PendingItemsFixture.saveRecruitment(recruitmentRepository, inactiveWithoutPending, today, true),
+                userRepository.save(UserFixture.unique()), ApplicationStatus.REJECTED);
+        // 운영 중 동아리의 방금 제출된 지원서 — 운영 중단 미결도, 7일 지난 미처리 모집도 아니다.
+        Club activeClub = PendingItemsFixture.saveClub(clubRepository, ClubStatus.ACTIVE);
+        PendingItemsFixture.saveApplication(applicationRepository,
+                PendingItemsFixture.saveRecruitment(recruitmentRepository, activeClub, today, false),
+                userRepository.save(UserFixture.unique()), ApplicationStatus.SUBMITTED);
+
+        RestAssured
+                .given()
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                .when()
+                    .get("/api/v1/admin/pending-counts")
+                .then()
+                    .statusCode(HttpStatus.OK.value())
+                    .body("data.inactiveClubPending", equalTo(2))
+                    .body("data.stalePendingRecruitment", equalTo(0))
                     .body("data.totalPendingCount", equalTo(2));
     }
 

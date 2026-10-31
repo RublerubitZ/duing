@@ -46,7 +46,7 @@ class AdminPendingSnapshotJobTest {
     @Test
     @DisplayName("자정 직후 실행되면 JVM 기본 존이 UTC 여도 KST 어제(10/29) 날짜로 그 순간의 대기 건수를 기록한다")
     void recordsSeoulYesterdayUnderUtcJvm() {
-        AdminPendingCountsQuery pendingCounts = AdminPendingCountsQuery.of(1, 2, 3, 4, 5, 6, 7);
+        AdminPendingCountsQuery pendingCounts = AdminPendingCountsQuery.of(1, 2, 3, 4, 5, 6, 7, 0);
         when(adminPendingCountsQueryService.getPendingCounts()).thenReturn(pendingCounts);
 
         new AdminPendingSnapshotJob(adminPendingCountsQueryService, adminPendingSnapshotRecorder, SEOUL_CLOCK).run();

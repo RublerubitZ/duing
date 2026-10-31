@@ -5,10 +5,9 @@ import { AdSenseLoader } from './_components/AdSenseLoader';
 import { BottomNav } from './_components/BottomNav';
 import { Providers } from './providers';
 import { HAD_SESSION_PREPAINT_SCRIPT } from './_lib/hadSessionKey';
-import { SITE_URL } from './_lib/site';
+import { SITE_TITLE, SITE_URL } from './_lib/site';
 
 const SITE_NAME = '두잉';
-const SITE_TITLE = '두잉 | 대구대학교 동아리 플랫폼';
 const SITE_DESCRIPTION = '대구대학교 동아리 통합 플랫폼';
 
 // 검색결과의 "사이트 이름"·"제목" 을 두잉으로 고정하기 위한 구조화 데이터(JSON-LD).

@@ -41,4 +41,10 @@ public interface JoinRequestService {
 
     /** 계정 탈퇴 시 본인의 대기 요청 전부를 자동 거절하고 확보했던 자리를 환급한다(#1142). 호출자가 users 행을 잠근 뒤 부른다. */
     void rejectAllPendingOnWithdrawal(Long userId);
+
+    /**
+     * 운영 중단 동아리 남은 미결 정리(스펙 §4-1) — 그 동아리의 대기 신청을 전부 "동아리 운영 중단" 사유로 거절하고 자리를 환급하며
+     * 거절 감사를 남긴다. 호출자가 동아리 행을 잠근 뒤 부른다(잠금 순서 club → club_join_code). 처리 건수를 돌려준다.
+     */
+    int rejectAllPendingOnClubDeactivation(Long clubId, Long actorAdminUserId);
 }

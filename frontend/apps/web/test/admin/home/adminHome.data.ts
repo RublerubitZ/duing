@@ -14,6 +14,9 @@ export const PENDING_COUNTS: AdminPendingCounts = {
   totalPendingCount: 28,
 };
 
+// 운영 중단 미결 칸을 아는 백엔드 — PENDING_COUNTS(필드 없음)는 옛 백엔드 경우로 그대로 둔다.
+export const PENDING_COUNTS_WITH_INACTIVE_CLUB: AdminPendingCounts = { ...PENDING_COUNTS, inactiveClubPending: 2, totalPendingCount: 30 };
+
 export const readyArea = (oldestWaitingSince: string | null = null): AdminTriageAreaState => ({
   status: 'ready',
   rowCount: oldestWaitingSince === null ? 0 : 1,
@@ -31,6 +34,7 @@ export function triageQueue(overrides: Partial<AdminTriageQueue> = {}): AdminTri
       PROMOTION: readyArea(),
       SUCCESSION: readyArea(),
       CLUB_APPROVAL: readyArea(),
+      INACTIVE_CLUB: readyArea(),
     },
     inquiryTotals: { received: 0, inProgress: 0 },
     isLoading: false,
@@ -47,3 +51,6 @@ export const PROMOTION_ITEM: AdminTriageItem = {
   area: 'PROMOTION', id: 5, waitingSince: '2026-10-28T03:00:00Z', clubName: '코드브루', title: '정기 공연 홍보',
 };
 export const CLUB_ITEM: AdminTriageItem = { area: 'CLUB_APPROVAL', id: 61, waitingSince: '2026-10-19T03:00:00Z', clubName: '새 동아리' };
+export const INACTIVE_CLUB_ITEM: AdminTriageItem = {
+  area: 'INACTIVE_CLUB', id: 71, waitingSince: '2026-10-26T03:00:00Z', clubName: '쉬는 동아리', undecidedApplicationCount: 3, pendingJoinRequestCount: 1,
+};

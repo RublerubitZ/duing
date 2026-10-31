@@ -5,6 +5,7 @@
 
 import {
   APPLICATION_CLOSED_WITHOUT_RESULT_LABEL,
+  APPLICATION_ENDED_BY_CLUB_DEACTIVATION_LABEL,
   APPLICATION_STATUS_APPLICANT_LABEL,
 } from '@/app/_constants/application-status';
 
@@ -48,7 +49,10 @@ export type AppStatus =
   | 'applied'
   // 모집이 마감됐는데 합격/불합격이 정해지지 않은 지원. 지원 상태가 아니라 지원 상태 × 모집 마감의
   // 파생값이라 ApplicationStatus 에는 대응 enum 이 없다.
-  | 'closed-unresolved';
+  | 'closed-unresolved'
+  // 총동연의 운영 중단 정리로 끝난 불합격(서버 표시 칸 endedByClubDeactivation). 운영진 불합격('failed')과 갈라
+  // "선발 종료"로 보인다 — 합불이 아니라 결과 없이 끝난 것이라 결과 미발표와 같은 탭·같은 회색이다.
+  | 'deactivation-ended';
 
 export type App = {
   id: string;
@@ -99,7 +103,9 @@ export const STATUS_META: Record<AppStatus, StatusMetaEntry> = {
   // SUBMITTED·ON_HOLD 는 지원자에게 같은 표기라 어느 쪽을 참조해도 동일하다 (스펙 §1-1).
   'applied':             { label: APPLICATION_STATUS_APPLICANT_LABEL.SUBMITTED,         pill: 'muted', textColor: '#4A504F', bg: '#EDEAE0' },
   // 모집 마감 × 미결 — 진행도 결과도 아니므로 중립 회색으로 둔다.
-  'closed-unresolved':   { label: APPLICATION_CLOSED_WITHOUT_RESULT_LABEL,              pill: 'muted', textColor: '#6B7280', bg: '#E9E7E1' },
+  'closed-unresolved':   { label: APPLICATION_CLOSED_WITHOUT_RESULT_LABEL,              pill: 'muted', textColor: '#4B5563', bg: '#E9E7E1' },
+  // 운영 중단으로 선발이 끝남 — 결과 미발표와 같은 중립 회색. 목록 카드는 알약만, 안내 문장은 상세(ApplicationStepper)에서.
+  'deactivation-ended':  { label: APPLICATION_ENDED_BY_CLUB_DEACTIVATION_LABEL,         pill: 'muted', textColor: '#4B5563', bg: '#E9E7E1' },
 };
 
 
@@ -112,6 +118,8 @@ export const STATUS_TO_FILTER: Record<AppStatus, FilterKey> = {
   'failed':              'fail',
   'applied':             'doc',
   'closed-unresolved':   'closed',
+  // 정리 전 같은 지원서가 있던 "결과 미발표" 탭에 그대로 남는다(요약 카드도 "미발표"로 센다).
+  'deactivation-ended':  'closed',
 };
 
 /* 카테고리 → 작은 라벨 색상 */

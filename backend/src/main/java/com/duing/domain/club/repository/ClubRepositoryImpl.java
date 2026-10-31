@@ -5,9 +5,11 @@ import static com.duing.domain.club.entity.QClub.club;
 import static com.duing.domain.club.metric.entity.QClubMetric.clubMetric;
 import static com.duing.domain.clubmember.entity.QClubMember.clubMember;
 import static com.duing.domain.favorite.entity.QClubFavorite.clubFavorite;
+import static com.duing.domain.joincode.entity.QClubJoinRequest.clubJoinRequest;
 import static com.duing.domain.recruitment.entity.QRecruitment.recruitment;
 import static com.duing.domain.user.entity.QUser.user;
 
+import com.duing.domain.application.entity.ApplicationStatus;
 import com.duing.domain.club.entity.Club;
 import com.duing.domain.club.entity.ClubCategory;
 import com.duing.domain.club.entity.ClubStatus;
@@ -23,6 +25,7 @@ import com.duing.domain.club.service.dto.query.ClubStatsQuery;
 import com.duing.domain.club.service.dto.query.ClubSummaryQuery;
 import com.duing.domain.club.service.dto.query.RecruitmentStatusFilter;
 import com.duing.domain.clubmember.entity.ClubMemberRole;
+import com.duing.domain.joincode.entity.JoinRequestStatus;
 import com.duing.domain.recruitment.entity.RecruitmentStatus;
 import com.duing.domain.recruitment.repository.RecruitmentPredicates;
 import com.duing.global.constant.TagRules;
@@ -163,6 +166,7 @@ public class ClubRepositoryImpl implements ClubRepositoryCustom {
                 categoryEq(condition.category()),
                 divisionEq(condition.division()),
                 keywordContains(condition.keyword()),
+                pendingCleanupFilter(condition.needsPendingCleanup()),
         };
 
         // leader 는 한 동아리당 0~1명. ClubMember(role=LEADER) 로 left join 해 leader 부재 시에도 행이 보존되게 한다.
@@ -182,8 +186,17 @@ public class ClubRepositoryImpl implements ClubRepositoryCustom {
                 .limit(pageable.getPageSize())
                 .fetch();
 
+        // 남은 미결 건수는 이 페이지의 운영 중단 동아리에만 싣는다 — 테이블별 GROUP BY 한 번씩(운영 중단이 없으면 0회), 행마다 세지 않는다.
+        List<Long> inactiveClubIds = rows.stream()
+                .map(row -> row.get(club))
+                .filter(source -> source != null && source.getStatus() == ClubStatus.INACTIVE)
+                .map(Club::getId)
+                .toList();
+        Map<Long, Long> undecidedApplicationCounts = countUndecidedApplicationsByClub(inactiveClubIds);
+        Map<Long, Long> pendingJoinRequestCounts = countPendingJoinRequestsByClub(inactiveClubIds);
+
         List<AdminClubSummaryQuery> content = rows.stream()
-                .map(row -> toAdminSummary(row, actor))
+                .map(row -> toAdminSummary(row, actor, undecidedApplicationCounts, pendingJoinRequestCounts))
                 .toList();
 
         Long total = queryFactory
@@ -195,11 +208,13 @@ public class ClubRepositoryImpl implements ClubRepositoryCustom {
         return new PageImpl<>(content, pageable, total == null ? 0L : total);
     }
 
-    private AdminClubSummaryQuery toAdminSummary(Tuple row, QUser actor) {
+    private AdminClubSummaryQuery toAdminSummary(Tuple row, QUser actor, Map<Long, Long> undecidedApplicationCounts,
+                                                 Map<Long, Long> pendingJoinRequestCounts) {
         Club source = row.get(club);
         if (source == null) {
             throw new IllegalStateException("Admin 동아리 목록 조회 결과 row 에 club 이 비어있을 수 없습니다.");
         }
+        boolean inactive = source.getStatus() == ClubStatus.INACTIVE;
         return new AdminClubSummaryQuery(
                 source.getId(),
                 source.getName(),
@@ -217,8 +232,20 @@ public class ClubRepositoryImpl implements ClubRepositoryCustom {
                 source.getRejectionReason(),
                 source.getStatusChangedAt(),
                 row.get(actor.name),
-                source.approvalPendingSince()
+                source.approvalPendingSince(),
+                inactive ? undecidedApplicationCounts.getOrDefault(source.getId(), 0L) : null,
+                inactive ? pendingJoinRequestCounts.getOrDefault(source.getId(), 0L) : null
         );
+    }
+
+    @Override
+    public long countInactiveClubsWithPendingItems() {
+        Long count = queryFactory
+                .select(club.count())
+                .from(club)
+                .where(inactiveWithPendingItems())
+                .fetchOne();
+        return count == null ? 0L : count;
     }
 
     @Override
@@ -273,6 +300,83 @@ public class ClubRepositoryImpl implements ClubRepositoryCustom {
 
     private BooleanExpression adminStatusEq(ClubStatus status) {
         return status != null ? club.status.eq(status) : null;
+    }
+
+    private static BooleanExpression pendingCleanupFilter(boolean needsPendingCleanup) {
+        return needsPendingCleanup ? inactiveWithPendingItems() : null;
+    }
+
+    /**
+     * 정리할 남은 미결이 있는 운영 중단 동아리(스펙 §3-1) — 총동연 목록 필터와 홈 집계가 이 식 하나를 쓴다.
+     * 폐쇄(soft-delete)된 동아리는 club 의 @SQLRestriction 이 뺀다.
+     */
+    private static BooleanExpression inactiveWithPendingItems() {
+        return club.status.eq(ClubStatus.INACTIVE)
+                .and(JPAExpressions.selectOne()
+                        .from(application)
+                        .join(application.recruitment, recruitment)
+                        .where(recruitment.club.id.eq(club.id), undecidedApplicationRow())
+                        .exists()
+                        .or(JPAExpressions.selectOne()
+                                .from(clubJoinRequest)
+                                .where(clubJoinRequest.club.id.eq(club.id), pendingJoinRequestRow())
+                                .exists()));
+    }
+
+    /**
+     * 결과 미정 지원서 행 술어(스펙 §3-1) — 동아리 상관이 없어 EXISTS(동아리 상관)와 GROUP BY(club_id IN)가 같이 쓴다.
+     * 모집 상태(OPEN·CLOSED)는 묻지 않는다. 서브쿼리 조인에 @SQLRestriction 이 붙는지는 문맥마다 달라 삭제 조건을 모두 명시한다.
+     * 지원자(users)는 조인하지 않는다 — 탈퇴한 사람의 지원서도 남은 미결이다.
+     * 호출 측이 recruitment 기본 별칭으로 application.recruitment 를 조인해야 한다 — 조인 없이 바깥 쿼리 안에서 쓰면 다른 모집 행에 엮일 수 있다.
+     * 정리 실행은 엔티티를 바꿔야 해서 ApplicationRepository#findByClubIdAndStatusIn 이 같은 조건을 JPQL 로 다시 쓴다 —
+     * 두 벌이라 바꿀 때 함께 바꾸고, AdminClubPendingCleanupControllerTest 의 동치 테스트가 묶는다.
+     */
+    private static BooleanExpression undecidedApplicationRow() {
+        return application.status.in(ApplicationStatus.activeSet())
+                .and(application.deletedAt.isNull())
+                .and(recruitment.deletedAt.isNull());
+    }
+
+    /**
+     * 대기 가입 신청 행 술어(스펙 §3-1) — 위와 같은 이유로 동아리 상관 없이 두고 삭제 조건을 명시한다.
+     * 신청자(users)는 조인하지 않는다 — 탈퇴한 사람의 신청도 남은 미결이다.
+     * 정리 실행은 ClubJoinRequestRepository#findAllByClubIdAndStatus(파생 쿼리)가 같은 조건으로 읽는다 —
+     * 두 벌이라 바꿀 때 함께 바꾸고, AdminClubPendingCleanupControllerTest 의 동치 테스트가 묶는다.
+     */
+    private static BooleanExpression pendingJoinRequestRow() {
+        return clubJoinRequest.status.eq(JoinRequestStatus.PENDING)
+                .and(clubJoinRequest.deletedAt.isNull());
+    }
+
+    private Map<Long, Long> countUndecidedApplicationsByClub(List<Long> clubIds) {
+        if (clubIds.isEmpty()) {
+            return Map.of();
+        }
+        NumberExpression<Long> applicationCount = application.count();
+        return queryFactory
+                .select(recruitment.club.id, applicationCount)
+                .from(application)
+                .join(application.recruitment, recruitment)
+                .where(recruitment.club.id.in(clubIds), undecidedApplicationRow())
+                .groupBy(recruitment.club.id)
+                .fetch()
+                .stream()
+                .collect(Collectors.toMap(row -> row.get(recruitment.club.id), row -> row.get(applicationCount)));
+    }
+
+    private Map<Long, Long> countPendingJoinRequestsByClub(List<Long> clubIds) {
+        if (clubIds.isEmpty()) {
+            return Map.of();
+        }
+        NumberExpression<Long> joinRequestCount = clubJoinRequest.count();
+        return queryFactory
+                .select(clubJoinRequest.club.id, joinRequestCount)
+                .from(clubJoinRequest)
+                .where(clubJoinRequest.club.id.in(clubIds), pendingJoinRequestRow())
+                .groupBy(clubJoinRequest.club.id)
+                .fetch()
+                .stream()
+                .collect(Collectors.toMap(row -> row.get(clubJoinRequest.club.id), row -> row.get(joinRequestCount)));
     }
 
     private BooleanExpression keywordContains(String keyword) {

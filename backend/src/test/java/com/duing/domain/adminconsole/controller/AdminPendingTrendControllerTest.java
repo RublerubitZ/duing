@@ -53,7 +53,7 @@ class AdminPendingTrendControllerTest extends IntegrationTestBase {
     @DisplayName("지난 13일을 어제까지 오래된 순으로 주고, 기록이 없는 날도 totalPendingCount 키를 null 로 남긴다")
     void returnsThirteenDaysWithNullForMissingDays() {
         LocalDate yesterday = LocalDate.now(clock).minusDays(1);
-        adminPendingSnapshotRecorder.record(yesterday, AdminPendingCountsQuery.of(1, 2, 0, 0, 0, 0, 0));
+        adminPendingSnapshotRecorder.record(yesterday, AdminPendingCountsQuery.of(1, 2, 0, 0, 0, 0, 0, 0));
 
         RestAssured
                 .given()

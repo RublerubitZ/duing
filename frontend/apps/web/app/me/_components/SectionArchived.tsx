@@ -6,7 +6,9 @@ import type { ApplicationSummary } from '@duing/types';
 import { cn } from '@/app/_lib/cn';
 import {
   APPLICATION_CLOSED_WITHOUT_RESULT_LABEL,
+  APPLICATION_ENDED_BY_CLUB_DEACTIVATION_LABEL,
   APPLICATION_STATUS_APPLICANT_LABEL,
+  isEndedByClubDeactivation,
   isTerminalApplicationStatus,
 } from '@/app/_constants/application-status';
 import type { TerminalApplicationStatus } from '@/app/_constants/application-status';
@@ -36,10 +38,18 @@ const CLOSED_WITHOUT_RESULT_PILL: PillMeta = {
   className: 'bg-graysoft text-charcoal-2 border-line',
 };
 
+// 운영 중단 정리로 끝난 불합격 — 합불이 아니라 결과 없이 끝났으므로 결과 미발표 알약과 같은 색.
+const ENDED_BY_CLUB_DEACTIVATION_PILL: PillMeta = {
+  label: `🗂 ${APPLICATION_ENDED_BY_CLUB_DEACTIVATION_LABEL}`,
+  className: CLOSED_WITHOUT_RESULT_PILL.className,
+};
+
 const pillOf = (application: ApplicationSummary): PillMeta =>
-  isTerminalApplicationStatus(application.status)
-    ? PILL[application.status]
-    : CLOSED_WITHOUT_RESULT_PILL;
+  isEndedByClubDeactivation(application.status, application.endedByClubDeactivation)
+    ? ENDED_BY_CLUB_DEACTIVATION_PILL
+    : isTerminalApplicationStatus(application.status)
+      ? PILL[application.status]
+      : CLOSED_WITHOUT_RESULT_PILL;
 
 type Props = {
   applications: ApplicationSummary[];

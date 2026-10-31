@@ -18,6 +18,7 @@ import {
   ADMIN_TRIAGE_PAGE_SIZE,
   ADMIN_TRIAGE_QUEUE_LIMIT,
   facilityTriageItem,
+  inactiveClubTriageItems,
   inquiryTriageItem,
   mergeTriageQueue,
   oldestTailPages,
@@ -43,6 +44,13 @@ const PENDING_BOOKING_PARAMS: AdminBookingQueueParams = { status: 'PENDING', pag
 const STALE_RECRUITMENT_PARAMS: AdminRecruitmentSearchParams = { status: 'OPEN', sort: 'STALE' };
 // 승인 대기 동아리 — 이름순 고정 목록이라 한 페이지(100곳)를 받는다. 동아리 상태 변경·폐쇄가 clubsAll 을 무효화한다.
 const PENDING_CLUB_PARAMS: AdminClubSearchParams = { status: 'PENDING_APPROVAL', page: 0, size: ADMIN_TRIAGE_PAGE_SIZE };
+// 남은 미결이 있는 운영 중단 동아리 — 승인 대기와 같은 이름순 한 페이지. 정리 뮤테이션·상태 변경이 clubsAll 을 무효화한다.
+const INACTIVE_PENDING_CLUB_PARAMS: AdminClubSearchParams = {
+  status: 'INACTIVE',
+  needsPendingCleanup: true,
+  page: 0,
+  size: ADMIN_TRIAGE_PAGE_SIZE,
+};
 
 // data 유무가 기준이다 — 재조회가 실패해도 받은 목록은 그대로 쓴다(사이드바 배지와 같은 기준).
 const queryStatus = (query: { data: unknown; isError: boolean }): ListStatus =>
@@ -152,6 +160,12 @@ export function useAdminTriageQueue(): AdminTriageQueue {
     ...DASHBOARD_QUERY_OPTIONS,
   });
 
+  const inactiveClubsQuery = useQuery({
+    queryKey: adminQueryKeys.clubsList(INACTIVE_PENDING_CLUB_PARAMS),
+    queryFn: () => client.admin.clubs.list(INACTIVE_PENDING_CLUB_PARAMS),
+    ...DASHBOARD_QUERY_OPTIONS,
+  });
+
   // 렌더 시점의 지금 — 열어 둔 화면에서도 168시간 경계가 흘러간다(고정 memo 금지).
   const now = new Date();
   const report = areaOf([reports]);
@@ -177,7 +191,14 @@ export function useAdminTriageQueue(): AdminTriageQueue {
       tailFailed: (pendingClubsQuery.data?.totalElements ?? 0) > ADMIN_TRIAGE_PAGE_SIZE,
     },
   ]);
-  const areaList = [report, inquiry, facility, recruitment, promotion, succession, clubApproval];
+  const inactiveClub = areaOf([
+    {
+      ...singleSubList(inactiveClubsQuery, (clubPage) => inactiveClubTriageItems(clubPage.content)),
+      // 이름순 한 페이지를 넘으면 오래된 건이 빠질 수 있다 — 승인 대기와 같은 규칙으로 통째로 버린다(실패 아님, 카드는 건수 한 줄로 물러선다).
+      tailFailed: (inactiveClubsQuery.data?.totalElements ?? 0) > ADMIN_TRIAGE_PAGE_SIZE,
+    },
+  ]);
+  const areaList = [report, inquiry, facility, recruitment, promotion, succession, clubApproval, inactiveClub];
 
   return {
     items: mergeTriageQueue(areaList.flatMap((area) => area.items)),
@@ -189,6 +210,7 @@ export function useAdminTriageQueue(): AdminTriageQueue {
       PROMOTION: promotion.state,
       SUCCESSION: succession.state,
       CLUB_APPROVAL: clubApproval.state,
+      INACTIVE_CLUB: inactiveClub.state,
     },
     inquiryTotals: { received: receivedInquiries.totalElements, inProgress: inProgressInquiries.totalElements },
     clubApprovalTimeUnknown,

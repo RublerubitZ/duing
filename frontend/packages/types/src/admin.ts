@@ -29,6 +29,13 @@ export type AdminClubSummary = {
   statusChangedByName: string | null;
   /** 승인 대기에 들어온 시각(승인 대기가 아니면 null). 필드가 없으면 옛 백엔드 — 총동연 홈이 '시각 모름'으로 물러선다. */
   pendingSince?: string | null;
+  /**
+   * 운영 중단 동아리의 남은 결과 미정 지원서 수(제출·보류·면접 대기, 삭제된 모집 제외, 0 포함). 운영 중단이 아니면 null.
+   * 필드가 없으면 옛 백엔드 — 화면은 건수·정리 버튼·홈 대기열 행을 그리지 않는다.
+   */
+  undecidedApplicationCount?: number | null;
+  /** 운영 중단 동아리의 남은 대기 가입 신청 수(0 포함). 운영 중단이 아니면 null, 필드가 없으면 옛 백엔드. */
+  pendingJoinRequestCount?: number | null;
 };
 
 // === 시설 예약 오픈일(총동연) — 시설별 booking_open_date ===
@@ -93,12 +100,20 @@ export type AdminCrawlReservationParams = {
 
 export type AdminClubSearchParams = {
   status?: ClubStatus;
+  /** true 면 운영 중단 동아리 중 남은 미결이 있는 곳만(status 와 함께 걸린다). 옛 백엔드는 모르는 파라미터라 무시한다. */
+  needsPendingCleanup?: boolean;
   category?: ClubCategory;
   division?: string;
   keyword?: string;
   page?: number;
   size?: number;
   sort?: string;
+};
+
+/** POST /admin/clubs/{clubId}/pending-cleanup 응답 — 실제로 불합격·거절 처리한 건수(두 번째 실행은 0·0). */
+export type AdminClubPendingCleanupResult = {
+  rejectedApplicationCount: number;
+  rejectedJoinRequestCount: number;
 };
 
 /** 계정 상태. SUSPENDED 는 로그인·API 접근이 차단된 이용 정지이며 탈퇴와 별개다. */
@@ -528,6 +543,11 @@ export type AdminPendingCounts = {
   leaderSuccession: number;
   /** 제출 후 7일 넘게 처리되지 않은 지원서가 있는 진행 중 모집 수 — 운영진 미처리 리마인더 대상과 같은 집합. */
   stalePendingRecruitment: number;
+  /**
+   * 남은 미결(결과 미정 지원서·대기 가입 신청)이 있는 운영 중단 동아리 수 — totalPendingCount 에 포함된다.
+   * 필드가 없으면 옛 백엔드 — 총동연 홈은 이 칸을 그리지 않는다.
+   */
+  inactiveClubPending?: number;
   totalPendingCount: number;
 };
 

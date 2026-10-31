@@ -58,6 +58,15 @@ public interface ClubJoinRequestRepository extends JpaRepository<ClubJoinRequest
     List<ClubJoinRequest> findAllByUserIdAndStatus(Long userId, JoinRequestStatus status);
 
     /**
+     * 운영 중단 동아리 남은 미결 정리가 그 동아리의 대기 신청을 전부 읽는다(스펙 §3-1). 판정은 ClubRepositoryImpl#pendingJoinRequestRow
+     * (목록 필터·행 건수·홈 집계)와 같아야 한다 — 두 벌이라 바꿀 때 함께 바꾸고, AdminClubPendingCleanupControllerTest 의 동치 테스트가 묶는다.
+     * 페치 조인을 두지 않는다: user 를 조인하면 탈퇴자의 옛 신청이 빠져 판정과 갈리고, joinCode 를 페치하면 코드가 잠금 없이
+     * 1차 캐시에 올라 뒤의 findWithLockById 가 낡은 used_count 를 돌려준다(ClubJoinCode 에는 @Version 이 없다).
+     * 삭제된 신청은 @SQLRestriction 이 뺀다.
+     */
+    List<ClubJoinRequest> findAllByClubIdAndStatus(Long clubId, JoinRequestStatus status);
+
+    /**
      * 운영진 가입 요청 목록(상태별, 최신순). 목록 항목이 학생 정보와 코드 문자열을 함께 보여주므로
      * LAZY 연관 두 개를 fetch join 해 N+1 을 없앤다.
      */

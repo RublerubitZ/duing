@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { formatDateKst } from '@duing/hooks';
 import type { AdminNoticeSummary } from '@duing/types';
+import { cn } from '../../../_lib/cn';
 import { toRoute } from '../../../_lib/route';
 import { noticeCategoryLabelOf } from '../../../notices/_lib/categoryLabels';
 import { VISIBILITY_LABEL } from '../_lib/visibilityLabels';
@@ -27,18 +28,18 @@ export function AdminNoticesTable({ items, onDeleteClick }: Props) {
         <tbody>
           {items.map((notice) => (
             <tr key={notice.id} className="border-t border-line">
-              <Td>
+              <Td className="break-keep">
                 <Link href={toRoute(`/admin/notices/${notice.id}/edit`)} className="hover:underline">
                   {notice.title}
                 </Link>
               </Td>
-              <Td>{noticeCategoryLabelOf(notice.category)}</Td>
-              <Td>{VISIBILITY_LABEL[notice.visibility]}</Td>
-              <Td>{formatDateKst(notice.createdAt)}</Td>
-              <Td>{notice.expiresAt ? formatDateKst(notice.expiresAt) : '—'}</Td>
-              <Td>{notice.notifyOnPublish ? '발송' : '미발송'}</Td>
+              <Td className="whitespace-nowrap">{noticeCategoryLabelOf(notice.category)}</Td>
+              <Td className="whitespace-nowrap">{VISIBILITY_LABEL[notice.visibility]}</Td>
+              <Td className="whitespace-nowrap">{formatDateKst(notice.createdAt)}</Td>
+              <Td className="whitespace-nowrap">{notice.expiresAt ? formatDateKst(notice.expiresAt) : '—'}</Td>
+              <Td className="whitespace-nowrap">{notice.notifyOnPublish ? '발송' : '미발송'}</Td>
               <Td>{notice.pinned ? '📌' : ''}</Td>
-              <Td>
+              <Td className="whitespace-nowrap">
                 <div className="flex gap-2">
                   <Link
                     href={toRoute(`/admin/notices/${notice.id}/edit`)}
@@ -60,8 +61,8 @@ export function AdminNoticesTable({ items, onDeleteClick }: Props) {
 }
 
 const Th = ({ children }: { children: React.ReactNode }) => (
-  <th className="text-left px-3 py-2 font-semibold">{children}</th>
+  <th className="whitespace-nowrap text-left px-3 py-2 font-semibold">{children}</th>
 );
-const Td = ({ children }: { children: React.ReactNode }) => (
-  <td className="px-3 py-2 align-middle">{children}</td>
+const Td = ({ children, className }: { children: React.ReactNode; className?: string }) => (
+  <td className={cn('px-3 py-2 align-middle', className)}>{children}</td>
 );

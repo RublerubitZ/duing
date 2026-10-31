@@ -18,6 +18,7 @@ type StepperDetail = Pick<
   | 'interview'
   | 'availabilityDeadline'
   | 'useInterview'
+  | 'endedByClubDeactivation'
 >;
 
 function makeDetail(overrides: Partial<StepperDetail> = {}): StepperDetail {
@@ -150,5 +151,46 @@ describe('ApplicationStepper (phase 기반)', () => {
     );
     const activeStep = screen.getByRole('listitem', { current: 'step' });
     expect(activeStep).toHaveTextContent('지원 완료');
+  });
+});
+
+describe('ApplicationStepper — 운영 중단으로 끝난 지원', () => {
+  const activeDot = () =>
+    screen.getByRole('listitem', { current: 'step' }).querySelector<HTMLElement>('[aria-hidden="true"] > span');
+
+  it('운영 중단 정리로 불합격된 지원은 마지막 마디가 "선발 종료"이고 안내 문장을 보인다 — 강조색은 회색', () => {
+    render(
+      <ApplicationStepper
+        detail={makeDetail({ status: 'REJECTED', recruitmentStatus: 'CLOSED', endedByClubDeactivation: true })}
+        phase={'NOT_APPLICABLE'}
+      />,
+    );
+    expect(screen.getByRole('listitem', { current: 'step' })).toHaveTextContent('선발 종료');
+    expect(screen.queryByText('최종 불합격')).toBeNull();
+    expect(screen.getByRole('status')).toHaveTextContent('동아리 운영 중단으로 선발이 끝났어요');
+    // 불합격 경고색(#D9523A)·진행 초록(#2E6149)이 아니라 결과 없이 종료와 같은 회색(#8A8F98)
+    expect(activeDot()?.style.background).toContain('rgb(138, 143, 152)');
+  });
+
+  it('면접 phase 캐시가 남아 있어도 활성 마디는 마지막(선발 종료)이다', () => {
+    render(
+      <ApplicationStepper
+        detail={makeDetail({ status: 'REJECTED', recruitmentStatus: 'CLOSED', endedByClubDeactivation: true })}
+        phase={'SCHEDULED'}
+      />,
+    );
+    expect(screen.getByRole('listitem', { current: 'step' })).toHaveTextContent('선발 종료');
+  });
+
+  it.each([false, undefined])('운영진 불합격·이전 백엔드(표시 칸 %s)는 지금처럼 "최종 불합격"·경고색이다', (endedByClubDeactivation) => {
+    render(
+      <ApplicationStepper
+        detail={makeDetail({ status: 'REJECTED', recruitmentStatus: 'CLOSED', endedByClubDeactivation })}
+        phase={'NOT_APPLICABLE'}
+      />,
+    );
+    expect(screen.getByRole('listitem', { current: 'step' })).toHaveTextContent('최종 불합격');
+    expect(screen.queryByText('동아리 운영 중단으로 선발이 끝났어요')).toBeNull();
+    expect(activeDot()?.style.background).toContain('rgb(217, 82, 58)');
   });
 });

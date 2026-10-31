@@ -30,7 +30,8 @@ import org.springframework.transaction.annotation.Transactional;
  *
  * <p>여러 도메인을 가로지르는 읽기 전용 집계라 특정 도메인 패키지에 두지 않고 콘솔 전용 패키지에 둔다.
  * 각 도메인의 소프트 삭제(@SQLRestriction)는 파생 count 쿼리에도 그대로 적용되므로 별도 조건이 필요 없다.
- * 단 오래된 미처리 모집 수는 리마인더 후보 네이티브 쿼리를 재사용하며, 그 쿼리는 {@code deleted_at IS NULL} 을 직접 건다.
+ * 단 오래된 미처리 모집 수는 리마인더 후보 네이티브 쿼리를, 운영 중단 미결은 동아리 저장소의 QueryDSL 서브쿼리를 재사용하며,
+ * 두 쿼리는 삭제 조건을 직접 건다.
  */
 @Service
 @RequiredArgsConstructor
@@ -63,6 +64,7 @@ public class AdminPendingCountsQueryService {
 
     /**
      * 오래 방치된 모집은 미처리 지원서 리마인더 잡의 후보와 같은 집합이다 — 리마인더가 나가는 모집과 배지가 같아야 한다.
+     * 운영 중단 미결은 총동연 동아리 목록 필터(needsPendingCleanup=true)와 같은 판정이다 — 칸 숫자와 그 링크가 연 목록의 건수가 같아야 한다.
      */
     public AdminPendingCountsQuery getPendingCounts() {
         return AdminPendingCountsQuery.of(
@@ -73,7 +75,8 @@ public class AdminPendingCountsQueryService {
                 reportRepository.countByStatus(ReportStatus.PENDING),
                 leaderSuccessionRequestRepository.countByStatus(SuccessionStatus.PENDING),
                 applicationRepository.findPendingReminderCandidates(
-                        PendingApplicationPolicy.submittedBefore(clock)).size()
+                        PendingApplicationPolicy.submittedBefore(clock)).size(),
+                clubRepository.countInactiveClubsWithPendingItems()
         );
     }
 }

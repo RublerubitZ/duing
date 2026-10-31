@@ -413,6 +413,30 @@ public class GeneralJoinRequestService implements JoinRequestService {
         pendingRequests.forEach(entityManager::detach);
     }
 
+    @Override
+    @Transactional
+    public int rejectAllPendingOnClubDeactivation(Long clubId, Long actorAdminUserId) {
+        List<ClubJoinRequest> pendingRequests =
+                clubJoinRequestRepository.findAllByClubIdAndStatus(clubId, JoinRequestStatus.PENDING);
+        if (pendingRequests.isEmpty()) {
+            return 0;
+        }
+        User reviewer = userRepository.findById(actorAdminUserId)
+                .orElseThrow(UserException.UserNotFoundException::new);
+        LocalDateTime now = LocalDateTime.now(clock);
+        for (ClubJoinRequest pendingRequest : pendingRequests) {
+            pendingRequest.rejectOnClubDeactivation(reviewer, now);
+            // 자리 반환이 코드 행을 잠그고 처음 읽는다 — 그 전에 getJoinCode() 의 상태를 읽으면 낡은 used_count 가 1차 캐시에 남는다
+            // (id 는 프록시라 괜찮다). 탈퇴 경로(rejectAllPendingOnWithdrawal)와 같은 순서이고, 그쪽의 flush·detach 는 회원 soft-delete 때문이라 여기선 필요 없다.
+            releaseReservedUse(pendingRequest);
+            clubAuditEventRepository.save(ClubAuditEvent.joinRequest(
+                    ClubAuditEventType.JOIN_REQUEST_REJECTED, clubId,
+                    pendingRequest.getJoinCode().getRecruitmentIdOrNull(),
+                    pendingRequest.getJoinCode().getId(), pendingRequest.getId(), actorAdminUserId));
+        }
+        return pendingRequests.size();
+    }
+
     /**
      * 요청 미존재와 타 동아리 멤버십 없음만 일반 메시지로 합칠 대상으로 분류한다
      * (메시지 문자열이 아닌 예외 타입으로 판별 — 향후 메시지 변경에도 안전).
