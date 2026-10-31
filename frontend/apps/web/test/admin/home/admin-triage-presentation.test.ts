@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { AdminTriageAreaState, AdminTriageItem } from '@duing/types';
 import {
   ADMIN_TRIAGE_TILES,
+  INACTIVE_CLUB_TRIAGE_HREF,
   clubApprovalFallbackShown,
   presentTriageItem,
   triageQueueSummary,
@@ -9,6 +10,7 @@ import {
   triageTileSubline,
   waitingChip,
 } from '@/app/admin/_components/home/adminTriagePresentation';
+import { STATUS_FILTER_ORDER } from '@/app/admin/clubs/_lib/clubStatus';
 
 // KST 2026-10-29(목) 12:00
 const NOW = new Date('2026-10-29T03:00:00.000Z');
@@ -66,6 +68,10 @@ describe('presentTriageItem', () => {
       { area: 'CLUB_APPROVAL', id: 7, waitingSince: '2026-10-26T03:00:00Z', clubName: '새 동아리' },
       { title: '새 동아리', context: '승인 대기', actionLabel: '승인 검토', href: '/admin/clubs', isDanger: false, areaLabel: '동아리 승인' },
     ],
+    [
+      { area: 'INACTIVE_CLUB', id: 8, waitingSince: '2026-10-26T03:00:00Z', clubName: '쉬는 동아리', undecidedApplicationCount: 3, pendingJoinRequestCount: 1 },
+      { title: '쉬는 동아리', context: '지원서 3건 · 가입 신청 1건', actionLabel: '미결 정리', href: '/admin/clubs?status=INACTIVE_PENDING', isDanger: false, areaLabel: '운영 중단 미결' },
+    ],
   ])('%o', (item, expected) => {
     expect(presentTriageItem(item, NOW)).toMatchObject({ key: `${item.area}:${item.id}`, ...expected });
   });
@@ -77,14 +83,23 @@ describe('presentTriageItem', () => {
     );
     expect(row.context).toBe('11월 4일 (수) 18:00~20:00');
   });
+
+  it('운영 중단 미결 맥락은 0건인 쪽을 뺀다', () => {
+    const row = presentTriageItem(
+      { area: 'INACTIVE_CLUB', id: 8, waitingSince: '2026-10-26T03:00:00Z', clubName: '쉬는 동아리', undecidedApplicationCount: 0, pendingJoinRequestCount: 2 },
+      NOW,
+    );
+    expect(row.context).toBe('가입 신청 2건');
+  });
 });
 
 describe('영역 칸', () => {
-  it('위험 칸(신고)을 먼저 두고 7칸을 정한 순서로 둔다', () => {
+  it('위험 칸(신고)을 먼저 두고 8칸을 정한 순서로 둔다 — 운영 중단 미결은 맨 끝', () => {
     expect(ADMIN_TRIAGE_TILES.map((tile) => tile.label)).toEqual([
-      '신고 미처리', '1:1 문의 미답변', '시설 예약 검토', '미처리 지원 모집', '홍보 요청', '회장 승계', '동아리 승인',
+      '신고 미처리', '1:1 문의 미답변', '시설 예약 검토', '미처리 지원 모집', '홍보 요청', '회장 승계', '동아리 승인', '운영 중단 미결',
     ]);
     expect(ADMIN_TRIAGE_TILES.filter((tile) => tile.isDanger).map((tile) => tile.key)).toEqual(['REPORT']);
+    expect(ADMIN_TRIAGE_TILES.at(-1)).toMatchObject({ key: 'INACTIVE_CLUB', countKey: 'inactiveClubPending', todayLabel: '오늘 운영 중단' });
   });
 
   it('칸은 대기 건이 먼저 보이는 목록으로 이어진다', () => {
@@ -97,7 +112,12 @@ describe('영역 칸', () => {
       '/admin/promotion-requests?status=PENDING',
       '/admin/leader-succession?status=PENDING',
       '/admin/clubs',
+      '/admin/clubs?status=INACTIVE_PENDING',
     ]);
+  });
+
+  it('운영 중단 미결 주소의 status 는 동아리 목록이 아는 탭 값이다 — 이름이 어긋나면 기본 탭(승인 대기)으로 열린다', () => {
+    expect(STATUS_FILTER_ORDER).toContain(new URL(INACTIVE_CLUB_TRIAGE_HREF, 'http://localhost').searchParams.get('status'));
   });
 
   it.each([
@@ -124,6 +144,13 @@ describe('영역 칸', () => {
 
   it('칸 보조 줄도 달력 기준이다 — 자정 직후 1시간 전 접수는 1일', () => {
     expect(triageTileSubline(2, area({ rowCount: 1, oldestWaitingSince: '2026-10-28T23:30:00' }), new Date('2026-10-28T15:30:00Z'))).toBe('가장 오래된 건 1일');
+  });
+
+  it('0일째 보조 줄은 영역별 문구를 받을 수 있다(기본 "오늘 접수")', () => {
+    const todayArea = area({ rowCount: 1, oldestWaitingSince: '2026-10-28T15:30:00Z' });
+    expect(triageTileSubline(2, todayArea, NOW, '오늘 운영 중단')).toBe('오늘 운영 중단');
+    expect(triageTileSubline(2, todayArea, NOW)).toBe('오늘 접수');
+    expect(triageTileSubline(2, area({ rowCount: 1, oldestWaitingSince: '2026-10-26T03:00:00Z' }), NOW, '오늘 운영 중단')).toBe('가장 오래된 건 3일');
   });
 
   it.each<[number | undefined, string]>([

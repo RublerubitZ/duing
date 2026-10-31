@@ -17,7 +17,17 @@ export const ADMIN_TRIAGE_AREA_LABEL: Record<AdminTriageArea, string> = {
   PROMOTION: '홍보 요청',
   SUCCESSION: '회장 승계',
   CLUB_APPROVAL: '동아리 승인',
+  INACTIVE_CLUB: '운영 중단 미결',
 };
+
+/** 운영 중단 미결은 동아리 관리 목록의 '미결 정리 필요' 탭에서 정리한다 — 칸·행·건수 줄이 같은 주소로 간다. */
+export const INACTIVE_CLUB_TRIAGE_HREF = '/admin/clubs?status=INACTIVE_PENDING';
+
+/** 운영 중단 미결 행 맥락 — 0건인 쪽은 뺀다(동아리 목록 행·확인 창과 같은 규칙). */
+export const inactiveClubPendingContext = (applications: number, joinRequests: number): string =>
+  [applications > 0 ? `지원서 ${applications}건` : null, joinRequests > 0 ? `가입 신청 ${joinRequests}건` : null]
+    .filter((part) => part !== null)
+    .join(' · ');
 
 export type TriageRowModel = {
   key: string;
@@ -79,6 +89,15 @@ export const presentTriageItem = (item: AdminTriageItem, now: Date): TriageRowMo
     case 'CLUB_APPROVAL':
       // 승인은 동아리 관리 목록의 상태 변경으로 한다(목록 기본 필터가 승인 대기).
       return { ...base, title: item.clubName, context: '승인 대기', actionLabel: '승인 검토', href: '/admin/clubs' };
+    case 'INACTIVE_CLUB':
+      // 기다린 기간은 운영 중단으로 바뀐 날부터 센다(statusChangedAt).
+      return {
+        ...base,
+        title: item.clubName,
+        context: inactiveClubPendingContext(item.undecidedApplicationCount, item.pendingJoinRequestCount),
+        actionLabel: '미결 정리',
+        href: INACTIVE_CLUB_TRIAGE_HREF,
+      };
   }
 };
 
@@ -89,6 +108,8 @@ export type TriageTile = {
   label: string;
   countKey: Exclude<keyof AdminPendingCounts, 'totalPendingCount'>;
   isDanger: boolean;
+  /** 0일째 보조 줄 — 없으면 '오늘 접수'. */
+  todayLabel?: string;
 };
 
 // 위험 영역 먼저, 나머지는 대략 시급도 순.
@@ -100,6 +121,8 @@ export const ADMIN_TRIAGE_TILES: readonly TriageTile[] = [
   { key: 'PROMOTION', label: '홍보 요청', countKey: 'promotionRequest', isDanger: false },
   { key: 'SUCCESSION', label: '회장 승계', countKey: 'leaderSuccession', isDanger: false },
   { key: 'CLUB_APPROVAL', label: '동아리 승인', countKey: 'clubApproval', isDanger: false },
+  // 화면 용어는 "운영 중단"(clubStatus INACTIVE 표기·지원자 문구·거절 사유와 같다).
+  { key: 'INACTIVE_CLUB', label: '운영 중단 미결', countKey: 'inactiveClubPending', isDanger: false, todayLabel: '오늘 운영 중단' },
 ];
 
 export const triageTileHref = (key: TriageTileKey, inquiryTotals: AdminTriageQueue['inquiryTotals']): `/${string}` => {
@@ -121,6 +144,8 @@ export const triageTileHref = (key: TriageTileKey, inquiryTotals: AdminTriageQue
       return '/admin/leader-succession?status=PENDING';
     case 'CLUB_APPROVAL':
       return '/admin/clubs';
+    case 'INACTIVE_CLUB':
+      return INACTIVE_CLUB_TRIAGE_HREF;
   }
 };
 
@@ -128,7 +153,12 @@ export const triageTileHref = (key: TriageTileKey, inquiryTotals: AdminTriageQue
  * 칸 보조 줄(스펙 §5.4). count 는 서버 건수(받기 전·실패면 undefined), area 는 대기열 영역 상태(동아리 승인 시각을 모르면 null).
  * "대기 없음"은 건수를, 기간은 목록을 따른다.
  */
-export const triageTileSubline = (count: number | undefined, area: AdminTriageAreaState | null, now: Date): string => {
+export const triageTileSubline = (
+  count: number | undefined,
+  area: AdminTriageAreaState | null,
+  now: Date,
+  todayLabel = '오늘 접수',
+): string => {
   if (area === null) {
     if (count === undefined) return '';
     return count > 0 ? '신청 시각 —' : '대기 없음';
@@ -138,7 +168,7 @@ export const triageTileSubline = (count: number | undefined, area: AdminTriageAr
   if (area.status === 'error') return '—';
   if (area.oldestWaitingSince !== null) {
     const days = daysSinceKst(area.oldestWaitingSince, now);
-    return days === 0 ? '오늘 접수' : `가장 오래된 건 ${days}일`;
+    return days === 0 ? todayLabel : `가장 오래된 건 ${days}일`;
   }
   // 건수는 1건 이상인데 목록이 비었으면 두 요청 사이에 바뀐 것 — 확인되지 않은 "대기 없음"을 쓰지 않는다.
   return count === undefined ? '대기 없음' : '—';

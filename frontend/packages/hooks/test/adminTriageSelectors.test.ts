@@ -13,6 +13,7 @@ import {
   ADMIN_TRIAGE_QUEUE_LIMIT,
   facilityTriageItem,
   inquiryTriageItem,
+  inactiveClubTriageItems,
   mergeTriageQueue,
   oldestTailPages,
   oldestWaitingSince,
@@ -169,5 +170,47 @@ describe('mergeTriageQueue — 동아리 승인', () => {
     const club: AdminTriageItem = { area: 'CLUB_APPROVAL', id: 1, waitingSince: '2026-10-20T00:00:00Z', clubName: '코드브루' };
     const succession: AdminTriageItem = { area: 'SUCCESSION', id: 9, waitingSince: '2026-10-20T00:00:00Z', clubName: '코드브루', requesterName: '이회장' };
     expect(mergeTriageQueue([club, succession]).map((item) => item.area)).toEqual(['SUCCESSION', 'CLUB_APPROVAL']);
+  });
+});
+
+const inactiveClub = (
+  id: number,
+  statusChangedAt: string | null,
+  counts: Pick<AdminClubSummary, 'undecidedApplicationCount' | 'pendingJoinRequestCount'>,
+): AdminClubSummary => ({
+  id, name: `쉬는 동아리 ${id}`, category: 'ACADEMIC', division: null, college: null, logoUrl: null,
+  status: 'INACTIVE', tags: [], leaderId: null, leaderName: null, leaderStudentId: null,
+  centralClub: false, facilitySecuredTimeTarget: false, rejectionReason: null, statusChangedAt,
+  statusChangedByName: '총동연관리자', ...counts,
+});
+
+describe('inactiveClubTriageItems — 운영 중단 미결', () => {
+  it('두 건수가 숫자이고 합이 1 이상이며 운영 중단 시각이 있는 동아리만 옮긴다 — 부재는 옛 백엔드라 넣지 않는다', () => {
+    expect(
+      inactiveClubTriageItems([
+        inactiveClub(81, '2026-10-26T03:00:00Z', { undecidedApplicationCount: 3, pendingJoinRequestCount: 1 }),
+        inactiveClub(82, '2026-10-26T03:00:00Z', { undecidedApplicationCount: 0, pendingJoinRequestCount: 0 }),
+        inactiveClub(83, '2026-10-26T03:00:00Z', {}),
+        inactiveClub(84, '2026-10-26T03:00:00Z', { undecidedApplicationCount: null, pendingJoinRequestCount: null }),
+        inactiveClub(85, null, { undecidedApplicationCount: 1, pendingJoinRequestCount: 0 }),
+        inactiveClub(86, '2026-10-26T03:00:00Z', { undecidedApplicationCount: 2 }),
+      ]),
+    ).toEqual([
+      {
+        area: 'INACTIVE_CLUB', id: 81, waitingSince: '2026-10-26T03:00:00Z', clubName: '쉬는 동아리 81',
+        undecidedApplicationCount: 3, pendingJoinRequestCount: 1,
+      },
+    ]);
+  });
+});
+
+describe('mergeTriageQueue — 운영 중단 미결', () => {
+  it('같은 시각이면 운영 중단 미결은 동아리 승인보다도 뒤(맨 끝)다', () => {
+    const inactive: AdminTriageItem = {
+      area: 'INACTIVE_CLUB', id: 1, waitingSince: '2026-10-20T00:00:00Z', clubName: '쉬는 동아리',
+      undecidedApplicationCount: 1, pendingJoinRequestCount: 0,
+    };
+    const approval: AdminTriageItem = { area: 'CLUB_APPROVAL', id: 9, waitingSince: '2026-10-20T00:00:00Z', clubName: '새 동아리' };
+    expect(mergeTriageQueue([inactive, approval]).map((item) => item.area)).toEqual(['CLUB_APPROVAL', 'INACTIVE_CLUB']);
   });
 });

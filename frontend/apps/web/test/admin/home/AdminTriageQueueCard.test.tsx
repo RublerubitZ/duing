@@ -16,7 +16,7 @@ vi.mock('@duing/hooks', () => ({
 }) satisfies Partial<Record<keyof typeof import('@duing/hooks'), unknown>>);
 
 import { AdminTriageQueueCard } from '@/app/admin/_components/home/AdminTriageQueueCard';
-import { CLUB_ITEM, NOW_ISO, PENDING_COUNTS, PROMOTION_ITEM, REPORT_ITEM, readyArea, triageQueue } from './adminHome.data';
+import { CLUB_ITEM, INACTIVE_CLUB_ITEM, NOW_ISO, PENDING_COUNTS, PROMOTION_ITEM, REPORT_ITEM, readyArea, triageQueue } from './adminHome.data';
 
 const NO_CLUB_APPROVAL = { ...PENDING_COUNTS, clubApproval: 0 };
 
@@ -140,5 +140,43 @@ describe('AdminTriageQueueCard', () => {
     expect(chip).toHaveClass('max-w-full', 'break-keep');
     expect(chip.parentElement).toHaveClass('ml-auto', 'flex', 'flex-wrap', 'justify-end');
     expect(chip.parentElement).not.toHaveClass('shrink-0');
+  });
+
+  it('운영 중단 미결 행은 동아리 이름·남은 건수(0건 쪽 생략)·미결 정리로 동아리 목록의 미결 정리 필요 탭에 간다', () => {
+    mockQueue.mockReturnValue(triageQueue({ items: [INACTIVE_CLUB_ITEM], areas: { ...triageQueue().areas, INACTIVE_CLUB: readyArea(INACTIVE_CLUB_ITEM.waitingSince) } }));
+    render(<AdminTriageQueueCard />);
+    const row = screen.getAllByRole('listitem')[0]!;
+    expect(within(row).getByText('운영 중단 미결')).not.toHaveClass('text-coral-deep');
+    expect(row).toHaveTextContent('쉬는 동아리');
+    expect(row).toHaveTextContent('지원서 3건 · 가입 신청 1건');
+    expect(row).toHaveTextContent('3일');
+    expect(row).toHaveTextContent('미결 정리');
+    expect(within(row).getByRole('link')).toHaveAttribute('href', '/admin/clubs?status=INACTIVE_PENDING');
+  });
+
+  it('운영 중단 미결을 행으로 못 넣었으면(100곳 초과·목록 실패) 건수만 아는 "운영 중단 미결 N곳" 한 줄을 둔다', () => {
+    mockCounts.mockReturnValue({ data: { ...PENDING_COUNTS, clubApproval: 0, inactiveClubPending: 2 }, isError: false });
+    mockQueue.mockReturnValue(triageQueue({ items: [REPORT_ITEM] }));
+    render(<AdminTriageQueueCard />);
+    const fallbackRow = screen.getAllByRole('listitem').at(-1)!;
+    expect(within(fallbackRow).getByText('운영 중단 미결')).toBeInTheDocument();
+    expect(within(fallbackRow).getByText('2곳')).toBeInTheDocument();
+    expect(within(fallbackRow).getByRole('link')).toHaveAttribute('href', '/admin/clubs?status=INACTIVE_PENDING');
+  });
+
+  it('대기열 행이 없어도 운영 중단 미결 줄이 있으면 빈 안내를 띄우지 않는다', () => {
+    mockCounts.mockReturnValue({ data: { ...PENDING_COUNTS, clubApproval: 0, inactiveClubPending: 1 }, isError: false });
+    mockQueue.mockReturnValue(triageQueue());
+    render(<AdminTriageQueueCard />);
+    expect(screen.getByText('1곳')).toBeInTheDocument();
+    expect(screen.queryByText('처리할 대기 건이 없어요')).toBeNull();
+  });
+
+  it('집계에 운영 중단 미결 필드가 없으면(옛 백엔드) 그 줄을 두지 않는다', () => {
+    mockCounts.mockReturnValue({ data: { ...PENDING_COUNTS, clubApproval: 0 }, isError: false });
+    mockQueue.mockReturnValue(triageQueue());
+    render(<AdminTriageQueueCard />);
+    expect(screen.queryByText('운영 중단 미결')).toBeNull();
+    expect(screen.getByText('처리할 대기 건이 없어요')).toBeInTheDocument();
   });
 });

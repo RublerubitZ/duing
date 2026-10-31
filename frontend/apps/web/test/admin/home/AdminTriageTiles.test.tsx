@@ -16,7 +16,7 @@ vi.mock('@duing/hooks', () => ({
 }) satisfies Partial<Record<keyof typeof import('@duing/hooks'), unknown>>);
 
 import { AdminTriageTiles } from '@/app/admin/_components/home/AdminTriageTiles';
-import { NOW_ISO, PENDING_COUNTS, readyArea, triageQueue } from './adminHome.data';
+import { NOW_ISO, PENDING_COUNTS, PENDING_COUNTS_WITH_INACTIVE_CLUB, readyArea, triageQueue } from './adminHome.data';
 
 beforeEach(() => {
   vi.useFakeTimers({ toFake: ['Date'] });
@@ -29,8 +29,9 @@ afterEach(() => {
 });
 
 describe('AdminTriageTiles', () => {
-  it('7칸이 건수·보조 줄과 함께 대기 건이 먼저 보이는 목록으로 이어진다', () => {
-    mockQueue.mockReturnValue(triageQueue({ areas: { ...triageQueue().areas, REPORT: readyArea('2026-10-26T01:00:00Z'), CLUB_APPROVAL: readyArea('2026-10-27T03:00:00Z') } }));
+  it('8칸이 건수·보조 줄과 함께 대기 건이 먼저 보이는 목록으로 이어진다', () => {
+    mockCounts.mockReturnValue({ data: PENDING_COUNTS_WITH_INACTIVE_CLUB, isError: false });
+    mockQueue.mockReturnValue(triageQueue({ areas: { ...triageQueue().areas, REPORT: readyArea('2026-10-26T01:00:00Z'), CLUB_APPROVAL: readyArea('2026-10-27T03:00:00Z'), INACTIVE_CLUB: readyArea('2026-10-26T03:00:00Z') } }));
     render(<AdminTriageTiles />);
     const links = screen.getAllByRole('link');
     expect(links.map((link) => link.getAttribute('href'))).toEqual([
@@ -41,21 +42,45 @@ describe('AdminTriageTiles', () => {
       '/admin/promotion-requests?status=PENDING',
       '/admin/leader-succession?status=PENDING',
       '/admin/clubs',
+      '/admin/clubs?status=INACTIVE_PENDING',
     ]);
     expect(links[0]).toHaveTextContent('신고 미처리2건가장 오래된 건 3일');
     expect(links[6]).toHaveTextContent('동아리 승인3건가장 오래된 건 2일');
+    expect(links[7]).toHaveTextContent('운영 중단 미결2건가장 오래된 건 3일');
   });
 
-  it('신고 칸은 늘 2칸 폭이고, 건수가 있을 때만 경고색이다', () => {
+  it('신고 칸도 다른 칸과 같은 폭이고(8칸 같은 폭), 건수가 있을 때만 경고색이다', () => {
     const { rerender } = render(<AdminTriageTiles />);
     const reportLink = screen.getByRole('link', { name: /신고 미처리/ });
-    expect(reportLink.closest('li')).toHaveClass('col-span-2');
+    expect(reportLink.closest('li')).not.toHaveClass('col-span-2');
     expect(reportLink).toHaveClass('border-coral/40');
 
     mockCounts.mockReturnValue({ data: { ...PENDING_COUNTS, reportUnresolved: 0 }, isError: false });
     rerender(<AdminTriageTiles />);
     expect(screen.getByRole('link', { name: /신고 미처리/ })).not.toHaveClass('border-coral/40');
-    expect(screen.getByRole('link', { name: /신고 미처리/ }).closest('li')).toHaveClass('col-span-2');
+  });
+
+  it('집계를 받았는데 운영 중단 미결 필드가 없으면(옛 백엔드) 그 칸을 그리지 않는다 — 7칸', () => {
+    mockCounts.mockReturnValue({ data: PENDING_COUNTS, isError: false });
+    render(<AdminTriageTiles />);
+    expect(screen.getAllByRole('link')).toHaveLength(7);
+    expect(screen.queryByRole('link', { name: /운영 중단 미결/ })).toBeNull();
+  });
+
+  it('집계를 받기 전·받지 못했으면 다른 칸처럼 8칸 모두 그린다', () => {
+    mockCounts.mockReturnValue({ data: undefined, isError: false });
+    const { rerender } = render(<AdminTriageTiles />);
+    expect(screen.getAllByRole('link')).toHaveLength(8);
+    mockCounts.mockReturnValue({ data: undefined, isError: true });
+    rerender(<AdminTriageTiles />);
+    expect(screen.getAllByRole('link')).toHaveLength(8);
+  });
+
+  it('운영 중단이 오늘이면 보조 줄은 "오늘 운영 중단"이다', () => {
+    mockCounts.mockReturnValue({ data: PENDING_COUNTS_WITH_INACTIVE_CLUB, isError: false });
+    mockQueue.mockReturnValue(triageQueue({ areas: { ...triageQueue().areas, INACTIVE_CLUB: readyArea('2026-10-29T01:00:00Z') } }));
+    render(<AdminTriageTiles />);
+    expect(screen.getByRole('link', { name: /운영 중단 미결/ })).toHaveTextContent('운영 중단 미결2건오늘 운영 중단');
   });
 
   it('320px 에서도 두 칸씩 놓이고 넓으면 네 칸이다', () => {

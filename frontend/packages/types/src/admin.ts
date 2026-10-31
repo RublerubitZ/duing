@@ -543,6 +543,11 @@ export type AdminPendingCounts = {
   leaderSuccession: number;
   /** 제출 후 7일 넘게 처리되지 않은 지원서가 있는 진행 중 모집 수 — 운영진 미처리 리마인더 대상과 같은 집합. */
   stalePendingRecruitment: number;
+  /**
+   * 남은 미결(결과 미정 지원서·대기 가입 신청)이 있는 운영 중단 동아리 수 — totalPendingCount 에 포함된다.
+   * 필드가 없으면 옛 백엔드 — 총동연 홈은 이 칸을 그리지 않는다.
+   */
+  inactiveClubPending?: number;
   totalPendingCount: number;
 };
 

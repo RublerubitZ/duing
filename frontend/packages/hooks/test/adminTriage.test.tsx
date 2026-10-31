@@ -304,11 +304,14 @@ const pendingClub = (id: number, pendingSince: string | null | undefined): Admin
   statusChangedByName: null, ...(pendingSince === undefined ? {} : { pendingSince }),
 });
 
+// /admin/clubs 는 승인 대기·운영 중단 미결 두 요청이 나간다 — 대역은 status 로 갈라 각자 응답한다.
 describe('useAdminTriageQueue — 동아리 승인', () => {
-  it('승인 대기 동아리를 대기 시작 순으로 대기열에 섞고, 승인 대기 목록을 한 번 받는다', async () => {
+  it('승인 대기 동아리를 대기 시작 순으로 대기열에 섞고, 승인 대기·운영 중단 미결 목록을 한 번씩 받는다', async () => {
     const oldestClubAt = hoursAgo(200);
     server.use(
-      http.get('*/admin/clubs', () => ok(pageOf([pendingClub(61, hoursAgo(20)), pendingClub(62, oldestClubAt)]))),
+      http.get('*/admin/clubs', ({ request }) =>
+        ok(pageOf(statusParam(request) === 'PENDING_APPROVAL' ? [pendingClub(61, hoursAgo(20)), pendingClub(62, oldestClubAt)] : [])),
+      ),
       http.get('*/admin/reports', () => ok(pageOf([report(1, hoursAgo(50))]))),
     );
     const queryClient = newQueryClient();
@@ -319,12 +322,20 @@ describe('useAdminTriageQueue — 동아리 승인', () => {
     expect(itemKeys(result.current.items)).toEqual(['CLUB_APPROVAL:62', 'REPORT:1', 'CLUB_APPROVAL:61']);
     expect(result.current.areas.CLUB_APPROVAL).toEqual({ status: 'ready', rowCount: 2, oldestWaitingSince: oldestClubAt });
     expect(result.current.clubApprovalTimeUnknown).toBe(false);
-    expect(requestsTo('/admin/clubs')).toEqual([{ status: 'PENDING_APPROVAL', page: '0', size: '100' }]);
+    expect(requestsTo('/admin/clubs')).toHaveLength(2);
+    expect(requestsTo('/admin/clubs')).toEqual(
+      expect.arrayContaining([
+        { status: 'PENDING_APPROVAL', page: '0', size: '100' },
+        { status: 'INACTIVE', needsPendingCleanup: 'true', page: '0', size: '100' },
+      ]),
+    );
     expect(queryClient.getQueryData(adminQueryKeys.clubsList({ status: 'PENDING_APPROVAL', page: 0, size: 100 }))).toBeDefined();
   });
 
   it('응답에 승인 대기 시작 시각 필드가 없으면(옛 백엔드) 동아리 항목을 넣지 않고 시각 모름으로 둔다', async () => {
-    server.use(http.get('*/admin/clubs', () => ok(pageOf([pendingClub(61, undefined)]))));
+    server.use(
+      http.get('*/admin/clubs', ({ request }) => ok(pageOf(statusParam(request) === 'PENDING_APPROVAL' ? [pendingClub(61, undefined)] : []))),
+    );
     const { result } = renderHook(() => useAdminTriageQueue(), { wrapper: makeWrapper(newQueryClient()) });
 
     await waitFor(() => expect(result.current.isLoading).toBe(false));
@@ -335,7 +346,11 @@ describe('useAdminTriageQueue — 동아리 승인', () => {
   });
 
   it('승인 대기가 한 페이지(100곳)를 넘으면 오래된 건이 빠질 수 있어 동아리 항목을 버리되 실패로 보지 않는다', async () => {
-    server.use(http.get('*/admin/clubs', () => ok(pageOf([pendingClub(61, hoursAgo(20))], 101))));
+    server.use(
+      http.get('*/admin/clubs', ({ request }) =>
+        statusParam(request) === 'PENDING_APPROVAL' ? ok(pageOf([pendingClub(61, hoursAgo(20))], 101)) : ok(pageOf([])),
+      ),
+    );
     const { result } = renderHook(() => useAdminTriageQueue(), { wrapper: makeWrapper(newQueryClient()) });
 
     await waitFor(() => expect(result.current.isLoading).toBe(false));
@@ -347,7 +362,11 @@ describe('useAdminTriageQueue — 동아리 승인', () => {
   });
 
   it('승인 대기가 정확히 한 페이지(100곳)면 상한 안이라 동아리 행을 그대로 넣는다', async () => {
-    server.use(http.get('*/admin/clubs', () => ok(pageOf([pendingClub(61, hoursAgo(20))], 100))));
+    server.use(
+      http.get('*/admin/clubs', ({ request }) =>
+        statusParam(request) === 'PENDING_APPROVAL' ? ok(pageOf([pendingClub(61, hoursAgo(20))], 100)) : ok(pageOf([])),
+      ),
+    );
     const { result } = renderHook(() => useAdminTriageQueue(), { wrapper: makeWrapper(newQueryClient()) });
 
     await waitFor(() => expect(result.current.isLoading).toBe(false));
@@ -356,9 +375,9 @@ describe('useAdminTriageQueue — 동아리 승인', () => {
     expect(result.current.areas.CLUB_APPROVAL).toMatchObject({ status: 'ready', rowCount: 1 });
   });
 
-  it('승인 대기 목록을 받지 못하면 동아리 영역만 실패로 두고 다른 행은 남긴다', async () => {
+  it('승인 대기 목록을 받지 못하면 동아리 승인 영역만 실패로 두고 다른 행은 남긴다', async () => {
     server.use(
-      http.get('*/admin/clubs', () => fail()),
+      http.get('*/admin/clubs', ({ request }) => (statusParam(request) === 'PENDING_APPROVAL' ? fail() : ok(pageOf([])))),
       http.get('*/admin/reports', () => ok(pageOf([report(1, hoursAgo(50))]))),
     );
     const { result } = renderHook(() => useAdminTriageQueue(), { wrapper: makeWrapper(newQueryClient()) });
@@ -366,8 +385,89 @@ describe('useAdminTriageQueue — 동아리 승인', () => {
     await waitFor(() => expect(result.current.isLoading).toBe(false));
 
     expect(result.current.areas.CLUB_APPROVAL).toMatchObject({ status: 'error', rowCount: 0 });
+    expect(result.current.areas.INACTIVE_CLUB.status).toBe('ready');
     expect(itemKeys(result.current.items)).toEqual(['REPORT:1']);
     expect(result.current.isError).toBe(true);
     expect(result.current.clubApprovalTimeUnknown).toBe(false);
+  });
+});
+
+const inactiveClub = (
+  id: number,
+  statusChangedAt: string | null,
+  counts: Pick<AdminClubSummary, 'undecidedApplicationCount' | 'pendingJoinRequestCount'>,
+): AdminClubSummary => ({
+  id, name: `쉬는 동아리 ${id}`, category: 'ACADEMIC', division: null, college: null, logoUrl: null,
+  status: 'INACTIVE', tags: [], leaderId: null, leaderName: null, leaderStudentId: null,
+  centralClub: false, facilitySecuredTimeTarget: false, rejectionReason: null, statusChangedAt,
+  statusChangedByName: '총동연관리자', ...counts,
+});
+const inactiveClubsHandler = (clubs: AdminClubSummary[], totalElements = clubs.length) =>
+  http.get('*/admin/clubs', ({ request }) =>
+    statusParam(request) === 'INACTIVE' ? ok(pageOf(clubs, totalElements)) : ok(pageOf([])),
+  );
+
+describe('useAdminTriageQueue — 운영 중단 미결', () => {
+  it('남은 미결이 있고 운영 중단 시각이 있는 동아리만 운영 중단 시각 순으로 섞고, 동아리 목록 키에 캐시를 채운다', async () => {
+    const oldestInactiveAt = hoursAgo(300);
+    server.use(
+      inactiveClubsHandler([
+        inactiveClub(81, oldestInactiveAt, { undecidedApplicationCount: 3, pendingJoinRequestCount: 1 }),
+        inactiveClub(82, hoursAgo(30), { undecidedApplicationCount: 0, pendingJoinRequestCount: 2 }),
+        inactiveClub(83, hoursAgo(10), { undecidedApplicationCount: 0, pendingJoinRequestCount: 0 }),
+        inactiveClub(84, null, { undecidedApplicationCount: 1, pendingJoinRequestCount: 0 }),
+      ]),
+      http.get('*/admin/reports', () => ok(pageOf([report(1, hoursAgo(50))]))),
+    );
+    const queryClient = newQueryClient();
+    const { result } = renderHook(() => useAdminTriageQueue(), { wrapper: makeWrapper(queryClient) });
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    expect(itemKeys(result.current.items)).toEqual(['INACTIVE_CLUB:81', 'REPORT:1', 'INACTIVE_CLUB:82']);
+    expect(result.current.items[0]).toEqual({
+      area: 'INACTIVE_CLUB', id: 81, waitingSince: oldestInactiveAt, clubName: '쉬는 동아리 81',
+      undecidedApplicationCount: 3, pendingJoinRequestCount: 1,
+    });
+    expect(result.current.areas.INACTIVE_CLUB).toEqual({ status: 'ready', rowCount: 2, oldestWaitingSince: oldestInactiveAt });
+    expect(
+      queryClient.getQueryData(adminQueryKeys.clubsList({ status: 'INACTIVE', needsPendingCleanup: true, page: 0, size: 100 })),
+    ).toBeDefined();
+  });
+
+  it('건수 필드가 없으면(옛 백엔드 — 필터를 무시해 운영 중단 동아리 전부가 온다) 행을 넣지 않는다', async () => {
+    server.use(inactiveClubsHandler([inactiveClub(81, hoursAgo(300), {}), inactiveClub(82, hoursAgo(30), {})]));
+    const { result } = renderHook(() => useAdminTriageQueue(), { wrapper: makeWrapper(newQueryClient()) });
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    expect(itemKeys(result.current.items)).toEqual([]);
+    expect(result.current.areas.INACTIVE_CLUB).toEqual({ status: 'ready', rowCount: 0, oldestWaitingSince: null });
+  });
+
+  it('운영 중단 미결이 한 페이지(100곳)를 넘으면 이름순이라 오래된 건이 빠질 수 있어 행을 버리되 실패로 보지 않는다', async () => {
+    server.use(inactiveClubsHandler([inactiveClub(81, hoursAgo(300), { undecidedApplicationCount: 3, pendingJoinRequestCount: 1 })], 101));
+    const { result } = renderHook(() => useAdminTriageQueue(), { wrapper: makeWrapper(newQueryClient()) });
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    expect(itemKeys(result.current.items)).toEqual([]);
+    expect(result.current.areas.INACTIVE_CLUB).toMatchObject({ status: 'ready', rowCount: 0 });
+    expect(result.current.isError).toBe(false);
+  });
+
+  it('운영 중단 미결 목록을 받지 못하면 그 영역만 실패로 두고 다른 행은 남긴다', async () => {
+    server.use(
+      http.get('*/admin/clubs', ({ request }) => (statusParam(request) === 'INACTIVE' ? fail() : ok(pageOf([])))),
+      http.get('*/admin/reports', () => ok(pageOf([report(1, hoursAgo(50))]))),
+    );
+    const { result } = renderHook(() => useAdminTriageQueue(), { wrapper: makeWrapper(newQueryClient()) });
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    expect(result.current.areas.INACTIVE_CLUB).toMatchObject({ status: 'error', rowCount: 0 });
+    expect(result.current.areas.CLUB_APPROVAL.status).toBe('ready');
+    expect(itemKeys(result.current.items)).toEqual(['REPORT:1']);
+    expect(result.current.isError).toBe(true);
   });
 });
