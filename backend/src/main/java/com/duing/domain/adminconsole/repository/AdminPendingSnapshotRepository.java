@@ -24,10 +24,10 @@ public interface AdminPendingSnapshotRepository extends JpaRepository<AdminPendi
     @Query(value = """
             INSERT INTO admin_pending_snapshot (snapshot_date, club_approval, facility_booking, inquiry_unanswered,
                     promotion_request, report_unresolved, leader_succession, stale_pending_recruitment,
-                    total_pending_count, recorded_at)
+                    inactive_club_pending, total_pending_count, recorded_at)
             VALUES (CAST(:snapshotDate AS date), :clubApproval, :facilityBooking, :inquiryUnanswered,
                     :promotionRequest, :reportUnresolved, :leaderSuccession, :stalePendingRecruitment,
-                    :totalPendingCount, :recordedAt)
+                    :inactiveClubPending, :totalPendingCount, :recordedAt)
             ON CONFLICT (snapshot_date) DO NOTHING
             """, nativeQuery = true)
     int insertIfAbsent(@Param("snapshotDate") LocalDate snapshotDate,
@@ -38,6 +38,7 @@ public interface AdminPendingSnapshotRepository extends JpaRepository<AdminPendi
                        @Param("reportUnresolved") int reportUnresolved,
                        @Param("leaderSuccession") int leaderSuccession,
                        @Param("stalePendingRecruitment") int stalePendingRecruitment,
+                       @Param("inactiveClubPending") int inactiveClubPending,
                        @Param("totalPendingCount") int totalPendingCount,
                        @Param("recordedAt") Instant recordedAt);
 }

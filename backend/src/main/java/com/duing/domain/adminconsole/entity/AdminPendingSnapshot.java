@@ -48,6 +48,9 @@ public class AdminPendingSnapshot {
     @Column(name = "stale_pending_recruitment", nullable = false)
     private int stalePendingRecruitment;
 
+    @Column(name = "inactive_club_pending", nullable = false)
+    private int inactiveClubPending;
+
     @Column(name = "total_pending_count", nullable = false)
     private int totalPendingCount;
 

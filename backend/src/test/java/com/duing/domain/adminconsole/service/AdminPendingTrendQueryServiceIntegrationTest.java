@@ -76,10 +76,10 @@ class AdminPendingTrendQueryServiceIntegrationTest extends IntegrationTestBase {
     @DisplayName("지난날 13개는 KST 어제까지 오래된 순이고, 범위 밖(14일 전·오늘) 기록은 빼고 빈 날은 null 이다")
     void fillsThirteenRecordedDaysAndLeavesMissingDaysNull() {
         LocalDate yesterday = LocalDate.now(clock).minusDays(1);
-        adminPendingSnapshotRecorder.record(yesterday, AdminPendingCountsQuery.of(5, 0, 0, 0, 0, 0, 0));
-        adminPendingSnapshotRecorder.record(yesterday.minusDays(12), AdminPendingCountsQuery.of(3, 0, 0, 0, 0, 0, 0));
-        adminPendingSnapshotRecorder.record(yesterday.minusDays(13), AdminPendingCountsQuery.of(99, 0, 0, 0, 0, 0, 0));
-        adminPendingSnapshotRecorder.record(yesterday.plusDays(1), AdminPendingCountsQuery.of(77, 0, 0, 0, 0, 0, 0));
+        adminPendingSnapshotRecorder.record(yesterday, AdminPendingCountsQuery.of(5, 0, 0, 0, 0, 0, 0, 0));
+        adminPendingSnapshotRecorder.record(yesterday.minusDays(12), AdminPendingCountsQuery.of(3, 0, 0, 0, 0, 0, 0, 0));
+        adminPendingSnapshotRecorder.record(yesterday.minusDays(13), AdminPendingCountsQuery.of(99, 0, 0, 0, 0, 0, 0, 0));
+        adminPendingSnapshotRecorder.record(yesterday.plusDays(1), AdminPendingCountsQuery.of(77, 0, 0, 0, 0, 0, 0, 0));
 
         AdminPendingTrendQuery trend = adminPendingTrendQueryService.getTrend();
 
