@@ -2,8 +2,11 @@ import type { MyApplicationDetail, ApplicantInterviewPhase } from '@duing/types'
 
 import {
   APPLICATION_CLOSED_WITHOUT_RESULT_LABEL,
+  APPLICATION_ENDED_BY_CLUB_DEACTIVATION_DESCRIPTION,
+  APPLICATION_ENDED_BY_CLUB_DEACTIVATION_LABEL,
   APPLICATION_STATUS_APPLICANT_LABEL,
   isClosedWithoutResult,
+  isEndedByClubDeactivation,
   isRecruitmentClosed,
 } from '@/app/_constants/application-status';
 
@@ -37,6 +40,7 @@ type StepperDetail = Pick<
   | 'interview'
   | 'availabilityDeadline'
   | 'useInterview'
+  | 'endedByClubDeactivation'
 >;
 
 type Props = {
@@ -114,6 +118,10 @@ function resolveActiveStepIndex(
 
 function resolveStepLabel(step: StepDef, detail: StepperDetail): string {
   if (step.key !== 'finalized') return step.defaultLabel;
+  // 운영 중단 정리로 끝난 불합격은 운영진이 내린 결과가 아니다 — "최종 불합격"이 아니라 "선발 종료".
+  if (isEndedByClubDeactivation(detail.status, detail.endedByClubDeactivation)) {
+    return APPLICATION_ENDED_BY_CLUB_DEACTIVATION_LABEL;
+  }
   if (detail.status === 'ACCEPTED' || detail.status === 'REJECTED') {
     return APPLICATION_STATUS_APPLICANT_LABEL[detail.status];
   }
@@ -128,16 +136,20 @@ export function ApplicationStepper({ detail, phase }: Props) {
   const steps = resolveSteps(detail.useInterview);
   const recruitmentClosed = isRecruitmentClosed(detail.recruitmentStatus);
   const closedWithoutResult = isClosedWithoutResult(detail.status, detail.recruitmentStatus);
-  // 결과 없이 끝난 지원은 어느 마디도 "진행 중"이 아니다 — 면접 마디에 활성 커서를 남기면
-  // 목록 화면(진행 점을 없앤다)과 정반대로 그려진다. 마지막 마디로 밀어 멈춘 지점을 표시한다.
-  const activeIndex = closedWithoutResult
+  const endedByDeactivation = isEndedByClubDeactivation(detail.status, detail.endedByClubDeactivation);
+  // 결과 없이 끝난 지원(운영 중단으로 선발이 끝난 지원 포함)은 어느 마디도 "진행 중"이 아니다 — 면접 마디에 활성 커서를 남기면
+  // 목록 화면(진행 점을 없앤다)과 정반대로 그려진다. 면접 phase 캐시가 남아 있어도 마지막 마디로 밀어 멈춘 지점을 표시한다.
+  const activeIndex = closedWithoutResult || endedByDeactivation
     ? steps.length - 1
     : resolveActiveStepIndex(phase, detail);
-  const isFinalReject = detail.status === 'REJECTED';
+  const isFinalReject = detail.status === 'REJECTED' && !endedByDeactivation;
 
-  // 마감된 모집에서는 면접 phase 안내가 전부 성립하지 않는다 — 회차 생성도, 시간 선택도 막혀 있고
+  // 운영 중단 정리로 끝난 지원은 모집 상태와 상관없이 그 안내를 먼저 띄운다(정리는 OPEN·CLOSED 모집을 가리지 않는다).
+  // 그 밖에 마감된 모집에서는 면접 phase 안내가 전부 성립하지 않는다 — 회차 생성도, 시간 선택도 막혀 있고
   // 면접 카드(CTA 를 가진 쪽)도 함께 접힌다. 결과가 아직 없을 때만 종료 안내를 대신 띄운다.
-  const guideDescription: string | null = recruitmentClosed
+  const guideDescription: string | null = endedByDeactivation
+    ? APPLICATION_ENDED_BY_CLUB_DEACTIVATION_DESCRIPTION
+    : recruitmentClosed
     ? (closedWithoutResult ? CLOSED_WITHOUT_RESULT_GUIDE : null)
     : detail.useInterview && phase !== null && phase !== 'NOT_APPLICABLE'
       ? (getInterviewPhaseGuide(phase)?.description ?? null)
@@ -180,9 +192,9 @@ export function ApplicationStepper({ detail, phase }: Props) {
         {steps.map((step, index) => {
           const isActive = index === activeIndex;
           const isPast = index < activeIndex;
-          // 마지막 마디의 강조색 — 불합격은 경고색, 결과 없이 종료는 중립 회색.
-          // 진행 초록을 그대로 쓰면 "여기까지 잘 진행됨"으로 읽혀 종료 사실이 흐려진다.
-          const finalAccent = isFinalReject ? '#D9523A' : closedWithoutResult ? '#8A8F98' : null;
+          // 마지막 마디의 강조색 — 불합격은 경고색, 결과 없이 종료·운영 중단으로 선발 종료는 중립 회색.
+          // 진행 초록을 그대로 쓰면 "여기까지 잘 진행됨"으로 읽혀 종료 사실이 흐려진다(isFinalReject 가 거짓이면 null → 초록).
+          const finalAccent = isFinalReject ? '#D9523A' : closedWithoutResult || endedByDeactivation ? '#8A8F98' : null;
           const isAccentedFinal = step.key === 'finalized' && isActive && finalAccent !== null;
 
           const dotColor = isAccentedFinal

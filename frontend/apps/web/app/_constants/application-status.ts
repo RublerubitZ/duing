@@ -132,3 +132,17 @@ export function applicantStatusLabel(
 
 /** 운영 중단 정리로 끝난 지원의 안내 문장 — 지원자 상세와 총동연 정리 확인 창이 같은 문장을 쓴다. */
 export const APPLICATION_ENDED_BY_CLUB_DEACTIVATION_DESCRIPTION = '동아리 운영 중단으로 선발이 끝났어요';
+
+/** 운영 중단 정리로 끝난 지원의 지원자 표기 — 목록 알약·상세 마지막 마디·지난 지원 알약. */
+export const APPLICATION_ENDED_BY_CLUB_DEACTIVATION_LABEL = '선발 종료';
+
+/**
+ * 총동연의 운영 중단 정리로 끝난 지원인지 — 불합격이면서 서버 표시 칸이 참일 때만.
+ * 칸이 없는 이전 백엔드는 false(지금처럼 "최종 불합격") — fail-open.
+ */
+export function isEndedByClubDeactivation(
+  status: ApplicationStatus,
+  endedByClubDeactivation: boolean | undefined,
+): boolean {
+  return status === 'REJECTED' && endedByClubDeactivation === true;
+}

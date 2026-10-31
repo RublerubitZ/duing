@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   APPLICATION_CLOSED_WITHOUT_RESULT_LABEL,
+  APPLICATION_ENDED_BY_CLUB_DEACTIVATION_LABEL,
   APPLICATION_STATUS_APPLICANT_LABEL,
 } from '@/app/_constants/application-status';
 import { FILTERS, STATUS_META, STATUS_TO_FILTER } from '@/app/me/applications/_constants/data';
@@ -73,5 +74,17 @@ describe('FILTERS — 탭 라벨은 SoT, 매칭 로직은 STATUS_TO_FILTER', () 
     expect(STATUS_TO_FILTER['interview-scheduled']).toBe('intv');
     expect(STATUS_TO_FILTER.passed).toBe('pass');
     expect(STATUS_TO_FILTER.failed).toBe('fail');
+  });
+});
+
+describe('운영 중단으로 끝난 지원', () => {
+  it('"선발 종료" 회색 알약이고 결과 미발표 탭에 남는다 — 합불이 아니라 결과 없이 끝났다', () => {
+    expect(STATUS_META['deactivation-ended']).toEqual({
+      label: APPLICATION_ENDED_BY_CLUB_DEACTIVATION_LABEL,
+      pill: 'muted',
+      textColor: STATUS_META['closed-unresolved'].textColor,
+      bg: STATUS_META['closed-unresolved'].bg,
+    });
+    expect(STATUS_TO_FILTER['deactivation-ended']).toBe('closed');
   });
 });

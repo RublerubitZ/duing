@@ -53,6 +53,11 @@ export type ApplicationSummary = {
   status: ApplicationStatus;
   interview: AssignedInterview | null;
   submittedAt: string; // ISO datetime
+  /**
+   * 총동연의 운영 중단 정리로 불합격된 지원 — 지원자에게 "최종 불합격"이 아니라 "선발 종료"로 보인다.
+   * 필드가 없으면 이전 백엔드 — 지금처럼 "최종 불합격"(fail-open).
+   */
+  endedByClubDeactivation?: boolean;
 };
 
 export type MyApplicationDetail = {
@@ -74,6 +79,8 @@ export type MyApplicationDetail = {
   availabilityDeadline: string | null;
   // 면접 사용 모집 여부 — 지원 진행 단계에 면접 단계를 표시할지 결정한다.
   useInterview: boolean;
+  /** 총동연의 운영 중단 정리로 불합격된 지원. 필드가 없으면 이전 백엔드 — 지금처럼 "최종 불합격". */
+  endedByClubDeactivation?: boolean;
 };
 
 export type Applicant = {
