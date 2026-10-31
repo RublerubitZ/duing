@@ -1,6 +1,6 @@
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ReactNode } from 'react';
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { setupServer } from 'msw/node';
@@ -130,6 +130,46 @@ describe('AdminClubsListPage — 남은 미결 정리 흐름', () => {
     releaseCleanup();
     expect(await screen.findByText('지원서 3건·가입 신청 1건을 정리했어요')).toBeInTheDocument();
     expect(cleanupRequestCount).toBe(1);
+  });
+
+  it('같은 틱에 정리하기를 두 번 눌러도(버튼이 막히기 전) 정리 요청은 한 번이고 토스트도 응답 건수 하나뿐이다', async () => {
+    // 실백엔드처럼 두 번째 요청은 잠금 뒤 0·0 을 돌려준다 — 가드가 없으면 모순된 토스트가 함께 뜬다.
+    respondCleanup(() =>
+      HttpResponse.json({
+        ok: true,
+        message: null,
+        data: cleanupRequestCount === 1
+          ? { rejectedApplicationCount: 3, rejectedJoinRequestCount: 1 }
+          : { rejectedApplicationCount: 0, rejectedJoinRequestCount: 0 },
+      }),
+    );
+    const user = userEvent.setup();
+    renderPage();
+    await user.click(await screen.findByRole('button', { name: '남은 미결 정리' }));
+    const dialog = await screen.findByRole('dialog');
+    const confirmButton = within(dialog).getByRole('button', { name: '정리하기' });
+    // 사이에 await 이 없어 두 번째 클릭은 React 가 disabled 를 다시 그리기 전에 들어온다(실브라우저 dblclick 과 같다).
+    fireEvent.click(confirmButton);
+    fireEvent.click(confirmButton);
+
+    expect(await screen.findByText('지원서 3건·가입 신청 1건을 정리했어요')).toBeInTheDocument();
+    await waitFor(() => expect(listRequestCount).toBeGreaterThanOrEqual(2));
+    expect(cleanupRequestCount).toBe(1);
+    expect(screen.queryByText('정리할 미결이 없었어요')).not.toBeInTheDocument();
+  });
+
+  it('실패 뒤 창에서 다시 정리하기를 누르면 정리 요청이 다시 간다', async () => {
+    respondCleanup(() =>
+      cleanupRequestCount === 1
+        ? HttpResponse.json({ ok: false, message: '일시적인 오류예요.', data: null }, { status: 500 })
+        : HttpResponse.json({ ok: true, message: null, data: { rejectedApplicationCount: 3, rejectedJoinRequestCount: 1 } }),
+    );
+    const dialog = await openDialogAndConfirm();
+    expect(await within(dialog).findByRole('alert')).toBeInTheDocument();
+
+    await userEvent.click(within(dialog).getByRole('button', { name: '정리하기' }));
+    expect(await screen.findByText('지원서 3건·가입 신청 1건을 정리했어요')).toBeInTheDocument();
+    expect(cleanupRequestCount).toBe(2);
   });
 
   it('정리 뒤 다시 받은 목록에서 그 동아리가 빠지면 행의 건수와 정리 버튼이 사라진다(Review Focus 2)', async () => {

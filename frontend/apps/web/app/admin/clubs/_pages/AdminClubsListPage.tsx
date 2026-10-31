@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { ApiError } from '@duing/api';
@@ -60,6 +60,8 @@ function AdminClubsList({ initialFilter }: { initialFilter: StatusFilter }) {
   const [cleanupDialog, setCleanupDialog] = useState<{ club: AdminClubSummary; counts: PendingCleanupCounts } | null>(null);
   const [cleanupError, setCleanupError] = useState<string | null>(null);
   const cleanupMutation = useCleanupClubPendingMutation();
+  // 확정 연타 동기 가드 — isPending 은 렌더 값이라 같은 틱의 두 번째 클릭(disabled 가 그려지기 전)을 못 막는다.
+  const isCleanupSubmittingRef = useRef(false);
   const { addToast } = useToast();
 
   const params = useMemo(
@@ -151,7 +153,8 @@ function AdminClubsList({ initialFilter }: { initialFilter: StatusFilter }) {
   }
 
   function handlePendingCleanupConfirm() {
-    if (!cleanupDialog) return;
+    if (!cleanupDialog || isCleanupSubmittingRef.current) return;
+    isCleanupSubmittingRef.current = true;
     setCleanupError(null);
     cleanupMutation.mutate(cleanupDialog.club.id, {
       onSuccess: (cleanupResult) => {
@@ -166,6 +169,10 @@ function AdminClubsList({ initialFilter }: { initialFilter: StatusFilter }) {
             ? mutationError.message
             : '남은 미결을 정리하지 못했어요. 잠시 후 다시 시도해 주세요.';
         setCleanupError(message);
+      },
+      // 성공·실패 모두 풀어 실패 뒤 다시 시도·창을 다시 열어 확정할 수 있게 한다.
+      onSettled: () => {
+        isCleanupSubmittingRef.current = false;
       },
     });
   }
