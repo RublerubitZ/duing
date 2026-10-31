@@ -76,7 +76,7 @@ export function AdminClubsTable({
                       {club.centralClub && (
                         <span
                           aria-label="중앙동아리"
-                          className="rounded-full bg-slate-900 px-1.5 py-0.5 text-[10px] font-semibold text-white"
+                          className="whitespace-nowrap rounded-full bg-slate-900 px-1.5 py-0.5 text-[10px] font-semibold text-white"
                         >
                           🏛️ 중앙
                         </span>
@@ -84,7 +84,7 @@ export function AdminClubsTable({
                       {club.facilitySecuredTimeTarget && (
                         <span
                           aria-label="기본 확보 시간 대상"
-                          className="rounded-full bg-emerald-700 px-1.5 py-0.5 text-[10px] font-semibold text-white"
+                          className="whitespace-nowrap rounded-full bg-emerald-700 px-1.5 py-0.5 text-[10px] font-semibold text-white"
                         >
                           확보 대상
                         </span>

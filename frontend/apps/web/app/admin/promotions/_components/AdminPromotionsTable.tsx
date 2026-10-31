@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { formatDateKst, kstDateTimeFormatter, parseKstInstant } from '@duing/hooks';
 import type { AdminPromotionSummary } from '@duing/types';
 import { ImageWithFallback } from '../../../_components/ImageWithFallback';
+import { cn } from '../../../_lib/cn';
 import { toRoute } from '../../../_lib/route';
 import {
   CURATION_LABEL,
@@ -56,7 +57,7 @@ export function AdminPromotionsTable({ items, onDeleteClick }: Props) {
                   emptyMessage="이미지 없음"
                 />
               </Td>
-              <Td>
+              <Td className="break-keep">
                 <Link
                   href={toRoute(`/admin/promotions/${promotion.id}/edit`)}
                   className="hover:underline"
@@ -64,21 +65,21 @@ export function AdminPromotionsTable({ items, onDeleteClick }: Props) {
                   {promotion.title}
                 </Link>
               </Td>
-              <Td>
+              <Td className="whitespace-nowrap">
                 {promotion.club ? (
                   <span>{promotion.club.name}</span>
                 ) : (
                   <span className="text-charcoal-3">{CURATION_LABEL}</span>
                 )}
               </Td>
-              <Td>
+              <Td className="whitespace-nowrap">
                 <span
                   className={`inline-block px-2 py-0.5 rounded-full text-[11.5px] font-semibold ${RENDER_MODE_BADGE_CLASS[promotion.renderMode]}`}
                 >
                   {RENDER_MODE_LABEL[promotion.renderMode]}
                 </span>
               </Td>
-              <Td>
+              <Td className="whitespace-nowrap">
                 {(() => {
                   const status = resolveDisplayStatus(
                     promotion.active,
@@ -101,10 +102,10 @@ export function AdminPromotionsTable({ items, onDeleteClick }: Props) {
                     : `${formatScheduleEdge(promotion.startAt) ?? '즉시'} ~ ${formatScheduleEdge(promotion.endAt) ?? '무기한'}`}
                 </span>
               </Td>
-              <Td>{promotion.displayOrder}</Td>
-              <Td>{promotion.createdBy.name}</Td>
-              <Td>{formatDateKst(promotion.createdAt)}</Td>
-              <Td>
+              <Td className="whitespace-nowrap">{promotion.displayOrder}</Td>
+              <Td className="whitespace-nowrap">{promotion.createdBy.name}</Td>
+              <Td className="whitespace-nowrap">{formatDateKst(promotion.createdAt)}</Td>
+              <Td className="whitespace-nowrap">
                 <div className="flex gap-2">
                   <Link
                     href={toRoute(`/admin/promotions/${promotion.id}/edit`)}
@@ -130,10 +131,10 @@ export function AdminPromotionsTable({ items, onDeleteClick }: Props) {
 }
 
 const Th = ({ children }: { children: React.ReactNode }) => (
-  <th className="text-left px-3 py-2 font-semibold">{children}</th>
+  <th className="whitespace-nowrap text-left px-3 py-2 font-semibold">{children}</th>
 );
-const Td = ({ children }: { children: React.ReactNode }) => (
-  <td className="px-3 py-2 align-middle">{children}</td>
+const Td = ({ children, className }: { children: React.ReactNode; className?: string }) => (
+  <td className={cn('px-3 py-2 align-middle', className)}>{children}</td>
 );
 
 // 노출 기간 컬럼 전용 축약 표기(M/D HH:mm) — 브라우저 존이 아닌 KST 로 고정해 뽑는다.
