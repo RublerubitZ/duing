@@ -45,12 +45,12 @@ export function AdminClubsTable({
       <table className="w-full text-sm">
         <thead className="border-line bg-graysoft border-b text-[12px] uppercase text-slate-500">
           <tr>
-            <th className="px-4 py-3 text-left">이름</th>
-            <th className="px-4 py-3 text-left">분류</th>
-            <th className="px-4 py-3 text-left">회장</th>
-            <th className="px-4 py-3 text-left">상태</th>
-            <th className="px-4 py-3 text-left">최근 변경</th>
-            <th className="px-4 py-3 text-right">액션</th>
+            <th className="whitespace-nowrap px-4 py-3 text-left">이름</th>
+            <th className="whitespace-nowrap px-4 py-3 text-left">분류</th>
+            <th className="whitespace-nowrap px-4 py-3 text-left">회장</th>
+            <th className="whitespace-nowrap px-4 py-3 text-left">상태</th>
+            <th className="whitespace-nowrap px-4 py-3 text-left">최근 변경</th>
+            <th className="whitespace-nowrap px-4 py-3 text-right">액션</th>
           </tr>
         </thead>
         <tbody>
@@ -69,7 +69,7 @@ export function AdminClubsTable({
                     <div className="flex items-center gap-1.5 font-medium text-slate-900">
                       <Link
                         href={`/admin/clubs/${club.id}`}
-                        className="hover:underline"
+                        className="break-keep hover:underline"
                       >
                         {club.name}
                       </Link>
@@ -92,21 +92,21 @@ export function AdminClubsTable({
                     </div>
                     <div className="text-xs text-slate-500">{clubCategoryLabel(club.category)}</div>
                   </td>
-                  <td className="px-4 py-3 text-slate-600">{club.division ?? '—'}</td>
+                  <td className="whitespace-nowrap px-4 py-3 text-slate-600">{club.division ?? '—'}</td>
                   <td className="px-4 py-3">
                     {club.leaderName ? (
-                      <div>
+                      <div className="whitespace-nowrap">
                         <div className="text-slate-900">{club.leaderName}</div>
                         <div className="text-xs text-slate-500">{club.leaderStudentId}</div>
                       </div>
                     ) : (
-                      <span className="text-rose-600">회장 정보 없음</span>
+                      <span className="whitespace-nowrap text-rose-600">회장 정보 없음</span>
                     )}
                   </td>
                   <td className="px-4 py-3">
                     <span
                       className={cn(
-                        'inline-flex rounded-full px-2 py-0.5 text-xs font-semibold',
+                        'inline-flex whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-semibold',
                         STATUS_BADGE_CLASS[club.status],
                       )}
                     >
@@ -122,14 +122,14 @@ export function AdminClubsTable({
                       <button
                         type="button"
                         onClick={() => onCentralClubToggleClick(club)}
-                        className="rounded-md border border-slate-200 px-2.5 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                        className="whitespace-nowrap rounded-md border border-slate-200 px-2.5 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50"
                       >
                         {club.centralClub ? '중앙 해제' : '중앙 지정'}
                       </button>
                       <button
                         type="button"
                         onClick={() => onSecuredTargetToggleClick(club)}
-                        className="rounded-md border border-slate-200 px-2.5 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                        className="whitespace-nowrap rounded-md border border-slate-200 px-2.5 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50"
                       >
                         {club.facilitySecuredTimeTarget ? '확보 해제' : '확보 지정'}
                       </button>
@@ -138,7 +138,7 @@ export function AdminClubsTable({
                         <button
                           type="button"
                           onClick={() => onPendingCleanupClick(club, cleanupCounts)}
-                          className="rounded-md border border-rose-200 px-2.5 py-1 text-xs font-semibold text-rose-700 hover:bg-rose-50"
+                          className="whitespace-nowrap rounded-md border border-rose-200 px-2.5 py-1 text-xs font-semibold text-rose-700 hover:bg-rose-50"
                         >
                           {PENDING_CLEANUP_ACTION_LABEL}
                         </button>
@@ -149,7 +149,7 @@ export function AdminClubsTable({
                           type="button"
                           onClick={() => onActionClick(club, action)}
                           className={cn(
-                            'rounded-md border px-2.5 py-1 text-xs font-semibold',
+                            'whitespace-nowrap rounded-md border px-2.5 py-1 text-xs font-semibold',
                             action.tone === 'danger'
                               ? 'border-rose-200 text-rose-700 hover:bg-rose-50'
                               : 'border-emerald-200 text-emerald-700 hover:bg-emerald-50',
@@ -162,7 +162,7 @@ export function AdminClubsTable({
                         <button
                           type="button"
                           onClick={() => onCloseClick(club)}
-                          className="rounded-md border border-rose-300 bg-rose-50 px-2.5 py-1 text-xs font-semibold text-rose-700 hover:bg-rose-100"
+                          className="whitespace-nowrap rounded-md border border-rose-300 bg-rose-50 px-2.5 py-1 text-xs font-semibold text-rose-700 hover:bg-rose-100"
                         >
                           삭제
                         </button>
