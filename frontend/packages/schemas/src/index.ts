@@ -8,6 +8,12 @@ import { passwordSchema } from './password';
 
 export { passwordSchema } from './password';
 
+// 운영 CSP 의 script-src 에 'unsafe-eval' 이 없다 — zod 4 JIT(new Function)는 객체 스키마를 만들 때 켜지므로 그 전에 끈다.
+z.config({ jitless: true });
+
+// 정수 검사는 .int() 대신 refine(Number.isInteger) 로 한다 — zod 4 의 .int() 는 2^53 을 넘는 정수를 거부하고, 실패하면
+// 같은 회차의 refine·superRefine 을 건너뛰어 zod 3 때와 안내가 달라진다(test/integer-check.test.ts).
+
 const GRADE_VALUES = ['FRESHMAN', 'SOPHOMORE', 'JUNIOR', 'SENIOR', 'ON_LEAVE', 'GRADUATED'] as const;
 const COLLEGE_VALUES = [
   'PUBLIC_LEADERS',
@@ -70,18 +76,18 @@ export const signupSchema = z.object({
     .regex(/^\d{8}$/, '학번은 8자리 숫자여야 합니다.'),
   name: userNameSchema,
   password: passwordSchema,
-  grade: z.enum(GRADE_VALUES, { errorMap: () => ({ message: '학년을 선택해주세요.' }) }),
-  college: z.enum(COLLEGE_VALUES, { errorMap: () => ({ message: '단과대학을 선택해주세요.' }) }),
+  grade: z.enum(GRADE_VALUES, { error: '학년을 선택해주세요.' }),
+  college: z.enum(COLLEGE_VALUES, { error: '단과대학을 선택해주세요.' }),
   major: majorSchema,
   verificationToken: z
     .string()
     .min(1, '휴대폰 인증을 완료해주세요.')
     .max(36, '휴대폰 인증 정보가 올바르지 않습니다.'),
   termsOfServiceAgreed: z.literal(true, {
-    errorMap: () => ({ message: '이용약관에 동의해야 합니다.' }),
+    error: '이용약관에 동의해야 합니다.',
   }),
   privacyPolicyAgreed: z.literal(true, {
-    errorMap: () => ({ message: '개인정보 수집·이용에 동의해야 합니다.' }),
+    error: '개인정보 수집·이용에 동의해야 합니다.',
   }),
 });
 
@@ -226,7 +232,7 @@ export const createRecruitmentSchema = z
       .nullable(),
     capacity: z
       .number()
-      .int('모집 인원은 정수여야 합니다.')
+      .refine(Number.isInteger, '모집 인원은 정수여야 합니다.')
       .min(1, '모집 인원은 1명 이상이어야 합니다.'),
     applicationMode: z.enum(['SELF', 'EXTERNAL']).default('SELF'),
     externalFormUrl: z.string().optional(),
@@ -321,7 +327,7 @@ export const updateRecruitmentSchema = z
       .optional(),
     capacity: z
       .number()
-      .int('모집 인원은 정수여야 합니다.')
+      .refine(Number.isInteger, '모집 인원은 정수여야 합니다.')
       .min(1, '모집 인원은 1명 이상이어야 합니다.'),
     useInterview: z.boolean(),
     // 수정에서는 applicationMode 를 받지 않는다. 자체 폼일 때만 호출부가 questionItems 를 채우므로
@@ -401,14 +407,14 @@ const clubProfileBaseSchema = z.object({
     z.object({
       question: z.string().min(1, 'FAQ 질문은 1~200자여야 합니다.').max(200, 'FAQ 질문은 1~200자여야 합니다.'),
       answer: z.string().min(1, 'FAQ 답변은 1~2000자여야 합니다.').max(2000, 'FAQ 답변은 1~2000자여야 합니다.'),
-      order: z.number().int().min(0, 'FAQ 순서는 0 이상이어야 합니다.'),
+      order: z.number().refine(Number.isInteger).min(0, 'FAQ 순서는 0 이상이어야 합니다.'),
     }),
   ).max(20, 'FAQ는 최대 20개까지 가능합니다.'),
-  foundedYear: z.number().int().min(1900, '창설년도는 1900 이상이어야 합니다.')
+  foundedYear: z.number().refine(Number.isInteger).min(1900, '창설년도는 1900 이상이어야 합니다.')
     .max(2100, '창설년도가 너무 큽니다.').nullable().optional(),
-  cohortNumber: z.number().int().min(1, '기수는 1 이상이어야 합니다.').nullable().optional(),
+  cohortNumber: z.number().refine(Number.isInteger).min(1, '기수는 1 이상이어야 합니다.').nullable().optional(),
   location: z.string().max(200, '위치는 200자 이하여야 합니다.').nullable().optional(),
-  activityFrequency: z.number().int().min(1, '활동 빈도는 1 이상이어야 합니다.').nullable().optional(),
+  activityFrequency: z.number().refine(Number.isInteger).min(1, '활동 빈도는 1 이상이어야 합니다.').nullable().optional(),
   activeDays: z.array(z.enum(['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY', 'SUNDAY'])).optional(),
   // 새 입력 UI 는 20자 제한 — 기존 60자 시절 저장 값이 깨지지 않게 백스톱 60 유지.
   tagline: z.string().max(60, '한줄 소개는 60자 이하여야 합니다.').nullable().optional(),
@@ -418,7 +424,7 @@ const clubProfileBaseSchema = z.object({
   ).max(10, '강조 항목은 최대 10개까지 가능합니다.').optional(),
   contactVisibility: z.enum(['PUBLIC', 'LOGGED_IN_ONLY', 'PRIVATE']).optional(),
   feeCycle: z.enum(['NONE', 'ONE_TIME', 'SEMESTER', 'YEARLY', 'MONTHLY']).optional(),
-  membershipFeeAmount: z.number().int().min(1, '회비 금액은 1원 이상이어야 합니다.')
+  membershipFeeAmount: z.number().refine(Number.isInteger).min(1, '회비 금액은 1원 이상이어야 합니다.')
     .max(10_000_000, '회비 금액이 너무 큽니다.').nullable().optional(),
   // 회비 안내문 — 대표 회비(주기/금액)와 독립, feePairRule 무관.
   feeNote: z.string().max(150, '회비 안내는 150자 이하여야 합니다.').nullable().optional(),
@@ -482,11 +488,11 @@ const REPORT_REASON_CODE_VALUES = [
 
 export const submitReportSchema = z.object({
   targetType: z.enum(REPORT_TARGET_TYPE_VALUES, {
-    errorMap: () => ({ message: '신고 대상 유형을 선택해주세요.' }),
+    error: '신고 대상 유형을 선택해주세요.',
   }),
-  targetId: z.number().int().positive('신고 대상 ID가 유효하지 않습니다.'),
+  targetId: z.number().refine(Number.isInteger).positive('신고 대상 ID가 유효하지 않습니다.'),
   reasonCode: z.enum(REPORT_REASON_CODE_VALUES, {
-    errorMap: () => ({ message: '신고 사유를 선택해주세요.' }),
+    error: '신고 사유를 선택해주세요.',
   }),
   detail: z
     .string()
@@ -582,7 +588,7 @@ export const createGlobalEventSchema = z
       .optional()
       .or(z.literal('')),
     category: z.enum(['FAIR', 'FESTIVAL', 'APPLICATION', 'CONTEST', 'UNION', 'OTHER'], {
-      errorMap: () => ({ message: '카테고리를 선택해주세요.' }),
+      error: '카테고리를 선택해주세요.',
     }),
   })
   .refine((data) => new Date(data.endAt) >= new Date(data.startAt), {
@@ -643,8 +649,8 @@ const optionalDay = (label: string) =>
   z.preprocess(
     (raw) => (raw === '' || raw === undefined || raw === null ? undefined : raw),
     z.coerce
-      .number({ invalid_type_error: `${label}은 숫자여야 합니다.` })
-      .int(`${label}은 정수여야 합니다.`)
+      .number({ error: `${label}은 숫자여야 합니다.` })
+      .refine(Number.isInteger, `${label}은 정수여야 합니다.`)
       .min(1, `${label}은 1~28 사이여야 합니다.`)
       .max(28, `${label}은 1~28 사이여야 합니다.`)
       .optional(),
@@ -656,14 +662,14 @@ export const createFeePolicySchema = z
   .object({
     name: z.string().min(1, '정책 이름은 필수입니다.').max(100, '정책 이름은 100자 이하여야 합니다.'),
     amount: z.coerce
-      .number({ invalid_type_error: '금액은 숫자여야 합니다.' })
-      .int('금액은 정수여야 합니다.')
+      .number({ error: '금액은 숫자여야 합니다.' })
+      .refine(Number.isInteger, '금액은 정수여야 합니다.')
       .min(1, '금액은 1원 이상이어야 합니다.'),
     billingType: z.enum(['MONTHLY', 'SEMESTER', 'YEARLY', 'ONE_TIME'], {
-      errorMap: () => ({ message: '회비 유형을 선택해주세요.' }),
+      error: '회비 유형을 선택해주세요.',
     }),
     targetType: z.enum(['ALL_MEMBERS', 'SELECTED_MEMBERS'], {
-      errorMap: () => ({ message: '청구 대상을 선택해주세요.' }),
+      error: '청구 대상을 선택해주세요.',
     }),
     autoIssue: z.boolean().default(false),
     issueDay: optionalDay('발행일'),
@@ -710,11 +716,11 @@ export type CreateFeePolicyInput = z.infer<typeof createFeePolicySchema>;
 // AUTO_MATCHED 는 수동 기록 불가(시스템 전용) — enum 에 포함하지 않는다.
 export const recordPaymentSchema = z.object({
   amount: z.coerce
-    .number({ invalid_type_error: '납부 금액을 입력해 주세요.' })
-    .int('납부 금액은 정수여야 합니다.')
+    .number({ error: '납부 금액을 입력해 주세요.' })
+    .refine(Number.isInteger, '납부 금액은 정수여야 합니다.')
     .positive('납부 금액은 1원 이상이어야 합니다.'),
   method: z.enum(['CASH', 'TRANSFER', 'OTHER'], {
-    errorMap: () => ({ message: '납부 수단을 선택해 주세요.' }),
+    error: '납부 수단을 선택해 주세요.',
   }),
   paidAt: z.string().min(1, '납부일은 필수입니다.'),
   memo: z.string().max(200, '메모는 200자 이하여야 합니다.').optional(),
@@ -784,7 +790,7 @@ export const toGenerateBillsPayload = (input: GenerateBillsInput): GenerateBills
 //   accountHolder @NotBlank @Size(max=50)
 export const feeAccountSchema = z.object({
   bank: z.enum(BANKS, {
-    errorMap: () => ({ message: '은행을 선택해주세요.' }),
+    error: '은행을 선택해주세요.',
   }),
   accountNumber: z
     .string()
@@ -818,14 +824,14 @@ const CASHBOOK_EXPENSE_CODES = ['MT', 'DINING', 'SNACK', 'SUPPLY', 'MARKETING', 
 
 export const createCashbookEntrySchema = z
   .object({
-    entryType: z.enum(['INCOME', 'EXPENSE'], { errorMap: () => ({ message: '수입/지출을 선택해 주세요.' }) }),
+    entryType: z.enum(['INCOME', 'EXPENSE'], { error: '수입/지출을 선택해 주세요.' }),
     categoryCode: z.enum(['FEE', 'SPONSOR', 'SUBSIDY', 'MT', 'DINING', 'SNACK', 'SUPPLY', 'MARKETING', 'OTHER'], {
-      errorMap: () => ({ message: '카테고리를 선택해 주세요.' }),
+      error: '카테고리를 선택해 주세요.',
     }),
     customCategory: z.string().max(40, '직접입력 카테고리는 40자 이하여야 합니다.').optional(),
     amount: z.coerce
-      .number({ invalid_type_error: '금액은 숫자여야 합니다.' })
-      .int('금액은 정수여야 합니다.')
+      .number({ error: '금액은 숫자여야 합니다.' })
+      .refine(Number.isInteger, '금액은 정수여야 합니다.')
       .positive('금액은 1원 이상이어야 합니다.'),
     description: z.string().min(1, '설명은 필수입니다.').max(100, '설명은 100자 이하여야 합니다.'),
     transactionDate: z.string().min(1, '거래일은 필수입니다.'),

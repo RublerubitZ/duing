@@ -86,6 +86,19 @@ describe('signupSchema — 학년', () => {
   });
 });
 
+// 가입 화면은 첫 issue 의 message 를 그대로 띄운다 — 스키마에 단 문구가 무시되면 영어 기본 문구가 노출된다.
+describe('signupSchema — 선택·동의 항목 안내 문구', () => {
+  it.each([
+    { field: 'grade', invalidValue: '', message: '학년을 선택해주세요.' },
+    { field: 'college', invalidValue: '', message: '단과대학을 선택해주세요.' },
+    { field: 'termsOfServiceAgreed', invalidValue: false, message: '이용약관에 동의해야 합니다.' },
+    { field: 'privacyPolicyAgreed', invalidValue: false, message: '개인정보 수집·이용에 동의해야 합니다.' },
+  ])('$field 가 비었거나 동의하지 않으면 $message 로 안내한다', ({ field, invalidValue, message }) => {
+    const parsed = signupSchema.safeParse({ ...baseInput, [field]: invalidValue });
+    expect(parsed.error?.issues).toEqual([expect.objectContaining({ path: [field], message })]);
+  });
+});
+
 describe('signupSchema — 휴대폰 인증 토큰', () => {
   it('유효한 verificationToken 을 통과시킨다', () => {
     expect(signupSchema.safeParse({ ...baseInput, verificationToken: 'a'.repeat(36) }).success).toBe(true);
