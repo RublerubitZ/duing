@@ -2,14 +2,26 @@ package com.duing.common.fixture;
 
 import com.duing.domain.club.entity.Club;
 import com.duing.domain.club.entity.ClubStatus;
+import com.duing.domain.club.metric.entity.ClubMetric;
+import com.duing.domain.club.metric.repository.ClubMetricRepository;
 import com.duing.domain.club.repository.ClubRepository;
+import com.duing.domain.clubmember.entity.ClubMember;
+import com.duing.domain.clubmember.entity.ClubMemberRole;
+import com.duing.domain.clubmember.repository.ClubMemberRepository;
 import com.duing.domain.joincode.entity.ClubJoinRequest;
 import com.duing.domain.recruitment.entity.ApplicationMode;
 import com.duing.domain.recruitment.entity.Recruitment;
 import com.duing.domain.recruitment.entity.TargetRole;
 import com.duing.domain.recruitment.repository.RecruitmentRepository;
+import com.duing.domain.user.entity.AuthSession;
+import com.duing.domain.user.entity.SessionPlatform;
+import com.duing.domain.user.entity.SessionRevokeReason;
+import com.duing.domain.user.entity.User;
+import com.duing.domain.user.repository.AuthSessionRepository;
+import com.duing.domain.user.repository.UserRepository;
 import com.duing.global.time.TimeMapper;
 import java.sql.Timestamp;
+import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.concurrent.atomic.AtomicLong;
@@ -70,5 +82,39 @@ public final class ClubSignalFixture {
                                        LocalDateTime seoulRequestedAt) {
         jdbcTemplate.update("UPDATE club_join_request SET created_at = ? WHERE id = ?",
                 Timestamp.valueOf(TimeMapper.seoulToSystemWallClock(seoulRequestedAt)), joinRequest.getId());
+    }
+
+    /** 동아리에 회원을 넣는다 — 이름은 회장 표시 회귀 테스트가 대조한다(학번은 유일). */
+    public static User saveMember(UserRepository userRepository, ClubMemberRepository clubMemberRepository,
+                                  Club club, ClubMemberRole role, String name) {
+        User member = userRepository.save(UserFixture.withName(name));
+        clubMemberRepository.save(ClubMember.of(club, member, role));
+        return member;
+    }
+
+    /** 마지막 로그인 — 무클럭 now() 로 찍히는 system regime 벽시계다(TimeMapper.systemNow(clock) 기준으로 준다). */
+    public static void recordLogin(JdbcTemplate jdbcTemplate, User user, LocalDateTime systemLoggedInAt) {
+        jdbcTemplate.update("UPDATE users SET last_login_at = ? WHERE id = ?", Timestamp.valueOf(systemLoggedInAt), user.getId());
+    }
+
+    /** 세션 마지막 사용 — now(clock) 으로 찍히는 seoul regime 벽시계다. revoked 면 그 시각에 로그아웃으로 폐기한다. */
+    public static AuthSession saveSession(AuthSessionRepository authSessionRepository, User user,
+                                          LocalDateTime seoulLastUsedAt, boolean revoked) {
+        AuthSession session = AuthSession.create(user.getId(), SessionPlatform.WEB, null, null, null, false,
+                seoulLastUsedAt, Duration.ofDays(30));
+        if (revoked) {
+            session.revoke(seoulLastUsedAt, SessionRevokeReason.LOGOUT);
+        }
+        return authSessionRepository.save(session);
+    }
+
+    /** club_metric 행 — 신호는 last_activity_at 만 본다(나머지는 0). lastActivityAt 이 null 이면 "행은 있는데 기록 없음". */
+    public static void saveMetric(ClubMetricRepository clubMetricRepository, Club club, LocalDateTime lastActivityAt) {
+        clubMetricRepository.save(ClubMetric.of(club.getId(), 0, 0, lastActivityAt, 0.0, 0.0, 0, LocalDateTime.now()));
+    }
+
+    /** 탈퇴(소프트 삭제)만 찍고 멤버십은 남긴다 — 탈퇴 정리 전 잔존 멤버십 모양. */
+    public static void withdraw(JdbcTemplate jdbcTemplate, User user) {
+        jdbcTemplate.update("UPDATE users SET deleted_at = now() WHERE id = ?", user.getId());
     }
 }

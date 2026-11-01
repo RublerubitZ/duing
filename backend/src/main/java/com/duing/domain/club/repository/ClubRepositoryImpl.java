@@ -15,6 +15,7 @@ import com.duing.domain.club.entity.ClubCategory;
 import com.duing.domain.club.entity.ClubStatus;
 import com.duing.domain.club.metric.entity.QClubMetric;
 import com.duing.domain.user.entity.College;
+import com.duing.domain.user.entity.QAuthSession;
 import com.duing.domain.user.entity.QUser;
 import com.duing.domain.club.service.ClubRecommendationPolicy;
 import com.duing.domain.club.service.ClubSignalPolicy;
@@ -28,6 +29,7 @@ import com.duing.domain.club.service.dto.query.ClubStatsQuery;
 import com.duing.domain.club.service.dto.query.ClubSummaryQuery;
 import com.duing.domain.club.service.dto.query.RecruitmentStatusFilter;
 import com.duing.domain.clubmember.entity.ClubMemberRole;
+import com.duing.domain.clubmember.entity.QClubMember;
 import com.duing.domain.joincode.entity.JoinRequestStatus;
 import com.duing.domain.recruitment.entity.RecruitmentStatus;
 import com.duing.domain.recruitment.repository.RecruitmentPredicates;
@@ -70,6 +72,15 @@ public class ClubRepositoryImpl implements ClubRepositoryCustom {
      * 가려 엉뚱한 행을 읽는다({@code QUser actor} 와 같은 선례).
      */
     private static final QClubMetric SUMMARY_METRIC = new QClubMetric("summaryMetric");
+
+    /**
+     * 운영진 미접속 신호(OPERATOR_INACTIVE)의 서브쿼리 전용 alias.
+     * <p>findByAdminCondition 의 행 쿼리가 회장 조인에 기본 alias {@code clubMember}·{@code user} 를 쓴다 — 서브쿼리가 기본 alias 를
+     * 공유하면 위 SUMMARY_METRIC 과 같은 함정으로 회장 칸이 엉뚱한 행을 읽는다. 두 NOT EXISTS 는 형제 서브쿼리라 같은 alias 를 다시 쓴다.
+     */
+    private static final QClubMember SIGNAL_OPERATOR = new QClubMember("signalOperator");
+    private static final QUser SIGNAL_OPERATOR_USER = new QUser("signalOperatorUser");
+    private static final QAuthSession SIGNAL_OPERATOR_SESSION = new QAuthSession("signalOperatorSession");
 
     /**
      * 키워드 검색에서 태그를 이어 붙일 때의 구분자 — 화면에서 입력할 수 없는 단위 구분자(U+001F)다.
@@ -373,6 +384,11 @@ public class ClubRepositoryImpl implements ClubRepositoryCustom {
                     .from(clubJoinRequest)
                     .where(clubJoinRequest.club.id.eq(club.id), staleJoinRequestRow(cutoffs))
                     .exists();
+            case NO_RECORD -> JPAExpressions.selectOne()
+                    .from(clubMetric)
+                    .where(clubMetric.clubId.eq(club.id), clubMetric.lastActivityAt.isNotNull())
+                    .notExists();
+            case OPERATOR_INACTIVE -> noRecentOperatorActivity(cutoffs);
         };
         return club.status.eq(ClubStatus.ACTIVE).and(signalCondition);
     }
@@ -405,6 +421,32 @@ public class ClubRepositoryImpl implements ClubRepositoryCustom {
      */
     private static BooleanExpression staleJoinRequestRow(ClubSignalCutoffs cutoffs) {
         return pendingJoinRequestRow().and(clubJoinRequest.createdAt.lt(cutoffs.joinRequestedBefore()));
+    }
+
+    /**
+     * 운영진 30일 넘게 미접속(스펙 §4-4) — 최근 로그인한 운영진도, 최근 세션을 쓴 운영진도 없다(드모르간 — 상관 EXISTS 를 OR 안에 두지 않고
+     * NOT EXISTS 두 개의 AND 로 반조인 한 번씩 훑는다). 로그인 기준은 system regime, 세션 기준은 seoul regime 이라 각자 기준으로 비교한다.
+     * 운영진 = 회장·임원, 탈퇴(소프트 삭제) 회원과 남은 멤버십은 제외. auth_session 은 소프트 삭제를 쓰지 않는다 — 폐기·만료 세션도 사용 시각이라 센다.
+     * 표시값(행의 운영진 마지막 접속)은 ClubMemberRepository#findOperatorActivityByClubIds(네이티브)가 정의한다 — 두 벌이라 바꿀 때 함께 바꾸고
+     * 판정↔표시 테스트(AdminClubsSignalDetailControllerTest)가 묶는다.
+     */
+    private static BooleanExpression noRecentOperatorActivity(ClubSignalCutoffs cutoffs) {
+        BooleanExpression liveOperatorOfClub = SIGNAL_OPERATOR.club.id.eq(club.id)
+                .and(SIGNAL_OPERATOR.role.in(ClubMemberRole.MANAGER_ROLES))
+                .and(SIGNAL_OPERATOR.deletedAt.isNull())
+                .and(SIGNAL_OPERATOR_USER.deletedAt.isNull());
+        return JPAExpressions.selectOne()
+                .from(SIGNAL_OPERATOR)
+                .join(SIGNAL_OPERATOR.user, SIGNAL_OPERATOR_USER)
+                .where(liveOperatorOfClub, SIGNAL_OPERATOR_USER.lastLoginAt.goe(cutoffs.operatorLoggedInSince()))
+                .notExists()
+                .and(JPAExpressions.selectOne()
+                        .from(SIGNAL_OPERATOR)
+                        .join(SIGNAL_OPERATOR.user, SIGNAL_OPERATOR_USER)
+                        .join(SIGNAL_OPERATOR_SESSION).on(SIGNAL_OPERATOR_SESSION.userId.eq(SIGNAL_OPERATOR_USER.id))
+                        .where(liveOperatorOfClub,
+                                SIGNAL_OPERATOR_SESSION.lastUsedAt.goe(cutoffs.operatorSessionUsedSince()))
+                        .notExists());
     }
 
     private Map<Long, Long> countUndecidedApplicationsByClub(List<Long> clubIds) {

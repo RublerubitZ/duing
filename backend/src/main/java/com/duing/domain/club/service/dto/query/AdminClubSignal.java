@@ -9,5 +9,9 @@ public enum AdminClubSignal {
     /** 지원 결과 미확정 — 끝난 날이 기준일(오늘 − 7)보다 앞선 모집에 결과 미확정 지원이 남았다(스펙 §4-1). */
     RESULT_WAITING,
     /** 가입 신청 7일 넘게 대기 — 신청일(KST)이 오늘 − 7 보다 앞선 대기 신청이 있다(스펙 §4-2). */
-    JOIN_REQUEST_WAITING
+    JOIN_REQUEST_WAITING,
+    /** 두잉 기록 없음(참고) — club_metric 행이 없거나 last_activity_at 이 null 이다(스펙 §4-3). 활동 평가 기준이 아니다. */
+    NO_RECORD,
+    /** 운영진 30일 넘게 미접속(참고) — 최근 로그인한 운영진도 최근 세션을 쓴 운영진도 없다(스펙 §4-4). */
+    OPERATOR_INACTIVE
 }
