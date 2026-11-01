@@ -194,7 +194,14 @@ class AdminClubsSignalFilterControllerTest extends IntegrationTestBase {
         Club photoClub = ClubSignalFixture.saveClub(clubRepository, ClubStatus.ACTIVE, "사진신호동아리");
         saveApplication(longEndedRecruitment(photoClub), ApplicationStatus.SUBMITTED);
         clubWithUndecided(ClubStatus.INACTIVE, this::longEndedRecruitment);
+        // 검색어·상태는 맞지만 신호 데이터가 없는 동아리 — 신호 술어가 빠지면 이 동아리가 끼어 아래 검사가 깨진다
+        Club noSignalCodingClub = ClubSignalFixture.saveClub(clubRepository, ClubStatus.ACTIVE, "코딩무신호동아리");
 
+        admin().queryParam("keyword", "코딩").queryParam("size", 100)
+                .when().get(ADMIN_CLUBS_PATH)
+                .then().statusCode(HttpStatus.OK.value())
+                .body("data.content.id", containsInAnyOrder(codingClub.getId().intValue(),
+                        noSignalCodingClub.getId().intValue()));
         admin().queryParam("signal", "RESULT_WAITING").queryParam("status", "INACTIVE")
                 .when().get(ADMIN_CLUBS_PATH)
                 .then().statusCode(HttpStatus.OK.value()).body("data.totalElements", equalTo(0));
@@ -209,6 +216,7 @@ class AdminClubsSignalFilterControllerTest extends IntegrationTestBase {
         admin().queryParam("signal", "RESULT_WAITING").queryParam("status", "ACTIVE").queryParam("size", 100)
                 .when().get(ADMIN_CLUBS_PATH)
                 .then().statusCode(HttpStatus.OK.value())
+                .body("data.totalElements", equalTo(2))
                 .body("data.content.id", containsInAnyOrder(codingClub.getId().intValue(), photoClub.getId().intValue()));
     }
 
