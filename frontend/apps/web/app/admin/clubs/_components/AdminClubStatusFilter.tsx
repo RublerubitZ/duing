@@ -1,6 +1,7 @@
 'use client';
 
 import { useLayoutEffect, useRef } from 'react';
+import type { RefObject } from 'react';
 
 import { cn } from '../../../_lib/cn';
 import { STATUS_FILTER_LABEL, STATUS_FILTER_ORDER, type StatusFilter } from '../_lib/clubStatus';
@@ -8,9 +9,11 @@ import { STATUS_FILTER_LABEL, STATUS_FILTER_ORDER, type StatusFilter } from '../
 type Props = {
   value: StatusFilter;
   onChange: (next: StatusFilter) => void;
+  /** 선택된 탭 버튼을 받을 곳 — 목록이 신호 조건 해제 뒤 이 탭으로 포커스를 옮긴다(동아리 신호 스펙 §8-3). */
+  selectedTabRef?: RefObject<HTMLButtonElement | null>;
 };
 
-export function AdminClubStatusFilter({ value, onChange }: Props) {
+export function AdminClubStatusFilter({ value, onChange, selectedTabRef }: Props) {
   const scrollerRef = useRef<HTMLDivElement>(null);
   const activeTabRef = useRef<HTMLButtonElement>(null);
 
@@ -41,7 +44,14 @@ export function AdminClubStatusFilter({ value, onChange }: Props) {
           return (
             <button
               key={filter}
-              ref={isActive ? activeTabRef : undefined}
+              ref={
+                isActive
+                  ? (tabButton: HTMLButtonElement | null) => {
+                      activeTabRef.current = tabButton;
+                      if (selectedTabRef) selectedTabRef.current = tabButton;
+                    }
+                  : undefined
+              }
               role="tab"
               type="button"
               aria-selected={isActive}

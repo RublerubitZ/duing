@@ -12,7 +12,7 @@ import {
   useUpdateClubFacilitySecuredTimeTargetMutation,
   useUpdateClubStatusMutation,
 } from '@duing/hooks';
-import type { AdminClubSummary } from '@duing/types';
+import type { AdminClubSignal, AdminClubSummary } from '@duing/types';
 import { scrollToPaginatedListStart } from '@/app/_lib/paginationScroll';
 import { useToast } from '@/app/_components/toast/ToastProvider';
 import { LoadingGate } from '@/components/loading/LoadingGate';
@@ -24,6 +24,15 @@ import { AdminClubStatusChangeDialog } from '../_components/AdminClubStatusChang
 import { AdminClubStatusFilter } from '../_components/AdminClubStatusFilter';
 import { AdminClubsTable } from '../_components/AdminClubsTable';
 import { STATUS_FILTER_ORDER, statusFilterParams, type StatusAction, type StatusFilter } from '../_lib/clubStatus';
+import {
+  CONTACT_SIGNAL_GUIDE,
+  SIGNAL_LABEL,
+  SIGNAL_ORDER,
+  USAGE_SIGNAL_GUIDE,
+  isContactSignal,
+  signalFilterParams,
+  signalScopeText,
+} from '../_lib/clubSignals';
 import { pendingCleanupResultMessage, type PendingCleanupCounts } from '../_lib/pendingCleanup';
 import { pickSearchParam } from '../../_lib/searchParamChoice';
 import { toRoute } from '../../../_lib/route';
@@ -37,17 +46,36 @@ type DialogState = {
 
 export function AdminClubsListPage() {
   const searchParams = useSearchParams();
-  // 총동연 홈 '운영 중단 미결' 칸이 ?status=INACTIVE_PENDING 으로 첫 탭을 고른다. 주소는 첫 값으로만 읽고 탭을 바꿔도 고치지 않는다.
-  // 주소만 바뀐 이동(사이드바로 같은 메뉴)에도 첫 값부터 다시 시작하도록 key 로 초기화한다(신고·모집 목록 선례).
-  const initialFilter = pickSearchParam(searchParams.get('status'), STATUS_FILTER_ORDER) ?? 'PENDING_APPROVAL';
-  return <AdminClubsList key={initialFilter} initialFilter={initialFilter} />;
+  // 홈 동아리 현황 카드가 ?signal= 로, '운영 중단 미결' 칸이 ?status= 로 첫 화면을 고른다. 주소는 첫 값으로만 읽고 탭·해제로 바꿔도 고치지 않는다.
+  // 신호는 운영 중 조건을 품어 status 주소값보다 우선한다(모르는 신호는 무시 — 서버 400 을 부르지 않는다).
+  // 주소만 바뀐 이동(사이드바로 같은 메뉴·홈 카드의 다른 링크)에도 첫 값부터 다시 시작하도록 key 로 초기화한다(신고·모집 목록 선례).
+  const initialSignal = pickSearchParam(searchParams.get('signal'), SIGNAL_ORDER);
+  const initialFilter: StatusFilter = initialSignal
+    ? 'ACTIVE'
+    : (pickSearchParam(searchParams.get('status'), STATUS_FILTER_ORDER) ?? 'PENDING_APPROVAL');
+  return (
+    <AdminClubsList
+      key={`${initialFilter}:${initialSignal ?? ''}`}
+      initialFilter={initialFilter}
+      initialSignal={initialSignal}
+    />
+  );
 }
 
-function AdminClubsList({ initialFilter }: { initialFilter: StatusFilter }) {
+function AdminClubsList({
+  initialFilter,
+  initialSignal,
+}: {
+  initialFilter: StatusFilter;
+  initialSignal: AdminClubSignal | undefined;
+}) {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>(initialFilter);
+  const [signal, setSignal] = useState<AdminClubSignal | undefined>(initialSignal);
   const [keyword, setKeyword] = useState('');
   const [keywordDraft, setKeywordDraft] = useState('');
   const [page, setPage] = useState(0);
+  // 신호 조건 해제 뒤 포커스를 옮길 곳 — 신호가 걸린 동안 선택된 탭은 늘 '운영 중'이다.
+  const selectedTabRef = useRef<HTMLButtonElement | null>(null);
   const [dialog, setDialog] = useState<DialogState | null>(null);
   const [dialogError, setDialogError] = useState<string | null>(null);
   const [centralClubDialog, setCentralClubDialog] = useState<AdminClubSummary | null>(null);
@@ -67,12 +95,12 @@ function AdminClubsList({ initialFilter }: { initialFilter: StatusFilter }) {
 
   const params = useMemo(
     () => ({
-      ...statusFilterParams(statusFilter),
+      ...(signal ? signalFilterParams(signal) : statusFilterParams(statusFilter)),
       keyword: keyword.trim() || undefined,
       page,
       size: PAGE_SIZE,
     }),
-    [statusFilter, keyword, page],
+    [signal, statusFilter, keyword, page],
   );
 
   const clubsQuery = useAdminClubsQuery(params);
@@ -81,7 +109,22 @@ function AdminClubsList({ initialFilter }: { initialFilter: StatusFilter }) {
   const securedTargetMutation = useUpdateClubFacilitySecuredTimeTargetMutation();
 
   function handleFilterChange(next: StatusFilter) {
+    // 다른 탭이든 이미 선택된 '운영 중' 탭 재클릭이든 신호를 푼다(탭은 선택된 탭 클릭에도 onChange 를 부른다).
+    setSignal(undefined);
     setStatusFilter(next);
+    setPage(0);
+  }
+
+  function handleSignalClear() {
+    setSignal(undefined);
+    setPage(0);
+    // 해제 버튼은 신호 줄과 함께 사라진다 — 포커스를 '운영 중' 탭으로 옮긴다(검색어는 그대로 둔다).
+    selectedTabRef.current?.focus();
+  }
+
+  function resetKeyword() {
+    setKeyword('');
+    setKeywordDraft('');
     setPage(0);
   }
 
@@ -258,6 +301,12 @@ function AdminClubsList({ initialFilter }: { initialFilter: StatusFilter }) {
   const totalPages = clubsQuery.data?.totalPages ?? 0;
   const hasNext = clubsQuery.data?.hasNext ?? false;
   const totalElements = clubsQuery.data?.totalElements ?? 0;
+  // 롤백 가드 — signal 을 보냈는데 첫 행에 signalDetail 키가 없으면 신호를 모르는 옛 백엔드다(null 은 새 백엔드의 "재료 없음"이라 구분한다).
+  const firstListedClub = clubsQuery.data?.content[0];
+  const isSignalUnsupported =
+    signal !== undefined && firstListedClub !== undefined && firstListedClub.signalDetail === undefined;
+  // 신호 줄 건수는 목록 기준 — 로딩·오류·0건이면 뺀다.
+  const signalClubCount = clubsQuery.data && !clubsQuery.isError && totalElements > 0 ? totalElements : null;
 
   return (
     <main className="max-w-layout mx-auto px-4 sm:px-6 md:px-10 py-10">
@@ -267,7 +316,7 @@ function AdminClubsList({ initialFilter }: { initialFilter: StatusFilter }) {
       </header>
 
       <div className="mb-5 flex flex-wrap items-center justify-between gap-4">
-        <AdminClubStatusFilter value={statusFilter} onChange={handleFilterChange} />
+        <AdminClubStatusFilter value={statusFilter} onChange={handleFilterChange} selectedTabRef={selectedTabRef} />
         <Link
           href={toRoute('/admin/clubs/new')}
           className="btn btn-primary rounded-full px-4 text-[13px]"
@@ -293,11 +342,7 @@ function AdminClubsList({ initialFilter }: { initialFilter: StatusFilter }) {
         {keyword && (
           <button
             type="button"
-            onClick={() => {
-              setKeyword('');
-              setKeywordDraft('');
-              setPage(0);
-            }}
+            onClick={resetKeyword}
             className="text-charcoal-3 rounded-md px-2 py-2 text-xs hover:underline"
           >
             초기화
@@ -305,25 +350,43 @@ function AdminClubsList({ initialFilter }: { initialFilter: StatusFilter }) {
         )}
       </form>
 
+      {signal && (
+        <SignalScopeLine
+          signal={signal}
+          clubCount={signalClubCount}
+          isUnsupported={isSignalUnsupported}
+          onClear={handleSignalClear}
+        />
+      )}
+
       {clubsQuery.isLoading && <LoadingGate className="min-h-0 py-10" label="동아리 목록 불러오는 중" />}
       {clubsQuery.isError && (
         <p className="text-coral-deep py-10 text-center text-sm">목록을 불러오지 못했습니다.</p>
       )}
-      {clubsQuery.data && (
+      {isSignalUnsupported && (
+        <p className="py-10 text-center text-sm text-charcoal-2">조건을 해제하면 운영 중 동아리 전체를 볼 수 있어요.</p>
+      )}
+      {clubsQuery.data && !isSignalUnsupported && (
         <>
-          <AdminClubsTable
-            clubs={clubsQuery.data.content}
-            onActionClick={(club, action) => {
-              setDialog({ club, action });
-              setDialogError(null);
-            }}
-            onCentralClubToggleClick={handleCentralClubToggleClick}
-            onSecuredTargetToggleClick={handleSecuredTargetToggleClick}
-            onCloseClick={handleCloseClick}
-            onPendingCleanupClick={handlePendingCleanupClick}
-          />
+          {/* 해요체 빈 문구는 전체 0건일 때만 — 건수는 있는데 이 쪽만 비면 표의 기존 빈 문구와 쪽수를 둔다(신호 줄 "N곳만"과 어긋나지 않게). */}
+          {signal && clubsQuery.data.totalElements === 0 ? (
+            <SignalEmptyState keyword={keyword.trim()} onKeywordReset={resetKeyword} />
+          ) : (
+            <AdminClubsTable
+              clubs={clubsQuery.data.content}
+              signal={signal}
+              onActionClick={(club, action) => {
+                setDialog({ club, action });
+                setDialogError(null);
+              }}
+              onCentralClubToggleClick={handleCentralClubToggleClick}
+              onSecuredTargetToggleClick={handleSecuredTargetToggleClick}
+              onCloseClick={handleCloseClick}
+              onPendingCleanupClick={handlePendingCleanupClick}
+            />
+          )}
           <footer className="mt-4 flex items-center justify-between text-xs text-slate-500">
-            <span>총 {totalElements}건</span>
+            <span>총 {totalElements}곳</span>
             <div className="flex items-center gap-2">
               <button
                 type="button"
@@ -405,5 +468,75 @@ function AdminClubsList({ initialFilter }: { initialFilter: StatusFilter }) {
         />
       )}
     </main>
+  );
+}
+
+// 신호 화면의 링크·버튼 — 터치 높이 44px, 밝은 바탕이라 포커스 링은 ink(sage 는 대비 미달).
+const SIGNAL_ACTION_CLASS =
+  'inline-flex min-h-11 items-center rounded font-semibold text-ink underline underline-offset-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink';
+
+/** 신호 줄(표 위 정적 안내 — live region 아님). 롤백 가드면 "조건은 지금 볼 수 없어요"와 해제만 쓴다(스펙 §8-3). */
+function SignalScopeLine({
+  signal,
+  clubCount,
+  isUnsupported,
+  onClear,
+}: {
+  signal: AdminClubSignal;
+  clubCount: number | null;
+  isUnsupported: boolean;
+  onClear: () => void;
+}) {
+  const signalName = SIGNAL_LABEL[signal];
+  return (
+    <div className="border-line bg-paper mb-4 rounded-md border px-4 text-sm text-charcoal-2">
+      <p className="break-keep">
+        {isUnsupported ? (
+          `'${signalName}' 조건은 지금 볼 수 없어요`
+        ) : (
+          <>
+            <strong className="font-semibold text-ink">{signalName}</strong> {signalScopeText(clubCount)}
+          </>
+        )}
+        {' · '}
+        <button type="button" aria-label={`'${signalName}' 조건 해제`} onClick={onClear} className={SIGNAL_ACTION_CLASS}>
+          조건 해제
+        </button>
+      </p>
+      {isUnsupported ? null : (
+        <p className="break-keep pb-2 text-xs text-charcoal-3">
+          {isContactSignal(signal) ? (
+            <>
+              {CONTACT_SIGNAL_GUIDE}
+              {' · '}
+              <Link href={toRoute('/admin/users')} className={SIGNAL_ACTION_CLASS}>
+                회원 관리
+              </Link>
+            </>
+          ) : (
+            USAGE_SIGNAL_GUIDE[signal]
+          )}
+        </p>
+      )}
+    </div>
+  );
+}
+
+/** 신호 화면의 빈 목록 — 홈 숫자와 받은 시각이 달라 어긋날 수 있음을 알린다. 같은 화면의 기존 합니다체 문구는 그대로 둔다. */
+function SignalEmptyState({ keyword, onKeywordReset }: { keyword: string; onKeywordReset: () => void }) {
+  return (
+    <p className="border-line text-charcoal-3 break-keep rounded-md border bg-white py-10 text-center text-sm">
+      {keyword ? (
+        <>
+          {`'${keyword}'로 찾은 동아리 중 해당하는 곳이 없어요`}
+          {' · '}
+          <button type="button" onClick={onKeywordReset} className={SIGNAL_ACTION_CLASS}>
+            검색 초기화
+          </button>
+        </>
+      ) : (
+        '지금은 해당하는 동아리가 없어요. 홈 숫자는 조금 전 기준이에요.'
+      )}
+    </p>
   );
 }
