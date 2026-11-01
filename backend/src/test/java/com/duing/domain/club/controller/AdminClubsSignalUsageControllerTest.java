@@ -136,7 +136,7 @@ class AdminClubsSignalUsageControllerTest extends IntegrationTestBase {
     }
 
     @Test
-    @DisplayName("운영진 미접속 목록의 회장 이름·학번은 그 동아리 회장이다 — 서브쿼리 별칭이 회장 조인을 가리지 않는다")
+    @DisplayName("운영진 미접속 목록도 회장 이름·학번은 그 동아리 회장이고 행이 겹치지 않는다")
     void operatorInactiveListKeepsLeaderColumns() {
         Club staleClub = ClubSignalFixture.saveClub(clubRepository, ClubStatus.ACTIVE);
         User leader = ClubSignalFixture.saveMember(userRepository, clubMemberRepository, staleClub, ClubMemberRole.LEADER, "회장가");

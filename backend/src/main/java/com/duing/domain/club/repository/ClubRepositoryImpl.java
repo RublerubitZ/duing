@@ -75,8 +75,10 @@ public class ClubRepositoryImpl implements ClubRepositoryCustom {
 
     /**
      * 운영진 미접속 신호(OPERATOR_INACTIVE)의 서브쿼리 전용 alias.
-     * <p>findByAdminCondition 의 행 쿼리가 회장 조인에 기본 alias {@code clubMember}·{@code user} 를 쓴다 — 서브쿼리가 기본 alias 를
-     * 공유하면 위 SUMMARY_METRIC 과 같은 함정으로 회장 칸이 엉뚱한 행을 읽는다. 두 NOT EXISTS 는 형제 서브쿼리라 같은 alias 를 다시 쓴다.
+     * <p>규약이다 — findByAdminCondition 의 행 쿼리가 회장 조인에 기본 alias {@code clubMember}·{@code user} 를 쓰는데, 서브쿼리가
+     * 바깥 기본 alias 를 다시 선언하면 바깥과 상관하려던 참조가 조용히 안쪽 선언에 묶인다. 지금 식은 club 하나만 상관해 결과는 같다
+     * (Hibernate 6 은 서브쿼리 alias 를 자기 범위에서 먼저 찾는다). 회장 칸 회귀 테스트(AdminClubsSignalUsageControllerTest)는 결과 검사다.
+     * 두 NOT EXISTS 는 형제 서브쿼리라 같은 alias 를 다시 쓴다.
      */
     private static final QClubMember SIGNAL_OPERATOR = new QClubMember("signalOperator");
     private static final QUser SIGNAL_OPERATOR_USER = new QUser("signalOperatorUser");
