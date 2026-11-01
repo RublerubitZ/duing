@@ -1,5 +1,5 @@
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { setupServer } from 'msw/node';
@@ -91,6 +91,7 @@ function renderPage(query = '') {
   const view = render(pageTree());
   return {
     ...view,
+    queryClient,
     rerenderPage: (nextQuery: string) => {
       mockSearchParams.mockReturnValue(new URLSearchParams(nextQuery));
       view.rerender(pageTree());
@@ -181,18 +182,33 @@ describe('AdminClubsListPage — 신호 줄', () => {
     await waitFor(() => expect(listRequests.at(-1)).toEqual({ status: 'ACTIVE', signal: 'RESULT_WAITING', page: '0', size: '20' }));
   });
 
-  it('목록을 받는 중에는 건수를 뺀다', async () => {
-    listState = { ...listState, isStalled: true };
+  it('목록을 받는 중에는 건수를 뺀다 — 건수를 받은 뒤 다음 쪽을 받는 동안에도 앞 건수를 남기지 않는다', async () => {
+    showList([makeClub({ signalDetail: NO_MATERIAL })], 40, true);
     renderPage('signal=RESULT_WAITING');
-    await waitFor(() => expect(listRequests).toHaveLength(1));
+    expect(await screen.findByText(/동아리 40곳만 보고 있어요/)).toBeInTheDocument();
+
+    listState = { ...listState, isStalled: true };
+    await userEvent.click(screen.getByRole('button', { name: '다음' }));
+
+    await waitFor(() => expect(listRequests.at(-1)).toMatchObject({ signal: 'RESULT_WAITING', page: '1' }));
     expect(screen.getByText(/동아리만 보고 있어요/)).toBeInTheDocument();
+    expect(screen.queryByText(/곳만 보고 있어요/)).toBeNull();
   });
 
-  it('목록을 받지 못하면 건수를 빼고 기존 오류 문구를 쓴다', async () => {
+  it('목록을 받지 못하면 건수를 빼고 기존 오류 문구를 쓴다 — 건수를 받은 뒤 같은 조건을 다시 받다 실패해도', async () => {
+    showList([makeClub({ signalDetail: NO_MATERIAL })], 40);
+    const { queryClient } = renderPage('signal=RESULT_WAITING');
+    expect(await screen.findByText(/동아리 40곳만 보고 있어요/)).toBeInTheDocument();
+
+    // 같은 조건을 다시 받다 실패하면 앞서 받은 목록(data)이 남은 채 오류가 된다 — 건수가 0 이 아니어도 N 을 빼야 한다.
     listState = { ...listState, status: 500 };
-    renderPage('signal=RESULT_WAITING');
+    await act(async () => {
+      await queryClient.refetchQueries();
+    });
+
     expect(await screen.findByText('목록을 불러오지 못했습니다.')).toBeInTheDocument();
     expect(screen.getByText(/동아리만 보고 있어요/)).toBeInTheDocument();
+    expect(screen.queryByText(/곳만 보고 있어요/)).toBeNull();
   });
 });
 
