@@ -11,6 +11,7 @@ import com.duing.domain.club.controller.dto.response.AdminClubSummaryResponse;
 import com.duing.domain.club.controller.dto.response.ClubDetailResponse;
 import com.duing.domain.club.entity.ClubCategory;
 import com.duing.domain.club.entity.ClubStatus;
+import com.duing.domain.club.service.dto.query.AdminClubSignal;
 import com.duing.global.auth.UserPrincipal;
 import com.duing.global.response.ApiResponse;
 import com.duing.global.response.PageResponse;
@@ -46,6 +47,10 @@ public interface AdminClubApi {
             @Parameter(description = "true 면 정리할 남은 미결(결과 미정 지원서·대기 가입 신청)이 있는 운영 중단 동아리만 반환한다. "
                     + "status 와 함께 오면 둘 다 건다(다른 상태를 고르면 빈 결과)")
             @RequestParam(defaultValue = "false") boolean needsPendingCleanup,
+            @Parameter(description = "신호 필터(값은 AdminClubSignal). 운영 중(ACTIVE) 조건을 품고, status·needsPendingCleanup·category·division·keyword 와 "
+                    + "함께 오면 모두 건다(AND — 다른 상태나 미결 정리 필요와 함께면 빈 결과). 대문자 값만 받는다(모르는 값·소문자는 400), "
+                    + "빈 값(signal=)은 신호 없음과 같다. 정렬은 그대로 이름순이다.")
+            @RequestParam(required = false) AdminClubSignal signal,
             @Parameter(hidden = true) Pageable pageable
     );
 

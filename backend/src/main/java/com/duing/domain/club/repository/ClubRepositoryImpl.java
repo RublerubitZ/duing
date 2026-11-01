@@ -17,9 +17,12 @@ import com.duing.domain.club.metric.entity.QClubMetric;
 import com.duing.domain.user.entity.College;
 import com.duing.domain.user.entity.QUser;
 import com.duing.domain.club.service.ClubRecommendationPolicy;
+import com.duing.domain.club.service.ClubSignalPolicy;
 import com.duing.domain.club.service.dto.query.AdminClubSearchCondition;
+import com.duing.domain.club.service.dto.query.AdminClubSignal;
 import com.duing.domain.club.service.dto.query.AdminClubSummaryQuery;
 import com.duing.domain.club.service.dto.query.ClubSearchCondition;
+import com.duing.domain.club.service.dto.query.ClubSignalCutoffs;
 import com.duing.domain.club.service.dto.query.ClubSortOption;
 import com.duing.domain.club.service.dto.query.ClubStatsQuery;
 import com.duing.domain.club.service.dto.query.ClubSummaryQuery;
@@ -161,12 +164,15 @@ public class ClubRepositoryImpl implements ClubRepositoryCustom {
 
     @Override
     public Page<AdminClubSummaryQuery> findByAdminCondition(AdminClubSearchCondition condition, Pageable pageable) {
+        // 신호 기준 시각은 이 메서드 안에서 한 번만 만든다 — 행·총 건수가 같은 predicates 로 같은 기준을 쓴다(동아리 신호 스펙 §5).
+        ClubSignalCutoffs signalCutoffs = condition.signal() == null ? null : ClubSignalPolicy.cutoffs(clock);
         BooleanExpression[] predicates = {
                 adminStatusEq(condition.status()),
                 categoryEq(condition.category()),
                 divisionEq(condition.division()),
                 keywordContains(condition.keyword()),
                 pendingCleanupFilter(condition.needsPendingCleanup()),
+                signalFilter(condition.signal(), signalCutoffs),
         };
 
         // leader 는 한 동아리당 0~1명. ClubMember(role=LEADER) 로 left join 해 leader 부재 시에도 행이 보존되게 한다.
@@ -346,6 +352,59 @@ public class ClubRepositoryImpl implements ClubRepositoryCustom {
     private static BooleanExpression pendingJoinRequestRow() {
         return clubJoinRequest.status.eq(JoinRequestStatus.PENDING)
                 .and(clubJoinRequest.deletedAt.isNull());
+    }
+
+    /**
+     * 동아리 신호 필터(동아리 신호 스펙 §4) — 운영 중(ACTIVE) 조건을 품는다. 목록의 행 쿼리·총 건수가 이 식 하나를 쓴다.
+     * 같은 엔티티(application·recruitment·clubJoinRequest)를 FROM 에 둔 바깥 쿼리 안에는 넣지 않는다 — 기본 별칭이 겹쳐
+     * 조용히 틀린다(SUMMARY_METRIC 주석과 같은 함정). 재료·집계는 같은 행 술어를 GROUP BY 로 따로 읽는다.
+     */
+    private static BooleanExpression signalFilter(AdminClubSignal signal, ClubSignalCutoffs cutoffs) {
+        if (signal == null) {
+            return null;
+        }
+        BooleanExpression signalCondition = switch (signal) {
+            case RESULT_WAITING -> JPAExpressions.selectOne()
+                    .from(application)
+                    .join(application.recruitment, recruitment)
+                    .where(recruitment.club.id.eq(club.id), resultWaitingRecruitmentRow(cutoffs))
+                    .exists();
+            case JOIN_REQUEST_WAITING -> JPAExpressions.selectOne()
+                    .from(clubJoinRequest)
+                    .where(clubJoinRequest.club.id.eq(club.id), staleJoinRequestRow(cutoffs))
+                    .exists();
+        };
+        return club.status.eq(ClubStatus.ACTIVE).and(signalCondition);
+    }
+
+    /**
+     * 신호 모집의 결과 미확정 지원 행(스펙 §4-1) — 동아리 상관이 없어 목록 EXISTS·재료·집계가 같이 쓴다.
+     * 호출 측이 recruitment 기본 별칭으로 application.recruitment 를 조인해야 한다(undecidedApplicationRow 와 같은 조건).
+     */
+    private static BooleanExpression resultWaitingRecruitmentRow(ClubSignalCutoffs cutoffs) {
+        return undecidedApplicationRow().and(recruitmentEndedBefore(cutoffs.resultEndedBefore()));
+    }
+
+    /**
+     * 모집의 끝난 날 < endedBefore — ClubSignalPolicy#endedOn 의 술어 판(date 함수 없이). 바꿀 때 함께 바꾼다.
+     * CLOSED 는 closed_at 날짜·end_date 중 이른 날(둘 다 없으면 start_date), OPEN 은 end_date 만 본다.
+     * OPEN·end_date null(상시모집)은 첫 항·둘째 항 모두 거짓이라 저절로 빠진다.
+     */
+    private static BooleanExpression recruitmentEndedBefore(LocalDate endedBefore) {
+        return recruitment.endDate.lt(endedBefore)
+                .or(recruitment.status.eq(RecruitmentStatus.CLOSED).and(
+                        recruitment.closedAt.lt(endedBefore.atStartOfDay())
+                                .or(recruitment.closedAt.isNull()
+                                        .and(recruitment.endDate.isNull())
+                                        .and(recruitment.startDate.lt(endedBefore)))));
+    }
+
+    /**
+     * 7일 넘게 대기한 가입 신청 행(스펙 §4-2) — created_at 은 system regime 이라 기준도 저장 존 벽시계다(ClubSignalPolicy#cutoffs).
+     * 동아리에 이런 행이 있다 ⟺ 그 동아리 대기 신청의 created_at 최솟값 < 기준(재료·집계의 HAVING 과 같은 집합).
+     */
+    private static BooleanExpression staleJoinRequestRow(ClubSignalCutoffs cutoffs) {
+        return pendingJoinRequestRow().and(clubJoinRequest.createdAt.lt(cutoffs.joinRequestedBefore()));
     }
 
     private Map<Long, Long> countUndecidedApplicationsByClub(List<Long> clubIds) {
