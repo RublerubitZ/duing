@@ -249,7 +249,7 @@ class AdminClubSignalsControllerTest extends IntegrationTestBase {
      *  joinEdge          —                 오늘−8 23:59     있음   회장 로그인 1시간 전
      *  operatorLeft      —                 —               있음   떠난(멤버십 삭제) 회장의 최근 로그인·세션
      *  inactive(운영중단) 결과 대기 모양    오래된 대기       없음   없음
-     *  closed(폐쇄)       결과 대기 모양    —               없음   없음
+     *  closed(폐쇄)       결과 대기 모양    오래된 대기 포함   없음   없음
      * </pre>
      */
     private MixedDataset seedMixedDataset() {
@@ -326,7 +326,8 @@ class AdminClubSignalsControllerTest extends IntegrationTestBase {
         ClubSignalFixture.recordLogin(jdbcTemplate, withdrawnLeader, systemNow.minusHours(1));
         ClubSignalFixture.withdraw(jdbcTemplate, withdrawnLeader);
 
-        // 기준 시각 바로 앞(오늘−8 23:59 KST)은 포함 — 저장 존 변환을 거꾸로 하면 UTC JVM 에서 이 행이 빠진다
+        // 기준 시각 바로 앞(오늘−8 23:59 KST)은 포함 — 기준을 하루 당기거나 변환을 두 번 해 더 이르게 만들면 이 행이 빠진다
+        // (변환 누락·반대 변환은 기준이 늦어지는 쪽이라 이 행은 그대로 포함되고, 위 오늘−7 00:00 행이 잡는다)
         Club joinEdge = activeClub();
         savePendingRequest(joinEdge, inviteCode(joinEdge), today.minusDays(8).atTime(23, 59));
         ClubSignalFixture.saveMetric(clubMetricRepository, joinEdge, seoulNow.minusDays(1));
@@ -349,6 +350,7 @@ class AdminClubSignalsControllerTest extends IntegrationTestBase {
         Club closedClub = activeClub();
         saveApplication(ClubSignalFixture.saveOpenRecruitment(recruitmentRepository, closedClub,
                 today.minusDays(30), today.minusDays(20)), ApplicationStatus.SUBMITTED);
+        savePendingRequest(closedClub, inviteCode(closedClub), today.minusDays(20).atTime(12, 0));
         jdbcTemplate.update("UPDATE club SET deleted_at = now() WHERE id = ?", closedClub.getId());
 
         Map<AdminClubSignal, Set<Long>> expectedIds = new EnumMap<>(AdminClubSignal.class);

@@ -293,7 +293,7 @@ public class ClubRepositoryImpl implements ClubRepositoryCustom {
 
     @Override
     public ClubSignalSummaryQuery summarizeSignals() {
-        // 기준 시각은 이 메서드 안에서 한 번만 만든다 — 다섯 문장이 같은 기준을 쓴다(동아리 신호 스펙 §5).
+        // 기준 시각은 이 메서드 안에서 한 번만 만든다 — 신호 네 문장이 같은 기준을 쓴다(동아리 신호 스펙 §5).
         ClubSignalCutoffs cutoffs = ClubSignalPolicy.cutoffs(clock);
         long activeClubCount = countClubs(club.status.eq(ClubStatus.ACTIVE));
         long noRecordClubCount = countClubs(signalFilter(AdminClubSignal.NO_RECORD, cutoffs));
