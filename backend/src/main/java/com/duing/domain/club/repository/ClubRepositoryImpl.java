@@ -392,8 +392,9 @@ public class ClubRepositoryImpl implements ClubRepositoryCustom {
 
     /**
      * 동아리 신호 필터(동아리 신호 스펙 §4) — 운영 중(ACTIVE) 조건을 품는다. 목록의 행 쿼리·총 건수가 이 식 하나를 쓴다.
-     * 같은 엔티티(application·recruitment·clubJoinRequest)를 FROM 에 둔 바깥 쿼리 안에는 넣지 않는다 — 기본 별칭이 겹쳐
-     * 조용히 틀린다(SUMMARY_METRIC 주석과 같은 함정). 재료·집계는 같은 행 술어를 GROUP BY 로 따로 읽는다.
+     * 같은 엔티티(application·recruitment·clubJoinRequest)를 FROM 에 둔 바깥 쿼리 안에는 넣지 않는다 — 기본 별칭이 겹치면 바깥과
+     * 상관하려던 참조가 안쪽 선언에 묶일 수 있어 규약으로 막는다(지금 식은 club 하나만 상관해 결과가 같다 — SIGNAL_OPERATOR 주석과 같은 규칙).
+     * 재료·집계는 같은 행 술어를 GROUP BY 로 따로 읽는다.
      */
     private static BooleanExpression signalFilter(AdminClubSignal signal, ClubSignalCutoffs cutoffs) {
         if (signal == null) {
@@ -453,7 +454,7 @@ public class ClubRepositoryImpl implements ClubRepositoryCustom {
      * NOT EXISTS 두 개의 AND 로 반조인 한 번씩 훑는다). 로그인 기준은 system regime, 세션 기준은 seoul regime 이라 각자 기준으로 비교한다.
      * 운영진 = 회장·임원, 탈퇴(소프트 삭제) 회원과 남은 멤버십은 제외. auth_session 은 소프트 삭제를 쓰지 않는다 — 폐기·만료 세션도 사용 시각이라 센다.
      * 표시값(행의 운영진 마지막 접속)은 ClubMemberRepository#findOperatorActivityByClubIds(네이티브)가 정의한다 — 두 벌이라 바꿀 때 함께 바꾸고
-     * 판정↔표시 테스트(AdminClubsSignalDetailControllerTest)가 묶는다.
+     * 판정↔표시 테스트(AdminClubsSignalDetailControllerTest)가 30일 경계 안팎·운영진 없음 표본으로 본다.
      */
     private static BooleanExpression noRecentOperatorActivity(ClubSignalCutoffs cutoffs) {
         BooleanExpression liveOperatorOfClub = SIGNAL_OPERATOR.club.id.eq(club.id)
@@ -529,7 +530,8 @@ public class ClubRepositoryImpl implements ClubRepositoryCustom {
     /**
      * 신호 모집별 행(동아리 신호 스펙 §7) — 결과 미확정 지원을 모집으로 묶어 센다. groupBy 에 고른 모집 열을 모두 둔다.
      * 같은 엔티티를 FROM 에 둔 바깥 쿼리라 signalFilter(EXISTS)를 넣지 않고 행 술어를 직접 건다. 동아리 조인의 삭제 조건을 명시한다.
-     * 목록 필터(EXISTS)와 같은 집합인지는 동치 테스트(AdminClubSignalsControllerTest)가 묶는다.
+     * 목록 필터(EXISTS)와 같은 행 술어를 써서 같은 모집을 고른다 — 바꿀 때 함께 고친다. 재료 값은 AdminClubsSignalDetailControllerTest 가 본다
+     * (목록 필터와의 동치 테스트는 아직 없다).
      */
     private List<ResultWaitingRecruitmentRow> findResultWaitingRecruitmentRows(ClubSignalCutoffs cutoffs, List<Long> clubIds) {
         NumberExpression<Long> undecidedCount = application.count();

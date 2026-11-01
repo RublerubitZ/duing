@@ -41,7 +41,8 @@ public final class ClubSignalPolicy {
     }
 
     /**
-     * 모집 하나의 끝난 날(스펙 §4-1) — ClubRepositoryImpl#recruitmentEndedBefore 술어의 Java 판이다. 바꿀 때 함께 바꾸고 ClubSignalPolicyTest 가 묶는다.
+     * 모집 하나의 끝난 날(스펙 §4-1) — ClubRepositoryImpl#recruitmentEndedBefore 술어의 Java 판이다.
+     * Java 규칙은 ClubSignalPolicyTest, 술어 경계는 AdminClubsSignalFilterControllerTest 가 본다 — 바꿀 때 둘을 함께 고친다.
      * <ul>
      *   <li>CLOSED: 값이 있는 것 중 이른 날 — closed_at 의 날짜(seoul regime 이라 toLocalDate() 가 KST 날짜)와 end_date. 둘 다 없으면 start_date.</li>
      *   <li>OPEN: end_date. closed_at 은 보지 않는다(방어 — CLOSED 는 되돌릴 수 없다). end_date 가 없으면(상시모집) 아직 끝나지 않았다 → null.</li>
