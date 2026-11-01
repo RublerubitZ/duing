@@ -42,7 +42,9 @@ public interface AdminClubApi {
                     + "resultWaiting(signal=RESULT_WAITING — 가장 오래된 신호 모집 id·제목·끝난 날, 신호 모집 수, 결과 미확정 지원 합), "
                     + "joinRequestWaiting(signal=JOIN_REQUEST_WAITING — 대기 신청 전부의 수, 가장 오래된 신청 시각). "
                     + "신호와 무관한 하위 레코드는 null 이고(NO_RECORD·OPERATOR_INACTIVE 는 둘 다 null), "
-                    + "행 조회와 재료 조회 사이에 처리돼 재료가 없으면 그 하위 레코드도 null 이다. signal 을 보내지 않으면 signalDetail 은 null 이다.")
+                    + "행 조회와 재료 조회 사이에 처리돼 재료가 없으면 그 하위 레코드도 null 이다. "
+                    + "운영진 마지막 접속(operatorsLastActiveAt)은 판정과 다른 문장으로 읽어, 그 사이 접속이 생기면 "
+                    + "signal=OPERATOR_INACTIVE 행에 30일 안의 시각이 보일 수 있다. signal 을 보내지 않으면 signalDetail 은 null 이다.")
     @GetMapping("/admin/clubs")
     ResponseEntity<ApiResponse<PageResponse<AdminClubSummaryResponse>>> getAdminClubs(
             @Parameter(description = "상태 필터 (미지정 시 전체)") @RequestParam(required = false) ClubStatus status,

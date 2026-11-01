@@ -1,9 +1,11 @@
 package com.duing.domain.adminconsole.controller;
 
 import com.duing.domain.adminconsole.api.AdminConsoleApi;
+import com.duing.domain.adminconsole.controller.dto.response.AdminClubSignalsResponse;
 import com.duing.domain.adminconsole.controller.dto.response.AdminJobStatusesResponse;
 import com.duing.domain.adminconsole.controller.dto.response.AdminPendingCountsResponse;
 import com.duing.domain.adminconsole.controller.dto.response.AdminPendingTrendResponse;
+import com.duing.domain.adminconsole.service.AdminClubSignalsQueryService;
 import com.duing.domain.adminconsole.service.AdminJobStatusQueryService;
 import com.duing.domain.adminconsole.service.AdminPendingCountsQueryService;
 import com.duing.domain.adminconsole.service.AdminPendingTrendQueryService;
@@ -23,6 +25,7 @@ public class AdminConsoleController implements AdminConsoleApi {
     private final AdminPendingCountsQueryService adminPendingCountsQueryService;
     private final AdminPendingTrendQueryService adminPendingTrendQueryService;
     private final AdminJobStatusQueryService adminJobStatusQueryService;
+    private final AdminClubSignalsQueryService adminClubSignalsQueryService;
 
     @Override
     public ResponseEntity<ApiResponse<AdminPendingCountsResponse>> getPendingCounts() {
@@ -40,5 +43,11 @@ public class AdminConsoleController implements AdminConsoleApi {
     public ResponseEntity<ApiResponse<AdminJobStatusesResponse>> getJobStatuses() {
         return ResponseEntity.ok(ApiResponse.success(
                 AdminJobStatusesResponse.from(adminJobStatusQueryService.getJobStatuses())));
+    }
+
+    @Override
+    public ResponseEntity<ApiResponse<AdminClubSignalsResponse>> getClubSignals() {
+        return ResponseEntity.ok(ApiResponse.success(
+                AdminClubSignalsResponse.from(adminClubSignalsQueryService.getClubSignals())));
     }
 }
