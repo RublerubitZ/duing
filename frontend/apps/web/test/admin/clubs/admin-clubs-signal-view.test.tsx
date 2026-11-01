@@ -175,7 +175,7 @@ describe('AdminClubsListPage — 신호 줄', () => {
     renderPage('signal=RESULT_WAITING');
     await waitFor(() => expect(listRequests).toHaveLength(1));
     await searchKeyword('코딩');
-    expect(await screen.findByText(/'코딩'로 찾은 동아리 중 해당하는 곳이 없어요/)).toBeInTheDocument();
+    expect(await screen.findByText(/'코딩' 검색 결과 중 해당하는 곳이 없어요/)).toBeInTheDocument();
 
     await userEvent.click(screen.getByRole('button', { name: '검색 초기화' }));
 
@@ -259,7 +259,7 @@ describe('AdminClubsListPage — 롤백 가드·바닥글', () => {
     expect(screen.queryByText(/회장 학번으로/)).toBeNull();
   });
 
-  it('signalDetail 이 null 인 행은 새 백엔드의 "재료 없음"이라 표를 그린다', async () => {
+  it('signalDetail 이 null 인 행은 신호를 아는 새 백엔드 형식이라 가드를 켜지 않고 표를 그린다(옛 백엔드는 키가 없다)', async () => {
     showList([makeClub({ signalDetail: null })], 1);
     renderPage('signal=RESULT_WAITING');
     expect(await screen.findByRole('table')).toBeInTheDocument();

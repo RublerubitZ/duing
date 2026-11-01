@@ -301,7 +301,7 @@ function AdminClubsList({
   const totalPages = clubsQuery.data?.totalPages ?? 0;
   const hasNext = clubsQuery.data?.hasNext ?? false;
   const totalElements = clubsQuery.data?.totalElements ?? 0;
-  // 롤백 가드 — signal 을 보냈는데 첫 행에 signalDetail 키가 없으면 신호를 모르는 옛 백엔드다(null 은 새 백엔드의 "재료 없음"이라 구분한다).
+  // 롤백 가드 — signal 을 보냈는데 첫 행에 signalDetail 키가 없으면 신호를 모르는 옛 백엔드다(null 은 신호를 아는 새 백엔드 형식이라 가드를 켜지 않는다 — 옛 백엔드는 키가 없다).
   const firstListedClub = clubsQuery.data?.content[0];
   const isSignalUnsupported =
     signal !== undefined && firstListedClub !== undefined && firstListedClub.signalDetail === undefined;
@@ -525,10 +525,10 @@ function SignalScopeLine({
 /** 신호 화면의 빈 목록 — 홈 숫자와 받은 시각이 달라 어긋날 수 있음을 알린다. 같은 화면의 기존 합니다체 문구는 그대로 둔다. */
 function SignalEmptyState({ keyword, onKeywordReset }: { keyword: string; onKeywordReset: () => void }) {
   return (
-    <p className="border-line text-charcoal-3 break-keep rounded-md border bg-white py-10 text-center text-sm">
+    <p className="border-line text-charcoal-3 break-words break-keep rounded-md border bg-white py-10 text-center text-sm">
       {keyword ? (
         <>
-          {`'${keyword}'로 찾은 동아리 중 해당하는 곳이 없어요`}
+          {`'${keyword}' 검색 결과 중 해당하는 곳이 없어요`}
           {' · '}
           <button type="button" onClick={onKeywordReset} className={SIGNAL_ACTION_CLASS}>
             검색 초기화
