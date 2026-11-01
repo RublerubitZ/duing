@@ -37,7 +37,12 @@ public interface AdminClubApi {
     @Operation(summary = "동아리 목록 조회 (ADMIN)",
             description = "모든 상태(PENDING_APPROVAL/ACTIVE/INACTIVE) 동아리를 조회한다. status 미지정 시 전체 반환. 응답에 leader 정보 포함. "
                     + "운영 중단(INACTIVE) 행에는 남은 미결 건수(undecidedApplicationCount — 제출·보류·면접 대기 지원서, "
-                    + "pendingJoinRequestCount — 대기 가입 신청)를 싣고, 다른 상태 행은 두 값이 null 이다.")
+                    + "pendingJoinRequestCount — 대기 가입 신청)를 싣고, 다른 상태 행은 두 값이 null 이다. "
+                    + "signal 을 보내면 모든 행의 signalDetail 이 객체다 — operatorsLastActiveAt(운영진 세션·로그인 중 늦은 시각, 기록 없으면 null), "
+                    + "resultWaiting(signal=RESULT_WAITING — 가장 오래된 신호 모집 id·제목·끝난 날, 신호 모집 수, 결과 미확정 지원 합), "
+                    + "joinRequestWaiting(signal=JOIN_REQUEST_WAITING — 대기 신청 전부의 수, 가장 오래된 신청 시각). "
+                    + "신호와 무관한 하위 레코드는 null 이고(NO_RECORD·OPERATOR_INACTIVE 는 둘 다 null), "
+                    + "행 조회와 재료 조회 사이에 처리돼 재료가 없으면 그 하위 레코드도 null 이다. signal 을 보내지 않으면 signalDetail 은 null 이다.")
     @GetMapping("/admin/clubs")
     ResponseEntity<ApiResponse<PageResponse<AdminClubSummaryResponse>>> getAdminClubs(
             @Parameter(description = "상태 필터 (미지정 시 전체)") @RequestParam(required = false) ClubStatus status,

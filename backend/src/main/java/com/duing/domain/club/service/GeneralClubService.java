@@ -27,6 +27,7 @@ import com.duing.domain.club.thumbnail.event.ClubLogoChangedEvent;
 import com.duing.domain.clubmember.entity.ClubMember;
 import com.duing.domain.clubmember.entity.ClubMemberRole;
 import com.duing.domain.clubmember.repository.ClubMemberRepository;
+import com.duing.domain.clubmember.repository.OperatorActivityRow;
 import com.duing.domain.clubmember.service.ClubAuthService;
 import com.duing.domain.recruitment.entity.RecruitmentDisplayStatus;
 import com.duing.domain.recruitment.repository.ClubActiveRecruitmentRow;
@@ -43,10 +44,12 @@ import com.duing.global.frontend.event.ClubPublicPageChangedEvent;
 import com.duing.global.monitoring.event.ClubCreatedEvent;
 import com.duing.global.monitoring.event.ClubStatusChangedEvent;
 import java.time.Clock;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.context.ApplicationEventPublisher;
@@ -173,7 +176,21 @@ public class GeneralClubService implements ClubService {
 
     @Override
     public Page<AdminClubSummaryQuery> searchForAdmin(AdminClubSearchCondition condition, Pageable pageable) {
-        return clubRepository.findByAdminCondition(condition, pageable);
+        Page<AdminClubSummaryQuery> clubPage = clubRepository.findByAdminCondition(condition, pageable);
+        // 신호 화면의 운영진 접속은 이 페이지 동아리만 한 번에 읽는다 — 빈 페이지로 부르면 IN () 오류다.
+        // 운영진이 없는 동아리는 행이 없어 null 로 남는다(동아리 신호 스펙 §7).
+        if (condition.signal() == null || clubPage.isEmpty()) {
+            return clubPage;
+        }
+        Map<Long, Instant> operatorsLastActiveAtByClubId = clubMemberRepository
+                .findOperatorActivityByClubIds(clubPage.getContent().stream().map(AdminClubSummaryQuery::id).toList())
+                .stream()
+                .filter(operatorActivity -> operatorActivity.lastActiveAt() != null)
+                .collect(Collectors.toMap(OperatorActivityRow::getClubId, OperatorActivityRow::lastActiveAt));
+        return clubPage.map(summary -> summary.signalDetail() == null
+                ? summary
+                : summary.withSignalDetail(summary.signalDetail()
+                        .withOperatorsLastActiveAt(operatorsLastActiveAtByClubId.get(summary.id()))));
     }
 
     @Override
