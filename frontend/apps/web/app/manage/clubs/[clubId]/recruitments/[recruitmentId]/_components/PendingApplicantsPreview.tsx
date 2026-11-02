@@ -51,7 +51,7 @@ export function PendingApplicantsPreview({ clubId, recruitmentId, submittedCount
         ) : (
           <div className="animate-pulse space-y-1 motion-reduce:animate-none">
             {Array.from({ length: Math.min(PREVIEW_LIMIT, submittedCount) }, (_, index) => (
-              <Skeleton key={index} className="h-11 w-full" />
+              <Skeleton key={index} className="h-16 w-full sm:h-11" />
             ))}
           </div>
         )
