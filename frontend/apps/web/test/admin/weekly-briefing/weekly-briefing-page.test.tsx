@@ -49,6 +49,7 @@ const requestedWeeks: string[] = [];
 let heatmapGates: Gate[] = [];
 const heatmapWeeks: string[] = [];
 const heatmapFailures = new Map<string, number>();
+let closingGate: Gate | null = null;
 
 const server = setupServer(
   http.get('*/admin/weekly-briefing', async ({ request }) => {
@@ -80,6 +81,14 @@ const server = setupServer(
       data: { facilities: [{ facilityId: 1, roomName: '학생회관 강당', sortOrder: 1, occupiedSlotCounts: [0, 2, 0, 0, 0, 0, 0] }], currentMonthCrawledAt: null },
     });
   }),
+  http.get('*/admin/weekly-briefing/closing-recruitments', async () => {
+    if (closingGate) await closingGate.promise;
+    return HttpResponse.json({ ok: true, message: null, data: { weekStart: '2026-11-02', recruitments: [] } });
+  }),
+  http.get('*/global-events', () => HttpResponse.json({ ok: true, message: null, data: [] })),
+  http.get('*/admin/facility-bookings/summary', () =>
+    HttpResponse.json({ ok: true, message: null, data: { approvedWaitingCount: 0, oldestApprovedWaitingDays: 0 } }),
+  ),
 );
 const apiClient = createApiClient({ baseUrl: 'http://localhost:8080/api/v1' });
 
@@ -106,6 +115,7 @@ beforeEach(() => {
   heatmapGates = [];
   heatmapWeeks.length = 0;
   heatmapFailures.clear();
+  closingGate = null;
   briefings.set('2026-10-26', OCTOBER_26);
   briefings.set('2026-10-19', OCTOBER_19);
 });
@@ -551,7 +561,62 @@ describe('AdminWeeklyBriefingPage — 인쇄·탭 제목', () => {
     await findFlowTable();
     await waitFor(() => expect(document.title).toBe('주간 브리핑 2026-10-26 | 두잉'));
     expect(screen.getByText('총동연 주간 브리핑 · 2026년 10월 26일(월) – 11월 1일(일)')).toBeInTheDocument();
-    expect(screen.getByText('출력 2026년 11월 5일 오후 2:05')).toBeInTheDocument();
+    expect(screen.getByText("출력 2026년 11월 5일 오후 2:05 · '이번 주 챙길 것'은 출력 시각 기준")).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /^이전 주 보기/ }).closest('.no-print')).not.toBeNull();
+  });
+
+  it('가장 최근 주는 바로가기 두 개·둘째 구역·인쇄 머리 꼬리 문구를 두고, 다른 주는 꼬리 문구를 뺀다', async () => {
+    currentSearch = 'week=2026-10-26';
+    const view = renderPage();
+
+    await findFlowTable();
+    const jumpNav = screen.getByRole('navigation', { name: '바로가기' });
+    expect(jumpNav).toHaveClass('no-print');
+    expect(within(jumpNav).getByRole('link', { name: '한 주 돌아보기' })).toHaveAttribute('href', '#weekly-review');
+    expect(within(jumpNav).getByRole('link', { name: '이번 주 챙길 것' })).toHaveAttribute('href', '#this-week');
+    expect(await screen.findByRole('heading', { name: '이번 주 챙길 것' })).toBeInTheDocument();
+    expect(screen.getByText("출력 2026년 11월 5일 오후 2:05 · '이번 주 챙길 것'은 출력 시각 기준")).toBeInTheDocument();
+
+    currentSearch = 'week=2026-10-19';
+    view.rerenderPage();
+    expect(await screen.findByText('출력 2026년 11월 5일 오후 2:05')).toBeInTheDocument();
+    expect(screen.getByText('이번 주 일정은 지난주(10월 26일 – 11월 1일)를 볼 때 함께 보여요.')).toBeInTheDocument();
+  });
+
+  it('가장 최근 주는 둘째 구역의 이번 주 모집·이번 주 히트맵을 받는 동안에도 인쇄 버튼이 aria-disabled 이고, 둘 다 오면 켜진다', async () => {
+    const user = userEvent.setup();
+    const heldClosing = gateFor('2026-11-02');
+    closingGate = heldClosing;
+    const thisWeekHeatmapGate = gateFor('2026-11-02');
+    heatmapGates = [thisWeekHeatmapGate];
+    currentSearch = 'week=2026-10-26';
+    renderPage();
+
+    await findFlowTable();
+    await screen.findByRole('table', { name: '지난주 시설별 하루 예약 시간 (10월 26일 – 11월 1일)' });
+    expect(screen.getByRole('status', { name: '이번 주 일정 불러오는 중' })).toBeInTheDocument();
+    const pendingButton = screen.getByRole('button', { name: '불러오는 중' });
+    expect(pendingButton).toHaveAttribute('aria-disabled', 'true');
+    await user.click(pendingButton);
+    expect(printSpy).not.toHaveBeenCalled();
+
+    heldClosing.release();
+    expect(await screen.findByText('이번 주에 모집 기간이 끝나는 모집이 없어요')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '불러오는 중' })).toHaveAttribute('aria-disabled', 'true');
+
+    thisWeekHeatmapGate.release();
+    await user.click(await screen.findByRole('button', { name: '인쇄' }));
+    expect(printSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('다른 주를 볼 때는 둘째 구역을 그리지 않아 이번 주 조회를 기다리지 않는다', async () => {
+    const user = userEvent.setup();
+    closingGate = gateFor('2026-11-02');
+    currentSearch = 'week=2026-10-19';
+    renderPage();
+
+    await findFlowTable();
+    await user.click(await screen.findByRole('button', { name: '인쇄' }));
+    expect(printSpy).toHaveBeenCalledTimes(1);
   });
 });

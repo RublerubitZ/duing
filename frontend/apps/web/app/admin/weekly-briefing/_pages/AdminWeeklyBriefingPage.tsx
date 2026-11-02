@@ -5,7 +5,12 @@ import { flushSync } from 'react-dom';
 import { useParams, useSearchParams } from 'next/navigation';
 
 import { ApiError } from '@duing/api';
-import { addDaysIso, useAdminWeeklyBriefingQuery, useAdminWeeklyFacilityHeatmapQuery } from '@duing/hooks';
+import {
+  addDaysIso,
+  useAdminClosingRecruitmentsQuery,
+  useAdminWeeklyBriefingQuery,
+  useAdminWeeklyFacilityHeatmapQuery,
+} from '@duing/hooks';
 import { kstDateTimeFormatter, todayKstDateString } from '@duing/hooks/datetime';
 
 import { cn } from '@/app/_lib/cn';
@@ -15,6 +20,7 @@ import { useGuardedRouter } from '@/app/_lib/useGuardedRouter';
 import { useHydrated } from '@/app/_lib/useHydrated';
 import { LoadingGate } from '@/components/loading/LoadingGate';
 
+import { ThisWeekSection } from '../_components/ThisWeekSection';
 import { WeeklyReviewSection } from '../_components/WeeklyReviewSection';
 import { briefingWeekRange, resolveRequestedWeek } from '../_lib/briefingWeek';
 import { formatWeekRange } from '../_lib/weeklyBriefingPresentation';
@@ -45,10 +51,11 @@ function WeeklyBriefingContent() {
   const range = briefingWeekRange(clockSteppedBack ? new Date(openedAt.getTime() - WEEK_MS) : openedAt);
   const requestedWeek = searchParams.get('week');
   const weekStart = resolveRequestedWeek(requestedWeek, range).weekStart;
+  const isLatestWeek = weekStart === range.latestWeek;
   const [notice, setNotice] = useState(() => resolveRequestedWeek(requestedWeek, range).notice);
   const todayIso = todayKstDateString(openedAt);
 
-  const briefingQuery = useAdminWeeklyBriefingQuery(weekStart, { isLatestWeek: weekStart === range.latestWeek });
+  const briefingQuery = useAdminWeeklyBriefingQuery(weekStart, { isLatestWeek });
   // 가장 이른 주의 전 주는 서버 범위 밖이라 부르지 않고 비교만 뺀다(알림 없음).
   const isPreviousEnabled = weekStart > range.oldestWeek;
   const previousQuery = useAdminWeeklyBriefingQuery(addDaysIso(weekStart, -7), { enabled: isPreviousEnabled });
@@ -56,6 +63,10 @@ function WeeklyBriefingContent() {
     !clockSteppedBack && briefingQuery.error instanceof ApiError && briefingQuery.error.code === 'WEEK_NOT_ENDED';
   // 한 주 돌아보기 히트맵(FacilityHeatmap)과 같은 키라 요청은 하나다 — 인쇄 대기 판정에만 쓴다.
   const reviewHeatmapQuery = useAdminWeeklyFacilityHeatmapQuery(weekStart);
+  // 둘째 구역(가장 최근 주에만 그림)의 이번 주 모집·이번 주 히트맵 — ThisWeekSection 과 같은 키라 요청은 하나다. 인쇄 대기 판정에만 쓴다.
+  const closingQuery = useAdminClosingRecruitmentsQuery({ enabled: isLatestWeek });
+  const thisWeekStart = isLatestWeek ? closingQuery.data?.weekStart : undefined;
+  const thisWeekHeatmapQuery = useAdminWeeklyFacilityHeatmapQuery(thisWeekStart ?? '', { enabled: thisWeekStart !== undefined });
 
   const documentTitle = `주간 브리핑 ${weekStart}`;
   useDocumentTitle(documentTitle);
@@ -95,8 +106,16 @@ function WeeklyBriefingContent() {
   // 인쇄는 첫 구역이 다 그려진 뒤에만 — 이 주가 있어도 전 주를 기다리는 동안은 본문이, 히트맵을 받는 동안은 그 자리가 스켈레톤이다.
   // 이 주·히트맵 실패 문장은 바로 인쇄할 수 있다.
   const isReviewHeatmapLoading = reviewHeatmapQuery.data === undefined && !reviewHeatmapQuery.isError;
+  // 둘째 구역도 같다 — 이번 주 모집·이번 주 히트맵을 받는 동안은 스켈레톤이고, 실패 문장은 바로 인쇄할 수 있다. 다른 주에서는 그 구역이 없다.
+  const isClosingLoading = isLatestWeek && closingQuery.data === undefined && !closingQuery.isError;
+  const isThisWeekHeatmapLoading =
+    thisWeekStart !== undefined && thisWeekHeatmapQuery.data === undefined && !thisWeekHeatmapQuery.isError;
   const isPrintPending =
-    isReviewLoading || (briefingQuery.data !== undefined && !isPreviousSettled) || isReviewHeatmapLoading;
+    isReviewLoading ||
+    (briefingQuery.data !== undefined && !isPreviousSettled) ||
+    isReviewHeatmapLoading ||
+    isClosingLoading ||
+    isThisWeekHeatmapLoading;
 
   return (
     <>
@@ -121,8 +140,14 @@ function WeeklyBriefingContent() {
       </header>
       <div className="mb-4 hidden print:block">
         <p className="text-lg font-bold text-ink">{`총동연 주간 브리핑 · ${formatWeekRange(weekStart, { withYear: true, withWeekday: true })}`}</p>
-        <p className="text-xs text-charcoal-2">{`출력 ${PRINTED_AT_FORMAT.format(printedAt)}`}</p>
+        <p className="text-xs text-charcoal-2">
+          {`출력 ${PRINTED_AT_FORMAT.format(printedAt)}${isLatestWeek ? " · '이번 주 챙길 것'은 출력 시각 기준" : ''}`}
+        </p>
       </div>
+      <nav aria-label="바로가기" className="no-print mb-4 flex flex-wrap gap-2">
+        <a href="#weekly-review" className="btn btn-ghost btn-sm min-h-11">한 주 돌아보기</a>
+        <a href="#this-week" className="btn btn-ghost btn-sm min-h-11">이번 주 챙길 것</a>
+      </nav>
       <WeeklyReviewSection
         weekStart={weekStart}
         range={range}
@@ -137,6 +162,13 @@ function WeeklyBriefingContent() {
         isPreviousFailed={isPreviousEnabled && previousQuery.isError && previousQuery.data === undefined}
         onRetryPrevious={() => void previousQuery.refetch()}
         onNavigate={goToWeek}
+      />
+      <ThisWeekSection
+        isLatestWeek={isLatestWeek}
+        latestWeek={range.latestWeek}
+        currentMonday={range.currentMonday}
+        todayIso={todayIso}
+        onBackToLatest={() => goToWeek(range.latestWeek)}
       />
     </>
   );
