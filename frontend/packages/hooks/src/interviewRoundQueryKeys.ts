@@ -1,7 +1,7 @@
 // 면접 라운드(재설계) 쿼리키 — 신규 interviewRounds 그룹 전용.
 // 구 interviewQueryKeys(interview 그룹)와 키 프리픽스가 달라 충돌 없이 공존한다.
 // invalidation 매트릭스 (스펙 §10.1):
-//   생성(create)        → list + candidates
+//   생성(create)        → list + candidates + 통계·지원자 목록·이웃(지원 상태 전이)
 //   수정(update)        → detail + list
 //   취소(cancel)        → detail + list + candidates  (상태 전이 + 멤버 대기열 복귀 — 재큐잉)
 //   슬롯 생성/삭제      → detail

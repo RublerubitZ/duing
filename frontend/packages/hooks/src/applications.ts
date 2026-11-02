@@ -12,6 +12,7 @@ import type { DuingApiClient } from '@duing/api';
 import { selectIsAuthenticated, useAuthStore } from '@duing/stores';
 import { useApiClient } from './api-context';
 import { applicationQueryKeys } from './applicationQueryKeys';
+import { interviewRoundKeys } from './interviewRoundQueryKeys';
 import { statsQueryKeys } from './statsQueryKeys';
 
 export function useSubmitApplicationMutation(recruitmentId: number) {
@@ -198,6 +199,10 @@ export function useUpdateApplicationStatusMutation(recruitmentId: number) {
       queryClient.invalidateQueries({
         queryKey: applicationQueryKeys.applicantNeighborsAll(),
       });
+      // 면접 대상으로 바꾸거나 되돌리면 면접 대기열이 바뀐다 — 인자 하나짜리 접두로 토글 두 엔트리를 함께 덮는다.
+      queryClient.invalidateQueries({
+        queryKey: interviewRoundKeys.candidates(recruitmentId),
+      });
     },
   });
 }
@@ -219,6 +224,10 @@ export function useBulkUpdateApplicationStatusMutation(recruitmentId: number) {
       // 일괄 상태 변경도 이웃 순서에 영향을 주므로 neighbors 캐시 전체 무효화.
       queryClient.invalidateQueries({
         queryKey: applicationQueryKeys.applicantNeighborsAll(),
+      });
+      // 일괄 "면접 대상으로 선정"은 SUBMITTED → INTERVIEW_PENDING 이라 면접 대기열이 바뀐다.
+      queryClient.invalidateQueries({
+        queryKey: interviewRoundKeys.candidates(recruitmentId),
       });
     },
   });
