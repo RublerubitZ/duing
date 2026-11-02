@@ -50,6 +50,7 @@ let heatmapGates: Gate[] = [];
 const heatmapWeeks: string[] = [];
 const heatmapFailures = new Map<string, number>();
 let closingGate: Gate | null = null;
+let closingRequests = 0;
 
 const server = setupServer(
   http.get('*/admin/weekly-briefing', async ({ request }) => {
@@ -82,6 +83,7 @@ const server = setupServer(
     });
   }),
   http.get('*/admin/weekly-briefing/closing-recruitments', async () => {
+    closingRequests += 1;
     if (closingGate) await closingGate.promise;
     return HttpResponse.json({ ok: true, message: null, data: { weekStart: '2026-11-02', recruitments: [] } });
   }),
@@ -116,6 +118,7 @@ beforeEach(() => {
   heatmapWeeks.length = 0;
   heatmapFailures.clear();
   closingGate = null;
+  closingRequests = 0;
   briefings.set('2026-10-26', OCTOBER_26);
   briefings.set('2026-10-19', OCTOBER_19);
 });
@@ -575,6 +578,9 @@ describe('AdminWeeklyBriefingPage — 인쇄·탭 제목', () => {
     expect(within(jumpNav).getByRole('link', { name: '한 주 돌아보기' })).toHaveAttribute('href', '#weekly-review');
     expect(within(jumpNav).getByRole('link', { name: '이번 주 챙길 것' })).toHaveAttribute('href', '#this-week');
     expect(await screen.findByRole('heading', { name: '이번 주 챙길 것' })).toBeInTheDocument();
+    // 두 바로가기 대상은 모바일 상단 고정 바를 비킨다(jsdom 은 레이아웃이 없어 클래스로 고정).
+    expect(screen.getByRole('region', { name: '한 주 돌아보기' })).toHaveClass('scroll-mt-16', 'md:scroll-mt-6');
+    expect(screen.getByRole('region', { name: '이번 주 챙길 것' })).toHaveClass('scroll-mt-16', 'md:scroll-mt-6');
     expect(screen.getByText("출력 2026년 11월 5일 오후 2:05 · '이번 주 챙길 것'은 출력 시각 기준")).toBeInTheDocument();
 
     currentSearch = 'week=2026-10-19';
@@ -618,5 +624,6 @@ describe('AdminWeeklyBriefingPage — 인쇄·탭 제목', () => {
     await findFlowTable();
     await user.click(await screen.findByRole('button', { name: '인쇄' }));
     expect(printSpy).toHaveBeenCalledTimes(1);
+    expect(closingRequests).toBe(0);
   });
 });

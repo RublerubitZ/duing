@@ -51,7 +51,8 @@ export function WeeklyReviewSection({
     <section
       id="weekly-review"
       aria-labelledby="weekly-review-heading"
-      className="card p-5 print:border-0 print:p-0 print:shadow-none"
+      // 바로가기 대상 — 모바일 상단 고정 바 아래로 제목이 깔리지 않게 scroll-margin 을 둔다(콘솔 관례, paginationScroll.ts).
+      className="card scroll-mt-16 p-5 md:scroll-mt-6 print:border-0 print:p-0 print:shadow-none"
     >
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">

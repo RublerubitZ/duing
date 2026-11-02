@@ -26,7 +26,7 @@ type Props = {
 export function ThisWeekSection({ isLatestWeek, latestWeek, currentMonday, todayIso, onBackToLatest }: Props) {
   if (!isLatestWeek) {
     return (
-      <section id="this-week" aria-label="이번 주 챙길 것" className="no-print card mt-6 p-5">
+      <section id="this-week" aria-label="이번 주 챙길 것" className="no-print card mt-6 scroll-mt-16 p-5 md:scroll-mt-6">
         <p className="break-keep text-sm text-charcoal-2">
           {`이번 주 일정은 지난주(${screenWeekRange(latestWeek, todayIso, false)})를 볼 때 함께 보여요.`}
         </p>
@@ -46,7 +46,8 @@ function ThisWeekContent({ currentMonday, todayIso }: { currentMonday: string; t
     <section
       id="this-week"
       aria-labelledby="this-week-heading"
-      className="card mt-6 p-5 print:mt-0 print:break-before-page print:border-0 print:p-0 print:shadow-none"
+      // 바로가기 대상 — 모바일 상단 고정 바 아래로 제목이 깔리지 않게 scroll-margin 을 둔다(콘솔 관례, paginationScroll.ts).
+      className="card mt-6 scroll-mt-16 p-5 md:scroll-mt-6 print:mt-0 print:break-before-page print:border-0 print:p-0 print:shadow-none"
     >
       <h2 id="this-week-heading" className="text-base font-semibold text-ink">이번 주 챙길 것</h2>
       {closing ? (
@@ -75,10 +76,13 @@ function ThisWeekContent({ currentMonday, todayIso }: { currentMonday: string; t
           </div>
         )}
         <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
-          <div role="region" aria-label="다가오는 행사">
+          {/* 둘째 쪽 끝의 작은 카드라 인쇄에서 쪽 경계에 잘리지 않게 한다 — 학교 반영 대기 카드는 홈과 공용이라 감싸는 쪽에 단다. */}
+          <div role="region" aria-label="다가오는 행사" className="print:break-inside-avoid">
             <UpcomingEventsCard currentMonday={currentMonday} todayIso={todayIso} />
           </div>
-          <AdminSchoolSyncCard />
+          <div className="print:break-inside-avoid">
+            <AdminSchoolSyncCard />
+          </div>
         </div>
       </div>
     </section>

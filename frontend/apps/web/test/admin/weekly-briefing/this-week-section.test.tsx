@@ -197,6 +197,8 @@ describe('ThisWeekSection', () => {
 
     const placeholder = screen.getByRole('region', { name: '이번 주 챙길 것' });
     expect(placeholder).toHaveClass('no-print');
+    // 바로가기 대상 — 모바일 상단 고정 바를 비킨다(jsdom 은 레이아웃이 없어 클래스로 고정).
+    expect(placeholder).toHaveClass('scroll-mt-16', 'md:scroll-mt-6');
     expect(within(placeholder).getByText('이번 주 일정은 지난주(10월 26일 – 11월 1일)를 볼 때 함께 보여요.')).toBeInTheDocument();
     await user.click(within(placeholder).getByRole('button', { name: '지난주로 돌아가기' }));
     expect(props.onBackToLatest).toHaveBeenCalledTimes(1);
@@ -209,5 +211,13 @@ describe('ThisWeekSection', () => {
     const section = await screen.findByRole('region', { name: '이번 주 챙길 것' });
     expect(section).toHaveClass('print:break-before-page');
     expect(section).not.toHaveClass('no-print');
+    expect(section).toHaveClass('scroll-mt-16', 'md:scroll-mt-6');
+  });
+
+  it('둘째 구역의 두 카드는 인쇄에서 쪽 경계에 잘리지 않는다', async () => {
+    renderSection();
+
+    expect(await screen.findByRole('region', { name: '다가오는 행사' })).toHaveClass('print:break-inside-avoid');
+    expect(screen.getByRole('heading', { name: '학교 반영 대기' }).closest('.print\\:break-inside-avoid')).not.toBeNull();
   });
 });
