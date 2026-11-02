@@ -199,7 +199,7 @@ export function useUpdateApplicationStatusMutation(recruitmentId: number) {
       queryClient.invalidateQueries({
         queryKey: applicationQueryKeys.applicantNeighborsAll(),
       });
-      // 면접 대상으로 바꾸거나 되돌리면 면접 대기열이 바뀐다 — 인자 하나짜리 접두로 토글 두 엔트리를 함께 덮는다.
+      // 면접 대상으로 바꾸거나(지원 완료·보류 →) 면접 대상의 결과를 확정하면(→ 합격·불합격) 면접 대기열이 바뀐다 — 인자 하나짜리 접두로 토글 두 엔트리를 함께 덮는다.
       queryClient.invalidateQueries({
         queryKey: interviewRoundKeys.candidates(recruitmentId),
       });
@@ -225,7 +225,7 @@ export function useBulkUpdateApplicationStatusMutation(recruitmentId: number) {
       queryClient.invalidateQueries({
         queryKey: applicationQueryKeys.applicantNeighborsAll(),
       });
-      // 일괄 "면접 대상으로 선정"은 SUBMITTED → INTERVIEW_PENDING 이라 면접 대기열이 바뀐다.
+      // 일괄 "면접 대상으로 선정"(지원 완료·보류 → 면접 대상)과 일괄 합격·불합격은 면접 대기열을 바꾼다.
       queryClient.invalidateQueries({
         queryKey: interviewRoundKeys.candidates(recruitmentId),
       });
