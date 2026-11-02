@@ -114,7 +114,8 @@ function ActivityCard({ title, rows, footer }: { title: string; rows: ActivityRo
           );
         })}
       </dl>
-      {footer ? <div className="mt-2">{footer}</div> : null}
+      {/* 화면에서만 누르는 링크 — 회의 배포용 종이에는 뜻이 없다(§3-9). */}
+      {footer ? <div className="no-print mt-2">{footer}</div> : null}
     </section>
   );
 }

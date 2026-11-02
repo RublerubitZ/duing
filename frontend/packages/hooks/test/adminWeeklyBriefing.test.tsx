@@ -19,6 +19,10 @@ const server = setupServer(
     if (weekStart === '2026-11-02') {
       return HttpResponse.json({ ok: false, message: '아직 끝나지 않은 주입니다.', data: null, code: 'WEEK_NOT_ENDED' }, { status: 400 });
     }
+    if (weekStart === '2026-10-12') {
+      // 옛 백엔드(엔드포인트 없음) — 새 프론트만 먼저 나간 롤백 경로
+      return HttpResponse.json({ ok: false, message: 'Not Found', data: null }, { status: 404 });
+    }
     return HttpResponse.json({ ok: true, message: null, data: { federationNoticeCount: 1 } });
   }),
 );
@@ -74,6 +78,15 @@ describe('useAdminWeeklyBriefingQuery', () => {
     await waitFor(() => expect(result.current.isError).toBe(true));
     expect(requestedWeeks).toEqual(['2026-11-02']);
     expect(result.current.error).toMatchObject({ status: 400, code: 'WEEK_NOT_ENDED' });
+  });
+
+  it('옛 백엔드 404 도 다시 받지 않는다 — 구역 실패로 바로 그린다', async () => {
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: 3 } } });
+    const { result } = renderHook(() => useAdminWeeklyBriefingQuery('2026-10-12'), { wrapper: makeWrapper(queryClient) });
+
+    await waitFor(() => expect(result.current.isError).toBe(true));
+    expect(requestedWeeks).toEqual(['2026-10-12']);
+    expect(result.current.error).toMatchObject({ status: 404 });
   });
 
   it('enabled 가 false 면 요청하지 않는다(가장 이른 주의 전 주)', async () => {

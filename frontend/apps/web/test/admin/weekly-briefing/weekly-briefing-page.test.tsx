@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ReactNode } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -6,7 +6,7 @@ import { setupServer } from 'msw/node';
 import { http, HttpResponse } from 'msw';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createApiClient } from '@duing/api';
-import { ApiClientProvider } from '@duing/hooks';
+import { ApiClientProvider, adminQueryKeys } from '@duing/hooks';
 import type { AdminWeeklyBriefing } from '@duing/types';
 
 import { AdminWeeklyBriefingPage } from '@/app/admin/weekly-briefing/_pages/AdminWeeklyBriefingPage';
@@ -15,10 +15,13 @@ import { NOW_ISO, OCTOBER_19, OCTOBER_26, weeklyBriefingOf } from './weeklyBrief
 
 /* ── 모듈 모킹 ─────────────────────────────────────────────── */
 let currentSearch = '';
+/** Next 는 내비게이션마다 라우터 트리를 새로 만들어 params 객체도 새것이 된다 — 같은 주소로 다시 들어온 것을 흉내 낼 때 바꾼다. */
+let navigationParams = {};
 const mockReplace = vi.fn();
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: vi.fn(), replace: mockReplace, refresh: vi.fn(), back: vi.fn(), forward: vi.fn(), prefetch: vi.fn() }),
   useSearchParams: () => new URLSearchParams(currentSearch),
+  useParams: () => navigationParams,
   usePathname: () => '/admin/weekly-briefing',
 }));
 vi.mock('next/link', () => ({
@@ -77,6 +80,7 @@ beforeEach(() => {
   printSpy = spyOnPrint();
   mockReplace.mockReset();
   currentSearch = '';
+  navigationParams = {};
   briefings.clear();
   failures.clear();
   gates = [];
@@ -113,7 +117,7 @@ function renderPage() {
         <AdminWeeklyBriefingPage />
       </Providers>,
     );
-  return { ...view, rerenderPage };
+  return { ...view, rerenderPage, queryClient };
 }
 
 const findFlowTable = () => screen.findByRole('table', { name: '업무 접수·처리' });
@@ -131,6 +135,21 @@ describe('AdminWeeklyBriefingPage — 주 넘기기', () => {
     expect(await screen.findByText('10월 26일(월) – 11월 1일(일)')).toBeInTheDocument();
     expect(screen.getByText('지난주')).toBeInTheDocument();
     expect(replacedUrls()).toEqual(['/admin/weekly-briefing?week=2026-10-26']);
+    expect(mockReplace).not.toHaveBeenCalled();
+  });
+
+  it('정리한 뒤 같은 메뉴(week 없는 주소)로 다시 들어와 Next 가 주소에서 week 를 빼면, 검색 파라미터가 그대로여도 다시 정리한다', async () => {
+    const view = renderPage();
+    expect(await screen.findByText('10월 26일(월) – 11월 1일(일)')).toBeInTheDocument();
+    expect(replacedUrls()).toEqual(['/admin/weekly-briefing?week=2026-10-26']);
+
+    // 사이드바 '주간 브리핑' 재클릭 — Next 는 자기가 아는 주소(week 없음)를 기록에 쓰고 새 트리로 다시 그린다. useSearchParams 는 그대로 비어 있다.
+    window.history.pushState(null, '', '/admin/weekly-briefing');
+    navigationParams = {};
+    view.rerenderPage();
+
+    expect(replacedUrls()).toEqual(['/admin/weekly-briefing?week=2026-10-26', '/admin/weekly-briefing?week=2026-10-26']);
+    expect(window.location.search).toBe('?week=2026-10-26');
     expect(mockReplace).not.toHaveBeenCalled();
   });
 
@@ -175,6 +194,8 @@ describe('AdminWeeklyBriefingPage — 주 넘기기', () => {
     expect(mockReplace).not.toHaveBeenCalled();
     expect(nextButton).toHaveFocus();
     expect(screen.getByText('이번 주는 11월 9일(월)부터 볼 수 있어요')).toBeInTheDocument();
+    expect(nextButton).toHaveAccessibleDescription('이번 주는 11월 9일(월)부터 볼 수 있어요');
+    expect(screen.getByRole('button', { name: /^이전 주 보기/ })).not.toHaveAttribute('aria-describedby');
 
     await user.click(screen.getByRole('button', { name: '이전 주 보기, 10월 19일 – 25일' }));
     expect(mockReplace).toHaveBeenCalledWith('/admin/weekly-briefing?week=2026-10-19', { scroll: false });
@@ -186,8 +207,9 @@ describe('AdminWeeklyBriefingPage — 주 넘기기', () => {
 
     await findFlowTable();
     expect(screen.getByText('2025년 11월 3일(월) – 9일(일)')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: '이전 주 보기, 2025년 10월 27일 – 11월 2일' })).toHaveAttribute('aria-disabled', 'true');
-    expect(screen.getByText('1년 전까지만 볼 수 있어요')).toBeInTheDocument();
+    const previousButton = screen.getByRole('button', { name: '이전 주 보기, 2025년 10월 27일 – 11월 2일' });
+    expect(previousButton).toHaveAttribute('aria-disabled', 'true');
+    expect(previousButton).toHaveAccessibleDescription('1년 전까지만 볼 수 있어요');
     expect(requestedWeeks).not.toContain('2025-10-27');
     expect(screen.getByText('11월 9일(일) 밤 남은 처리 대기는 28건이에요.')).toBeInTheDocument();
   });
@@ -256,6 +278,16 @@ describe('AdminWeeklyBriefingPage — 주 넘기기', () => {
     expect(await screen.findByText('이 주 지표를 불러오지 못했어요')).toBeInTheDocument();
     expect(replacedUrls()).toEqual(['/admin/weekly-briefing?week=2026-11-02', '/admin/weekly-briefing?week=2026-10-26']);
   });
+
+  it.each(['WEEK_NOT_MONDAY', 'WEEK_IN_FUTURE', 'WEEK_TOO_OLD'])('WEEK_NOT_ENDED 가 아닌 400(%s)은 물러서지 않고 구역 실패로 보인다', async (code) => {
+    vi.setSystemTime(new Date('2026-11-09T05:05:00Z'));
+    failures.set('2026-11-02', { status: 400, code });
+    renderPage();
+
+    expect(await screen.findByText('이 주 지표를 불러오지 못했어요')).toBeInTheDocument();
+    expect(screen.getByText('11월 2일(월) – 8일(일)')).toBeInTheDocument();
+    expect(replacedUrls()).toEqual(['/admin/weekly-briefing?week=2026-11-02']);
+  });
 });
 
 describe('AdminWeeklyBriefingPage — 한 주 돌아보기', () => {
@@ -293,6 +325,33 @@ describe('AdminWeeklyBriefingPage — 한 주 돌아보기', () => {
     expect(screen.getByText("접수·처리는 월요일 0시~일요일 24시에 일어난 건만 세요(홈 '최근 7일'과 다를 수 있어요).")).toBeInTheDocument();
   });
 
+  it('업무 다섯 줄의 주 끝 남은 대기 칸은 각자 응답의 해당 키 값을 보인다(값을 서로 다르게 주어 연결을 단정)', async () => {
+    briefings.set(
+      '2026-10-26',
+      weeklyBriefingOf({
+        endPending: {
+          clubApproval: 3,
+          facilityBooking: 53,
+          inquiryUnanswered: 52,
+          promotionRequest: 54,
+          reportUnresolved: 51,
+          leaderSuccession: 55,
+          stalePendingRecruitment: 2,
+          inactiveClubPending: 1,
+          totalPendingCount: 271,
+        },
+      }),
+    );
+    currentSearch = 'week=2026-10-26';
+    renderPage();
+
+    const table = within(await findFlowTable());
+    for (const [name, value] of [['신고', 51], ['1:1 문의', 52], ['시설 예약', 53], ['홍보 요청', 54], ['회장 승계', 55]] as const) {
+      const endPendingCell = rowOf(table.getByRole('rowheader', { name })).getAllByRole('cell').at(-1);
+      expect(endPendingCell).toHaveTextContent(new RegExp(`^${value}(?!\\d)`));
+    }
+  });
+
   it('일요일 기록이 없으면 남은 대기 열·그 밖의 대기·합계를 빼고 이유 한 줄을 쓴다', async () => {
     briefings.set('2026-10-26', weeklyBriefingOf({ endPending: null, pendingRecordStartedOn: null }));
     currentSearch = 'week=2026-10-26';
@@ -312,7 +371,9 @@ describe('AdminWeeklyBriefingPage — 한 주 돌아보기', () => {
     const card = within(await screen.findByRole('region', { name: '공지·정보 확인' }));
     expect(card.getByText('이 기능이 생기기 전이에요')).toBeInTheDocument();
     expect(card.queryByText('37명')).toBeNull();
-    expect(card.getByRole('link', { name: '정보 확인 팝업' })).toHaveAttribute('href', '/admin/profile-check');
+    const profileCheckLink = card.getByRole('link', { name: '정보 확인 팝업' });
+    expect(profileCheckLink).toHaveAttribute('href', '/admin/profile-check');
+    expect(profileCheckLink.closest('.no-print')).not.toBeNull();
   });
 
   it('전 주 조회가 실패하면 요약 위에 한 줄 알림과 다시 시도를 두고 비교를 뺀다', async () => {
@@ -324,6 +385,23 @@ describe('AdminWeeklyBriefingPage — 한 주 돌아보기', () => {
     expect(await screen.findByText('전 주 숫자를 불러오지 못해 비교를 뺐어요.', undefined, { timeout: 4000 })).toBeInTheDocument();
     expect(screen.getByText('11월 1일(일) 밤 남은 처리 대기는 28건이에요.')).toBeInTheDocument();
     expect(screen.queryByText(/전 주보다/)).toBeNull();
+  });
+
+  it('받아 둔 전 주를 다시 받다 실패하면 갖고 있던 비교를 그대로 쓰고 "비교를 뺐어요" 알림을 내지 않는다', async () => {
+    currentSearch = 'week=2026-10-26';
+    const { queryClient } = renderPage();
+    const comparedSentence = '11월 1일(일) 밤 남은 처리 대기는 28건으로, 전 주보다 6건 늘었어요.';
+    expect(await screen.findByText(comparedSentence)).toBeInTheDocument();
+
+    failures.set('2026-10-19', { status: 500 });
+    // 500 은 전역 정책대로 한 번 다시 받는다(약 1초) — 끝나면 오류 상태지만 받아 둔 전 주 데이터는 남는다
+    await act(() => queryClient.refetchQueries({ queryKey: adminQueryKeys.weeklyBriefing('2026-10-19') }));
+    expect(queryClient.getQueryState(adminQueryKeys.weeklyBriefing('2026-10-19'))).toMatchObject({ status: 'error' });
+    // TanStack 은 옵저버 알림을 setTimeout(0) 으로 모아 보낸다 — 그 알림이 화면에 닿은 뒤에 본다
+    await act(() => new Promise<void>((resolve) => setTimeout(resolve, 0)));
+
+    expect(screen.queryByText('전 주 숫자를 불러오지 못해 비교를 뺐어요.')).toBeNull();
+    expect(screen.getByText(comparedSentence)).toBeInTheDocument();
   });
 
   it('이 주 조회가 실패하면(옛 백엔드 404 포함) 구역 실패 문장과 인쇄에서 숨는 다시 시도를 보이고 페이지 머리는 남는다', async () => {
@@ -375,6 +453,19 @@ describe('AdminWeeklyBriefingPage — 인쇄·탭 제목', () => {
     await findFlowTable();
     await user.click(screen.getByRole('button', { name: '인쇄' }));
     expect(printSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('인쇄 직전(beforeprint)에 탭 제목을 다시 세운다 — 주를 넘긴 뒤 레이아웃 제목이 덮어도 PDF 기본 파일 이름은 "주간 브리핑 {주} | 두잉"', async () => {
+    currentSearch = 'week=2026-10-26';
+    renderPage();
+    await findFlowTable();
+    await waitFor(() => expect(document.title).toBe('주간 브리핑 2026-10-26 | 두잉'));
+
+    document.title = '총동연 콘솔 | 두잉'; // Next 16.4 가 주 넘기기 뒤 레이아웃 <title> 을 다시 커밋한 상태
+    act(() => {
+      window.dispatchEvent(new Event('beforeprint'));
+    });
+    expect(document.title).toBe('주간 브리핑 2026-10-26 | 두잉');
   });
 
   it('탭 제목은 "주간 브리핑 {주}", 인쇄 머리는 늘 연도를 쓰고, 주 넘기기는 인쇄에서 숨긴다', async () => {

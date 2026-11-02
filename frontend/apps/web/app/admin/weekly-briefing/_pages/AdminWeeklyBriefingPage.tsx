@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { flushSync } from 'react-dom';
-import { useSearchParams } from 'next/navigation';
+import { useParams, useSearchParams } from 'next/navigation';
 
 import { ApiError } from '@duing/api';
 import { addDaysIso, useAdminWeeklyBriefingQuery } from '@duing/hooks';
@@ -36,6 +36,8 @@ export function AdminWeeklyBriefingPage() {
 
 function WeeklyBriefingContent() {
   const searchParams = useSearchParams();
+  // 쓰지 않는 값이다 — Next 가 내비게이션마다(같은 주소로 다시 들어와도) 새로 만들어 주므로 주소 정리를 다시 돌리는 신호로만 쓴다.
+  const navigationParams = useParams();
   const router = useGuardedRouter();
   const [openedAt] = useState(() => new Date());
   // 기기 시계가 앞서 서버가 '아직 끝나지 않은 주'라고 하면 한 주 물러선 시계로 범위를 다시 잡는다 — 한 번만.
@@ -53,14 +55,16 @@ function WeeklyBriefingContent() {
   const isAwaitingStepBack =
     !clockSteppedBack && briefingQuery.error instanceof ApiError && briefingQuery.error.code === 'WEEK_NOT_ENDED';
 
-  useDocumentTitle(`주간 브리핑 ${weekStart}`);
+  const documentTitle = `주간 브리핑 ${weekStart}`;
+  useDocumentTitle(documentTitle);
 
   // 주소가 보여 주는 주와 다르면 정리한다(진입·사이드바로 다시 들어옴·기기 시계 물러섬) — 기록을 쌓지 않고 RSC 왕복도 없다.
-  // window.history.state(__NA 포함)를 넘겨 Next 동기화를 건너뛰므로 useSearchParams 는 옛 값을 준다. 해석이 멱등이라 화면은 같다.
+  // window.history.state(__NA 포함)를 넘겨 Next 동기화를 건너뛰므로 useSearchParams 는 옛 값을 준다(해석이 멱등이라 화면은 같다).
+  // 그래서 실제 주소창을 읽는다 — 같은 메뉴로 다시 들어오면 Next 가 week 없는 주소를 쓰고 useSearchParams 는 그대로라, 내비게이션 신호로 다시 본다.
   useEffect(() => {
-    if (requestedWeek === weekStart) return;
+    if (new URLSearchParams(window.location.search).get('week') === weekStart) return;
     window.history.replaceState(window.history.state, '', `${BRIEFING_PATH}?week=${weekStart}`);
-  }, [requestedWeek, weekStart]);
+  }, [navigationParams, weekStart]);
 
   useEffect(() => {
     if (isAwaitingStepBack) setClockSteppedBack(true);
@@ -68,11 +72,15 @@ function WeeklyBriefingContent() {
 
   const [printedAt, setPrintedAt] = useState(() => new Date());
   useEffect(() => {
-    // 인쇄 버튼·Ctrl+P 모두 — 인쇄 직전에 출력 시각을 그 순간으로 바꾼다.
-    const updatePrintedAt = () => flushSync(() => setPrintedAt(new Date()));
-    window.addEventListener('beforeprint', updatePrintedAt);
-    return () => window.removeEventListener('beforeprint', updatePrintedAt);
-  }, []);
+    // 인쇄 버튼·Ctrl+P 모두 — 인쇄 직전에 출력 시각을 그 순간으로 바꾸고, 탭 제목(= PDF 기본 파일 이름)을 다시 세운다.
+    // 주를 넘기면 Next 가 레이아웃 제목을 다시 그려 useDocumentTitle 이 쓴 제목을 덮을 수 있다(#1606). 훅과 같은 글자라 떠날 때 훅이 되돌린다.
+    const prepareForPrint = () => {
+      document.title = `${documentTitle} | 두잉`;
+      flushSync(() => setPrintedAt(new Date()));
+    };
+    window.addEventListener('beforeprint', prepareForPrint);
+    return () => window.removeEventListener('beforeprint', prepareForPrint);
+  }, [documentTitle]);
 
   const goToWeek = (targetWeek: string) => {
     setNotice(null);
@@ -120,7 +128,8 @@ function WeeklyBriefingContent() {
         onRetry={() => void briefingQuery.refetch()}
         previous={isPreviousEnabled ? (previousQuery.data ?? null) : null}
         isPreviousSettled={isPreviousSettled}
-        isPreviousFailed={isPreviousEnabled && previousQuery.isError}
+        // 받아 둔 전 주가 있으면 다시 받기에 실패해도 그 비교를 그대로 쓴다(끝난 주 숫자) — 알림은 비교를 정말 뺄 때만.
+        isPreviousFailed={isPreviousEnabled && previousQuery.isError && previousQuery.data === undefined}
         onRetryPrevious={() => void previousQuery.refetch()}
         onNavigate={goToWeek}
       />

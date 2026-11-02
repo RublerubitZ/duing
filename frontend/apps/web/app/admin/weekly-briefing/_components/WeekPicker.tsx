@@ -1,5 +1,6 @@
 'use client';
 
+import { useId } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 import { addDaysIso } from '@duing/hooks';
@@ -18,18 +19,21 @@ type Props = {
   onNavigate: (weekStart: string) => void;
 };
 
-/** 주 넘기기 — 끝의 버튼은 disabled 대신 aria-disabled 로 포커스를 남기고 클릭을 무시한다(옆에 이유 글). */
+/** 주 넘기기 — 끝의 버튼은 disabled 대신 aria-disabled 로 포커스를 남기고 클릭을 무시한다(옆 이유 글을 설명으로 잇는다). */
 export function WeekPicker({ weekStart, range, todayIso, onNavigate }: Props) {
   const previousWeek = addDaysIso(weekStart, -7);
   const nextWeek = addDaysIso(weekStart, 7);
   const isOldest = weekStart <= range.oldestWeek;
   const isLatest = weekStart >= range.latestWeek;
+  const previousReasonId = useId();
+  const nextReasonId = useId();
   return (
     <div className="no-print flex flex-col items-end gap-1">
       <div className="flex gap-2">
         <WeekButton
           accessibleName={`이전 주 보기, ${screenWeekRange(previousWeek, todayIso, false)}`}
           isUnavailable={isOldest}
+          describedBy={isOldest ? previousReasonId : undefined}
           onSelect={() => onNavigate(previousWeek)}
         >
           <ChevronLeft size={16} aria-hidden />
@@ -38,14 +42,23 @@ export function WeekPicker({ weekStart, range, todayIso, onNavigate }: Props) {
         <WeekButton
           accessibleName={`다음 주 보기, ${screenWeekRange(nextWeek, todayIso, false)}`}
           isUnavailable={isLatest}
+          describedBy={isLatest ? nextReasonId : undefined}
           onSelect={() => onNavigate(nextWeek)}
         >
           다음 주
           <ChevronRight size={16} aria-hidden />
         </WeekButton>
       </div>
-      {isLatest ? <p className="break-keep text-xs text-charcoal-3">{nextWeekUnavailableText(range.currentMonday)}</p> : null}
-      {isOldest ? <p className="break-keep text-xs text-charcoal-3">{OLDEST_WEEK_TEXT}</p> : null}
+      {isLatest ? (
+        <p id={nextReasonId} className="break-keep text-xs text-charcoal-3">
+          {nextWeekUnavailableText(range.currentMonday)}
+        </p>
+      ) : null}
+      {isOldest ? (
+        <p id={previousReasonId} className="break-keep text-xs text-charcoal-3">
+          {OLDEST_WEEK_TEXT}
+        </p>
+      ) : null}
     </div>
   );
 }
@@ -53,11 +66,13 @@ export function WeekPicker({ weekStart, range, todayIso, onNavigate }: Props) {
 function WeekButton({
   accessibleName,
   isUnavailable,
+  describedBy,
   onSelect,
   children,
 }: {
   accessibleName: string;
   isUnavailable: boolean;
+  describedBy: string | undefined;
   onSelect: () => void;
   children: ReactNode;
 }) {
@@ -66,6 +81,7 @@ function WeekButton({
       type="button"
       aria-label={accessibleName}
       aria-disabled={isUnavailable || undefined}
+      aria-describedby={describedBy}
       onClick={() => {
         if (!isUnavailable) onSelect();
       }}
