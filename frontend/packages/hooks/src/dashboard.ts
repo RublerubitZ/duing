@@ -167,8 +167,8 @@ export function useClubActionItems(clubId: number | undefined): {
   });
 
   // 면접 대기열 fan-out — 라운드 화면의 useInterviewRoundCandidatesQuery(includeUndecided=false)와
-  // 쿼리키 모양을 동일하게 맞춰 캐시를 공유하고, 라운드 생성/취소/제외/확정 mutation의
-  // candidates(recruitmentId) prefix invalidation이 여기에도 닿게 한다.
+  // 쿼리키 모양을 동일하게 맞춰 캐시를 공유하고, 라운드 생성/취소/제외/확정·지원 상태 변경(단건·일괄)
+  // mutation의 candidates(recruitmentId) prefix invalidation이 여기에도 닿게 한다.
   const candidatesQueries = useQueries({
     queries: interviewRecruitmentIds.map((recruitmentId) => ({
       queryKey: interviewRoundKeys.candidates(recruitmentId, false),
