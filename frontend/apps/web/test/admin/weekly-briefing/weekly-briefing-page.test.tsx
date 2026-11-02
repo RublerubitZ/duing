@@ -353,6 +353,30 @@ describe('AdminWeeklyBriefingPage — 인쇄·탭 제목', () => {
     expect(printSpy).toHaveBeenCalledTimes(1);
   });
 
+  it('이전 주로 넘겨 이 주는 캐시로 바로 있어도 새 전 주를 받는 동안(본문 스켈레톤) 인쇄 버튼은 aria-disabled 이고, 전 주가 오면 켜진다', async () => {
+    const user = userEvent.setup();
+    currentSearch = 'week=2026-10-26';
+    const view = renderPage();
+    await findFlowTable();
+
+    const gate = gateFor('2026-10-12');
+    gates = [gate];
+    await user.click(screen.getByRole('button', { name: /^이전 주 보기/ }));
+    currentSearch = 'week=2026-10-19';
+    view.rerenderPage();
+
+    expect(screen.queryByRole('table', { name: '업무 접수·처리' })).toBeNull();
+    const pendingButton = screen.getByRole('button', { name: '불러오는 중' });
+    expect(pendingButton).toHaveAttribute('aria-disabled', 'true');
+    await user.click(pendingButton);
+    expect(printSpy).not.toHaveBeenCalled();
+
+    gate.release();
+    await findFlowTable();
+    await user.click(screen.getByRole('button', { name: '인쇄' }));
+    expect(printSpy).toHaveBeenCalledTimes(1);
+  });
+
   it('탭 제목은 "주간 브리핑 {주}", 인쇄 머리는 늘 연도를 쓰고, 주 넘기기는 인쇄에서 숨긴다', async () => {
     currentSearch = 'week=2026-10-26';
     renderPage();

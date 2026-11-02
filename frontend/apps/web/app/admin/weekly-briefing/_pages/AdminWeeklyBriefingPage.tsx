@@ -82,6 +82,8 @@ function WeeklyBriefingContent() {
 
   const isReviewLoading = isAwaitingStepBack || (briefingQuery.data === undefined && !briefingQuery.isError);
   const isPreviousSettled = !isPreviousEnabled || previousQuery.data !== undefined || previousQuery.isError;
+  // 인쇄는 본문이 그려진 뒤에만 — 이 주가 있어도 전 주를 기다리는 동안은 스켈레톤이다. 이 주 실패 문장은 바로 인쇄할 수 있다.
+  const isPrintPending = isReviewLoading || (briefingQuery.data !== undefined && !isPreviousSettled);
 
   return (
     <>
@@ -93,13 +95,13 @@ function WeeklyBriefingContent() {
         <div className="no-print flex flex-col items-end gap-1">
           <button
             type="button"
-            aria-disabled={isReviewLoading || undefined}
+            aria-disabled={isPrintPending || undefined}
             onClick={() => {
-              if (!isReviewLoading) window.print();
+              if (!isPrintPending) window.print();
             }}
-            className={cn('btn btn-secondary btn-sm min-h-11 min-w-[6.5rem] justify-center', isReviewLoading && 'cursor-not-allowed opacity-60')}
+            className={cn('btn btn-secondary btn-sm min-h-11 min-w-[6.5rem] justify-center', isPrintPending && 'cursor-not-allowed opacity-60')}
           >
-            {isReviewLoading ? '불러오는 중' : '인쇄'}
+            {isPrintPending ? '불러오는 중' : '인쇄'}
           </button>
           <p className="text-xs text-charcoal-3">인쇄 창에서 PDF로 저장할 수 있어요</p>
         </div>
