@@ -8,6 +8,7 @@ import com.duing.domain.user.entity.UserStatus;
 import com.duing.domain.user.profilecheck.entity.Semester;
 import com.querydsl.core.Tuple;
 import com.querydsl.jpa.impl.JPAQueryFactory;
+import java.time.Instant;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Repository;
 
@@ -41,5 +42,23 @@ public class ProfileCheckStatsRepositoryImpl implements ProfileCheckStatsReposit
         return new ProfileCheckCounts(
                 counts.get(user.count()),
                 counts.get(profileCheckConfirmation.id.count()));
+    }
+
+    /** 대상 조건은 countTargetsAndConfirmed 와 같다 — 탈퇴 제외는 조인 문맥별 soft delete 적용에 기대지 않고 명시한다. */
+    @Override
+    public long countTargetConfirmationsBetween(Instant from, Instant to) {
+        Long confirmationCount = queryFactory
+                .select(profileCheckConfirmation.id.count())
+                .from(profileCheckConfirmation)
+                .join(user).on(user.id.eq(profileCheckConfirmation.userId))
+                .where(
+                        profileCheckConfirmation.confirmedAt.goe(from),
+                        profileCheckConfirmation.confirmedAt.lt(to),
+                        user.status.eq(UserStatus.ACTIVE),
+                        user.grade.ne(Grade.GRADUATED),
+                        user.deletedAt.isNull()
+                )
+                .fetchOne();
+        return confirmationCount == null ? 0L : confirmationCount;
     }
 }

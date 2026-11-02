@@ -85,11 +85,6 @@ public class GeneralAdminFeeAnomalyService implements AdminFeeAnomalyService {
             ClubAuditEventType.FEE_BILL_CANCELLED,
             ClubAuditEventType.FEE_POLICY_UPDATED);
 
-    /** FA-08 대상 — 수납 계좌가 바뀌거나 사라진 사건. 최초 등록은 교체가 아니라 뺀다. */
-    private static final Set<ClubAuditEventType> ACCOUNT_CHANGE_TYPES = Set.of(
-            ClubAuditEventType.FEE_ACCOUNT_UPDATED,
-            ClubAuditEventType.FEE_ACCOUNT_DELETED);
-
     /**
      * ponytail: FA-07 이 훑을 정책 수정 이벤트 상한. 한 동아리가 기간 내 이만큼 정책을 고쳤다면
      * 이미 FA-06 이 잡고 있고 FA-07 판정도 진작 넘긴 뒤라, 더 읽어도 결론이 바뀌지 않는다.
@@ -315,7 +310,7 @@ public class GeneralAdminFeeAnomalyService implements AdminFeeAnomalyService {
         AdminFeePeriod accountPeriod = AdminFeePeriod.of(accountFrom, windowTo);
         // 건수만 필요해 첫 페이지 1건만 읽고 총계를 쓴다.
         long accountChangeCount = clubAuditEventRepository.searchEvents(
-                clubId, ACCOUNT_CHANGE_TYPES, accountPeriod.createdFrom(), accountPeriod.createdTo(),
+                clubId, ClubAuditEventType.feeAccountChangeTypes(), accountPeriod.createdFrom(), accountPeriod.createdTo(),
                 PageRequest.of(0, 1)).getTotalElements();
         if (accountChangeCount < ACCOUNT_CHANGES_CRITICAL) {
             return Optional.empty();

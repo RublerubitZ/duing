@@ -8,13 +8,25 @@ import static org.mockito.Mockito.when;
 
 import com.duing.domain.adminconsole.repository.AdminPendingSnapshotRepository;
 import com.duing.domain.adminconsole.service.dto.query.AdminWeeklyBriefingQuery;
+import com.duing.domain.adminconsole.service.dto.query.AdminWeeklyBriefingQuery.FeeActivity;
 import com.duing.domain.adminconsole.service.dto.query.AdminWeeklyBriefingQuery.FirstAnswer;
 import com.duing.domain.adminconsole.service.dto.query.AdminWeeklyBriefingQuery.Flow;
+import com.duing.domain.adminconsole.service.dto.query.AdminWeeklyBriefingQuery.RecruitmentActivity;
+import com.duing.domain.application.repository.ApplicationRepository;
+import com.duing.domain.clubaudit.entity.ClubAuditEventType;
+import com.duing.domain.clubaudit.repository.ClubAuditEventRepository;
 import com.duing.domain.clubmember.repository.LeaderSuccessionRequestRepository;
 import com.duing.domain.facilitybooking.repository.FacilityBookingRepository;
 import com.duing.domain.federation.repository.FederationInquiryRepository;
+import com.duing.domain.fee.entity.FeeStatus;
+import com.duing.domain.fee.repository.AdminFeeAuditQueryRepository;
+import com.duing.domain.fee.repository.FeeBillRepository;
+import com.duing.domain.fee.repository.PaymentRepository;
+import com.duing.domain.notice.repository.NoticeRepository;
 import com.duing.domain.promotion.repository.PromotionRequestRepository;
+import com.duing.domain.recruitment.repository.RecruitmentRepository;
 import com.duing.domain.report.repository.ReportRepository;
+import com.duing.domain.user.profilecheck.repository.ProfileCheckStatsRepositoryCustom;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -32,7 +44,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 /**
  * 열마다 경계 축(regime)이 맞는지 고정한다. 9시간 밀림은 JVM 기본 존이 KST 가 아닐 때만 드러나므로 기본 존을 UTC 로
- * 잠시 바꾼다(AdminPendingTrendQueryServiceTest 전례). 저장소는 엄격 스텁이라 다른 경계로 부르면 0 이 나와 단정이 깨진다.
+ * 잠시 바꾼다(AdminPendingTrendQueryServiceTest 전례). 저장소는 엄격 스텁이라 다른 경계로 부르면 PotentialStubbingProblem 으로 바로 실패한다.
  */
 @ExtendWith(MockitoExtension.class)
 class AdminWeeklyBriefingQueryServiceTest {
@@ -46,6 +58,9 @@ class AdminWeeklyBriefingQueryServiceTest {
     /** KST 벽시계 그대로 — facility_booking.decided_at(now(seoulClock)) 의 경계. */
     private static final LocalDateTime SEOUL_FROM = LocalDateTime.of(2026, 10, 26, 0, 0);
     private static final LocalDateTime SEOUL_TO = LocalDateTime.of(2026, 11, 2, 0, 0);
+    /** 절대 시각 — payment.voided_at·profile_check_confirmation.confirmed_at(Instant) 의 경계. */
+    private static final Instant INSTANT_FROM = Instant.parse("2026-10-25T15:00:00Z");
+    private static final Instant INSTANT_TO = Instant.parse("2026-11-01T15:00:00Z");
 
     @Mock ReportRepository reportRepository;
     @Mock FederationInquiryRepository federationInquiryRepository;
@@ -53,6 +68,14 @@ class AdminWeeklyBriefingQueryServiceTest {
     @Mock PromotionRequestRepository promotionRequestRepository;
     @Mock LeaderSuccessionRequestRepository leaderSuccessionRequestRepository;
     @Mock AdminPendingSnapshotRepository adminPendingSnapshotRepository;
+    @Mock NoticeRepository noticeRepository;
+    @Mock RecruitmentRepository recruitmentRepository;
+    @Mock ApplicationRepository applicationRepository;
+    @Mock FeeBillRepository feeBillRepository;
+    @Mock AdminFeeAuditQueryRepository adminFeeAuditQueryRepository;
+    @Mock PaymentRepository paymentRepository;
+    @Mock ClubAuditEventRepository clubAuditEventRepository;
+    @Mock ProfileCheckStatsRepositoryCustom profileCheckStatsRepository;
 
     private TimeZone originalDefaultZone;
 
@@ -70,7 +93,9 @@ class AdminWeeklyBriefingQueryServiceTest {
     private AdminWeeklyBriefingQueryService service() {
         return new AdminWeeklyBriefingQueryService(reportRepository, federationInquiryRepository,
                 facilityBookingRepository, promotionRequestRepository, leaderSuccessionRequestRepository,
-                adminPendingSnapshotRepository, SEOUL_CLOCK);
+                adminPendingSnapshotRepository, noticeRepository, recruitmentRepository, applicationRepository,
+                feeBillRepository, adminFeeAuditQueryRepository, paymentRepository, clubAuditEventRepository,
+                profileCheckStatsRepository, SEOUL_CLOCK);
     }
 
     @Test
@@ -110,5 +135,27 @@ class AdminWeeklyBriefingQueryServiceTest {
 
         assertThat(briefing.inquiryFirstAnswer()).isEqualTo(new FirstAnswer(0, null));
         verify(federationInquiryRepository, never()).averageFirstAnswerMinutes(any(), any());
+    }
+
+    @Test
+    @DisplayName("운영과 같은 UTC JVM 에서 납부 정정·정보 확인은 절대 시각 경계로, 모집 기간 끝은 KST 날짜(월~일)로, 나머지 활동은 저장 존 벽시계 경계로 센다")
+    void activityMetricsUseTheirRegimeBoundsUnderUtcJvm() {
+        when(noticeRepository.countByOwningClubIdIsNullAndCreatedAtGreaterThanEqualAndCreatedAtLessThan(SYSTEM_FROM, SYSTEM_TO)).thenReturn(1L);
+        when(recruitmentRepository.countByCreatedAtGreaterThanEqualAndCreatedAtLessThan(SYSTEM_FROM, SYSTEM_TO)).thenReturn(2L);
+        when(recruitmentRepository.countByEndDateBetween(LocalDate.of(2026, 10, 26), LocalDate.of(2026, 11, 1))).thenReturn(3L);
+        when(applicationRepository.countByCreatedAtGreaterThanEqualAndCreatedAtLessThan(SYSTEM_FROM, SYSTEM_TO)).thenReturn(4L);
+        when(feeBillRepository.countByStatusNotAndCreatedAtGreaterThanEqualAndCreatedAtLessThan(FeeStatus.CANCELLED, SYSTEM_FROM, SYSTEM_TO)).thenReturn(5L);
+        when(adminFeeAuditQueryRepository.countBilledClubs(SYSTEM_FROM, SYSTEM_TO)).thenReturn(6L);
+        when(paymentRepository.countByCreatedAtGreaterThanEqualAndCreatedAtLessThan(SYSTEM_FROM, SYSTEM_TO)).thenReturn(7L);
+        when(paymentRepository.countByVoidedAtGreaterThanEqualAndVoidedAtLessThan(INSTANT_FROM, INSTANT_TO)).thenReturn(8L);
+        when(clubAuditEventRepository.countDistinctClubsBetween(ClubAuditEventType.feeAccountChangeTypes(), SYSTEM_FROM, SYSTEM_TO)).thenReturn(9L);
+        when(profileCheckStatsRepository.countTargetConfirmationsBetween(INSTANT_FROM, INSTANT_TO)).thenReturn(10L);
+
+        AdminWeeklyBriefingQuery briefing = service().getWeeklyBriefing(WEEK_START);
+
+        assertThat(briefing.federationNoticeCount()).isEqualTo(1);
+        assertThat(briefing.recruitment()).isEqualTo(new RecruitmentActivity(2, 3, 4));
+        assertThat(briefing.fee()).isEqualTo(new FeeActivity(5, 6, 7, 8, 9));
+        assertThat(briefing.profileCheckConfirmedCount()).isEqualTo(10);
     }
 }

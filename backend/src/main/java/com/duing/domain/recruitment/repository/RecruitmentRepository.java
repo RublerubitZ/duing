@@ -136,4 +136,13 @@ public interface RecruitmentRepository extends JpaRepository<Recruitment, Long>,
                AND r.deletedAt IS NULL
             """)
     int closeAllOpenByClubId(@Param("clubId") Long clubId, @Param("closedAt") LocalDateTime closedAt);
+
+    /** 주간 브리핑 — 기간에 등록한 모집(감사 created_at, system regime). 시작 전 모집도 든다. from 포함·to 미만. */
+    long countByCreatedAtGreaterThanEqualAndCreatedAtLessThan(LocalDateTime from, LocalDateTime to);
+
+    /**
+     * 주간 브리핑 — 모집 기간이 그 주(KST 날짜, 양끝 포함)에 끝난 모집. 날짜 열이라 Between 이 반열린 구간과 같다.
+     * 상시모집(end_date NULL)은 빠지고, 상태는 가리지 않는다(접수 마감 stopIntake 로 생긴 종료일 포함).
+     */
+    long countByEndDateBetween(LocalDate firstDay, LocalDate lastDay);
 }

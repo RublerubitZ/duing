@@ -1,5 +1,7 @@
 package com.duing.domain.clubaudit.entity;
 
+import java.util.Set;
+
 /**
  * 동아리 운영 감사 이벤트 종류 (스펙 v2 4.1).
  *
@@ -84,6 +86,16 @@ public enum ClubAuditEventType {
      * 화면 라벨: "가입 요청자 휴대폰 열람".
      */
     JOIN_REQUEST_PHONE_VIEWED;
+
+    private static final Set<ClubAuditEventType> FEE_ACCOUNT_CHANGE_TYPES = Set.of(FEE_ACCOUNT_UPDATED, FEE_ACCOUNT_DELETED);
+
+    /**
+     * 수납 계좌가 바뀌거나 사라진 사건 — 최초 등록은 교체가 아니라 뺀다. 이상 징후 FA-08 과 총동연 주간 브리핑의
+     * "입금 계좌를 바꾸거나 지운 동아리"가 같은 집합을 써야 해서 값 쪽에 둔다(isFeeMutation 과 같은 이유).
+     */
+    public static Set<ClubAuditEventType> feeAccountChangeTypes() {
+        return FEE_ACCOUNT_CHANGE_TYPES;
+    }
 
     /**
      * 회비 데이터를 실제로 바꾸는 이벤트인가 — 총동연 열람 2종은 아무것도 바꾸지 않아 제외한다.
