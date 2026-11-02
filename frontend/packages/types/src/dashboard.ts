@@ -22,6 +22,9 @@ export type ActionItem = {
   daysLeft?: number;
   /** 가장 오래된 미처리 지원서부터 지난 KST 날짜 수 — APPLICANTS_AWAITING_REVIEW 에만, 미처리가 있을 때만 */
   pendingDays?: number;
+  /** 지원 완료·보류 인원 — APPLICANTS_AWAITING_REVIEW 에만, 통계가 있을 때만. 모집 상세 할 일 줄의 둘째 줄이 쓴다. */
+  submitted?: number;
+  onHold?: number;
 };
 
 export type TodayScheduleKind = 'INTERVIEW' | 'EVENT';

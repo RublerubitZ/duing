@@ -6,7 +6,6 @@ import type {
   DashboardTaskGroup,
   InterviewRoundSummary,
   OperationItem,
-  RecruitmentSummary,
   TodayScheduleItem,
 } from '@duing/types';
 import { useApiClient } from './api-context';
@@ -26,6 +25,7 @@ import {
   buildClosedRecruitmentItems,
   buildOperationItems,
   groupDashboardTasks,
+  isActiveRecruitment,
   sortActionItems,
   sortTodaySchedule,
   type ClosedRecruitmentDashboardInput,
@@ -33,13 +33,6 @@ import {
 } from './dashboardSelectors';
 
 export const DASHBOARD_QUERY_OPTIONS = { staleTime: 60_000, gcTime: 300_000 } as const;
-
-// 판정은 raw status — 마감일이 지났어도 수동 마감 전이면 백엔드는 모집을 OPEN(심사 진행 중)으로 다루고,
-// 그 구간에 미결 지원자가 남아 있다. displayStatus 로 판정하면 이 필터를 공유하는 진행 중 모집 카드·
-// 지원자 요약·처리 필요 업무가 모두 그 모집을 통째로 빼버려 "처리 필요 0건"이 표시된다.
-function isActive(recruitment: RecruitmentSummary): boolean {
-  return recruitment.status !== 'CLOSED';
-}
 
 /** 대시보드 카드들이 공유하는 동아리 모집 목록(마감 포함) — 카드별 필터는 호출부가 건다. */
 function useDashboardRecruitments(clubId: number | undefined) {
@@ -58,7 +51,7 @@ function useDashboardRecruitments(clubId: number | undefined) {
 /** 카드2: 마감(raw CLOSED) 제외 진행 중 모집 */
 export function useActiveRecruitments(clubId: number | undefined) {
   const query = useDashboardRecruitments(clubId);
-  const data = useMemo(() => query.data?.filter(isActive), [query.data]);
+  const data = useMemo(() => query.data?.filter(isActiveRecruitment), [query.data]);
   return { ...query, data };
 }
 
@@ -102,10 +95,10 @@ export function useClubActionItems(clubId: number | undefined): {
 } {
   const client = useApiClient();
   const recruitments = useDashboardRecruitments(clubId);
-  const list = useMemo(() => recruitments.data?.filter(isActive) ?? [], [recruitments.data]);
+  const list = useMemo(() => recruitments.data?.filter(isActiveRecruitment) ?? [], [recruitments.data]);
   // 마감 모집도 남은 지원의 결과 확정은 열려 있어(#892) 미결만 따로 센다. 외부 폼은 지원서가 없어 뺀다.
   const closedSelfList = useMemo(
-    () => recruitments.data?.filter((recruitment) => !isActive(recruitment) && recruitment.applicationMode === 'SELF') ?? [],
+    () => recruitments.data?.filter((recruitment) => !isActiveRecruitment(recruitment) && recruitment.applicationMode === 'SELF') ?? [],
     [recruitments.data],
   );
   const ids = list.map((r) => r.id);
