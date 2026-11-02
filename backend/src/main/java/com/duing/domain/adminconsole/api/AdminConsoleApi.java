@@ -3,12 +3,17 @@ package com.duing.domain.adminconsole.api;
 import com.duing.domain.adminconsole.controller.dto.response.AdminJobStatusesResponse;
 import com.duing.domain.adminconsole.controller.dto.response.AdminPendingCountsResponse;
 import com.duing.domain.adminconsole.controller.dto.response.AdminPendingTrendResponse;
+import com.duing.domain.adminconsole.controller.dto.response.AdminWeeklyBriefingResponse;
 import com.duing.global.response.ApiResponse;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import java.time.LocalDate;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 
 @Tag(name = "관리자 콘솔(총동연)", description = "총동연 관리자 콘솔 공통 API")
 @SecurityRequirement(name = "BearerAuth")
@@ -29,4 +34,13 @@ public interface AdminConsoleApi {
                     + "학교 반영 확인·문의 보관 기간 파기의 최근 실행 결과와 화면 상태")
     @GetMapping("/admin/job-statuses")
     ResponseEntity<ApiResponse<AdminJobStatusesResponse>> getJobStatuses();
+
+    @Operation(summary = "주간 브리핑 지표 조회",
+            description = "총동연 주간 브리핑 '한 주 돌아보기' — 고른 주(KST 월 00:00 ~ 다음 월 00:00)에 접수·처리한 일, "
+                    + "그 주 일요일 하루 끝 남은 대기, 모집·회비·공지·정보 확인 활동. weekStart 는 월요일만 받고 "
+                    + "진행 중인 주·미래·52주보다 이른 주는 400(code WEEK_NOT_MONDAY·WEEK_NOT_ENDED·WEEK_IN_FUTURE·WEEK_TOO_OLD)")
+    @GetMapping("/admin/weekly-briefing")
+    ResponseEntity<ApiResponse<AdminWeeklyBriefingResponse>> getWeeklyBriefing(
+            @Parameter(description = "그 주 월요일(KST 날짜)", example = "2026-10-26")
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate weekStart);
 }
