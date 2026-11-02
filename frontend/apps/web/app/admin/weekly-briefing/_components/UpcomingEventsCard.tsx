@@ -44,7 +44,7 @@ export function UpcomingEventsCard({ currentMonday, todayIso }: { currentMonday:
             {events.map((event) => (
               <li key={event.id} className="flex flex-wrap items-baseline justify-between gap-x-3">
                 <span className="min-w-0 break-keep font-medium text-ink">{event.title}</span>
-                <span className="text-xs text-charcoal-2">{eventPeriodText(event.startAt, event.endAt)}</span>
+                <span className="text-xs text-charcoal-2">{eventPeriodText(event.startAt, event.endAt, todayIso)}</span>
               </li>
             ))}
           </ul>

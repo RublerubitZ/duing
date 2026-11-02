@@ -51,6 +51,7 @@ const heatmapWeeks: string[] = [];
 const heatmapFailures = new Map<string, number>();
 let closingGate: Gate | null = null;
 let closingRequests = 0;
+let closingFailureStatus: number | null = null;
 
 const server = setupServer(
   http.get('*/admin/weekly-briefing', async ({ request }) => {
@@ -85,6 +86,9 @@ const server = setupServer(
   http.get('*/admin/weekly-briefing/closing-recruitments', async () => {
     closingRequests += 1;
     if (closingGate) await closingGate.promise;
+    if (closingFailureStatus) {
+      return HttpResponse.json({ ok: false, message: '주입한 실패', data: null }, { status: closingFailureStatus });
+    }
     return HttpResponse.json({ ok: true, message: null, data: { weekStart: '2026-11-02', recruitments: [] } });
   }),
   http.get('*/global-events', () => HttpResponse.json({ ok: true, message: null, data: [] })),
@@ -119,6 +123,7 @@ beforeEach(() => {
   heatmapFailures.clear();
   closingGate = null;
   closingRequests = 0;
+  closingFailureStatus = null;
   briefings.set('2026-10-26', OCTOBER_26);
   briefings.set('2026-10-19', OCTOBER_19);
 });
@@ -613,6 +618,21 @@ describe('AdminWeeklyBriefingPage — 인쇄·탭 제목', () => {
     thisWeekHeatmapGate.release();
     await user.click(await screen.findByRole('button', { name: '인쇄' }));
     expect(printSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('이번 주 모집이 실패하면(옛 백엔드 404) 기다리지 않고 인쇄 버튼을 켠다 — 그 자리의 실패 문장이 그대로 인쇄된다', async () => {
+    const user = userEvent.setup();
+    closingFailureStatus = 404;
+    currentSearch = 'week=2026-10-26';
+    renderPage();
+
+    await findFlowTable();
+    const thisWeek = within(await screen.findByRole('region', { name: '이번 주 챙길 것' }));
+    expect(await thisWeek.findByText('이번 주 일정을 불러오지 못했어요')).toBeInTheDocument();
+    await user.click(await screen.findByRole('button', { name: '인쇄' }));
+    expect(printSpy).toHaveBeenCalledTimes(1);
+    // 이번 주 모집이 없으면 이번 주 히트맵은 부르지 않는다 — 기다릴 것도 없다.
+    expect(heatmapWeeks).toEqual(['2026-10-26']);
   });
 
   it('다른 주를 볼 때는 둘째 구역을 그리지 않아 이번 주 조회를 기다리지 않는다', async () => {

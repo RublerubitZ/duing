@@ -6,12 +6,14 @@ import { monthDayLabel } from '@/app/admin/_components/home/adminPendingTrendPre
 export const CLOSING_EMPTY_TEXT = '이번 주에 모집 기간이 끝나는 모집이 없어요';
 export const EVENTS_EMPTY_TEXT = '다음 주까지 잡힌 행사가 없어요';
 export const THIS_WEEK_FAILED_TEXT = '이번 주 일정을 불러오지 못했어요';
+export const NEW_WEEK_STARTED_TEXT = '새 주가 시작됐어요. 새로 고침하면 지난주가 바뀌어요.';
 
 const WEEKDAY_LABELS = ['일', '월', '화', '수', '목', '금', '토'];
 const UPDATED_AT_FORMAT = kstDateTimeFormatter({ month: 'long', day: 'numeric', hour: 'numeric', minute: '2-digit' });
 
 /** 달력 날짜의 요일 — 입력이 날짜뿐이라 UTC 요일로 계산해도 기기 시간대와 무관하다. */
 const weekdayOf = (isoDate: string) => WEEKDAY_LABELS[new Date(`${isoDate}T00:00:00Z`).getUTCDay()] ?? '';
+const yearOf = (isoDate: string) => Number(isoDate.split('-')[0]);
 const monthOf = (isoDate: string) => Number(isoDate.split('-')[1]);
 const dayOf = (isoDate: string) => Number(isoDate.split('-')[2]);
 
@@ -33,12 +35,21 @@ export function shortRangeText(fromIso: string, toIso: string): string {
   return `${monthDayLabel(fromIso)} – ${monthOf(fromIso) === monthOf(toIso) ? `${dayOf(toIso)}일` : monthDayLabel(toIso)}`;
 }
 
-/** 행사 기간 — 하루면 "11월 5일(목)", 여러 날이면 "11월 5일(목) – 7일(토)". 오프셋 없는 일정 시각은 KST 로 읽는다. */
-export function eventPeriodText(startAt: string, endAt: string): string {
+/**
+ * 행사 기간 — 하루면 "11월 5일(목)", 여러 날이면 "11월 5일(목) – 7일(토)". 오프셋 없는 일정 시각은 KST 로 읽는다.
+ * 연도는 주 기간(formatWeekRange·screenWeekRange)과 같은 규칙 — 해를 넘으면 양끝에, 시작이 올해가 아니면 시작에 쓴다.
+ */
+export function eventPeriodText(startAt: string, endAt: string, todayIso: string): string {
   const startDate = kstDateString(startAt);
   const endDate = kstDateString(endAt);
-  const startText = `${monthDayLabel(startDate)}(${weekdayOf(startDate)})`;
+  const crossesYear = yearOf(startDate) !== yearOf(endDate);
+  const startYear = crossesYear || yearOf(startDate) !== yearOf(todayIso) ? `${yearOf(startDate)}년 ` : '';
+  const startText = `${startYear}${monthDayLabel(startDate)}(${weekdayOf(startDate)})`;
   if (startDate === endDate) return startText;
-  const endText = monthOf(startDate) === monthOf(endDate) ? `${dayOf(endDate)}일` : monthDayLabel(endDate);
+  const endText = crossesYear
+    ? `${yearOf(endDate)}년 ${monthDayLabel(endDate)}`
+    : monthOf(startDate) === monthOf(endDate)
+      ? `${dayOf(endDate)}일`
+      : monthDayLabel(endDate);
   return `${startText} – ${endText}(${weekdayOf(endDate)})`;
 }

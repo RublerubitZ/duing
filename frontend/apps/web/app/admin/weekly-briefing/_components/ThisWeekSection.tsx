@@ -1,13 +1,13 @@
 'use client';
 
-import { useAdminClosingRecruitmentsQuery } from '@duing/hooks';
+import { addDaysIso, useAdminClosingRecruitmentsQuery } from '@duing/hooks';
 
 import { AdminSchoolSyncCard } from '@/app/admin/_components/home/AdminSchoolSyncCard';
 import { ErrorState } from '@/app/admin/_components/ErrorState';
 import { Skeleton } from '@/components/loading/Skeleton';
 
 import { thisWeekHeatmapCaption } from '../_lib/heatmapPresentation';
-import { THIS_WEEK_FAILED_TEXT, updatedAtText } from '../_lib/thisWeekPresentation';
+import { NEW_WEEK_STARTED_TEXT, THIS_WEEK_FAILED_TEXT, updatedAtText } from '../_lib/thisWeekPresentation';
 import { screenWeekRange } from '../_lib/weeklyBriefingPresentation';
 import { ClosingRecruitmentList } from './ClosingRecruitmentList';
 import { FacilityHeatmap } from './FacilityHeatmap';
@@ -36,12 +36,14 @@ export function ThisWeekSection({ isLatestWeek, latestWeek, currentMonday, today
       </section>
     );
   }
-  return <ThisWeekContent currentMonday={currentMonday} todayIso={todayIso} />;
+  return <ThisWeekContent latestWeek={latestWeek} currentMonday={currentMonday} todayIso={todayIso} />;
 }
 
-function ThisWeekContent({ currentMonday, todayIso }: { currentMonday: string; todayIso: string }) {
+function ThisWeekContent({ latestWeek, currentMonday, todayIso }: { latestWeek: string; currentMonday: string; todayIso: string }) {
   const closingQuery = useAdminClosingRecruitmentsQuery();
   const closing = closingQuery.data;
+  // 화면을 연 뒤 월요일 0시를 넘기면(열어 둔 탭) 첫 구역은 그대로인데 이 구역은 다시 받아 새 주가 된다 — 두 구역이 벌어진 이유를 알린다.
+  const isNewWeekStarted = closing !== undefined && closing.weekStart !== addDaysIso(latestWeek, 7);
   return (
     <section
       id="this-week"
@@ -54,6 +56,10 @@ function ThisWeekContent({ currentMonday, todayIso }: { currentMonday: string; t
         <p className="mt-1 text-sm text-charcoal-2">
           {`${screenWeekRange(closing.weekStart, todayIso)} · ${updatedAtText(closingQuery.dataUpdatedAt)}`}
         </p>
+      ) : null}
+      {/* 인쇄에도 남긴다 — 인쇄물에서 두 구역의 기간이 어긋난 이유가 된다. */}
+      {isNewWeekStarted ? (
+        <p className="mt-3 break-keep rounded-md bg-graysoft px-3 py-2 text-sm text-charcoal-2">{NEW_WEEK_STARTED_TEXT}</p>
       ) : null}
       <div className="mt-4 space-y-6">
         {closing ? (

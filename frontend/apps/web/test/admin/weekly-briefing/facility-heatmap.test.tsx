@@ -55,6 +55,8 @@ describe('FacilityHeatmap', () => {
 
     const region = await screen.findByRole('region', { name: LAST_WEEK.caption });
     expect(region).toHaveAttribute('tabindex', '0');
+    // 제목은 같은 구역의 형제 블록('한 주 요약' 등)과 같은 h3 — 제목으로 건너 다닐 때 히트맵도 잡힌다.
+    expect(screen.getByRole('heading', { level: 3, name: LAST_WEEK.caption })).toBeInTheDocument();
     const table = within(region).getByRole('table', { name: LAST_WEEK.caption });
     // 지난주 표는 오늘·지난 날 구분이 없다 — 머리는 모두 머리 행 기본색이다.
     expect(within(table).getByRole('columnheader', { name: '10월 26일 월요일' })).not.toHaveClass('text-charcoal');
@@ -106,7 +108,24 @@ describe('FacilityHeatmap', () => {
     renderHeatmap(LAST_WEEK);
 
     expect(await screen.findByText('시설 예약 시간을 불러오지 못했어요')).toBeInTheDocument();
-    expect(screen.getByText(LAST_WEEK.caption)).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 3, name: LAST_WEEK.caption })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '다시 시도' })).toBeInTheDocument();
+  });
+
+  it('스크롤 상자는 relative 다 — 열 머리 sr-only(절대 위치)가 상자 밖 조상을 기준으로 그려져 768·390 폭 문서가 가로로 넘치던 것을 막는다(jsdom 은 배치를 못 재 클래스로 고정)', async () => {
+    renderHeatmap(LAST_WEEK);
+
+    expect(await screen.findByRole('region', { name: LAST_WEEK.caption })).toHaveClass('relative', 'overflow-x-auto');
+  });
+
+  it('첫 열(머리·행 머리)은 좁은 폭에서 폭을 7.5rem 으로 묶고 줄을 바꾼다 — 긴 시설 이름이 sticky 첫 열로 390 폭 스크롤 상자를 다 덮어 숫자 칸이 안 보이던 것을 막는다. lg·인쇄는 auto 그대로', async () => {
+    renderHeatmap(LAST_WEEK);
+
+    const table = within(await screen.findByRole('table', { name: LAST_WEEK.caption }));
+    const firstColumnCells = [table.getByRole('columnheader', { name: '시설' }), table.getByRole('rowheader', { name: '학생회관 강당' })];
+    for (const cell of firstColumnCells) {
+      expect(cell).toHaveClass('sticky', 'w-[7.5rem]', 'max-w-[7.5rem]', '[overflow-wrap:anywhere]', 'lg:w-auto', 'lg:max-w-none', 'print:w-auto');
+    }
+    expect(firstColumnCells[1]).toHaveClass('break-keep');
   });
 });

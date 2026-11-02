@@ -140,6 +140,39 @@ describe('useAdminWeeklyFacilityHeatmapQuery·useAdminClosingRecruitmentsQuery',
     });
   });
 
+  // 테스트 기본 retry 를 3 으로 둔다 — 훅의 retry 줄이 빠지면 1초 뒤 다시 받아 waitFor(1초) 안에 실패가 되지 않고 요청 수도 늘어난다.
+  it('히트맵은 옛 백엔드 404 를 다시 받지 않는다 — 그 자리 실패로 바로 그린다', async () => {
+    heatmapRequests = 0;
+    server.use(
+      http.get('*/admin/weekly-briefing/facility-heatmap', () => {
+        heatmapRequests += 1;
+        return HttpResponse.json({ ok: false, message: 'Not Found', data: null }, { status: 404 });
+      }),
+    );
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: 3 } } });
+    const { result } = renderHook(() => useAdminWeeklyFacilityHeatmapQuery('2026-10-26'), { wrapper: makeWrapper(queryClient) });
+
+    await waitFor(() => expect(result.current.isError).toBe(true));
+    expect(heatmapRequests).toBe(1);
+    expect(result.current.error).toMatchObject({ status: 404 });
+  });
+
+  it('이번 주 모집은 옛 백엔드 404 를 다시 받지 않는다 — 구역 실패로 바로 그린다', async () => {
+    closingRequests = 0;
+    server.use(
+      http.get('*/admin/weekly-briefing/closing-recruitments', () => {
+        closingRequests += 1;
+        return HttpResponse.json({ ok: false, message: 'Not Found', data: null }, { status: 404 });
+      }),
+    );
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: 3 } } });
+    const { result } = renderHook(() => useAdminClosingRecruitmentsQuery(), { wrapper: makeWrapper(queryClient) });
+
+    await waitFor(() => expect(result.current.isError).toBe(true));
+    expect(closingRequests).toBe(1);
+    expect(result.current.error).toMatchObject({ status: 404 });
+  });
+
   it('enabled 가 false 면 히트맵·이번 주 모집을 부르지 않는다', async () => {
     heatmapRequests = 0;
     closingRequests = 0;
