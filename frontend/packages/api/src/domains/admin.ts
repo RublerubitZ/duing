@@ -13,6 +13,8 @@ import type {
   AdminPendingTrend,
   AdminJobStatuses,
   AdminWeeklyBriefing,
+  AdminWeeklyFacilityHeatmap,
+  AdminClosingRecruitments,
   AdminSuccessionDetail,
   AdminSuccessionSearchParams,
   AdminSuccessionSummary,
@@ -123,6 +125,10 @@ export type AdminApi = {
   jobStatuses(): Promise<AdminJobStatuses>;
   /** 총동연 주간 브리핑 '한 주 돌아보기' — weekStart(그 주 월요일) 주의 접수·처리·남은 대기·활동. 범위 밖이면 400(code WEEK_*). */
   weeklyBriefing(weekStart: string): Promise<AdminWeeklyBriefing>;
+  /** 주간 브리핑 시설 히트맵 — 끝난 주·진행 중인 이번 주의 시설별 하루 예약 시간 칸 수. */
+  weeklyFacilityHeatmap(weekStart: string): Promise<AdminWeeklyFacilityHeatmap>;
+  /** 이번 주(서버가 정한 주) 모집 기간이 끝나는 진행 중 모집과 결과 안 정한 지원 수. */
+  closingRecruitments(): Promise<AdminClosingRecruitments>;
   clubs: {
     list(params?: AdminClubSearchParams): Promise<PageResponse<AdminClubSummary>>;
     detail(clubId: number): Promise<ClubDetail>;
@@ -373,6 +379,12 @@ export function createAdminApi(deps: {
     jobStatuses: () => jsonOk<AdminJobStatuses>(http.get('admin/job-statuses')),
     weeklyBriefing: (weekStart) =>
       jsonOk<AdminWeeklyBriefing>(http.get('admin/weekly-briefing', { searchParams: { weekStart } })),
+    weeklyFacilityHeatmap: (weekStart) =>
+      jsonOk<AdminWeeklyFacilityHeatmap>(
+        http.get('admin/weekly-briefing/facility-heatmap', { searchParams: { weekStart } }),
+      ),
+    closingRecruitments: () =>
+      jsonOk<AdminClosingRecruitments>(http.get('admin/weekly-briefing/closing-recruitments')),
     clubs: {
       list: (params) =>
         jsonOk<PageResponse<AdminClubSummary>>(

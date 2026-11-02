@@ -2,6 +2,7 @@ import type { ClubCategory, ClubStatus } from './club';
 import type { College, Grade } from './user';
 import type { ClubMemberRole } from './clubmember';
 import type { IsoInstantString } from './datetime';
+import type { ApplicationMode, RecruitmentDisplayStatus, RecruitmentStatus } from './recruitment';
 import type { UserRole } from './user';
 
 /**
@@ -593,6 +594,45 @@ export type AdminWeeklyBriefing = {
   recruitment: { createdCount: number; endedCount: number; applicationCount: number };
   fee: { billCount: number; billedClubCount: number; paymentCount: number; voidedPaymentCount: number; accountChangedClubCount: number };
   profileCheckConfirmedCount: number;
+};
+
+/** 주간 브리핑 히트맵 시설 한 줄 — occupiedSlotCounts 는 월~일 7칸, 그날 예약이 걸친 1시간 칸 수(09~22시, 0~13). */
+export type AdminWeeklyFacilityHeatmapRow = {
+  facilityId: number;
+  roomName: string;
+  sortOrder: number;
+  occupiedSlotCounts: number[];
+};
+
+/**
+ * GET /admin/weekly-briefing/facility-heatmap?weekStart= 응답 — 예약 캘린더의 차단 칸과 같은 판정. 보관하지 않은 시설, sort_order 순.
+ * 끝난 주와 진행 중인 이번 주를 받는다. currentMonthCrawledAt 은 이번 달 학교 일정 수집 시각(없으면 null).
+ */
+export type AdminWeeklyFacilityHeatmap = {
+  facilities: AdminWeeklyFacilityHeatmapRow[];
+  currentMonthCrawledAt: IsoInstantString | null;
+};
+
+/** 이번 주 모집 기간이 끝나는 진행 중 모집 한 줄 — 외부 폼은 두잉 지원이 없어 undecidedApplicationCount 가 null. */
+export type AdminClosingRecruitment = {
+  recruitmentId: number;
+  title: string;
+  clubId: number;
+  clubName: string;
+  /** KST 날짜 "YYYY-MM-DD" */
+  endDate: string;
+  /** 저장 상태 — 이 목록은 늘 'OPEN'. */
+  status: RecruitmentStatus;
+  /** 서버가 오늘(KST) 기준으로 정한 표시 상태 — OPEN 인데 CLOSED 면 기간이 지났지만 아직 마감 전(isRecruitmentExpiredOpen). */
+  displayStatus: RecruitmentDisplayStatus;
+  applicationMode: ApplicationMode;
+  undecidedApplicationCount: number | null;
+};
+
+/** GET /admin/weekly-briefing/closing-recruitments 응답 — weekStart 는 서버가 정한 이번 주 월요일(둘째 구역의 기준). */
+export type AdminClosingRecruitments = {
+  weekStart: string;
+  recruitments: AdminClosingRecruitment[];
 };
 
 /** 총동연 홈 자동 작업 키 — 서버 MonitoredJob 선언 순서와 같다. */

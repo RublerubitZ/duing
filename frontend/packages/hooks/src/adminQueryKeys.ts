@@ -72,6 +72,8 @@ export const adminQueryKeys = {
   // 지원서 상세도 모집 접두사 아래에 둔다 — 강제 마감 뒤 한 번의 무효화로 함께 되살아난다.
   applicationsDetail: (applicationId: number) =>
     [...adminQueryKeys.recruitmentsAll, 'application-detail', applicationId] as const,
+  // 이번 주 기간 끝나는 모집 — 모집 접두 아래라 강제 마감 뒤 recruitmentsAll 무효화가 이 줄도 다시 불러온다.
+  closingRecruitments: () => [...adminQueryKeys.recruitmentsAll, 'closing-this-week'] as const,
   leaderSuccessionAll: ['admin', 'leader-succession'] as const,
   leaderSuccessionList: (params: AdminSuccessionSearchParams) =>
     [...adminQueryKeys.leaderSuccessionAll, 'list', params] as const,
@@ -101,6 +103,9 @@ export const adminQueryKeys = {
   facilityBookingDetail: (bookingId: number) =>
     [...adminQueryKeys.facilityBookingsAll, 'detail', bookingId] as const,
   facilityBookingSummary: () => [...adminQueryKeys.facilityBookingsAll, 'summary'] as const,
+  // 주간 브리핑 시설 히트맵 — 시설 예약 접두 아래라 승인·반려·취소 뮤테이션의 facilityBookingsAll 무효화가 이번 주 칸도 다시 불러온다.
+  weeklyFacilityHeatmap: (weekStart: string) =>
+    [...adminQueryKeys.facilityBookingsAll, 'weekly-heatmap', weekStart] as const,
   facilitySubmissionAll: ['admin', 'facility-submission'] as const,
   facilitySubmissionCandidates: (params: SubmissionCandidatesParams) =>
     [...adminQueryKeys.facilitySubmissionAll, 'candidates', params] as const,
