@@ -132,6 +132,22 @@ class FacilityWeeklyOccupancyQueryServiceTest extends IntegrationTestBase {
     }
 
     @Test
+    @DisplayName("sort_order 가 같은 시설은 id 순이다 — 먼저 만든 시설이 보관됐다 복구돼도 앞에 온다")
+    void ordersTiedSortOrderById() {
+        Facility first = saveFacility("강당", 1);
+        Facility second = saveFacility("세미나실", 1);
+        // 색인 열(archived_at)을 바꿔 HOT 아닌 UPDATE 로 먼저 만든 행을 힙·색인 뒤로 보낸다 — 이름만 바꾸면
+        // HOT 갱신이라 archived_at 색인 스캔이 넣은 순서대로 읽어, 정렬 줄이 없어도 통과한다.
+        first.archive(LocalDateTime.now(WEDNESDAY_CLOCK));
+        facilityRepository.save(first);
+        first.restore();
+        facilityRepository.save(first);
+
+        assertThat(service().getWeeklyOccupancy(WEEK_START).facilities())
+                .extracting(FacilityRow::facilityId).containsExactly(first.getId(), second.getId());
+    }
+
+    @Test
     @DisplayName("이번 달(서버 시계) 학교 일정 수집 시각을 주고, 그 달 기록이 없으면 null 이다")
     void returnsCurrentMonthCrawledAt() {
         assertThat(service().getWeeklyOccupancy(WEEK_START).currentMonthCrawledAt()).isNull();

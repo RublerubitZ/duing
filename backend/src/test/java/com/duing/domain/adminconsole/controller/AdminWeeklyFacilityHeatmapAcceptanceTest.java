@@ -6,6 +6,7 @@ import static org.hamcrest.Matchers.hasKey;
 import static org.hamcrest.Matchers.nullValue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.then;
 
 import com.duing.common.IntegrationTestBase;
 import com.duing.common.TestcontainersConfiguration;
@@ -116,6 +117,8 @@ class AdminWeeklyFacilityHeatmapAcceptanceTest extends IntegrationTestBase {
                     .statusCode(HttpStatus.OK.value())
                     .body("data.facilities[0].roomName", equalTo("강당(T)"))
                     .extract().jsonPath().getList("data.facilities[0].occupiedSlotCounts", Integer.class);
+        // 히트맵은 학교 사이트에 붙지 않는다 — 캘린더(아래)는 온디맨드 크롤을 부르므로 그 전에 단정한다.
+        then(facilityCrawlService).shouldHaveNoInteractions();
 
         List<Integer> calendar = currentMonday.datesUntil(currentMonday.plusDays(7))
                 .map(date -> (int) availabilityService.getAvailability(hall.getId(), YearMonth.from(date)).days().stream()

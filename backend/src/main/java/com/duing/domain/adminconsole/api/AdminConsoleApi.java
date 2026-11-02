@@ -47,7 +47,8 @@ public interface AdminConsoleApi {
 
     @Operation(summary = "주간 브리핑 시설 히트맵 조회",
             description = "시설별 하루 예약 시간 칸 수(09~22시 1시간 칸, 0~13) — 예약 캘린더(GET /facilities/{id}/availability)의 "
-                    + "차단 칸과 같은 판정. 끝난 주와 진행 중인 이번 주를 받고, 다음 주부터·52주보다 이른 주·월요일 아님은 400(code)")
+                    + "차단 칸과 같은 판정. 시설은 보관하지 않은 것만 sort_order·id 순. 끝난 주와 진행 중인 이번 주를 받고, "
+                    + "다음 주부터·52주보다 이른 주·월요일 아님은 400(code WEEK_NOT_MONDAY·WEEK_IN_FUTURE·WEEK_TOO_OLD)")
     @GetMapping("/admin/weekly-briefing/facility-heatmap")
     ResponseEntity<ApiResponse<AdminWeeklyFacilityHeatmapResponse>> getWeeklyFacilityHeatmap(
             @Parameter(description = "그 주 월요일(KST 날짜)", example = "2026-11-02")

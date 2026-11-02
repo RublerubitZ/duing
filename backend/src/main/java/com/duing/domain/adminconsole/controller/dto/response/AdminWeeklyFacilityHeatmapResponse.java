@@ -9,7 +9,7 @@ import java.util.List;
 
 @Schema(description = "주간 브리핑 시설 히트맵 — 시설별 하루 예약 시간 칸 수(09~22시 1시간 칸, 0~13). 예약 캘린더의 차단 칸과 같은 판정")
 public record AdminWeeklyFacilityHeatmapResponse(
-        @Schema(description = "보관하지 않은 시설(sort_order 순)")
+        @Schema(description = "보관하지 않은 시설(sort_order·id 순)")
         List<FacilityHeatmapRowResponse> facilities,
 
         @Schema(description = "이번 달 학교 일정 수집 시각. 수집 기록이 없으면 null", nullable = true)
