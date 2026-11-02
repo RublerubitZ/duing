@@ -56,7 +56,8 @@ describe('FacilityHeatmap', () => {
     const region = await screen.findByRole('region', { name: LAST_WEEK.caption });
     expect(region).toHaveAttribute('tabindex', '0');
     const table = within(region).getByRole('table', { name: LAST_WEEK.caption });
-    expect(within(table).getByRole('columnheader', { name: '10월 26일 월요일' })).toBeInTheDocument();
+    // 지난주 표는 오늘·지난 날 구분이 없다 — 머리는 모두 머리 행 기본색이다.
+    expect(within(table).getByRole('columnheader', { name: '10월 26일 월요일' })).not.toHaveClass('text-charcoal');
     expect(within(table).getByRole('rowheader', { name: '학생회관 강당' })).toHaveClass('sticky');
     expect(within(table).getByText('13')).toHaveClass('bg-ink-soft');
     expect(screen.getByText('숫자는 그날 예약이 걸친 시간 칸 수(9시~22시, 1시간 칸), 색이 진할수록 많음')).toBeInTheDocument();
@@ -92,8 +93,10 @@ describe('FacilityHeatmap', () => {
     const table = within(await screen.findByRole('table', { name: THIS_WEEK.caption }));
     const todayHeader = table.getByRole('columnheader', { name: '11월 5일 목요일 오늘' });
     expect(todayHeader).toHaveTextContent('오늘');
-    expect(table.getByRole('columnheader', { name: '11월 2일 월요일' })).toHaveClass('opacity-60');
-    expect(todayHeader).not.toHaveClass('opacity-60');
+    // 흐림은 대비 차로 — 오늘·남은 날 머리만 진하게(charcoal 12.65:1), 지난 날은 머리 행 기본색(charcoal-3 6.10:1). 둘 다 AA.
+    expect(table.getByRole('columnheader', { name: '11월 2일 월요일' })).not.toHaveClass('text-charcoal');
+    expect(todayHeader).toHaveClass('text-charcoal');
+    expect(table.getByRole('columnheader', { name: '11월 8일 일요일' })).toHaveClass('text-charcoal');
     expect(screen.getByText('학교 일정 11월 5일 오전 9:00 기준')).toBeInTheDocument();
     expect(screen.queryByText(/지난달 학교 일정/)).toBeNull();
   });

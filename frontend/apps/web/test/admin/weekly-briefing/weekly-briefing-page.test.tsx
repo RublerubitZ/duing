@@ -48,6 +48,7 @@ let gates: Gate[] = [];
 const requestedWeeks: string[] = [];
 let heatmapGates: Gate[] = [];
 const heatmapWeeks: string[] = [];
+const heatmapFailures = new Map<string, number>();
 
 const server = setupServer(
   http.get('*/admin/weekly-briefing', async ({ request }) => {
@@ -69,6 +70,10 @@ const server = setupServer(
     heatmapWeeks.push(weekStart);
     const heatmapGate = heatmapGates.find((candidate) => candidate.week === weekStart);
     if (heatmapGate) await heatmapGate.promise;
+    const heatmapFailureStatus = heatmapFailures.get(weekStart);
+    if (heatmapFailureStatus) {
+      return HttpResponse.json({ ok: false, message: '주입한 실패', data: null }, { status: heatmapFailureStatus });
+    }
     return HttpResponse.json({
       ok: true,
       message: null,
@@ -100,6 +105,7 @@ beforeEach(() => {
   requestedWeeks.length = 0;
   heatmapGates = [];
   heatmapWeeks.length = 0;
+  heatmapFailures.clear();
   briefings.set('2026-10-26', OCTOBER_26);
   briefings.set('2026-10-19', OCTOBER_19);
 });
@@ -428,6 +434,16 @@ describe('AdminWeeklyBriefingPage — 한 주 돌아보기', () => {
     expect(screen.getByRole('button', { name: '다시 시도' })).toHaveClass('no-print');
   });
 
+  it('이 주 지표 조회가 실패해도 한 주 돌아보기의 히트맵 표는 자기 조회대로 남는다', async () => {
+    failures.set('2026-10-26', { status: 404 });
+    currentSearch = 'week=2026-10-26';
+    renderPage();
+
+    expect(await screen.findByText('이 주 지표를 불러오지 못했어요')).toBeInTheDocument();
+    const review = within(screen.getByRole('region', { name: '한 주 돌아보기' }));
+    expect(await review.findByRole('table', { name: '지난주 시설별 하루 예약 시간 (10월 26일 – 11월 1일)' })).toBeInTheDocument();
+  });
+
   it('한 주 돌아보기 히트맵은 고른 주로 부르고, 가장 최근 주만 caption 앞에 "지난주"를 붙인다', async () => {
     currentSearch = 'week=2026-10-26';
     const view = renderPage();
@@ -498,6 +514,19 @@ describe('AdminWeeklyBriefingPage — 인쇄·탭 제목', () => {
     expect(printSpy).not.toHaveBeenCalled();
 
     heatmapGate.release();
+    await user.click(await screen.findByRole('button', { name: '인쇄' }));
+    expect(printSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('한 주 돌아보기 히트맵이 실패하면(옛 백엔드 404) 기다리지 않고 인쇄 버튼을 켠다 — 그 자리의 실패 문장이 그대로 인쇄된다', async () => {
+    const user = userEvent.setup();
+    heatmapFailures.set('2026-10-26', 404);
+    currentSearch = 'week=2026-10-26';
+    renderPage();
+
+    await findFlowTable();
+    const review = within(screen.getByRole('region', { name: '한 주 돌아보기' }));
+    expect(await review.findByText('시설 예약 시간을 불러오지 못했어요')).toBeInTheDocument();
     await user.click(await screen.findByRole('button', { name: '인쇄' }));
     expect(printSpy).toHaveBeenCalledTimes(1);
   });

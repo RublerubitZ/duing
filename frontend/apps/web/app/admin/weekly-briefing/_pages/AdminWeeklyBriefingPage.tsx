@@ -54,8 +54,8 @@ function WeeklyBriefingContent() {
   const previousQuery = useAdminWeeklyBriefingQuery(addDaysIso(weekStart, -7), { enabled: isPreviousEnabled });
   const isAwaitingStepBack =
     !clockSteppedBack && briefingQuery.error instanceof ApiError && briefingQuery.error.code === 'WEEK_NOT_ENDED';
-  // 한 주 돌아보기 히트맵(FacilityHeatmap)과 같은 키라 요청은 하나다 — 인쇄 대기 판정에만 쓴다. 물러서기 직전의 주는 부르지 않는다.
-  const reviewHeatmapQuery = useAdminWeeklyFacilityHeatmapQuery(weekStart, { enabled: !isAwaitingStepBack });
+  // 한 주 돌아보기 히트맵(FacilityHeatmap)과 같은 키라 요청은 하나다 — 인쇄 대기 판정에만 쓴다.
+  const reviewHeatmapQuery = useAdminWeeklyFacilityHeatmapQuery(weekStart);
 
   const documentTitle = `주간 브리핑 ${weekStart}`;
   useDocumentTitle(documentTitle);

@@ -61,7 +61,8 @@ function FacilityHeatmapTable({
   const days = heatmapDays(weekStart);
   const { visibleRows, hiddenCount } = splitHeatmapRows(heatmap.facilities);
   const rows = showAll ? heatmap.facilities : visibleRows;
-  const isPastDay = (isoDate: string) => isThisWeek && isoDate < todayIso;
+  // 이번 주 표의 지난 날 흐림은 대비 차로 — 오늘·남은 날 머리만 charcoal(12.65:1)로 올리고 지난 날은 머리 행 기본색(charcoal-3 6.10:1). 둘 다 AA.
+  const isTodayOrLater = (isoDate: string) => isThisWeek && isoDate >= todayIso;
   return (
     <>
       <p className="text-sm font-semibold text-charcoal">{caption}</p>
@@ -81,7 +82,7 @@ function FacilityHeatmapTable({
               {days.map((day) => {
                 const isToday = isThisWeek && day.isoDate === todayIso;
                 return (
-                  <th key={day.isoDate} scope="col" className={cn('px-2 py-2 text-center font-medium', isPastDay(day.isoDate) && 'opacity-60')}>
+                  <th key={day.isoDate} scope="col" className={cn('px-2 py-2 text-center font-medium', isTodayOrLater(day.isoDate) && 'text-charcoal')}>
                     <span aria-hidden className="block">{day.dayLabel}</span>
                     <span aria-hidden className={cn('block', isToday && 'font-semibold text-ink')}>{isToday ? '오늘' : day.weekdayLabel}</span>
                     <span className="sr-only">{isToday ? `${day.spokenLabel} 오늘` : day.spokenLabel}</span>
