@@ -110,16 +110,16 @@ describe('ThisWeekSection', () => {
     expect(heatmapWeeks).toEqual(['2026-11-02']);
   });
 
-  it('m2 — 서버의 이번 주가 화면이 아는 이번 주(지난주 + 7일)와 다르면(열어 둔 탭이 월요일 0시를 넘김) 구역 머리 아래 안내를 두고, 같으면 두지 않는다', async () => {
+  it('m2 — 서버의 이번 주가 화면이 아는 이번 주(지난주 + 7일)와 다르면(열어 둔 탭이 월요일 0시를 넘김·기기 시계가 늦음) 구역 머리 아래 안내를 두고, 같으면 두지 않는다', async () => {
     renderSection();
     expect(await screen.findByText('11월 2일(월) – 8일(일) · 지금 기준 11월 5일 오후 2:05')).toBeInTheDocument();
-    expect(screen.queryByText('새 주가 시작됐어요. 새로 고침하면 지난주가 바뀌어요.')).toBeNull();
+    expect(screen.queryByText('위 한 주 돌아보기와 기준 날짜가 달라요. 새로 고침하거나 기기 날짜를 확인해 주세요.')).toBeNull();
     cleanup();
 
     closing = { ...CLOSING, weekStart: '2026-11-09' };
     renderSection();
     expect(await screen.findByText('11월 9일(월) – 15일(일) · 지금 기준 11월 5일 오후 2:05')).toBeInTheDocument();
-    const notice = screen.getByText('새 주가 시작됐어요. 새로 고침하면 지난주가 바뀌어요.');
+    const notice = screen.getByText('위 한 주 돌아보기와 기준 날짜가 달라요. 새로 고침하거나 기기 날짜를 확인해 주세요.');
     // 인쇄물에서도 두 구역의 기간이 어긋난 이유가 되도록 인쇄에서 숨기지 않는다.
     expect(notice.closest('.no-print')).toBeNull();
   });

@@ -7,7 +7,7 @@ import { ErrorState } from '@/app/admin/_components/ErrorState';
 import { Skeleton } from '@/components/loading/Skeleton';
 
 import { thisWeekHeatmapCaption } from '../_lib/heatmapPresentation';
-import { NEW_WEEK_STARTED_TEXT, THIS_WEEK_FAILED_TEXT, updatedAtText } from '../_lib/thisWeekPresentation';
+import { THIS_WEEK_FAILED_TEXT, WEEK_MISMATCH_TEXT, updatedAtText } from '../_lib/thisWeekPresentation';
 import { screenWeekRange } from '../_lib/weeklyBriefingPresentation';
 import { ClosingRecruitmentList } from './ClosingRecruitmentList';
 import { FacilityHeatmap } from './FacilityHeatmap';
@@ -42,8 +42,8 @@ export function ThisWeekSection({ isLatestWeek, latestWeek, currentMonday, today
 function ThisWeekContent({ latestWeek, currentMonday, todayIso }: { latestWeek: string; currentMonday: string; todayIso: string }) {
   const closingQuery = useAdminClosingRecruitmentsQuery();
   const closing = closingQuery.data;
-  // 화면을 연 뒤 월요일 0시를 넘기면(열어 둔 탭) 첫 구역은 그대로인데 이 구역은 다시 받아 새 주가 된다 — 두 구역이 벌어진 이유를 알린다.
-  const isNewWeekStarted = closing !== undefined && closing.weekStart !== addDaysIso(latestWeek, 7);
+  // 첫 구역은 기기 시계로, 이 구역은 서버 주로 기간을 잡는다 — 탭을 열어 둔 채 월요일 0시를 넘겼거나 기기 시계가 늦으면 두 구역이 벌어져 그 사실을 알린다.
+  const isWeekMismatched = closing !== undefined && closing.weekStart !== addDaysIso(latestWeek, 7);
   return (
     <section
       id="this-week"
@@ -58,8 +58,8 @@ function ThisWeekContent({ latestWeek, currentMonday, todayIso }: { latestWeek: 
         </p>
       ) : null}
       {/* 인쇄에도 남긴다 — 인쇄물에서 두 구역의 기간이 어긋난 이유가 된다. */}
-      {isNewWeekStarted ? (
-        <p className="mt-3 break-keep rounded-md bg-graysoft px-3 py-2 text-sm text-charcoal-2">{NEW_WEEK_STARTED_TEXT}</p>
+      {isWeekMismatched ? (
+        <p className="mt-3 break-keep rounded-md bg-graysoft px-3 py-2 text-sm text-charcoal-2">{WEEK_MISMATCH_TEXT}</p>
       ) : null}
       <div className="mt-4 space-y-6">
         {closing ? (

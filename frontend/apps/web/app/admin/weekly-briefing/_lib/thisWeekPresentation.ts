@@ -6,7 +6,7 @@ import { monthDayLabel } from '@/app/admin/_components/home/adminPendingTrendPre
 export const CLOSING_EMPTY_TEXT = '이번 주에 모집 기간이 끝나는 모집이 없어요';
 export const EVENTS_EMPTY_TEXT = '다음 주까지 잡힌 행사가 없어요';
 export const THIS_WEEK_FAILED_TEXT = '이번 주 일정을 불러오지 못했어요';
-export const NEW_WEEK_STARTED_TEXT = '새 주가 시작됐어요. 새로 고침하면 지난주가 바뀌어요.';
+export const WEEK_MISMATCH_TEXT = '위 한 주 돌아보기와 기준 날짜가 달라요. 새로 고침하거나 기기 날짜를 확인해 주세요.';
 
 const WEEKDAY_LABELS = ['일', '월', '화', '수', '목', '금', '토'];
 const UPDATED_AT_FORMAT = kstDateTimeFormatter({ month: 'long', day: 'numeric', hour: 'numeric', minute: '2-digit' });
