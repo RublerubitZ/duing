@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { skipNextOverlayReclaim } from '@/app/_lib/backDismiss';
 import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
-import { ADMIN_SECTIONS } from '../_lib/adminSections';
+import { ADMIN_SECTIONS, ADMIN_STANDALONE_SECTIONS, isStandaloneSectionActive } from '../_lib/adminSections';
 import { AdminNavContent, resolveActiveSectionHref } from './AdminNavContent';
 
 /**
@@ -29,11 +29,14 @@ export function AdminMobileBar() {
   }, [pathname]);
 
   const activeHref = resolveActiveSectionHref(pathname);
-  const activeTitle = ADMIN_SECTIONS.find((section) => section.href === activeHref)?.title;
+  // 단독 메뉴(대시보드·주간 브리핑)를 먼저 본다 — 사이드바 활성 판정과 같은 규칙이라 /admin 제목은 '대시보드'다.
+  const activeTitle =
+    ADMIN_STANDALONE_SECTIONS.find((section) => isStandaloneSectionActive(section, pathname))?.title ??
+    ADMIN_SECTIONS.find((section) => section.href === activeHref)?.title;
 
   return (
     <>
-      <div className="md:hidden sticky top-0 z-30 flex items-center gap-3 bg-paper px-4 py-2.5">
+      <div className="no-print md:hidden sticky top-0 z-30 flex items-center gap-3 bg-paper px-4 py-2.5">
         <button
           type="button"
           onClick={() => setDrawerOpen(true)}

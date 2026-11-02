@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll, afterEach, beforeEach, vi } from 'vitest';
 import type { ReactNode } from 'react';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { setupServer } from 'msw/node';
@@ -10,6 +10,7 @@ import { ApiClientProvider } from '@duing/hooks';
 import type { AdminPendingCounts } from '@duing/types';
 
 import { AdminSidebar } from '@/app/admin/_components/AdminSidebar';
+import { ADMIN_SECTIONS } from '@/app/admin/_lib/adminSections';
 import { ToastProvider } from '@/app/_components/toast/ToastProvider';
 
 /* ── 모듈 모킹 ─────────────────────────────────────────────── */
@@ -232,5 +233,25 @@ describe('AdminSidebar', () => {
     await waitFor(() =>
       expect(screen.getByRole('link', { name: /1:1 문의/ })).not.toHaveTextContent('7'),
     );
+  });
+
+  it('대시보드 바로 아래에 주간 브리핑이 뱃지 없는 단독 메뉴로 있고, 홈 전체 메뉴(ADMIN_SECTIONS)에는 없다', async () => {
+    renderSidebar();
+
+    const navLinks = within(screen.getByRole('navigation', { name: '관리 영역' })).getAllByRole('link');
+    expect(navLinks[0]).toHaveAccessibleName('대시보드');
+    expect(navLinks[1]).toHaveAccessibleName('주간 브리핑');
+    expect(navLinks[1]).toHaveAttribute('href', '/admin/weekly-briefing');
+    expect(ADMIN_SECTIONS.some((section) => section.href === '/admin/weekly-briefing')).toBe(false);
+  });
+
+  it('주간 브리핑 경로(하위 포함)에서는 주간 브리핑만 활성이고 대시보드는 활성이 아니다', async () => {
+    for (const pathname of ['/admin/weekly-briefing', '/admin/weekly-briefing/print']) {
+      mockUsePathname.mockReturnValue(pathname);
+      const { unmount } = renderSidebar();
+      expect(screen.getByRole('link', { name: '주간 브리핑' })).toHaveAttribute('aria-current', 'page');
+      expect(screen.getByRole('link', { name: '대시보드' })).not.toHaveAttribute('aria-current');
+      unmount();
+    }
   });
 });

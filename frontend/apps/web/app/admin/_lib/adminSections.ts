@@ -1,5 +1,6 @@
 import {
   Building2,
+  CalendarRange,
   CircleAlert,
   ClipboardList,
   FileSearch,
@@ -55,12 +56,38 @@ export type AdminNavParent = {
   icon: LucideIcon;
 };
 
-/** 대시보드는 도메인 그룹 어디에도 속하지 않아 사이드바 최상단에 단독으로 놓는다. */
-export const ADMIN_DASHBOARD = {
-  href: '/admin',
-  title: '대시보드',
-  icon: LayoutDashboard,
-} as const;
+/**
+ * 도메인 그룹 어디에도 속하지 않아 사이드바 맨 위에 단독으로 놓는 메뉴 — 사이드바·모바일 제목·활성 판정이 이 배열 하나를 읽는다.
+ * 홈 '전체 메뉴'(ADMIN_SECTIONS 카드)에는 넣지 않는다. 대시보드는 정확히 /admin 일 때만, 나머지는 하위 경로까지 활성이다.
+ */
+export type AdminStandaloneSection = {
+  href: `/${string}`;
+  title: string;
+  icon: LucideIcon;
+  /** true 면 href 의 하위 경로에서도 활성이다. */
+  matchesSubpaths: boolean;
+};
+
+export const ADMIN_STANDALONE_SECTIONS: readonly AdminStandaloneSection[] = [
+  { href: '/admin', title: '대시보드', icon: LayoutDashboard, matchesSubpaths: false },
+  {
+    href: '/admin/weekly-briefing',
+    title: '주간 브리핑',
+    icon: CalendarRange,
+    matchesSubpaths: true,
+  },
+];
+
+export function isStandaloneSectionActive(
+  section: AdminStandaloneSection,
+  pathname: string | null,
+): boolean {
+  if (!pathname) return false;
+  return (
+    pathname === section.href ||
+    (section.matchesSubpaths && pathname.startsWith(`${section.href}/`))
+  );
+}
 
 export const ADMIN_NAV_PARENTS: AdminNavParent[] = [
   { key: 'promotions', title: '홍보 관리', group: '커뮤니티 운영', icon: Megaphone },
