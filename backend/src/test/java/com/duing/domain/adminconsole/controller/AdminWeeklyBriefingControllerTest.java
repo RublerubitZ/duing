@@ -2,7 +2,7 @@ package com.duing.domain.adminconsole.controller;
 
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasKey;
-import static org.hamcrest.Matchers.notNullValue;
+import static org.hamcrest.Matchers.matchesPattern;
 import static org.hamcrest.Matchers.nullValue;
 
 import com.duing.common.IntegrationTestBase;
@@ -163,6 +163,6 @@ class AdminWeeklyBriefingControllerTest extends IntegrationTestBase {
                     .statusCode(HttpStatus.BAD_REQUEST.value())
                     .body("ok", equalTo(false))
                     .body("code", equalTo(expectedCode))
-                    .body("message", notNullValue());
+                    .body("message", matchesPattern(".*[가-힣].*"));
     }
 }

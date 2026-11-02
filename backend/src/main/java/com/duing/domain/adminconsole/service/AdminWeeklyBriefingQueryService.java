@@ -37,7 +37,8 @@ import org.springframework.transaction.annotation.Transactional;
  * <p>경계는 {@link WeekBounds} 가 열의 저장 regime 마다 만든다(TIMEZONE.md) — 같은 주라도 열마다 다른 축 값을 쓴다.
  * 다섯 업무의 접수·처리는 홈 처리 대기 추이(AdminPendingTrendQueryService#recentFlow)와 같은 열·같은 규칙이고 기간만 다르다.
  * 남은 대기는 새로 세지 않고 그 주 일요일의 하루 끝 기록(admin_pending_snapshot)을 읽는다 — 홈 추이 막대와 같은 숫자다.
- * 여러 도메인을 가로지르는 읽기 전용 집계라 콘솔 패키지에 둔다(AdminPendingCountsQueryService 선례). 문장은 23~24개다.
+ * 여러 도메인을 가로지르는 읽기 전용 집계라 콘솔 패키지에 둔다(AdminPendingCountsQueryService 선례).
+ * 요청 하나에 SQL 23~24개 — 그 주 답변이 없으면 평균 쿼리를 건너뛴다.
  */
 @Service
 @RequiredArgsConstructor

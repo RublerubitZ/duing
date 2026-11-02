@@ -102,7 +102,7 @@ public record AdminWeeklyBriefingResponse(
     @Schema(description = "회비 활동")
     public record WeeklyFeeResponse(
             @Schema(description = "그 주에 발행한 회원 청구 수(취소 제외)", example = "120") long billCount,
-            @Schema(description = "그 주에 청구를 발행한 동아리 수", example = "8") long billedClubCount,
+            @Schema(description = "그 주에 청구를 발행한 동아리 수(취소 청구만 있는 동아리 제외)", example = "8") long billedClubCount,
             @Schema(description = "그 주에 입력한 납부 기록 수(나중에 정정된 납부 포함)", example = "95") long paymentCount,
             @Schema(description = "그 주에 정정한 납부 수", example = "2") long voidedPaymentCount,
             @Schema(description = "그 주에 입금 계좌를 바꾸거나 지운 동아리 수", example = "1") long accountChangedClubCount

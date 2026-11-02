@@ -154,6 +154,8 @@ class AdminWeeklyBriefingActivityIntegrationTest extends IntegrationTestBase {
         FeePolicy policyA = feePolicyRepository.save(FeePolicyFixture.monthly(clubA.getId()));
         FeePolicy policyB = feePolicyRepository.save(FeePolicyFixture.monthly(clubB.getId()));
         FeePolicy policyC = feePolicyRepository.save(FeePolicyFixture.monthly(clubC.getId()));
+        Club cancelledOnlyClub = saveClub();
+        FeePolicy cancelledOnlyPolicy = feePolicyRepository.save(FeePolicyFixture.monthly(cancelledOnlyClub.getId()));
         FeeBill billA1 = saveBill(clubA, policyA, FeeStatus.PENDING, "2026-01", weekFirstMoment);
         FeeBill billA2 = saveBill(clubA, policyA, FeeStatus.PENDING, "2026-01", weekLastMoment);
         saveBill(clubA, policyA, FeeStatus.CANCELLED, "2026-01", weekFirstMoment);
@@ -162,6 +164,8 @@ class AdminWeeklyBriefingActivityIntegrationTest extends IntegrationTestBase {
         saveBill(clubC, policyC, FeeStatus.PENDING, "2026-03", previousSundayMoment);
         FeeBill deletedBill = saveBill(clubC, policyC, FeeStatus.PENDING, "2026-02", weekFirstMoment);
         feeBillRepository.delete(deletedBill);
+        // 주 안 청구가 취소 하나뿐인 동아리 — 청구 동아리로 세지 않는다.
+        saveBill(cancelledOnlyClub, cancelledOnlyPolicy, FeeStatus.CANCELLED, "2026-01", weekLastMoment);
         // 납부 — p1 안·정정 안, p2 안·유효, p3 밖·정정 안, p4 안·정정 밖
         savePayment(billA1, weekFirstMoment, weekFirstMoment);
         savePayment(billA2, weekLastMoment, null);

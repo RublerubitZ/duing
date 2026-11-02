@@ -124,7 +124,7 @@ class AdminWeeklyBriefingQueryServiceIntegrationTest extends IntegrationTestBase
     @Test
     @DisplayName("문의 처리는 답변 시각(답변 없이 닫혔으면 닫은 시각)으로 세고, 첫 답변 평균은 그 주에 나간 답변만으로 분 단위 반올림한다 — 지운 문의는 빠진다")
     void inquiryHandledAndFirstAnswerAverage() {
-        // 주 안 답변 두 건 — 접수 뒤 30시간(1800분)·50시간 15분(3015분) → 평균 2407.5분 → 2408분
+        // 주 안 답변 두 건 — 접수 뒤 30시간(1800분)·50시간 15분(3015분)
         answeredInquiry(weekStart.atTime(9, 0), weekStart.plusDays(1).atTime(15, 0));
         answeredInquiry(weekStart.plusDays(2).atTime(10, 0), weekStart.plusDays(4).atTime(12, 15));
         // 답변 없이 닫힘(주 안) — 처리로 세지만 첫 답변 평균에는 들지 않는다.
@@ -139,8 +139,8 @@ class AdminWeeklyBriefingQueryServiceIntegrationTest extends IntegrationTestBase
         reloadedEarlier.close("확인 완료");
         placeSystem(jdbcTemplate, "federation_inquiry", federationInquiryRepository.save(reloadedEarlier).getId(),
                 "closed_at", weekStart.plusDays(2).atTime(10, 0));
-        // 다음 월 00:00 정각 답변 — 주 밖.
-        answeredInquiry(weekStart.plusDays(6).atTime(10, 0), weekStart.plusDays(7).atStartOfDay());
+        // 주 경계 네 순간 답변(접수는 10시간 전) — 월 00:00 정각·일 23:59:59 는 안, 다음 월 00:00 정각·전 일 23:59:59 는 밖.
+        boundaryMoments(weekStart).forEach(moment -> answeredInquiry(moment.minusHours(10), moment));
         // 작성자가 지운 문의 — 주 안 답변이어도 빠진다(JDBC 로 옮긴 뒤라 version 을 새로 읽고 지운다).
         FederationInquiry deleted = answeredInquiry(weekStart.atTime(10, 0), weekStart.atTime(20, 0));
         federationInquiryRepository.delete(federationInquiryRepository.findById(deleted.getId()).orElseThrow());
@@ -148,8 +148,9 @@ class AdminWeeklyBriefingQueryServiceIntegrationTest extends IntegrationTestBase
 
         AdminWeeklyBriefingQuery briefing = adminWeeklyBriefingQueryService.getWeeklyBriefing(weekStart);
 
-        assertThat(briefing.flow().inquiry().handledCount()).isEqualTo(3);
-        assertThat(briefing.inquiryFirstAnswer()).isEqualTo(new FirstAnswer(2, 2408L));
+        // 처리 = 주 안 답변 2 + 답변 없이 닫힘 1 + 경계 안 답변 2 = 5. 평균 = (1800+3015+600+600)/4 = 1503.75 → 1504분
+        assertThat(briefing.flow().inquiry().handledCount()).isEqualTo(5);
+        assertThat(briefing.inquiryFirstAnswer()).isEqualTo(new FirstAnswer(4, 1504L));
     }
 
     @Test
