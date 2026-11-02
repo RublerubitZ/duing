@@ -8,7 +8,6 @@ import com.duing.common.IntegrationTestBase;
 import com.duing.common.TestcontainersConfiguration;
 import com.duing.common.fixture.ClubFixture;
 import com.duing.common.fixture.UserFixture;
-import com.duing.domain.adminconsole.entity.AdminPendingSnapshot;
 import com.duing.domain.adminconsole.repository.AdminPendingSnapshotRepository;
 import com.duing.domain.adminconsole.service.dto.query.AdminPendingCountsQuery;
 import com.duing.domain.adminconsole.service.dto.query.AdminPendingTrendQuery;
@@ -18,6 +17,7 @@ import com.duing.domain.application.repository.ApplicationRepository;
 import com.duing.domain.club.repository.ClubRepository;
 import com.duing.domain.clubaudit.repository.ClubAuditEventRepository;
 import com.duing.domain.clubmember.entity.LeaderSuccessionRequest;
+import com.duing.domain.clubmember.entity.SuccessionStatus;
 import com.duing.domain.clubmember.repository.LeaderSuccessionRequestRepository;
 import com.duing.domain.facility.entity.Facility;
 import com.duing.domain.facility.repository.FacilityRepository;
@@ -124,9 +124,10 @@ class AdminWeeklyBriefingEquivalenceTest extends IntegrationTestBase {
         // 시설 예약 — 주 안 접수·결정 1, 지난주 전 접수·주 안 결정 1(decided_at 은 seoul)
         saveBooking(WEEK_START.plusDays(1).atTime(10, 0), WEEK_START.plusDays(1).atTime(15, 0));
         saveBooking(WEEK_START.minusDays(2).atTime(10, 0), WEEK_START.plusDays(5).atTime(10, 0));
-        // 홍보 — 주 안 접수·처리 1 / 승계 — 주 안 접수 1(대기)
+        // 홍보 — 주 안 접수·처리 1 / 승계 — 주 안 접수 1(대기), 지난주 전 접수·주 안 처리 1
         savePromotion(WEEK_START.plusDays(2).atTime(11, 0), WEEK_START.plusDays(3).atTime(11, 0));
-        saveSuccession(WEEK_START.plusDays(4).atTime(11, 0));
+        saveSuccession(WEEK_START.plusDays(4).atTime(11, 0), null);
+        saveSuccession(WEEK_START.minusDays(2).atTime(11, 0), WEEK_START.plusDays(3).atTime(11, 0));
 
         AdminWeeklyBriefingQuery weekly = weeklyService().getWeeklyBriefing(WEEK_START);
         AdminPendingTrendQuery trend = trendService().getTrend();
@@ -135,9 +136,9 @@ class AdminWeeklyBriefingEquivalenceTest extends IntegrationTestBase {
                 weekly.flow().promotionRequest(), weekly.flow().leaderSuccession());
         long weeklyReceived = flows.stream().mapToLong(Flow::receivedCount).sum();
         long weeklyHandled = flows.stream().mapToLong(Flow::handledCount).sum();
-        // 둘 다 0 으로 같아지는 헛통과를 막는다 — 픽스처의 기대 합: 접수 2+2+1+1+1, 처리 2+2+2+1+0
+        // 둘 다 0 으로 같아지는 헛통과를 막는다 — 픽스처의 기대 합: 접수 2+2+1+1+1, 처리 2+2+2+1+1
         assertThat(weeklyReceived).isEqualTo(7);
-        assertThat(weeklyHandled).isEqualTo(7);
+        assertThat(weeklyHandled).isEqualTo(8);
         assertThat(trend.recentFlow().receivedCount()).isEqualTo(weeklyReceived);
         assertThat(trend.recentFlow().handledCount()).isEqualTo(weeklyHandled);
     }
@@ -149,16 +150,13 @@ class AdminWeeklyBriefingEquivalenceTest extends IntegrationTestBase {
 
         AdminWeeklyBriefingQuery weekly = weeklyService().getWeeklyBriefing(WEEK_START);
         AdminPendingTrendQuery trend = trendService().getTrend();
-        AdminPendingSnapshot sunday = adminPendingSnapshotRepository.findById(WEEK_START.plusDays(6)).orElseThrow();
 
         AdminPendingCountsQuery endPending = weekly.endPending();
+        // 기록기에 넣은 입력값으로 직접 단정한다 — 기록기가 칸을 바꿔 써도 잡힌다.
         assertThat(List.of(endPending.clubApproval(), endPending.facilityBooking(), endPending.inquiryUnanswered(),
                 endPending.promotionRequest(), endPending.reportUnresolved(), endPending.leaderSuccession(),
                 endPending.stalePendingRecruitment(), endPending.inactiveClubPending()))
-                .containsExactly((long) sunday.getClubApproval(), (long) sunday.getFacilityBooking(),
-                        (long) sunday.getInquiryUnanswered(), (long) sunday.getPromotionRequest(),
-                        (long) sunday.getReportUnresolved(), (long) sunday.getLeaderSuccession(),
-                        (long) sunday.getStalePendingRecruitment(), (long) sunday.getInactiveClubPending());
+                .containsExactly(1L, 2L, 3L, 4L, 5L, 6L, 7L, 8L);
         assertThat(trend.days().get(12).date()).isEqualTo(WEEK_START.plusDays(6));
         assertThat(endPending.totalPendingCount()).isEqualTo(36).isEqualTo((long) trend.days().get(12).totalPendingCount());
     }
@@ -213,10 +211,16 @@ class AdminWeeklyBriefingEquivalenceTest extends IntegrationTestBase {
         placeSystem(jdbcTemplate, "promotion_request", promotionRequestId, "handled_at", handledAt);
     }
 
-    private void saveSuccession(LocalDateTime createdAt) {
+    private void saveSuccession(LocalDateTime createdAt, LocalDateTime handledAt) {
         Long clubId = clubRepository.save(ClubFixture.academic("동치승계" + sequence.incrementAndGet())).getId();
-        Long successionRequestId = leaderSuccessionRequestRepository.save(
-                LeaderSuccessionRequest.create(clubId, studentUserId, "승계 사유")).getId();
+        LeaderSuccessionRequest successionRequest = LeaderSuccessionRequest.create(clubId, studentUserId, "승계 사유");
+        if (handledAt != null) {
+            successionRequest.process(studentUserId, SuccessionStatus.REJECTED, "반려");
+        }
+        Long successionRequestId = leaderSuccessionRequestRepository.save(successionRequest).getId();
         placeSystem(jdbcTemplate, "leader_succession_request", successionRequestId, "created_at", createdAt);
+        if (handledAt != null) {
+            placeSystem(jdbcTemplate, "leader_succession_request", successionRequestId, "handled_at", handledAt);
+        }
     }
 }
