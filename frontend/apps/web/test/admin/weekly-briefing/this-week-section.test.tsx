@@ -49,7 +49,12 @@ const server = setupServer(
   }),
   http.get('*/admin/weekly-briefing/facility-heatmap', ({ request }) => {
     heatmapWeeks.push(new URL(request.url).searchParams.get('weekStart') ?? '');
-    return HttpResponse.json({ ok: true, message: null, data: { facilities: [], currentMonthCrawledAt: null } });
+    // 시설이 하나는 있어야 표를 그린다(0개면 "등록된 시설이 없어요" 한 줄).
+    return HttpResponse.json({
+      ok: true,
+      message: null,
+      data: { facilities: [{ facilityId: 1, roomName: '학생회관 강당', sortOrder: 1, occupiedSlotCounts: [0, 0, 0, 0, 0, 0, 0] }], currentMonthCrawledAt: null },
+    });
   }),
   http.get('*/global-events', ({ request }) => {
     const url = new URL(request.url);

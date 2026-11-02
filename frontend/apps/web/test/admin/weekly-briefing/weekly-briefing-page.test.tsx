@@ -52,6 +52,8 @@ const heatmapFailures = new Map<string, number>();
 let closingGate: Gate | null = null;
 let closingRequests = 0;
 let closingFailureStatus: number | null = null;
+/** 이번 주 모집 응답의 weekStart(서버가 정한 이번 주) — 탭을 열어 둔 채 주를 넘기는 경우에 바꾼다. */
+let closingWeekStart = '2026-11-02';
 
 const server = setupServer(
   http.get('*/admin/weekly-briefing', async ({ request }) => {
@@ -89,7 +91,7 @@ const server = setupServer(
     if (closingFailureStatus) {
       return HttpResponse.json({ ok: false, message: '주입한 실패', data: null }, { status: closingFailureStatus });
     }
-    return HttpResponse.json({ ok: true, message: null, data: { weekStart: '2026-11-02', recruitments: [] } });
+    return HttpResponse.json({ ok: true, message: null, data: { weekStart: closingWeekStart, recruitments: [] } });
   }),
   http.get('*/global-events', () => HttpResponse.json({ ok: true, message: null, data: [] })),
   http.get('*/admin/facility-bookings/summary', () =>
@@ -124,6 +126,7 @@ beforeEach(() => {
   closingGate = null;
   closingRequests = 0;
   closingFailureStatus = null;
+  closingWeekStart = '2026-11-02';
   briefings.set('2026-10-26', OCTOBER_26);
   briefings.set('2026-10-19', OCTOBER_19);
 });
@@ -569,7 +572,7 @@ describe('AdminWeeklyBriefingPage — 인쇄·탭 제목', () => {
     await findFlowTable();
     await waitFor(() => expect(document.title).toBe('주간 브리핑 2026-10-26 | 두잉'));
     expect(screen.getByText('총동연 주간 브리핑 · 2026년 10월 26일(월) – 11월 1일(일)')).toBeInTheDocument();
-    expect(screen.getByText("출력 2026년 11월 5일 오후 2:05 · '이번 주 챙길 것'은 출력 시각 기준")).toBeInTheDocument();
+    expect(await screen.findByText("출력 2026년 11월 5일 오후 2:05 · '이번 주 챙길 것'은 11월 5일 오후 2:05 기준")).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /^이전 주 보기/ }).closest('.no-print')).not.toBeNull();
   });
 
@@ -586,7 +589,7 @@ describe('AdminWeeklyBriefingPage — 인쇄·탭 제목', () => {
     // 두 바로가기 대상은 모바일 상단 고정 바를 비킨다(jsdom 은 레이아웃이 없어 클래스로 고정).
     expect(screen.getByRole('region', { name: '한 주 돌아보기' })).toHaveClass('scroll-mt-16', 'md:scroll-mt-6');
     expect(screen.getByRole('region', { name: '이번 주 챙길 것' })).toHaveClass('scroll-mt-16', 'md:scroll-mt-6');
-    expect(screen.getByText("출력 2026년 11월 5일 오후 2:05 · '이번 주 챙길 것'은 출력 시각 기준")).toBeInTheDocument();
+    expect(await screen.findByText("출력 2026년 11월 5일 오후 2:05 · '이번 주 챙길 것'은 11월 5일 오후 2:05 기준")).toBeInTheDocument();
 
     currentSearch = 'week=2026-10-19';
     view.rerenderPage();
@@ -645,5 +648,109 @@ describe('AdminWeeklyBriefingPage — 인쇄·탭 제목', () => {
     await user.click(await screen.findByRole('button', { name: '인쇄' }));
     expect(printSpy).toHaveBeenCalledTimes(1);
     expect(closingRequests).toBe(0);
+  });
+});
+
+describe('AdminWeeklyBriefingPage — 열어 둔 탭이 주를 넘김', () => {
+  const FRIDAY_AFTERNOON = '2026-11-06T06:00:00Z'; // 금 15:00 KST — 이번 주 11/2 주, 지난주 10/26 주
+  const NEXT_MONDAY_MORNING = '2026-11-09T00:30:00Z'; // 월 09:30 KST — 이번 주 11/9 주, 지난주 11/2 주
+  const NEW_WEEK_LINE = '이 화면을 연 뒤 새 주가 시작됐어요. 지난주는 11월 2일 – 8일이에요.';
+
+  /** 금요일에 week 없이 열고 두 구역을 다 받는다(인쇄 버튼이 켜질 때까지). */
+  async function renderOnFridayAndLoadAll() {
+    vi.setSystemTime(new Date(FRIDAY_AFTERNOON));
+    const view = renderPage();
+    await findFlowTable();
+    expect(await screen.findByText('11월 2일(월) – 8일(일) · 지금 기준 11월 6일 오후 3:00')).toBeInTheDocument();
+    await screen.findByRole('table', { name: '이번 주 시설별 하루 예약 시간 (11월 2일 – 8일)' });
+    await screen.findByRole('button', { name: '인쇄' });
+    expect(screen.getByText('지난주')).toBeInTheDocument();
+    return view;
+  }
+
+  it('월요일에 탭이 다시 보이면 범위를 새로 잡는다 — 보던 주는 그대로, "지난주" 꼬리표가 빠지고 다음 주가 켜지며, 지난주로 돌아가면 이번 주를 새 주로 받는다', async () => {
+    const user = userEvent.setup();
+    const view = await renderOnFridayAndLoadAll();
+    expect(closingRequests).toBe(1);
+
+    vi.setSystemTime(new Date(NEXT_MONDAY_MORNING));
+    closingWeekStart = '2026-11-09';
+    act(() => {
+      document.dispatchEvent(new Event('visibilitychange'));
+    });
+
+    expect(screen.getByText('10월 26일(월) – 11월 1일(일)')).toBeInTheDocument();
+    expect(screen.queryByText('지난주')).toBeNull();
+    expect(screen.getByText(NEW_WEEK_LINE)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '다음 주 보기, 11월 2일 – 8일' })).not.toHaveAttribute('aria-disabled');
+    expect(screen.getByText('이번 주 일정은 지난주(11월 2일 – 8일)를 볼 때 함께 보여요.')).toBeInTheDocument();
+    expect(replacedUrls()).toEqual(['/admin/weekly-briefing?week=2026-10-26']);
+    // 접힌 둘째 구역은 쓰지 않을 요청을 다시 보내지 않는다.
+    expect(closingRequests).toBe(1);
+
+    await user.click(screen.getByRole('button', { name: '지난주로 돌아가기' }));
+    expect(mockReplace).toHaveBeenCalledWith('/admin/weekly-briefing?week=2026-11-02', { scroll: false });
+    currentSearch = 'week=2026-11-02';
+    navigationParams = {};
+    view.rerenderPage();
+
+    expect(await screen.findByText('11월 9일(월) – 15일(일) · 지금 기준 11월 9일 오전 9:30')).toBeInTheDocument();
+    expect(screen.getByText('11월 2일(월) – 8일(일)')).toBeInTheDocument();
+    expect(screen.getByText('지난주')).toBeInTheDocument();
+    expect(screen.queryByText(NEW_WEEK_LINE)).toBeNull();
+    expect(screen.queryByText(/기준 날짜가 달라요/)).toBeNull();
+    expect(closingRequests).toBe(2);
+    expect(await screen.findByRole('table', { name: '이번 주 시설별 하루 예약 시간 (11월 9일 – 15일)' })).toBeInTheDocument();
+    // 금요일에 받은 11/2 주 칸(끝나지 않은 주)은 버렸다 — 지난주 표로 다시 받는다.
+    expect(await screen.findByRole('table', { name: '지난주 시설별 하루 예약 시간 (11월 2일 – 8일)' })).toBeInTheDocument();
+    expect(heatmapWeeks.filter((week) => week === '2026-11-02')).toHaveLength(2);
+    expect(requestedWeeks).toContain('2026-11-02');
+  });
+
+  it('월요일에 아무 조작 없이 바로 인쇄해도(beforeprint) 범위를 새로 잡고, 인쇄물에 남는 새 주 알림 줄을 두며 꼬리 문구를 뺀다', async () => {
+    await renderOnFridayAndLoadAll();
+
+    vi.setSystemTime(new Date(NEXT_MONDAY_MORNING));
+    act(() => {
+      window.dispatchEvent(new Event('beforeprint'));
+    });
+
+    const newWeekLine = screen.getByText(NEW_WEEK_LINE);
+    expect(newWeekLine.closest('.no-print')).toBeNull();
+    expect(screen.getByText('출력 2026년 11월 9일 오전 9:30')).toBeInTheDocument();
+    expect(screen.getByText('10월 26일(월) – 11월 1일(일)')).toBeInTheDocument();
+    expect(screen.queryByText('지난주')).toBeNull();
+    // 새 데이터를 기다릴 수 없다 — 접힌 둘째 구역은 인쇄에서 빠지고 다시 받지도 않는다.
+    expect(closingRequests).toBe(1);
+  });
+
+  it('인쇄 머리 꼬리는 출력 시각이 아니라 이번 주 모집을 받은 시각(둘째 구역 머리의 "지금 기준")을 쓴다', async () => {
+    currentSearch = 'week=2026-10-26';
+    renderPage();
+    expect(await screen.findByText('11월 2일(월) – 8일(일) · 지금 기준 11월 5일 오후 2:05')).toBeInTheDocument();
+
+    vi.setSystemTime(new Date('2026-11-05T07:00:00Z')); // 같은 날 16:00 KST — 같은 주라 범위는 그대로
+    act(() => {
+      window.dispatchEvent(new Event('beforeprint'));
+    });
+
+    expect(screen.getByText("출력 2026년 11월 5일 오후 4:00 · '이번 주 챙길 것'은 11월 5일 오후 2:05 기준")).toBeInTheDocument();
+    expect(screen.queryByText(NEW_WEEK_LINE)).toBeNull();
+  });
+});
+
+describe('AdminWeeklyBriefingPage — 사라지는 버튼의 포커스', () => {
+  it('이전 주에서 "지난주로 돌아가기"를 누르면 버튼이 사라져도 포커스가 첫 구역 제목으로 간다', async () => {
+    const user = userEvent.setup();
+    currentSearch = 'week=2026-10-19';
+    const view = renderPage();
+    await findFlowTable();
+
+    await user.click(await screen.findByRole('button', { name: '지난주로 돌아가기' }));
+    currentSearch = 'week=2026-10-26';
+    view.rerenderPage();
+
+    expect(screen.queryByRole('button', { name: '지난주로 돌아가기' })).toBeNull();
+    expect(document.activeElement).toBe(screen.getByRole('heading', { level: 2, name: '한 주 돌아보기' }));
   });
 });

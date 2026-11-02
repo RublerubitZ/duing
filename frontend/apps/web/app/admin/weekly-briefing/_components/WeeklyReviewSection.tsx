@@ -56,7 +56,8 @@ export function WeeklyReviewSection({
     >
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <h2 id="weekly-review-heading" className="text-base font-semibold text-ink">한 주 돌아보기</h2>
+          {/* tabIndex -1: '지난주로 돌아가기'를 누르면 버튼이 사라져 포커스가 여기로 온다(ProfileCheckPanel 제목 선례). */}
+          <h2 id="weekly-review-heading" tabIndex={-1} className="text-base font-semibold text-ink outline-none">한 주 돌아보기</h2>
           <p aria-live="polite" className="mt-1 flex flex-wrap items-center gap-2 text-xl font-bold text-ink-deep">
             <span>{screenWeekRange(weekStart, todayIso)}</span>
             {weekStart === range.latestWeek ? (

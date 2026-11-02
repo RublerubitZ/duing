@@ -9,6 +9,7 @@ export const HEATMAP_LEGEND = '숫자는 그날 예약이 걸친 시간 칸 수(
 export const HEATMAP_SOURCE_NOTE = '두잉에서 승인·확정한 예약 + 학교 시설 일정(같은 시간은 한 번만). 검토 중인 신청은 빼요.';
 export const PAST_MONTH_NOTE = '지난달 학교 일정은 그 뒤 바뀐 내용이 반영되지 않았을 수 있어요. 보관한 시설은 빠져요.';
 export const HEATMAP_FAILED_TEXT = '시설 예약 시간을 불러오지 못했어요';
+export const HEATMAP_NO_FACILITY_TEXT = '등록된 시설이 없어요';
 
 const WEEKDAYS_FROM_MONDAY = ['월', '화', '수', '목', '금', '토', '일'];
 const CRAWLED_AT_FORMAT = kstDateTimeFormatter({ month: 'long', day: 'numeric', hour: 'numeric', minute: '2-digit' });

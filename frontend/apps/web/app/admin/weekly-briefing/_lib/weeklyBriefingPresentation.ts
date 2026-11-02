@@ -203,3 +203,8 @@ export function screenWeekRange(weekStart: string, todayIso: string, withWeekday
 export function nextWeekUnavailableText(currentMonday: string): string {
   return `이번 주는 ${monthDayLabel(addDaysIso(currentMonday, 7))}(월)부터 볼 수 있어요`;
 }
+
+/** 탭을 열어 둔 채 새 주가 시작돼 범위를 새로 잡았을 때 — 보던 주(옛 지난주)는 그대로라 화면·인쇄 모두에 남긴다. */
+export function newWeekStartedText(latestWeek: string, todayIso: string): string {
+  return `이 화면을 연 뒤 새 주가 시작됐어요. 지난주는 ${screenWeekRange(latestWeek, todayIso, false)}이에요.`;
+}

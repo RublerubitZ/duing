@@ -20,6 +20,9 @@ const dayOf = (isoDate: string) => Number(isoDate.split('-')[2]);
 /** 둘째 구역 머리 — 이번 주 모집 조회를 받은 시각(KST). */
 export const updatedAtText = (updatedAtMs: number) => `지금 기준 ${UPDATED_AT_FORMAT.format(new Date(updatedAtMs))}`;
 
+/** 인쇄 머리 꼬리 — 둘째 구역 머리의 '지금 기준'과 같은 받은 시각(KST). 출력 시각이 아니다(포커스 다시 받기가 꺼져 있다). */
+export const thisWeekBasisText = (updatedAtMs: number) => `'이번 주 챙길 것'은 ${UPDATED_AT_FORMAT.format(new Date(updatedAtMs))} 기준`;
+
 /** 종료일 — 기간이 지났으면(isRecruitmentExpiredOpen) "11월 3일 종료"(옆에 '기간 종료' 칩), 아니면 "11월 6일(금) 종료". */
 export function closingEndText(endDate: string, isExpired: boolean): string {
   return isExpired ? `${monthDayLabel(endDate)} 종료` : `${monthDayLabel(endDate)}(${weekdayOf(endDate)}) 종료`;

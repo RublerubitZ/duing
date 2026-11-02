@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 
 import { useAdminWeeklyFacilityHeatmapQuery } from '@duing/hooks';
 
@@ -11,6 +11,7 @@ import { Skeleton } from '@/components/loading/Skeleton';
 import {
   HEATMAP_FAILED_TEXT,
   HEATMAP_LEGEND,
+  HEATMAP_NO_FACILITY_TEXT,
   HEATMAP_SOURCE_NOTE,
   PAST_MONTH_NOTE,
   crawledAtText,
@@ -64,6 +65,16 @@ function FacilityHeatmapTable({
   isThisWeek,
 }: Props & { heatmap: AdminWeeklyFacilityHeatmap }) {
   const [showAll, setShowAll] = useState(false);
+  const scrollRegionRef = useRef<HTMLDivElement>(null);
+  if (heatmap.facilities.length === 0) {
+    // 시설이 하나도 없으면(보관 제외 뒤) 머리만 있는 빈 표 대신 한 줄로 쓴다.
+    return (
+      <>
+        <h3 className="text-sm font-semibold !leading-5 text-charcoal">{caption}</h3>
+        <p className="mt-2 text-sm text-charcoal-2">{HEATMAP_NO_FACILITY_TEXT}</p>
+      </>
+    );
+  }
   const days = heatmapDays(weekStart);
   const { visibleRows, hiddenCount } = splitHeatmapRows(heatmap.facilities);
   const rows = showAll ? heatmap.facilities : visibleRows;
@@ -76,6 +87,7 @@ function FacilityHeatmapTable({
       {/* 좁은 폭은 카드 안 가로 스크롤 — 키보드로도 스크롤하게 포커스를 받고, 인쇄에서는 펼쳐 A4 한 폭에 8열을 넣는다.
           relative: 열 머리의 sr-only(절대 위치)가 이 상자를 기준으로 잡혀야 상자 안에서 잘린다 — 없으면 문서가 가로로 넘친다. */}
       <div
+        ref={scrollRegionRef}
         role="region"
         aria-label={caption}
         tabIndex={0}
@@ -129,7 +141,11 @@ function FacilityHeatmapTable({
           {`예약 없는 시설 ${hiddenCount}곳은 뺐어요`}{' '}
           <button
             type="button"
-            onClick={() => setShowAll(true)}
+            onClick={() => {
+              // 누른 버튼이 사라진다 — 펼친 표(스크롤 영역)로 포커스를 옮긴다.
+              scrollRegionRef.current?.focus();
+              setShowAll(true);
+            }}
             className="no-print min-h-11 rounded px-1 font-medium text-ink underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink"
           >
             모두 보기

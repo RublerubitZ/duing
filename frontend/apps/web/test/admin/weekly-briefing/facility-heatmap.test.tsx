@@ -79,6 +79,22 @@ describe('FacilityHeatmap', () => {
     await user.click(showAll);
     expect(screen.getByRole('rowheader', { name: '세미나실' })).toBeInTheDocument();
     expect(screen.getByRole('rowheader', { name: '동아리방 A' })).toBeInTheDocument();
+    // 누른 버튼은 사라진다 — 포커스는 body 로 떨어지지 않고 펼친 표의 스크롤 영역으로 간다.
+    expect(screen.queryByRole('button', { name: '모두 보기' })).toBeNull();
+    expect(document.activeElement).toBe(screen.getByRole('region', { name: LAST_WEEK.caption }));
+  });
+
+  it('시설이 하나도 없으면(보관 제외 뒤) 머리만 있는 빈 표 대신 "등록된 시설이 없어요" 를 쓴다', async () => {
+    server.use(
+      http.get('*/admin/weekly-briefing/facility-heatmap', () =>
+        HttpResponse.json({ ok: true, message: null, data: { facilities: [], currentMonthCrawledAt: null } }),
+      ),
+    );
+    renderHeatmap(LAST_WEEK);
+
+    expect(await screen.findByText('등록된 시설이 없어요')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 3, name: LAST_WEEK.caption })).toBeInTheDocument();
+    expect(screen.queryByRole('table')).toBeNull();
   });
 
   it('지난주가 지난달에 걸치면 지난달 일정 안내를 쓰고 수집 시각은 쓰지 않는다', async () => {
