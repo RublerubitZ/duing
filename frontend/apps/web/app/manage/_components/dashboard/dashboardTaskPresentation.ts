@@ -11,7 +11,7 @@ import type { DashboardChipTone } from '@/components/dashboard/dashboardChipTone
 
 export type TaskChip = { text: string; tone: DashboardChipTone };
 
-/** home = 운영진 홈(맥락에 모집명), recruitment = 모집 상세(모집명 없이 인원을 첫째 줄로, 둘째 줄은 §3-3 표). */
+/** home = 운영진 홈(맥락에 모집명), recruitment = 모집 상세(모집명 없이 인원을 첫째 줄로, 둘째 줄은 라운드 이름·지원 완료/보류 인원·마감 안내). */
 export type TaskRowVariant = 'home' | 'recruitment';
 
 export type TaskRowModel = {
