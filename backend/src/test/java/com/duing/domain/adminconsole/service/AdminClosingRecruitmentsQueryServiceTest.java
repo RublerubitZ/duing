@@ -7,6 +7,8 @@ import com.duing.common.TestcontainersConfiguration;
 import com.duing.common.fixture.ClubFixture;
 import com.duing.common.fixture.PendingItemsFixture;
 import com.duing.common.fixture.UserFixture;
+import com.duing.domain.adminconsole.controller.dto.response.AdminClosingRecruitmentsResponse;
+import com.duing.domain.adminconsole.controller.dto.response.AdminClosingRecruitmentsResponse.ClosingRecruitmentResponse;
 import com.duing.domain.adminconsole.service.dto.query.AdminClosingRecruitmentsQuery;
 import com.duing.domain.application.entity.Application;
 import com.duing.domain.application.entity.ApplicationStatus;
@@ -14,6 +16,8 @@ import com.duing.domain.application.repository.ApplicationRepository;
 import com.duing.domain.club.repository.ClubRepository;
 import com.duing.domain.recruitment.entity.ApplicationMode;
 import com.duing.domain.recruitment.entity.Recruitment;
+import com.duing.domain.recruitment.entity.RecruitmentDisplayStatus;
+import com.duing.domain.recruitment.entity.RecruitmentStatus;
 import com.duing.domain.recruitment.entity.TargetRole;
 import com.duing.domain.recruitment.repository.RecruitmentRepository;
 import com.duing.domain.recruitment.service.dto.query.ClosingRecruitmentRow;
@@ -37,6 +41,7 @@ class AdminClosingRecruitmentsQueryServiceTest extends IntegrationTestBase {
     /** KST 2026-11-04(수) 14:00 — 이번 주는 11/2(월)~11/8(일), 11/2·11/3 종료는 이미 기간이 지났다. */
     private static final Clock WEDNESDAY_CLOCK = Clock.fixed(Instant.parse("2026-11-04T05:00:00Z"), ZoneId.of("Asia/Seoul"));
     private static final LocalDate MONDAY = LocalDate.of(2026, 11, 2);
+    private static final LocalDate WEDNESDAY = MONDAY.plusDays(2);
 
     @Autowired RecruitmentRepository recruitmentRepository;
     @Autowired ApplicationRepository applicationRepository;
@@ -94,9 +99,29 @@ class AdminClosingRecruitmentsQueryServiceTest extends IntegrationTestBase {
         assertThat(rows).extracting(ClosingRecruitmentRow::undecidedApplicationCount).containsExactly(3L, 0L);
     }
 
+    @Test
+    @DisplayName("줄마다 서버 오늘(KST) 기준 표시 상태를 싣는다 — 기간이 지난 진행 중 모집은 CLOSED, 오늘 진행 중은 OPEN, 아직 시작 전은 UPCOMING 이고 저장 상태는 늘 OPEN 이다")
+    void resolvesDisplayStatusWithServerToday() {
+        Recruitment endedMonday = saveOpen(MONDAY, ApplicationMode.SELF);
+        Recruitment endsToday = saveOpen(WEDNESDAY, ApplicationMode.SELF);
+        Recruitment startsFriday = saveOpen(MONDAY.plusDays(4), MONDAY.plusDays(6), ApplicationMode.SELF);
+
+        List<ClosingRecruitmentResponse> rows =
+                AdminClosingRecruitmentsResponse.from(service().getClosingRecruitments()).recruitments();
+
+        assertThat(rows).extracting(ClosingRecruitmentResponse::recruitmentId)
+                .containsExactly(endedMonday.getId(), endsToday.getId(), startsFriday.getId());
+        assertThat(rows).extracting(ClosingRecruitmentResponse::status).containsOnly(RecruitmentStatus.OPEN);
+        assertThat(rows).extracting(ClosingRecruitmentResponse::displayStatus).containsExactly(
+                RecruitmentDisplayStatus.CLOSED, RecruitmentDisplayStatus.OPEN, RecruitmentDisplayStatus.UPCOMING);
+    }
+
     /** 동아리당 OPEN 하나(uk_recruitment_club_active)라 모집마다 동아리를 만든다. 면접 대상 전이를 위해 면접 사용 모집이다. */
     private Recruitment saveOpen(LocalDate endDate, ApplicationMode applicationMode) {
-        LocalDate startDate = endDate == null ? MONDAY.minusDays(20) : endDate.minusDays(10);
+        return saveOpen(endDate == null ? MONDAY.minusDays(20) : endDate.minusDays(10), endDate, applicationMode);
+    }
+
+    private Recruitment saveOpen(LocalDate startDate, LocalDate endDate, ApplicationMode applicationMode) {
         return recruitmentRepository.save(Recruitment.createWithOptions(
                 clubRepository.save(ClubFixture.academic("마감임박동아리" + sequence.incrementAndGet())),
                 "모집" + sequence.incrementAndGet(), null, startDate, endDate, 10, applicationMode,

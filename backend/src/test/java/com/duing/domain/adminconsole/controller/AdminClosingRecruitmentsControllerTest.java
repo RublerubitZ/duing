@@ -1,6 +1,7 @@
 package com.duing.domain.adminconsole.controller;
 
 import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.hasKey;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.nullValue;
 
@@ -58,7 +59,7 @@ class AdminClosingRecruitmentsControllerTest extends IntegrationTestBase {
     }
 
     @Test
-    @DisplayName("서버가 정한 이번 주 월요일과 모집 줄을 주고, 외부 폼 모집은 결과 안 정한 지원 수를 null 로 둔다")
+    @DisplayName("서버가 정한 이번 주 월요일과 모집 줄(저장·표시 상태 포함)을 주고, 외부 폼 모집은 결과 안 정한 지원 수를 키를 남긴 채 null 로 둔다")
     void returnsServerWeekAndRows() {
         recruitmentRepository.save(Recruitment.createWithOptions(clubRepository.save(ClubFixture.academic("외부폼동아리")),
                 "외부 폼 모집", null, currentMonday.minusDays(10), currentMonday.plusDays(6), 10, ApplicationMode.EXTERNAL,
@@ -76,7 +77,10 @@ class AdminClosingRecruitmentsControllerTest extends IntegrationTestBase {
                     .body("data.recruitments[0].title", equalTo("외부 폼 모집"))
                     .body("data.recruitments[0].clubName", equalTo("외부폼동아리"))
                     .body("data.recruitments[0].endDate", equalTo(currentMonday.plusDays(6).toString()))
+                    .body("data.recruitments[0].status", equalTo("OPEN"))
+                    .body("data.recruitments[0].displayStatus", equalTo("OPEN"))
                     .body("data.recruitments[0].applicationMode", equalTo("EXTERNAL"))
+                    .body("data.recruitments[0]", hasKey("undecidedApplicationCount"))
                     .body("data.recruitments[0].undecidedApplicationCount", nullValue());
     }
 

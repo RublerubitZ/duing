@@ -288,6 +288,8 @@ public class RecruitmentRepositoryImpl implements RecruitmentRepositoryCustom {
                         recruitment.title,
                         club.id,
                         club.name,
+                        recruitment.status,
+                        recruitment.startDate,
                         recruitment.endDate,
                         recruitment.applicationMode,
                         undecidedApplicationCount))
@@ -303,8 +305,8 @@ public class RecruitmentRepositoryImpl implements RecruitmentRepositoryCustom {
                         recruitment.endDate.goe(firstDay),
                         recruitment.endDate.loe(lastDay)
                 )
-                .groupBy(recruitment.id, recruitment.title, club.id, club.name, recruitment.endDate,
-                        recruitment.applicationMode)
+                .groupBy(recruitment.id, recruitment.title, club.id, club.name, recruitment.status,
+                        recruitment.startDate, recruitment.endDate, recruitment.applicationMode)
                 .orderBy(recruitment.endDate.asc(), recruitment.id.asc())
                 .fetch();
     }
