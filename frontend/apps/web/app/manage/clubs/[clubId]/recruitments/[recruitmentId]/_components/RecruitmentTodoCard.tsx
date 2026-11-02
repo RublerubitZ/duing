@@ -2,7 +2,6 @@
 
 import { useId } from 'react';
 import { useRecruitmentActionItems } from '@duing/hooks';
-import { isRecruitmentExpiredOpen } from '@/app/_lib/recruitmentDisplay';
 import { DashboardTaskGroupList } from '@/app/manage/_components/dashboard/DashboardTaskGroupList';
 import { Skeleton } from '@/components/loading/Skeleton';
 import { PendingApplicantsPreview } from './PendingApplicantsPreview';
@@ -18,10 +17,6 @@ export function RecruitmentTodoCard({ clubId, recruitment }: { clubId: number; r
 
   // 마감 모집은 로딩 중·할 일 0 이면 자리를 두지 않는다 — 카드가 나타났다 사라지며 아래 내용이 당겨지지 않게.
   if (!isOpen && (isLoading || (!isError && !hasItems))) return null;
-
-  const emptyText = isRecruitmentExpiredOpen(recruitment)
-    ? '지금 처리할 일이 없어요. 심사를 마쳤다면 모집을 마감해 주세요.'
-    : '지금 처리할 일이 없어요.';
 
   return (
     <section aria-labelledby={headingId} className="card mb-6 p-4">
@@ -40,7 +35,7 @@ export function RecruitmentTodoCard({ clubId, recruitment }: { clubId: number; r
             {isError ? <p className="mt-2 px-2 text-xs text-charcoal-3">일부 할 일을 불러오지 못했어요.</p> : null}
           </>
         ) : (
-          <p className="px-2 text-sm text-charcoal-3">{isError ? '할 일을 불러오지 못했어요.' : emptyText}</p>
+          <p className="px-2 text-sm text-charcoal-3">{isError ? '할 일을 불러오지 못했어요.' : '지금 처리할 일이 없어요.'}</p>
         )}
       </div>
       {/* 할 일 실패와 미리보기는 서로를 지우지 않는다 — 미리보기는 자기 조회의 로딩·실패를 그린다 */}

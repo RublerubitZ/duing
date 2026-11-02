@@ -100,10 +100,11 @@ describe('RecruitmentTodoCard — 진행 중 모집 상태표', () => {
     expect(within(region()!).getByText('지금 처리할 일이 없어요.')).toBeInTheDocument();
   });
 
-  it('기간이 지난 접수 중이면 빈 문구에 마감 권고를 붙인다', () => {
+  it('기간이 지난 접수 중이어도 빈 문구는 한 줄 — 마감 권고는 위 배너가 말한다', () => {
     todo({ submittedCount: 0 });
     render(<RecruitmentTodoCard clubId={10} recruitment={detail({ displayStatus: 'CLOSED', effectivelyOpen: false, endDate: '2026-10-31' })} />);
-    expect(screen.getByText('지금 처리할 일이 없어요. 심사를 마쳤다면 모집을 마감해 주세요.')).toBeInTheDocument();
+    expect(screen.getByText('지금 처리할 일이 없어요.')).toBeInTheDocument();
+    expect(screen.queryByText(/마감해 주세요/)).not.toBeInTheDocument();
   });
 
   it('성공·항목 있음 — 묶음 건수, 줄 문구·목적지는 홈 표현(variant recruitment)과 같다', () => {
@@ -171,6 +172,12 @@ describe('RecruitmentTodoCard — 먼저 볼 지원서 마운트', () => {
     todo({ groups: OPEN_GROUPS, submittedCount });
     render(<RecruitmentTodoCard clubId={10} recruitment={detail()} />);
     expect(mockApplicants).not.toHaveBeenCalled();
+  });
+
+  it('기간이 지난 접수 중도 진행 중 규칙 — 지원 완료가 있으면 미리보기를 붙인다', () => {
+    todo({ groups: OPEN_GROUPS, submittedCount: 9 });
+    render(<RecruitmentTodoCard clubId={10} recruitment={detail({ displayStatus: 'CLOSED', effectivelyOpen: false, endDate: '2026-10-31' })} />);
+    expect(mockApplicants).toHaveBeenCalledWith(5, { status: 'SUBMITTED' });
   });
 
   it('진행 중 + 지원 완료 > 0 — 맨 위 지원서 칩 일수 = 검토 대기 줄 "미처리 N일"', () => {

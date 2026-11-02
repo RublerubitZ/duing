@@ -235,6 +235,7 @@ export function useClubActionItems(clubId: number | undefined): {
 /**
  * 모집 상세 "이 모집에서 할 일" — 이 모집 하나의 통계·라운드·면접 대기열만 받아 홈과 같은 규칙(buildRecruitmentActionItems)으로 묶는다.
  * 쿼리 키·옵션은 홈 fan-out 과 같아 캐시·무효화를 공유한다. 다른 모집의 조회 실패는 이 결과에 닿지 않는다.
+ * 자체 폼(SELF) 모집에서만 부른다 — 외부 폼은 호출부(모집 상세)가 카드를 그리지 않는다.
  */
 export function useRecruitmentActionItems(recruitment: RecruitmentSummary): {
   groups: DashboardTaskGroup[];

@@ -218,6 +218,8 @@ describe('모집 상세 — 모드별 회원 등록 영역', () => {
     expect(screen.queryByRole('heading', { name: '회원 등록' })).not.toBeInTheDocument();
     expect(screen.queryByText('외부 폼 모집')).not.toBeInTheDocument();
     expect(screen.queryByText(DEDUCTION_NOTICE)).not.toBeInTheDocument();
+    // 통계가 화면에 반영된 뒤에 본다 — 그 전엔 마감 + 로딩이라 카드가 원래 없다. 요약 줄은 카드 훅과 같은 통계 쿼리 키라 같은 렌더에 반영된다.
+    await screen.findByText('모집 인원 10명');
     expect(screen.queryByRole('region', { name: '이 모집에서 할 일' })).not.toBeInTheDocument();
   });
 
