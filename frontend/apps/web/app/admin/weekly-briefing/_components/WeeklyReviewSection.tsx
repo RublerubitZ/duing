@@ -1,12 +1,14 @@
 import { ErrorState } from '@/app/admin/_components/ErrorState';
 import { Skeleton } from '@/components/loading/Skeleton';
 
+import { reviewHeatmapCaption } from '../_lib/heatmapPresentation';
 import {
   PREVIOUS_WEEK_FAILED_TEXT,
   WEEK_LOAD_FAILED_TEXT,
   screenWeekRange,
   weeklySummarySentences,
 } from '../_lib/weeklyBriefingPresentation';
+import { FacilityHeatmap } from './FacilityHeatmap';
 import { WeekPicker } from './WeekPicker';
 import { WeeklyActivityCards } from './WeeklyActivityCards';
 import { WeeklyFlowTable } from './WeeklyFlowTable';
@@ -83,6 +85,12 @@ export function WeeklyReviewSection({
           </div>
         )}
       </div>
+      <FacilityHeatmap
+        weekStart={weekStart}
+        todayIso={todayIso}
+        caption={reviewHeatmapCaption(weekStart, todayIso, weekStart === range.latestWeek)}
+        isThisWeek={false}
+      />
     </section>
   );
 }

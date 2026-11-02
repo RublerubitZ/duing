@@ -46,6 +46,8 @@ const briefings = new Map<string, AdminWeeklyBriefing>();
 const failures = new Map<string, { status: number; code?: string }>();
 let gates: Gate[] = [];
 const requestedWeeks: string[] = [];
+let heatmapGates: Gate[] = [];
+const heatmapWeeks: string[] = [];
 
 const server = setupServer(
   http.get('*/admin/weekly-briefing', async ({ request }) => {
@@ -61,6 +63,17 @@ const server = setupServer(
       );
     }
     return HttpResponse.json({ ok: true, message: null, data: briefings.get(weekStart) ?? weeklyBriefingOf() });
+  }),
+  http.get('*/admin/weekly-briefing/facility-heatmap', async ({ request }) => {
+    const weekStart = new URL(request.url).searchParams.get('weekStart') ?? '';
+    heatmapWeeks.push(weekStart);
+    const heatmapGate = heatmapGates.find((candidate) => candidate.week === weekStart);
+    if (heatmapGate) await heatmapGate.promise;
+    return HttpResponse.json({
+      ok: true,
+      message: null,
+      data: { facilities: [{ facilityId: 1, roomName: '학생회관 강당', sortOrder: 1, occupiedSlotCounts: [0, 2, 0, 0, 0, 0, 0] }], currentMonthCrawledAt: null },
+    });
   }),
 );
 const apiClient = createApiClient({ baseUrl: 'http://localhost:8080/api/v1' });
@@ -85,6 +98,8 @@ beforeEach(() => {
   failures.clear();
   gates = [];
   requestedWeeks.length = 0;
+  heatmapGates = [];
+  heatmapWeeks.length = 0;
   briefings.set('2026-10-26', OCTOBER_26);
   briefings.set('2026-10-19', OCTOBER_19);
 });
@@ -412,6 +427,17 @@ describe('AdminWeeklyBriefingPage — 한 주 돌아보기', () => {
     expect(screen.getByRole('heading', { level: 1, name: '주간 브리핑' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '다시 시도' })).toHaveClass('no-print');
   });
+
+  it('한 주 돌아보기 히트맵은 고른 주로 부르고, 가장 최근 주만 caption 앞에 "지난주"를 붙인다', async () => {
+    currentSearch = 'week=2026-10-26';
+    const view = renderPage();
+    expect(await screen.findByRole('table', { name: '지난주 시설별 하루 예약 시간 (10월 26일 – 11월 1일)' })).toBeInTheDocument();
+    expect(heatmapWeeks).toContain('2026-10-26');
+
+    currentSearch = 'week=2026-10-19';
+    view.rerenderPage();
+    expect(await screen.findByRole('table', { name: '시설별 하루 예약 시간 (10월 19일 – 25일)' })).toBeInTheDocument();
+  });
 });
 
 describe('AdminWeeklyBriefingPage — 인쇄·탭 제목', () => {
@@ -451,7 +477,28 @@ describe('AdminWeeklyBriefingPage — 인쇄·탭 제목', () => {
 
     gate.release();
     await findFlowTable();
-    await user.click(screen.getByRole('button', { name: '인쇄' }));
+    await user.click(await screen.findByRole('button', { name: '인쇄' }));
+    expect(printSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('지표·전 주가 와도 한 주 돌아보기 히트맵을 받는 동안(히트맵 스켈레톤)은 인쇄 버튼이 aria-disabled 이고, 히트맵이 오면 켜진다', async () => {
+    const user = userEvent.setup();
+    const heatmapGate = gateFor('2026-10-26');
+    heatmapGates = [heatmapGate];
+    currentSearch = 'week=2026-10-26';
+    renderPage();
+
+    await findFlowTable();
+    // 첫 구역 안으로 좁힌다 — Task 19 뒤에는 둘째 구역의 이번 주 히트맵 스켈레톤도 같은 이름으로 잠깐 있을 수 있다.
+    const review = within(screen.getByRole('region', { name: '한 주 돌아보기' }));
+    expect(review.getByRole('status', { name: '시설 예약 시간 불러오는 중' })).toBeInTheDocument();
+    const pendingButton = screen.getByRole('button', { name: '불러오는 중' });
+    expect(pendingButton).toHaveAttribute('aria-disabled', 'true');
+    await user.click(pendingButton);
+    expect(printSpy).not.toHaveBeenCalled();
+
+    heatmapGate.release();
+    await user.click(await screen.findByRole('button', { name: '인쇄' }));
     expect(printSpy).toHaveBeenCalledTimes(1);
   });
 

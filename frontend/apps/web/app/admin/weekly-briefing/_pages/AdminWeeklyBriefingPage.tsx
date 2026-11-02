@@ -5,7 +5,7 @@ import { flushSync } from 'react-dom';
 import { useParams, useSearchParams } from 'next/navigation';
 
 import { ApiError } from '@duing/api';
-import { addDaysIso, useAdminWeeklyBriefingQuery } from '@duing/hooks';
+import { addDaysIso, useAdminWeeklyBriefingQuery, useAdminWeeklyFacilityHeatmapQuery } from '@duing/hooks';
 import { kstDateTimeFormatter, todayKstDateString } from '@duing/hooks/datetime';
 
 import { cn } from '@/app/_lib/cn';
@@ -54,6 +54,8 @@ function WeeklyBriefingContent() {
   const previousQuery = useAdminWeeklyBriefingQuery(addDaysIso(weekStart, -7), { enabled: isPreviousEnabled });
   const isAwaitingStepBack =
     !clockSteppedBack && briefingQuery.error instanceof ApiError && briefingQuery.error.code === 'WEEK_NOT_ENDED';
+  // 한 주 돌아보기 히트맵(FacilityHeatmap)과 같은 키라 요청은 하나다 — 인쇄 대기 판정에만 쓴다. 물러서기 직전의 주는 부르지 않는다.
+  const reviewHeatmapQuery = useAdminWeeklyFacilityHeatmapQuery(weekStart, { enabled: !isAwaitingStepBack });
 
   const documentTitle = `주간 브리핑 ${weekStart}`;
   useDocumentTitle(documentTitle);
@@ -90,8 +92,11 @@ function WeeklyBriefingContent() {
 
   const isReviewLoading = isAwaitingStepBack || (briefingQuery.data === undefined && !briefingQuery.isError);
   const isPreviousSettled = !isPreviousEnabled || previousQuery.data !== undefined || previousQuery.isError;
-  // 인쇄는 본문이 그려진 뒤에만 — 이 주가 있어도 전 주를 기다리는 동안은 스켈레톤이다. 이 주 실패 문장은 바로 인쇄할 수 있다.
-  const isPrintPending = isReviewLoading || (briefingQuery.data !== undefined && !isPreviousSettled);
+  // 인쇄는 첫 구역이 다 그려진 뒤에만 — 이 주가 있어도 전 주를 기다리는 동안은 본문이, 히트맵을 받는 동안은 그 자리가 스켈레톤이다.
+  // 이 주·히트맵 실패 문장은 바로 인쇄할 수 있다.
+  const isReviewHeatmapLoading = reviewHeatmapQuery.data === undefined && !reviewHeatmapQuery.isError;
+  const isPrintPending =
+    isReviewLoading || (briefingQuery.data !== undefined && !isPreviousSettled) || isReviewHeatmapLoading;
 
   return (
     <>
