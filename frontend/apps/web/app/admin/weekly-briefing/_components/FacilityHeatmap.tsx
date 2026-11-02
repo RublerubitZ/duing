@@ -39,7 +39,8 @@ export function FacilityHeatmap({ weekStart, todayIso, caption, isThisWeek }: Pr
         <FacilityHeatmapTable heatmap={heatmap} weekStart={weekStart} todayIso={todayIso} caption={caption} isThisWeek={isThisWeek} />
       ) : (
         <>
-          <h3 className="text-sm font-semibold text-charcoal">{caption}</h3>
+          {/* 전역 `.duing h3`(line-height 1.1)이 유틸리티보다 구체적이라 ! 로 p 때 줄 높이(text-sm 1.25rem)를 지킨다 — 두 줄일 때 간격. */}
+          <h3 className="text-sm font-semibold !leading-5 text-charcoal">{caption}</h3>
           {heatmapQuery.isError ? (
             <div className="mt-2">
               <ErrorState variant="inline" message={HEATMAP_FAILED_TEXT} onRetry={() => void heatmapQuery.refetch()} />
@@ -70,7 +71,7 @@ function FacilityHeatmapTable({
   const isTodayOrLater = (isoDate: string) => isThisWeek && isoDate >= todayIso;
   return (
     <>
-      <h3 className="text-sm font-semibold text-charcoal">{caption}</h3>
+      <h3 className="text-sm font-semibold !leading-5 text-charcoal">{caption}</h3>
       <p className="mt-1 break-keep text-xs text-charcoal-2">{HEATMAP_SOURCE_NOTE}</p>
       {/* 좁은 폭은 카드 안 가로 스크롤 — 키보드로도 스크롤하게 포커스를 받고, 인쇄에서는 펼쳐 A4 한 폭에 8열을 넣는다.
           relative: 열 머리의 sr-only(절대 위치)가 이 상자를 기준으로 잡혀야 상자 안에서 잘린다 — 없으면 문서가 가로로 넘친다. */}
