@@ -4,6 +4,7 @@ import static com.duing.domain.application.entity.QApplication.application;
 import static com.duing.domain.club.entity.QClub.club;
 import static com.duing.domain.recruitment.entity.QRecruitment.recruitment;
 
+import com.duing.domain.application.entity.ApplicationStatus;
 import com.duing.domain.club.entity.ClubStatus;
 import com.duing.domain.recruitment.entity.ApplicationMode;
 import com.duing.domain.recruitment.entity.Recruitment;
@@ -11,6 +12,7 @@ import com.duing.domain.recruitment.entity.RecruitmentStatus;
 import com.duing.domain.recruitment.service.dto.query.AdminRecruitmentRow;
 import com.duing.domain.recruitment.service.dto.query.AdminRecruitmentSearchCondition;
 import com.duing.domain.recruitment.service.dto.query.AdminRecruitmentSort;
+import com.duing.domain.recruitment.service.dto.query.ClosingRecruitmentRow;
 import com.duing.domain.recruitment.service.dto.query.RecruitmentSummaryRow;
 import com.duing.domain.recruitment.service.dto.query.RepresentativeRecruitmentRow;
 import com.querydsl.core.Tuple;
@@ -275,6 +277,36 @@ public class RecruitmentRepositoryImpl implements RecruitmentRepositoryCustom {
                         row.get(application.count()),
                         today))
                 .toList();
+    }
+
+    @Override
+    public List<ClosingRecruitmentRow> findOpenEndingBetween(LocalDate firstDay, LocalDate lastDay) {
+        NumberExpression<Long> undecidedApplicationCount = application.id.count();
+        return queryFactory
+                .select(Projections.constructor(ClosingRecruitmentRow.class,
+                        recruitment.id,
+                        recruitment.title,
+                        club.id,
+                        club.name,
+                        recruitment.endDate,
+                        recruitment.applicationMode,
+                        undecidedApplicationCount))
+                .from(recruitment)
+                .join(recruitment.club, club)
+                // 결과 안 정한 지원만 붙인다 — 조건을 ON 에 둬 지원이 없는 모집도 0 으로 남긴다.
+                .leftJoin(application)
+                    .on(application.recruitment.eq(recruitment)
+                            .and(application.deletedAt.isNull())
+                            .and(application.status.in(ApplicationStatus.activeSet())))
+                .where(
+                        recruitment.status.eq(RecruitmentStatus.OPEN),
+                        recruitment.endDate.goe(firstDay),
+                        recruitment.endDate.loe(lastDay)
+                )
+                .groupBy(recruitment.id, recruitment.title, club.id, club.name, recruitment.endDate,
+                        recruitment.applicationMode)
+                .orderBy(recruitment.endDate.asc(), recruitment.id.asc())
+                .fetch();
     }
 
     private OrderSpecifier<?>[] orderSpecifiers(AdminRecruitmentSort sort) {

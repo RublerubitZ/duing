@@ -1,5 +1,6 @@
 package com.duing.domain.adminconsole.api;
 
+import com.duing.domain.adminconsole.controller.dto.response.AdminClosingRecruitmentsResponse;
 import com.duing.domain.adminconsole.controller.dto.response.AdminJobStatusesResponse;
 import com.duing.domain.adminconsole.controller.dto.response.AdminPendingCountsResponse;
 import com.duing.domain.adminconsole.controller.dto.response.AdminPendingTrendResponse;
@@ -53,4 +54,10 @@ public interface AdminConsoleApi {
     ResponseEntity<ApiResponse<AdminWeeklyFacilityHeatmapResponse>> getWeeklyFacilityHeatmap(
             @Parameter(description = "그 주 월요일(KST 날짜)", example = "2026-11-02")
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate weekStart);
+
+    @Operation(summary = "이번 주 모집 기간이 끝나는 모집 조회",
+            description = "총동연 주간 브리핑 '이번 주 챙길 것' — 서버가 정한 이번 주(KST 월~일)에 종료일이 든 진행 중 모집과 "
+                    + "결과 안 정한 지원 수(외부 폼은 null). weekStart 는 서버가 정한 이번 주 월요일")
+    @GetMapping("/admin/weekly-briefing/closing-recruitments")
+    ResponseEntity<ApiResponse<AdminClosingRecruitmentsResponse>> getClosingRecruitments();
 }
