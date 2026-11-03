@@ -35,8 +35,15 @@ import org.springframework.transaction.support.TransactionTemplate;
 @Service
 public class GeneralBankTransactionSyncService implements BankTransactionSyncService {
 
-    /** 동기화 조회 기간 하한(오늘 기준 N 일 전). 최초 동기화·오래된 마지막 거래 모두 이 하한으로 제한한다. */
+    /**
+     * 첫 동기화의 조회 기간이자, 매 동기화가 다시 훑는 최소 기간·자동매칭 범위(오늘 기준 N 일 전).
+     * 마지막 거래일은 동아리 단위라 계좌를 바꾼 직후엔 옛 계좌의 날짜다 — 이 기간을 늘 다시 봐야 새 계좌의 앞선 입금이 빠지지 않는다.
+     */
     private static final int LOOKBACK_DAYS = 14;
+
+    // shortcut: 한 번에 오늘 포함 31일까지만 조회한다 — 근거는 제공사 문서의 요청 예시(20260101~20260131)뿐이고 은행별 최대 조회 기간은
+    // 확인하지 못했다(넘기면 은행이 거절해 그 동아리 동기화가 매번 실패한다). 제공사 확인이나 운영 실측으로 더 긴 기간이 되면 올린다.
+    private static final int MAX_LOOKBACK_DAYS = 30;
 
     private static final ZoneId SEOUL = ZoneId.of("Asia/Seoul");
 
@@ -108,7 +115,11 @@ public class GeneralBankTransactionSyncService implements BankTransactionSyncSer
         }
 
         LocalDate today = LocalDate.now(clock);
-        LocalDate startDate = resolveStartDate(command.clubId(), today);
+        // BANK API 조회일은 KST 날짜라 마지막 거래도 KST 달력으로 환산한다.
+        LocalDate latestTransactionDate = bankTransactionRepository.findLatestTransactionAt(command.clubId())
+                .map(latest -> latest.atZone(SEOUL).toLocalDate())
+                .orElse(null);
+        SyncWindow window = resolveWindow(today, latestTransactionDate);
 
         // 민감 인증정보(계좌 비번·주민번호 앞 6자리)는 오직 이 BANK API 호출에만 전달한다.
         // 이후 어떤 변수에도 보관하지 않으며, 적재·로깅·예외에 절대 싣지 않는다.
@@ -117,14 +128,14 @@ public class GeneralBankTransactionSyncService implements BankTransactionSyncSer
                 new TransactionLookupCommand(
                         bankCode, accountNumber,
                         command.accountPassword(), command.residentNumber(),
-                        startDate, today));
+                        window.startDate(), today));
 
         // 외부 조회가 끝난 뒤에만 짧은 쓰기 트랜잭션을 열어 적재한다(native insert 는 활성 트랜잭션 필요).
         PersistResult persistResult = transactionTemplate.execute(
                 status -> persist(command.clubId(), bankCode, fetchedTransactions));
         // execute 는 rollback-only 등에서 null 을 반환할 수 있다(@Nullable). 적재 결과가 없으면 매칭 없이 조회 건수만 보고한다.
         if (persistResult == null) {
-            return new SyncResult(fetchedTransactions.size(), 0, 0, 0);
+            return new SyncResult(fetchedTransactions.size(), 0, 0, 0, window.missedFrom(), window.missedTo());
         }
 
         // 적재 트랜잭션이 커밋된 뒤에야 매칭을 시도한다. 각 tryAutoMatch 는 거래·청구를 비관적 잠금하고
@@ -143,7 +154,8 @@ public class GeneralBankTransactionSyncService implements BankTransactionSyncSer
         }
         return new SyncResult(
                 fetchedTransactions.size(), persistResult.newlyStored(),
-                autoMatched, newDeposits.size() - autoMatched);
+                autoMatched, newDeposits.size() - autoMatched,
+                window.missedFrom(), window.missedTo());
     }
 
     private PersistResult persist(Long clubId, String bankCode, List<BankTransactionData> fetchedTransactions) {
@@ -188,18 +200,25 @@ public class GeneralBankTransactionSyncService implements BankTransactionSyncSer
     /** 적재 트랜잭션 산출물. 신규 적재 건수와, 트랜잭션 밖에서 매칭할 신규 PENDING 입금 거래들을 함께 전달한다. */
     private record PersistResult(int newlyStored, List<BankTransaction> newDeposits) {}
 
+    /** 조회 시작일과, 상한에 잘려 이번에 조회하지 못한 기간(잘리지 않았으면 둘 다 null). 날짜는 모두 KST. */
+    record SyncWindow(LocalDate startDate, LocalDate missedFrom, LocalDate missedTo) {}
+
     /**
-     * 조회 시작일을 결정한다. 마지막 적재 거래가 있으면 그 하루 전부터(경계 거래 누락 방지),
-     * 없으면 기간 하한부터 조회한다. 어떤 경우든 하한({@code today - LOOKBACK_DAYS}) 아래로 내려가지 않는다.
+     * 조회 기간을 정한다. 마지막 적재 거래 전날(경계 거래 누락 방지)과 오늘 − {@code LOOKBACK_DAYS} 가운데 이른 날부터 조회하되
+     * 오늘 − {@code MAX_LOOKBACK_DAYS} 보다 앞으로는 가지 않는다. 마지막 거래일까지 잘리면 그날부터 조회 시작 전날까지를 함께 돌려준다.
+     * 경계용 전날 하루만 잘리는 것은 알리지 않는다 — 이전 동기화가 이미 본 날이라, 알리면 월 1회 같은 날 동기화마다 거짓 경고가 뜬다.
      */
-    private LocalDate resolveStartDate(Long clubId, LocalDate today) {
+    static SyncWindow resolveWindow(LocalDate today, LocalDate latestTransactionDate) {
         LocalDate lowerBound = today.minusDays(LOOKBACK_DAYS);
-        Instant latest = bankTransactionRepository.findLatestTransactionAt(clubId).orElse(null);
-        if (latest == null) {
-            return lowerBound;
+        if (latestTransactionDate == null) {
+            return new SyncWindow(lowerBound, null, null);
         }
-        // BANK API 조회 시작일은 KST 날짜라 마지막 거래도 KST 달력으로 환산해 하루를 뺀다.
-        LocalDate fromLatest = latest.atZone(SEOUL).toLocalDate().minusDays(1);
-        return fromLatest.isBefore(lowerBound) ? lowerBound : fromLatest;
+        LocalDate oldestAllowed = today.minusDays(MAX_LOOKBACK_DAYS);
+        if (latestTransactionDate.isBefore(oldestAllowed)) {
+            return new SyncWindow(oldestAllowed, latestTransactionDate, oldestAllowed.minusDays(1));
+        }
+        LocalDate fromLatest = latestTransactionDate.minusDays(1);
+        LocalDate wanted = fromLatest.isBefore(lowerBound) ? fromLatest : lowerBound;
+        return new SyncWindow(wanted.isBefore(oldestAllowed) ? oldestAllowed : wanted, null, null);
     }
 }
