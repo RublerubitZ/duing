@@ -5,7 +5,7 @@ import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { setupServer } from 'msw/node';
-import { http, HttpResponse } from 'msw';
+import { delay, http, HttpResponse } from 'msw';
 import { createApiClient } from '@duing/api';
 import { ApiClientProvider, todayKstDateString } from '@duing/hooks';
 import type {
@@ -436,7 +436,8 @@ describe('RecruitmentDetailPage — 마감일 경과·수동 마감 전(만료-O
     expect(await screen.findByRole('button', { name: '모집 마감' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: '수정' })).toBeInTheDocument();
     expect(screen.queryByText('이미 마감된 모집입니다.')).not.toBeInTheDocument();
-    expect(screen.getByText(/모집 기간이 끝났지만 아직 마감 전이에요/)).toBeInTheDocument();
+    // 기간 종료 안내는 통계 요약(자동 마감 전망)이 온 뒤에 한 번 그려진다(#1572) — 상세 조회만 기다리면 경합이다.
+    expect(await screen.findByText(/모집 기간이 끝났지만 아직 마감 전이에요/)).toBeInTheDocument();
     expect(screen.getByText(/남은 지원자 심사를 이어서 진행/)).toBeInTheDocument();
     // 상태 칩도 '모집마감'이 아니라 기간 종료로 표기한다.
     expect(screen.getByText('기간 종료')).toBeInTheDocument();
@@ -454,6 +455,44 @@ describe('RecruitmentDetailPage — 마감일 경과·수동 마감 전(만료-O
     expect(await screen.findByText('이미 마감된 모집입니다.')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: '모집 마감' })).not.toBeInTheDocument();
     expect(screen.queryByRole('link', { name: '수정' })).not.toBeInTheDocument();
+    expect(screen.queryByText(/모집 기간이 끝났지만 아직 마감 전이에요/)).not.toBeInTheDocument();
+  });
+});
+
+// #1572: 기간 종료 안내가 서버 자동 마감 전망(통계 요약)으로 무엇이 막는지·언제 닫히는지를 말한다.
+describe('RecruitmentDetailPage — 자동 마감 전망 안내', () => {
+  it('결과를 다 정했는데 끝나지 않은 면접 라운드가 막으면 라운드를 정리하라고 알린다(운영 모집 80 모양)', async () => {
+    server.use(
+      mockRecruitmentDetail(false, { status: 'OPEN', displayStatus: 'CLOSED' }),
+      EMPTY_ROUNDS_HANDLER,
+      statsSummaryHandler({
+        total: 3,
+        accepted: 2,
+        rejected: 1,
+        autoClose: { closesOn: '2026-12-08', gracePeriodOver: true, undecidedApplicationCount: 0, inProgressRoundCount: 1 },
+      }),
+    );
+
+    renderPage();
+
+    expect(
+      await screen.findByText(/끝나지 않은 면접 라운드 1개가 남아 있어 자동으로 마감되지 않아요/),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/남은 지원자 심사를 이어서 진행/)).not.toBeInTheDocument();
+  });
+
+  it('통계 요약을 받기 전에는 안내를 그리지 않는다 — 낭독 영역이 문장을 두 번 읽지 않게', async () => {
+    server.use(
+      mockRecruitmentDetail(false, { status: 'OPEN', displayStatus: 'CLOSED' }),
+      EMPTY_ROUNDS_HANDLER,
+      http.get(`*/leader/recruitments/${RECRUITMENT_ID}/stats/summary`, async () => {
+        await delay('infinite');
+      }),
+    );
+
+    renderPage();
+
+    expect(await screen.findByRole('button', { name: '모집 마감' })).toBeInTheDocument();
     expect(screen.queryByText(/모집 기간이 끝났지만 아직 마감 전이에요/)).not.toBeInTheDocument();
   });
 });

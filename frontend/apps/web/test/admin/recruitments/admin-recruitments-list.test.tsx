@@ -185,6 +185,43 @@ describe('관리자 모집 목록', () => {
     expect(within(rowByTitle('상시 열린 모집')).queryByText('운영 개입 필요')).toBeNull();
   });
 
+  // #1583: 서버 자동 마감 전망으로 '운영 개입 필요'와 '자동 마감 예정'을 나눈다. 막는 이유는 툴팁이 아니라 보이는 글자다.
+  it('자동 마감 전망에 따라 유예 중인 모집은 자동 마감 예정, 유예가 끝났는데 막힌 모집만 운영 개입 필요를 단다', () => {
+    const outlook = { closesOn: '2026-12-08', gracePeriodOver: false, undecidedApplicationCount: 0, inProgressRoundCount: 0 };
+    mockRecruitmentsQuery.mockReturnValue(
+      listSuccess([
+        makeRecruitment({ recruitmentId: 1, title: '유예 중 모집', status: 'OPEN', displayStatus: 'CLOSED',
+          endDate: YESTERDAY, autoClose: outlook }),
+        makeRecruitment({ recruitmentId: 2, title: '오늘 밤 닫힐 모집', status: 'OPEN', displayStatus: 'CLOSED',
+          endDate: YESTERDAY, autoClose: { ...outlook, gracePeriodOver: true } }),
+        makeRecruitment({ recruitmentId: 3, title: '라운드에 막힌 모집', status: 'OPEN', displayStatus: 'CLOSED',
+          endDate: YESTERDAY, autoClose: { ...outlook, gracePeriodOver: true, inProgressRoundCount: 1 } }),
+        makeRecruitment({ recruitmentId: 4, title: '유예 중 막힌 모집', status: 'OPEN', displayStatus: 'CLOSED',
+          endDate: YESTERDAY, autoClose: { ...outlook, undecidedApplicationCount: 2 } }),
+        makeRecruitment({ recruitmentId: 5, title: '자동 마감 꺼진 모집', status: 'OPEN', displayStatus: 'CLOSED',
+          endDate: YESTERDAY, autoClose: null }),
+      ]),
+    );
+
+    render(<AdminRecruitmentsPage />);
+
+    const inGrace = within(rowByTitle('유예 중 모집'));
+    expect(inGrace.getByText('자동 마감 예정')).toBeInTheDocument();
+    expect(inGrace.getByText('12월 8일 새벽')).toBeInTheDocument();
+    expect(inGrace.queryByText('운영 개입 필요')).toBeNull();
+    expect(within(rowByTitle('오늘 밤 닫힐 모집')).getByText('다음 새벽')).toBeInTheDocument();
+
+    const blocked = within(rowByTitle('라운드에 막힌 모집'));
+    expect(blocked.getByText('운영 개입 필요')).toBeInTheDocument();
+    expect(blocked.getByText('면접 라운드 1개')).toBeInTheDocument();
+
+    const blockedInGrace = within(rowByTitle('유예 중 막힌 모집'));
+    expect(blockedInGrace.queryByText('운영 개입 필요')).toBeNull();
+    expect(blockedInGrace.queryByText('자동 마감 예정')).toBeNull();
+
+    expect(within(rowByTitle('자동 마감 꺼진 모집')).getByText('운영 개입 필요')).toBeInTheDocument();
+  });
+
   describe('일수 경계', () => {
     beforeEach(() => {
       vi.useFakeTimers({ toFake: ['Date'] });

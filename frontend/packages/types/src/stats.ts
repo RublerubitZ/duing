@@ -1,3 +1,5 @@
+import type { RecruitmentAutoCloseOutlook } from './recruitment';
+
 export type StatsSummary = {
   total: number;
   submitted: number;
@@ -14,6 +16,8 @@ export type StatsSummary = {
    * 지원서는 탈퇴한 지원자 것도 세므로 total 이 0 이어도 false 일 수 있다. 필드가 없으면 옛 백엔드.
    */
   deletable?: boolean;
+  /** 자동 마감 전망 — 기간이 끝난 OPEN 모집에만 있다. 없으면(undefined·null) 운영진 안내는 옛 고정 문장이다. */
+  autoClose?: RecruitmentAutoCloseOutlook | null;
 };
 
 export type StatsDailyPoint = {

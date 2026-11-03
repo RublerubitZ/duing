@@ -56,9 +56,15 @@ export default function RecruitmentDetailPage({
   const deleteRecruitment = useDeleteRecruitmentMutation(clubId, recruitmentId);
   // 통계 페이지 진입 전 핵심 지표(지원자·합격·합격률)를 상세에서 미리 보여주기 위한 1회 호출.
   // 통계 페이지와 동일 훅·쿼리키를 공유하므로 통계로 이동 시 캐시가 재사용된다.
-  const { data: statsSummary, isPending: isStatsSummaryPending } = useRecruitmentStatsSummaryQuery(
-    isNaN(recruitmentId) ? undefined : recruitmentId,
-  );
+  const {
+    data: statsSummary,
+    isPending: isStatsSummaryPending,
+    isFetching: isStatsSummaryFetching,
+    isStale: isStatsSummaryStale,
+  } = useRecruitmentStatsSummaryQuery(isNaN(recruitmentId) ? undefined : recruitmentId);
+  // 기간 종료 안내는 낭독 영역이고 문장이 자동 마감 전망(#1572)에 달려 있다 — 요약 응답(성공·실패) 뒤에 한 번 그리고,
+  // 무효화 뒤 다시 받는 동안에는 옛 전망을 보이지 않는다.
+  const isStatsSummarySettled = !isStatsSummaryPending && !(isStatsSummaryFetching && isStatsSummaryStale);
 
   if (isLoading || !recruitment) {
     return <LoadingGate label="모집 정보 불러오는 중" />;
@@ -145,9 +151,9 @@ export default function RecruitmentDetailPage({
         </div>
       )}
       {/* 데이터 로드 후 나타나는 행동 요청이라 라이브 리전으로 알린다 */}
-      {isExpiredOpen && (
+      {isExpiredOpen && isStatsSummarySettled && (
         <div role="status" className="mb-6 rounded-md bg-amber-50 px-4 py-3 text-sm text-amber-800">
-          {recruitmentExpiredOpenNotice(recruitment.applicationMode)}
+          {recruitmentExpiredOpenNotice(recruitment.applicationMode, statsSummary?.autoClose)}
         </div>
       )}
 

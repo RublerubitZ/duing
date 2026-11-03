@@ -1,5 +1,5 @@
 import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
-import { describe, it, expect, vi, afterEach } from 'vitest';
+import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
 import type { RecruitmentSummary } from '@duing/types';
 
 vi.mock('next/link', () => ({
@@ -10,7 +10,10 @@ vi.mock('@/app/_lib/route', () => ({ toRoute: (path: string) => path }));
 const mockCloseMutateAsync = vi.fn();
 const mockStopIntakeMutateAsync = vi.fn();
 const mockPendingJoinRequests = vi.fn(() => ({ data: [] as unknown[] }));
-const mockStatsSummary = vi.fn(() => ({ data: undefined as unknown }));
+type StatsSummaryQueryMock = { data: unknown; isPending?: boolean; isFetching?: boolean; isStale?: boolean };
+const mockStatsSummary = vi.fn<(recruitmentId: number | undefined) => StatsSummaryQueryMock>(() => ({
+  data: undefined,
+}));
 vi.mock('@duing/hooks', async (importOriginal) => {
   const actualHooks = await importOriginal<typeof import('@duing/hooks')>();
   return {
@@ -18,7 +21,7 @@ vi.mock('@duing/hooks', async (importOriginal) => {
     useCloseRecruitmentMutation: () => ({ mutateAsync: mockCloseMutateAsync, isPending: false }),
     useStopRecruitmentIntakeMutation: () => ({ mutateAsync: mockStopIntakeMutateAsync, isPending: false }),
     useJoinRequestsQuery: () => mockPendingJoinRequests(),
-    useRecruitmentStatsSummaryQuery: () => mockStatsSummary(),
+    useRecruitmentStatsSummaryQuery: (recruitmentId: number | undefined) => mockStatsSummary(recruitmentId),
   };
 });
 
@@ -229,6 +232,97 @@ describe('CurrentRecruitmentCard — 외부 폼 모집 액션', () => {
 
     expect(screen.queryByRole('button', { name: '가입 링크' })).not.toBeInTheDocument();
     expect(screen.queryByRole('link', { name: /가입 요청 관리/ })).not.toBeInTheDocument();
+  });
+});
+
+describe('CurrentRecruitmentCard — 서버 자동 마감 전망 안내(#1572)', () => {
+  const expiredSelf = () => recruitment({ displayStatus: 'CLOSED', effectivelyOpen: false });
+  const expiredExternal = () =>
+    recruitment({
+      applicationMode: 'EXTERNAL',
+      useInterview: false,
+      externalFormUrl: 'https://forms.gle/abc',
+      displayStatus: 'CLOSED',
+      effectivelyOpen: false,
+    });
+  const settledSummary = (autoClose: unknown): StatsSummaryQueryMock => ({
+    data: { autoClose },
+    isPending: false,
+    isFetching: false,
+    isStale: false,
+  });
+
+  beforeEach(() => {
+    mockStatsSummary.mockClear();
+  });
+
+  afterEach(() => {
+    mockStatsSummary.mockReturnValue({ data: undefined });
+  });
+
+  it('기간이 끝난 외부 폼 모집도 통계 요약을 조회해 자동 마감 날짜를 알린다', () => {
+    mockStatsSummary.mockReturnValue(
+      settledSummary({ closesOn: '2026-12-08', gracePeriodOver: false, undecidedApplicationCount: 0, inProgressRoundCount: 0 }),
+    );
+
+    render(<CurrentRecruitmentCard clubId={1} recruitment={expiredExternal()} />);
+
+    expect(mockStatsSummary).toHaveBeenCalledWith(42);
+    expect(screen.getByRole('status')).toHaveTextContent(
+      '가입 처리를 마치면 모집을 마감해 주세요. 그대로 두면 12월 8일 새벽에 자동으로 마감돼요.',
+    );
+  });
+
+  it('기간 중인 외부 폼 모집은 통계 요약을 조회하지 않는다', () => {
+    render(
+      <CurrentRecruitmentCard
+        clubId={1}
+        recruitment={recruitment({ applicationMode: 'EXTERNAL', useInterview: false, externalFormUrl: 'https://forms.gle/abc' })}
+      />,
+    );
+
+    expect(mockStatsSummary).toHaveBeenCalledWith(undefined);
+    expect(mockStatsSummary).not.toHaveBeenCalledWith(42);
+  });
+
+  it('결과를 다 정했는데 끝나지 않은 면접 라운드가 막으면 그 이유와 다음 행동을 알린다', () => {
+    mockStatsSummary.mockReturnValue(
+      settledSummary({ closesOn: '2026-12-08', gracePeriodOver: true, undecidedApplicationCount: 0, inProgressRoundCount: 1 }),
+    );
+
+    render(<CurrentRecruitmentCard clubId={1} recruitment={expiredSelf()} />);
+
+    expect(screen.getByRole('status')).toHaveTextContent(
+      "끝나지 않은 면접 라운드 1개가 남아 있어 자동으로 마감되지 않아요. 면접 라운드를 확정하거나 취소하고, 아니면 직접 '모집 마감'을 눌러 주세요.",
+    );
+    expect(screen.queryByText(/남은 지원자 심사를 이어서 진행하고/)).not.toBeInTheDocument();
+  });
+
+  it('통계 요약을 받기 전과, 무효화 뒤 다시 받는 동안에는 안내를 그리지 않는다 — 낭독 영역이 옛 전망을 읽지 않게', () => {
+    mockStatsSummary.mockReturnValue({ data: undefined, isPending: true });
+    const { rerender } = render(<CurrentRecruitmentCard clubId={1} recruitment={expiredSelf()} />);
+
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
+
+    mockStatsSummary.mockReturnValue({
+      data: { autoClose: { closesOn: '2026-12-08', gracePeriodOver: true, undecidedApplicationCount: 0, inProgressRoundCount: 1 } },
+      isPending: false,
+      isFetching: true,
+      isStale: true,
+    });
+    rerender(<CurrentRecruitmentCard clubId={1} recruitment={expiredSelf()} />);
+
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
+  });
+
+  it('통계 요약을 받지 못하면 지원 방식만 본 고정 문장을 보인다', () => {
+    mockStatsSummary.mockReturnValue({ data: undefined, isPending: false });
+
+    render(<CurrentRecruitmentCard clubId={1} recruitment={expiredSelf()} />);
+
+    expect(screen.getByRole('status')).toHaveTextContent(
+      '남은 심사·면접이 없으면 종료일로부터 7일이 지난 뒤 자동으로 마감돼요.',
+    );
   });
 });
 

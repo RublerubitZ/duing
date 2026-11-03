@@ -47,11 +47,18 @@ export function CurrentRecruitmentCard({ clubId, recruitment }: Props) {
   // 캠페인 기간이 끝났고 심사만 남았음을 드러낸다.
   const isExpiredOpen = isRecruitmentExpiredOpen(recruitment);
   const statusChip = recruitmentStatusChip(recruitment);
-  // 마감 확인 다이얼로그의 미결 지원서 경고용 — 외부 폼은 지원 데이터가 없어 조회하지 않는다.
+  // 마감 확인 다이얼로그의 미결 지원서 경고와 기간 종료 안내의 자동 마감 전망(#1572)용. 외부 폼은 지원 데이터가 없어
+  // 기간 중에는 조회하지 않고, 기간이 끝나면 자동 마감 날짜를 알리려고 조회한다(마감 다이얼로그는 외부 폼이면 요약을 쓰지 않는다).
   // KPI Row·통계 페이지와 같은 훅·쿼리키라 대부분 캐시 재사용이다.
-  const { data: statsSummary } = useRecruitmentStatsSummaryQuery(
-    isExternal ? undefined : recruitment.id,
-  );
+  const {
+    data: statsSummary,
+    isPending: isStatsSummaryPending,
+    isFetching: isStatsSummaryFetching,
+    isStale: isStatsSummaryStale,
+  } = useRecruitmentStatsSummaryQuery(isExternal && !isExpiredOpen ? undefined : recruitment.id);
+  // 기간 종료 안내는 낭독 영역이라 문장이 바뀌면 다시 읽힌다 — 요약 응답(성공·실패) 뒤에 한 번 그리고, 무효화 뒤 다시 받는
+  // 동안에는 옛 전망을 보이지 않는다.
+  const isStatsSummarySettled = !isStatsSummaryPending && !(isStatsSummaryFetching && isStatsSummaryStale);
   const stageLabels = recruitmentStageLabels(recruitment.useInterview);
   // 접수 마감(신규 지원만 차단·심사 계속)은 상시모집 전용 — 시작일 다음 날(KST)부터 활성화된다.
   const stopIntakeAction = stopIntakeGate(recruitment, now);
@@ -92,9 +99,9 @@ export function CurrentRecruitmentCard({ clubId, recruitment }: Props) {
       </div>
 
       {/* 데이터 로드 후 나타나는 행동 요청이라 라이브 리전으로 알린다 */}
-      {isExpiredOpen && (
+      {isExpiredOpen && isStatsSummarySettled && (
         <p role="status" className="mt-2 rounded-md bg-amber-50 px-3 py-2 text-xs leading-relaxed text-amber-800">
-          {recruitmentExpiredOpenNotice(recruitment.applicationMode)}
+          {recruitmentExpiredOpenNotice(recruitment.applicationMode, statsSummary?.autoClose)}
         </p>
       )}
 

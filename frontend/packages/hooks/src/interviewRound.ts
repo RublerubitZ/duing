@@ -9,6 +9,7 @@ import type {
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useApiClient } from './api-context';
 import { interviewRoundKeys } from './interviewRoundQueryKeys';
+import { statsQueryKeys } from './statsQueryKeys';
 
 // =====================================================================
 // Queries
@@ -121,6 +122,8 @@ export function useCancelInterviewRoundMutation(recruitmentId: number, roundId: 
       queryClient.invalidateQueries({
         queryKey: interviewRoundKeys.candidates(recruitmentId),
       });
+      // 진행 중 라운드가 줄면 모집의 자동 마감 전망(통계 요약)이 바뀐다(#1572).
+      queryClient.invalidateQueries({ queryKey: statsQueryKeys.byRecruitment(recruitmentId) });
     },
   });
 }
@@ -287,6 +290,8 @@ export function useConfirmRoundMutation(recruitmentId: number, roundId: number) 
       queryClient.invalidateQueries({
         queryKey: interviewRoundKeys.candidates(recruitmentId),
       });
+      // 확정된 라운드는 더 이상 자동 마감을 막지 않는다 — 모집의 자동 마감 전망(통계 요약)이 바뀐다(#1572).
+      queryClient.invalidateQueries({ queryKey: statsQueryKeys.byRecruitment(recruitmentId) });
     },
   });
 }

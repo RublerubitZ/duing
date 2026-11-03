@@ -1,5 +1,11 @@
-import { daysUntilKst, parseKstInstant } from '@duing/hooks/datetime';
-import type { ApplicationMode, RecruitmentDisplayStatus, RecruitmentSummary } from '@duing/types';
+import { daysUntilKst, kstDateTimeFormatter, parseKstInstant } from '@duing/hooks/datetime';
+import type {
+  AdminRecruitmentListItem,
+  ApplicationMode,
+  RecruitmentAutoCloseOutlook,
+  RecruitmentDisplayStatus,
+  RecruitmentSummary,
+} from '@duing/types';
 
 /** 학생 화면 상태 라벨 — 아래 표시 상태 테이블을 그대로 읽는다(운영진·총동연 칩과 같은 출처). */
 export function displayStatusLabel(status: RecruitmentDisplayStatus): string {
@@ -53,21 +59,103 @@ export const RECRUITMENT_EXPIRED_OPEN_BADGE = 'pill pill-warm-outline';
 /** 백엔드 자동 마감 유예(RecruitmentAutoClosePolicy.GRACE_DAYS)와 같은 값이다 — 바뀌면 함께 고친다. */
 export const AUTO_CLOSE_GRACE_DAYS = 7;
 
+const EXPIRED_OPEN_LEAD = '모집 기간이 끝났지만 아직 마감 전이에요.';
+
+/** 자동 마감 날짜 표기("M월 D일")용 — 로케일 패턴을 믿지 않고 formatToParts 로 조립한다. */
+const AUTO_CLOSE_DATE_FORMATTER = kstDateTimeFormatter({ month: 'numeric', day: 'numeric' });
+
+/** 서버가 준 자동 마감 첫날(KST 'YYYY-MM-DD')을 "M월 D일"로 쓴다. */
+export function formatAutoCloseDate(closesOn: string): string {
+  const parts = AUTO_CLOSE_DATE_FORMATTER.formatToParts(parseKstInstant(closesOn));
+  const month = parts.find((part) => part.type === 'month')?.value ?? '';
+  const day = parts.find((part) => part.type === 'day')?.value ?? '';
+  return `${month}월 ${day}일`;
+}
+
+function isAutoCloseBlocked(autoClose: RecruitmentAutoCloseOutlook): boolean {
+  return autoClose.undecidedApplicationCount > 0 || autoClose.inProgressRoundCount > 0;
+}
+
 /**
- * 만료-OPEN 안내 문구 — 지금 상태와 다음 행동(심사·가입 처리 후 마감), 그리고 그대로 두면 종료일로부터
- * {@link AUTO_CLOSE_GRACE_DAYS}일이 지나 자동 마감된다는 사실을 함께 알려준다.
+ * 만료-OPEN 안내 문구 — 지금 상태와 다음 행동, 그리고 자동 마감 여부를 함께 알려준다.
+ *
+ * 서버의 자동 마감 전망({@link RecruitmentAutoCloseOutlook}, 운영진 통계 요약)이 있으면 무엇이 막는지와 언제 닫히는지를
+ * 그 값으로 말한다(#1572) — 화면은 날짜를 비교하지 않고 서버가 판정한 gracePeriodOver 를 따른다. 전망이 없으면(옛 서버·조회
+ * 실패·자동 마감 꺼짐) 지원 방식만 본 고정 문장으로 돌아간다. 외부 폼은 결과 없는 지원·라운드가 없어 막힘 문장이 나올 일이 없다.
  */
-export function recruitmentExpiredOpenNotice(applicationMode: ApplicationMode): string {
-  const nextStep =
-    applicationMode === 'EXTERNAL'
-      ? '가입 처리를 마치면 모집을 마감해 주세요.'
-      : '남은 지원자 심사를 이어서 진행하고, 심사를 마치면 모집을 마감해 주세요.';
-  // 자체 지원은 결과 없는 지원·진행 중 면접 라운드가 있으면 자동 마감되지 않는다. 외부 폼은 둘 다 없어 조건 없이 닫힌다.
-  const autoClose =
-    applicationMode === 'EXTERNAL'
-      ? `종료일로부터 ${AUTO_CLOSE_GRACE_DAYS}일이 지나면 자동으로 마감돼요.`
-      : `남은 심사·면접이 없으면 종료일로부터 ${AUTO_CLOSE_GRACE_DAYS}일이 지난 뒤 자동으로 마감돼요.`;
-  return `모집 기간이 끝났지만 아직 마감 전이에요. ${nextStep} ${autoClose}`;
+export function recruitmentExpiredOpenNotice(
+  applicationMode: ApplicationMode,
+  autoClose?: RecruitmentAutoCloseOutlook | null,
+): string {
+  if (autoClose == null) {
+    const nextStep =
+      applicationMode === 'EXTERNAL'
+        ? '가입 처리를 마치면 모집을 마감해 주세요.'
+        : '남은 지원자 심사를 이어서 진행하고, 심사를 마치면 모집을 마감해 주세요.';
+    // 자체 지원은 결과 없는 지원·진행 중 면접 라운드가 있으면 자동 마감되지 않는다. 외부 폼은 둘 다 없어 조건 없이 닫힌다.
+    const autoCloseSentence =
+      applicationMode === 'EXTERNAL'
+        ? `종료일로부터 ${AUTO_CLOSE_GRACE_DAYS}일이 지나면 자동으로 마감돼요.`
+        : `남은 심사·면접이 없으면 종료일로부터 ${AUTO_CLOSE_GRACE_DAYS}일이 지난 뒤 자동으로 마감돼요.`;
+    return `${EXPIRED_OPEN_LEAD} ${nextStep} ${autoCloseSentence}`;
+  }
+
+  const { undecidedApplicationCount: undecided, inProgressRoundCount: rounds } = autoClose;
+  if (undecided > 0 && rounds > 0) {
+    return `${EXPIRED_OPEN_LEAD} 결과를 정하지 않은 지원 ${undecided}건과 끝나지 않은 면접 라운드 ${rounds}개가 남아 있어 자동으로 마감되지 않아요. 남은 심사와 면접을 마치거나 직접 '모집 마감'을 눌러 주세요.`;
+  }
+  if (undecided > 0) {
+    return `${EXPIRED_OPEN_LEAD} 결과를 정하지 않은 지원 ${undecided}건이 남아 있어 자동으로 마감되지 않아요. 남은 지원자 심사를 마치거나 직접 '모집 마감'을 눌러 주세요.`;
+  }
+  if (rounds > 0) {
+    return `${EXPIRED_OPEN_LEAD} 끝나지 않은 면접 라운드 ${rounds}개가 남아 있어 자동으로 마감되지 않아요. 면접 라운드를 확정하거나 취소하고, 아니면 직접 '모집 마감'을 눌러 주세요.`;
+  }
+
+  const when = autoClose.gracePeriodOver
+    ? '곧 자동으로 마감돼요. 매일 새벽 0시 40분에 확인해요.'
+    : `${formatAutoCloseDate(autoClose.closesOn)} 새벽에 자동으로 마감돼요.`;
+  return applicationMode === 'EXTERNAL'
+    ? `${EXPIRED_OPEN_LEAD} 가입 처리를 마치면 모집을 마감해 주세요. 그대로 두면 ${when}`
+    : `${EXPIRED_OPEN_LEAD} 남은 심사·면접이 없어 ${when}`;
+}
+
+export type AdminAutoCloseBadge = {
+  label: '운영 개입 필요' | '자동 마감 예정';
+  tone: 'warm' | 'neutral';
+  /** 배지 아래에 보이는 글자로 둔다 — 툴팁은 터치에서 열 수 없어 이유를 거기에만 두지 않는다. */
+  detail: string | null;
+};
+
+/**
+ * 총동연 모집 목록의 만료-OPEN 배지(#1583) — 서버 자동 마감 전망으로 '운영 개입 필요'와 '자동 마감 예정'을 나눈다.
+ * 막혀 있어도 유예 중이면 아직 운영진의 시간이라 배지를 달지 않는다. 전망이 없으면(옛 서버·자동 마감 꺼짐) 지금처럼
+ * '운영 개입 필요'를 붙인다 — 자동으로 닫힌다고 잘못 약속하지 않는 쪽이다. 만료-OPEN 판정은 {@link isRecruitmentExpiredOpen} 하나만 쓴다.
+ */
+export function adminAutoCloseBadge(
+  recruitment: Pick<AdminRecruitmentListItem, 'status' | 'displayStatus' | 'autoClose'>,
+): AdminAutoCloseBadge | null {
+  if (!isRecruitmentExpiredOpen(recruitment)) {
+    return null;
+  }
+  const { autoClose } = recruitment;
+  if (autoClose == null) {
+    return { label: '운영 개입 필요', tone: 'warm', detail: null };
+  }
+  if (!isAutoCloseBlocked(autoClose)) {
+    return {
+      label: '자동 마감 예정',
+      tone: 'neutral',
+      detail: autoClose.gracePeriodOver ? '다음 새벽' : `${formatAutoCloseDate(autoClose.closesOn)} 새벽`,
+    };
+  }
+  if (!autoClose.gracePeriodOver) {
+    return null;
+  }
+  const reasons = [
+    autoClose.undecidedApplicationCount > 0 ? `결과 없는 지원 ${autoClose.undecidedApplicationCount}건` : null,
+    autoClose.inProgressRoundCount > 0 ? `면접 라운드 ${autoClose.inProgressRoundCount}개` : null,
+  ].filter((reason): reason is string => reason !== null);
+  return { label: '운영 개입 필요', tone: 'warm', detail: reasons.join('·') };
 }
 
 /**
