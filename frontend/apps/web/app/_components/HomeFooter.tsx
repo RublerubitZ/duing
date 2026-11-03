@@ -8,6 +8,7 @@ const linkClass = 'hover:text-ink';
 /**
  * 이용 가이드 첫 글("두잉 처음 시작하기") — '이용 가이드' 태그 소식(23~27) 중 첫 편이다.
  * 그 소식을 지우거나 첫 글이 바뀌면 이 주소도 바꾼다(지우면 링크가 "볼 수 없음" 셸로 간다).
+ * 운영 DB 기준 id 다 — 개발 DB 를 보는 환경(로컬·프리뷰)에서는 다른 글이거나 없는 글일 수 있다.
  */
 const GUIDE_START_HREF = '/notices/23';
 
@@ -81,7 +82,7 @@ export function HomeFooter() {
           </p>
         </div>
 
-        {/* 상단바·하단 탭(동아리·시설·일정·소식)과 같은 목록으로 맞춘다 — 홈은 로고가 맡는다. */}
+        {/* 상단바·하단 탭(동아리·시설·일정·소식)과 같은 목록에 서비스 소개·이용 가이드를 더한다 — 홈은 로고가 맡는다. */}
         <FooterColumn title="서비스">
           <li>
             <Link href="/clubs" className={linkClass}>

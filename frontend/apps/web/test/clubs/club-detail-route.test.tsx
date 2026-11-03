@@ -44,7 +44,7 @@ function club(overrides: Partial<ClubDetail> = {}): Partial<ClubDetail> {
     name: '비호상록회',
     tagline: '지역사회와 함께하는 따뜻한 봉사동아리',
     description: null,
-    // 광고 판정(isAdEligibleClub)이 읽는 필드 — 운영 API 는 항상 배열을 준다.
+    // 광고 판정(isAdEligibleClub)이 읽는 highlights·projects(운영 API 는 항상 배열을 준다) — faqs·photos 는 판정이 세지 않는 필드다(얇은 상세 케이스가 덮어쓴다).
     highlights: [],
     projects: [],
     faqs: [],

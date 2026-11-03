@@ -26,6 +26,7 @@ type Props = {
 // 브라우저는 시드(updatedAt 0) 덕에 마운트 때 지금처럼 최신 데이터를 다시 받는다(SeededQuery). 대표 활동도 함께
 // 시드하고(실패하면 그 시드만 빠진다), 이미지는 마운트 재요청이 끝난 뒤 받는다(ClubDetailHeroActivities).
 // ⚠️ cookies()·headers()·searchParams 를 읽으면 동적 라우트가 돼 요청마다 함수가 돈다 — 쓰지 말 것.
+// 광고 스크립트(AdSenseScript)도 head 대신 body 로 밀려 크롤러 초기 HTML 의 head 요건(#1126)이 깨진다.
 // 요청별 값이 HTML 에 굳는 문제는 그대로다 — sentry-trace·baggage meta 가 경로별로 고정되므로 트레이싱
 // (tracesSampleRate)을 켤 때 이 라우트의 캐시 전략을 함께 재검토할 것.
 export const revalidate = 604800;
