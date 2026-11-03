@@ -115,10 +115,9 @@ public class GeneralBankTransactionSyncService implements BankTransactionSyncSer
         }
 
         LocalDate today = LocalDate.now(clock);
+        Instant latestStoredAt = bankTransactionRepository.findLatestTransactionAt(command.clubId()).orElse(null);
         // BANK API 조회일은 KST 날짜라 마지막 거래도 KST 달력으로 환산한다.
-        LocalDate latestTransactionDate = bankTransactionRepository.findLatestTransactionAt(command.clubId())
-                .map(latest -> latest.atZone(SEOUL).toLocalDate())
-                .orElse(null);
+        LocalDate latestTransactionDate = latestStoredAt == null ? null : latestStoredAt.atZone(SEOUL).toLocalDate();
         SyncWindow window = resolveWindow(today, latestTransactionDate);
 
         // 민감 인증정보(계좌 비번·주민번호 앞 6자리)는 오직 이 BANK API 호출에만 전달한다.
@@ -142,12 +141,14 @@ public class GeneralBankTransactionSyncService implements BankTransactionSyncSer
         // 자체 트랜잭션으로 납부를 생성하며, 자동확인 알림(AFTER_COMMIT)도 매칭별로 개별 발화한다.
         // 매칭 루프는 적재 템플릿 밖에 둬야 한다 — 같은 트랜잭션이면 AFTER_COMMIT 알림이 동기화 종료까지 미뤄진다.
         // 쉰 기간에서 되살린 입금(최근 LOOKBACK_DAYS 일보다 앞)은 자동매칭하지 않고 검토 대기로 둔다 — 그동안 운영진이 수기로
-        // 처리했을 수 있는데 Tier 1 은 금액만 봐 같은 금액의 다른 회원 청구에 붙을 수 있다. 자동매칭 범위는 수정 전과 같다.
+        // 처리했을 수 있는데 Tier 1 은 금액만 봐 같은 금액의 다른 회원 청구에 붙을 수 있다.
+        // 직전 마지막 거래보다 늦지 않은 새 입금(같은 시각 포함)은 해시가 바뀐 기존 입금의 사본이거나 늦게 반영된 입금이라 검토 대기로 둔다.
         Instant autoMatchFrom = today.minusDays(LOOKBACK_DAYS).atStartOfDay(SEOUL).toInstant();
         List<BankTransaction> newDeposits = persistResult.newDeposits();
         int autoMatched = 0;
         for (BankTransaction deposit : newDeposits) {
             if (!deposit.getTransactionAt().isBefore(autoMatchFrom)
+                    && (latestStoredAt == null || deposit.getTransactionAt().isAfter(latestStoredAt))
                     && transactionMatcher.tryAutoMatch(deposit, command.actorId())) {
                 autoMatched++;
             }
