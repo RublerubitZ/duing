@@ -52,9 +52,9 @@ public interface InterviewRoundRepository extends JpaRepository<InterviewRound, 
      * 쿼리를 쓴다(#1572). 삭제된 라운드는 세지 않는다(@SQLRestriction 과 함께 명시). 건수가 0 인 모집은 행이 없다.
      * 빈 컬렉션으로 부르지 않는다.
      */
-    @Query("SELECT r.recruitmentId AS recruitmentId, COUNT(r) AS itemCount FROM InterviewRound r "
-            + "WHERE r.recruitmentId IN :recruitmentIds AND r.status IN :statuses AND r.deletedAt IS NULL "
-            + "GROUP BY r.recruitmentId")
+    @Query("SELECT round.recruitmentId AS recruitmentId, COUNT(round) AS itemCount FROM InterviewRound round "
+            + "WHERE round.recruitmentId IN :recruitmentIds AND round.status IN :statuses AND round.deletedAt IS NULL "
+            + "GROUP BY round.recruitmentId")
     List<RecruitmentCountRow> countByRecruitmentIdsAndStatusIn(
             @Param("recruitmentIds") Collection<Long> recruitmentIds,
             @Param("statuses") Collection<RoundStatus> statuses);

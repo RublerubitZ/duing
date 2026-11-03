@@ -56,7 +56,10 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
  * 동아리당 OPEN 모집은 1건뿐이라(uk_recruitment_club_active) 모집마다 동아리를 따로 만든다.
  */
 @Import({TestcontainersConfiguration.class, FixedClockConfig.class})
-@SpringBootTest
+// AutoCloseOutlookTest 와 설정(웹 환경·자동 마감 켬)을 맞춰 테스트 컨텍스트 하나를 함께 쓴다 — 이 클래스는 잡 메서드를 직접 부르므로
+// 스위치 값과 무관하다(스위치는 잡 등록과 화면 전망만 본다).
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
+        properties = "duing.recruitment.auto-close.enabled=true")
 class RecruitmentAutoCloseServiceTest extends IntegrationTestBase {
 
     private static final long ASYNC_WAIT_MS = 3_000;

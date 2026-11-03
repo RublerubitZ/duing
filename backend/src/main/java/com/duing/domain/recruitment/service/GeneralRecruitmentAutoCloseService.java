@@ -17,6 +17,7 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
@@ -25,7 +26,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * {@link RecruitmentAutoCloseService} 구현 — 마감 조건은 인터페이스에 있다.
+ * {@link RecruitmentAutoCloseService} 구현 — 마감 조건 설명은 인터페이스에, 판정 규칙(유예 경계·만료-OPEN·전망 조립)은
+ * {@link RecruitmentAutoClosePolicy} 에 있다. 이 클래스는 막는 이유를 세어 그 규칙에 넘긴다.
  *
  * <p>잠금: 모집 행 잠금({@code findByIdForUpdate})을 트랜잭션의 첫 조회로 잡고, 지원·라운드는 잠금 없이 센다.
  * 이 트랜잭션은 모집 행 말고는 잠금을 잡지 않으므로 다른 쓰기 경로와 잠금 사이클이 생기지 않고, 라운드 생성·수동 마감·
@@ -68,13 +70,13 @@ public class GeneralRecruitmentAutoCloseService implements RecruitmentAutoCloseS
     }
 
     @Override
-    public AutoCloseOutlookQuery findOutlook(Recruitment recruitment) {
-        return findOutlooks(List.of(recruitment), LocalDate.now(clock)).get(recruitment.getId());
+    public Optional<AutoCloseOutlookQuery> findOutlook(Recruitment recruitment) {
+        return Optional.ofNullable(findOutlooks(List.of(recruitment), LocalDate.now(clock)).get(recruitment.getId()));
     }
 
     @Override
     public Map<Long, AutoCloseOutlookQuery> findOutlooks(Collection<Recruitment> recruitments, LocalDate today) {
-        if (!autoCloseEnabled()) {
+        if (!MonitoredJob.RECRUITMENT_AUTO_CLOSE.isEnabledIn(environment)) {
             return Map.of();
         }
         return computeOutlooks(recruitments, today);
@@ -86,7 +88,7 @@ public class GeneralRecruitmentAutoCloseService implements RecruitmentAutoCloseS
      */
     private Map<Long, AutoCloseOutlookQuery> computeOutlooks(Collection<Recruitment> recruitments, LocalDate today) {
         List<Recruitment> expiredOpen = recruitments.stream()
-                .filter(recruitment -> AutoCloseOutlookQuery.isExpiredOpen(recruitment, today))
+                .filter(recruitment -> RecruitmentAutoClosePolicy.isExpiredOpen(recruitment, today))
                 .toList();
         if (expiredOpen.isEmpty()) {
             // 집계 쿼리의 IN () 을 피한다.
@@ -100,7 +102,7 @@ public class GeneralRecruitmentAutoCloseService implements RecruitmentAutoCloseS
 
         Map<Long, AutoCloseOutlookQuery> outlooks = new HashMap<>();
         for (Recruitment recruitment : expiredOpen) {
-            outlooks.put(recruitment.getId(), AutoCloseOutlookQuery.assemble(recruitment, today,
+            outlooks.put(recruitment.getId(), RecruitmentAutoClosePolicy.outlook(recruitment, today,
                     undecidedCounts.getOrDefault(recruitment.getId(), 0L),
                     inProgressRoundCounts.getOrDefault(recruitment.getId(), 0L)));
         }
@@ -112,8 +114,4 @@ public class GeneralRecruitmentAutoCloseService implements RecruitmentAutoCloseS
                 .collect(Collectors.toMap(RecruitmentCountRow::getRecruitmentId, RecruitmentCountRow::getItemCount));
     }
 
-    /** 자동 마감 잡의 켜짐 — 잡 등록({@code @ConditionalOnProperty(havingValue = "true")})·자동 작업 카드와 같은 기준. */
-    private boolean autoCloseEnabled() {
-        return "true".equalsIgnoreCase(environment.getProperty(MonitoredJob.RECRUITMENT_AUTO_CLOSE.getEnabledProperty()));
-    }
 }

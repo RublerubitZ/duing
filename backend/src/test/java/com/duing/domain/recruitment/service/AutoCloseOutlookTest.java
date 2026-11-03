@@ -54,6 +54,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
  *
  * <p>오늘은 {@link FixedClockConfig#TODAY}(2026-06-15 KST)이고 자동 마감을 켠다(꺼져 있으면 화면용 전망은 없다).
  * 동아리당 OPEN 모집은 1건(uk_recruitment_club_active)이라 모집마다 동아리를 따로 만든다.
+ * {@code RecruitmentAutoCloseServiceTest} 와 설정을 맞춰 테스트 컨텍스트 하나를 함께 쓴다.
  */
 @Import({TestcontainersConfiguration.class, FixedClockConfig.class})
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
@@ -157,7 +158,7 @@ class AutoCloseOutlookTest extends IntegrationTestBase {
         recruitmentRepository.save(closed);
 
         for (Recruitment recruitment : List.of(alwaysOpen, inPeriod, closed)) {
-            assertThat(recruitmentAutoCloseService.findOutlook(reload(recruitment))).isNull();
+            assertThat(recruitmentAutoCloseService.findOutlook(reload(recruitment))).isEmpty();
             assertThat(recruitmentAutoCloseService.closeIfSettled(recruitment.getId())).isFalse();
         }
     }
@@ -191,7 +192,7 @@ class AutoCloseOutlookTest extends IntegrationTestBase {
     /** 화면 전망 값을 확인한 뒤 잡을 돌려, 잡의 마감 여부가 전망의 '유예 끝남·막는 것 없음'과 같은지 본다. */
     private void assertOutlookMatchesJob(Recruitment recruitment, LocalDate closesOn, boolean gracePeriodOver,
                                          long undecidedApplicationCount, long inProgressRoundCount) {
-        AutoCloseOutlookQuery outlook = recruitmentAutoCloseService.findOutlook(reload(recruitment));
+        AutoCloseOutlookQuery outlook = recruitmentAutoCloseService.findOutlook(reload(recruitment)).orElseThrow();
         assertThat(outlook).isEqualTo(new AutoCloseOutlookQuery(
                 closesOn, gracePeriodOver, undecidedApplicationCount, inProgressRoundCount));
 

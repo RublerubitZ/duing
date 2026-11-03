@@ -8,6 +8,7 @@ import java.time.LocalDate;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 /**
  * 기간 종료 모집의 조건부 자동 마감과 그 전망.
@@ -31,10 +32,10 @@ public interface RecruitmentAutoCloseService {
     boolean closeIfSettled(Long recruitmentId);
 
     /**
-     * 화면용 자동 마감 전망(단건, 오늘은 서버 시계). 만료-OPEN 이 아니거나 자동 마감이 꺼져 있으면 null —
+     * 화면용 자동 마감 전망(단건, 오늘은 서버 시계). 만료-OPEN 이 아니거나 자동 마감이 꺼져 있으면 비어 있다 —
      * 꺼진 동안(롤백 등) "자동 마감 예정"이라고 하면 거짓이 되므로 화면은 옛 동작으로 돌아간다.
      */
-    AutoCloseOutlookQuery findOutlook(Recruitment recruitment);
+    Optional<AutoCloseOutlookQuery> findOutlook(Recruitment recruitment);
 
     /**
      * 화면용 자동 마감 전망(묶음) — 키는 만료-OPEN 모집 id 뿐이다. 자동 마감이 꺼져 있으면 빈 맵이다.

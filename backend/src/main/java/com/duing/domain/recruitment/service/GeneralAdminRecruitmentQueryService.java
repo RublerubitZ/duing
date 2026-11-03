@@ -65,7 +65,8 @@ public class GeneralAdminRecruitmentQueryService implements AdminRecruitmentQuer
     private final Clock clock;
 
     /**
-     * 행마다 쿼리하지 않고 미처리 통계(모집 id 들)와 운영진 접속(동아리 id 들)을 한 번씩 배치 조회해 조립한다.
+     * 행마다 쿼리하지 않고 미처리 통계(모집 id 들)·운영진 접속(동아리 id 들)·자동 마감 전망(만료-OPEN 모집 id 들)을 한 번씩
+     * 배치 조회해 조립한다.
      * 목록은 페이지네이션이 없어 방치순 정렬을 서비스에서 해도 전체 순서가 맞다.
      */
     @Override

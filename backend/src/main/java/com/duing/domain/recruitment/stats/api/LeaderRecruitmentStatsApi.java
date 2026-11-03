@@ -23,7 +23,9 @@ public interface LeaderRecruitmentStatsApi {
             description = "모집 공고의 지원 현황을 상태별로 집계하여 반환합니다. "
                     + "전체/제출됨/보류/면접대기/합격/불합격 수와 capacity 대비 합격 비율을 포함합니다. "
                     + "total 은 나머지 상태 수의 합과 항상 일치합니다. "
-                    + "oldestPendingSubmittedAt 은 처리되지 않은(SUBMITTED — 보류·면접대기·합격·불합격은 처리, 철회는 제외) 지원서 중 가장 오래된 제출 시각이며, 없으면 null 입니다."
+                    + "oldestPendingSubmittedAt 은 처리되지 않은(SUBMITTED — 보류·면접대기·합격·불합격은 처리, 철회는 제외) 지원서 중 가장 오래된 제출 시각이며, 없으면 null 입니다. "
+                    + "autoClose 는 기간이 끝났지만 아직 OPEN 인 모집의 자동 마감 전망(자동 마감 첫날 closesOn·유예가 끝났는지·막는 결과 없는 지원 수·진행 중 면접 라운드 수)이며, "
+                    + "그 밖의 모집이거나 자동 마감이 꺼져 있으면 null 입니다."
     )
     @GetMapping("/leader/recruitments/{recruitmentId}/stats/summary")
     ResponseEntity<ApiResponse<StatsSummaryResponse>> getSummary(

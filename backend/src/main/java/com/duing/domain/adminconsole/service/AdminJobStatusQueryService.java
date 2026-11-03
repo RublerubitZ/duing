@@ -25,7 +25,7 @@ import org.springframework.transaction.annotation.Transactional;
  *
  * <p>판정 순서: 꺼짐 → 기록 없음(기동 뒤 maxGap 안 = 첫 실행 전, 밖 = 늦음) → 마지막 종료가 maxGap 초과 = 늦음 →
  * 마지막 결과가 실패·일부 실패이고 연속 수가 warnAfterRuns 이상 = 그 상태 → 정상.
- * 꺼짐은 {@code @ConditionalOnProperty(havingValue = "true")} 와 같은 기준으로 본다 — {@code getProperty(name, Boolean.class)} 는
+ * 꺼짐은 {@code @ConditionalOnProperty(havingValue = "true")} 와 같은 기준({@link MonitoredJob#isEnabledIn})으로 본다 — {@code getProperty(name, Boolean.class)} 는
  * "on"·"yes" 도 참으로 읽어, 잡은 등록되지 않았는데 "늦음"이 되는 어긋남이 생긴다.
  */
 @Service
@@ -62,7 +62,7 @@ public class AdminJobStatusQueryService {
     private JobHealth judge(MonitoredJob job, ScheduledJobRun run, Instant now, Instant bootedAt) {
         // 문의 파기 잡만 빈이 조건 없이 등록되고 실제 문이 properties.enabled()(Boot boolean 바인딩 — "on"·"yes" 도 참)라,
         // 값이 "on" 이면 카드는 꺼짐인데 잡은 돌 수 있다(운영 값은 true/false 라 실제로는 생기지 않는다).
-        if (!"true".equalsIgnoreCase(environment.getProperty(job.getEnabledProperty()))) {
+        if (!job.isEnabledIn(environment)) {
             return JobHealth.DISABLED;
         }
         if (run == null) {

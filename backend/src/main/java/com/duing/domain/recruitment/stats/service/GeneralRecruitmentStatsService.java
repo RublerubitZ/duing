@@ -70,7 +70,7 @@ public class GeneralRecruitmentStatsService implements RecruitmentStatsService {
 
         // 자동 마감 전망은 잡과 같은 계산이다(#1572) — 기간이 끝난 OPEN 모집이 아니거나 자동 마감이 꺼져 있으면 null.
         return StatsSummaryQuery.of(submitted, onHold, interviewPending, accepted, rejected, recruitment.getCapacity(),
-                oldestPendingSubmittedAt, isDeletable(recruitment), recruitmentAutoCloseService.findOutlook(recruitment));
+                oldestPendingSubmittedAt, isDeletable(recruitment), recruitmentAutoCloseService.findOutlook(recruitment).orElse(null));
     }
 
     /**
