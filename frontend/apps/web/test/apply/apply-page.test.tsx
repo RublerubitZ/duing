@@ -5,7 +5,7 @@ import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { setupServer } from 'msw/node';
-import { http, HttpResponse } from 'msw';
+import { delay, http, HttpResponse } from 'msw';
 import type { DraftAnswer, RecruitmentDetail, RecruitmentQuestionItem } from '@duing/types';
 import { createApiClient } from '@duing/api';
 import { ApiClientProvider, draftQueryKeys } from '@duing/hooks';
@@ -1057,4 +1057,110 @@ describe('ApplyPage — 임시저장 조회 실패', () => {
     expect(screen.getByRole('textbox', { name: /지원 동기/ })).toHaveValue('쓰던 답');
     expect(screen.queryByRole('button', { name: '다시 시도' })).not.toBeInTheDocument();
   });
+});
+
+describe('자동저장 — 보내는 때와 재전송', () => {
+  const AUTOSAVE_FAILED_TEXT = '임시저장에 실패했어요. 잠시 후 다시 시도해주세요.';
+
+  it('임시저장이 있는 지원서를 열기만 하면 PUT 을 보내지 않고 저장 시각 안내도 그대로다', async () => {
+    let draftPutCount = 0;
+    server.use(
+      http.get(`*/recruitments/${RECRUITMENT_ID}/draft`, () =>
+        HttpResponse.json({
+          ok: true,
+          data: {
+            exists: true,
+            answers: [{ questionId: TEXT_QUESTION_ID, values: ['저장된 답'] }],
+            updatedAt: '2026-11-01T20:00:00',
+          },
+          message: null,
+        }),
+      ),
+      http.put(`*/recruitments/${RECRUITMENT_ID}/draft`, () => {
+        draftPutCount += 1;
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+    renderApplyPage();
+
+    expect(await screen.findByRole('textbox', { name: /지원 동기/ })).toHaveValue('저장된 답');
+    await new Promise((resolve) => setTimeout(resolve, 2500));
+
+    expect(draftPutCount).toBe(0);
+    // 저장에 성공하면 캐시의 updatedAt 이 지금 시각으로 바뀌어 안내도 바뀐다 — 열기만 했으니 그대로여야 한다.
+    expect(screen.getByText('임시저장한 답변을 불러왔어요')).toHaveTextContent('11월 1일 20:00 저장');
+  }, 10_000);
+
+  it('임시저장이 400 이면 같은 내용을 다시 보내지 않고, 답을 고치면 다시 보낸다', async () => {
+    const draftBodies: unknown[] = [];
+    server.use(
+      http.put(`*/recruitments/${RECRUITMENT_ID}/draft`, async ({ request }) => {
+        draftBodies.push(await request.json());
+        return HttpResponse.json(
+          { ok: false, data: null, message: 'answers[0].values[0]: 답변은 2000자 이하여야 합니다.' },
+          { status: 400 },
+        );
+      }),
+    );
+    const user = userEvent.setup();
+    renderForm();
+    const textarea = screen.getByRole('textbox', { name: /지원 동기/ });
+
+    await user.type(textarea, '열정');
+    expect(await screen.findByText(AUTOSAVE_FAILED_TEXT, {}, { timeout: 4000 })).toBeInTheDocument();
+    expect(draftBodies).toHaveLength(1);
+    // 수정 전에는 error 로 바뀔 때마다 2초 뒤 같은 body 를 또 보낸다.
+    await new Promise((resolve) => setTimeout(resolve, 3000));
+    expect(draftBodies).toHaveLength(1);
+
+    await user.type(textarea, '!');
+    await waitFor(() => expect(draftBodies).toHaveLength(2), { timeout: 4000 });
+    expect(draftBodies.at(-1)).toEqual({ answers: [{ questionId: TEXT_QUESTION_ID, values: ['열정!'] }] });
+  }, 15_000);
+
+  it('저장 중에는 다음 PUT 을 보내지 않고, 끝난 뒤 마지막 답을 한 번 보낸다', async () => {
+    const draftBodies: unknown[] = [];
+    server.use(
+      http.put(`*/recruitments/${RECRUITMENT_ID}/draft`, async ({ request }) => {
+        draftBodies.push(await request.json());
+        // 첫 PUT 만 디바운스(2초)보다 오래 걸리게 해 저장 중 입력을 만든다.
+        if (draftBodies.length === 1) await delay(3000);
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+    const user = userEvent.setup();
+    renderForm();
+    const textarea = screen.getByRole('textbox', { name: /지원 동기/ });
+
+    await user.type(textarea, '첫');
+    await waitFor(() => expect(draftBodies).toHaveLength(1), { timeout: 4000 });
+    await user.type(textarea, '째');
+    await new Promise((resolve) => setTimeout(resolve, 2500));
+    expect(draftBodies).toHaveLength(1);
+
+    await waitFor(() => expect(draftBodies).toHaveLength(2), { timeout: 5000 });
+    expect(draftBodies[1]).toEqual({ answers: [{ questionId: TEXT_QUESTION_ID, values: ['첫째'] }] });
+  }, 15_000);
+
+  it('임시저장이 500 이면 2초 뒤 같은 내용을 다시 보내 저장한다', async () => {
+    let draftPutCount = 0;
+    server.use(
+      http.put(`*/recruitments/${RECRUITMENT_ID}/draft`, () => {
+        draftPutCount += 1;
+        if (draftPutCount === 1) {
+          return HttpResponse.json(
+            { ok: false, data: null, message: '일시적인 오류가 발생했습니다.' },
+            { status: 500 },
+          );
+        }
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+    const user = userEvent.setup();
+    renderForm();
+
+    await user.type(screen.getByRole('textbox', { name: /지원 동기/ }), '열정');
+    expect(await screen.findByText(/^마지막 저장 /, {}, { timeout: 7000 })).toBeInTheDocument();
+    expect(draftPutCount).toBe(2);
+  }, 15_000);
 });
