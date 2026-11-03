@@ -1164,3 +1164,18 @@ describe('자동저장 — 보내는 때와 재전송', () => {
     expect(draftPutCount).toBe(2);
   }, 15_000);
 });
+
+describe('ApplyForm — 주관식 글자 수', () => {
+  it('주관식 입력칸은 서버 한도 2000자로 막고 지금 글자 수를 보여준다', async () => {
+    const user = userEvent.setup();
+    renderForm();
+    const textarea = screen.getByRole('textbox', { name: /지원 동기/ });
+
+    // 서버 UpsertDraftRequest·SubmitApplicationRequest 의 @Size(max = 2000) 과 같은 값이다.
+    expect(textarea).toHaveAttribute('maxlength', '2000');
+    expect(screen.getByText('0/2000')).toBeInTheDocument();
+
+    await user.type(textarea, '열정');
+    expect(screen.getByText('2/2000')).toBeInTheDocument();
+  });
+});

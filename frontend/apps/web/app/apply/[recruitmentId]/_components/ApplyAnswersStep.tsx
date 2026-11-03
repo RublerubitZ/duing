@@ -20,6 +20,9 @@ const CHOICE_LABEL_CLASS =
 // (개별 radio/checkbox 로 보내면 스크린리더가 그룹 안내와 에러 메시지를 건너뛴다).
 const CHOICE_GROUP_CLASS = 'space-y-2 focus:outline-none';
 
+// 서버 UpsertDraftRequest·SubmitApplicationRequest 의 @Size(max = 2000) 과 같은 값 — 넘으면 자동저장·제출이 400 이다.
+const TEXT_ANSWER_MAX_LENGTH = 2000;
+
 function questionControlId(questionId: string): string {
   return `q-${questionId}`;
 }
@@ -121,18 +124,24 @@ export function ApplyAnswersStep({
             </legend>
 
             {question.type === 'TEXT' && (
-              <textarea
-                id={controlId}
-                aria-labelledby={legendId}
-                aria-required={question.required}
-                aria-invalid={hasError}
-                aria-describedby={describedBy}
-                disabled={disabled}
-                value={selectedValues[0] ?? ''}
-                onChange={(event) => handleTextChange(question.id, event.target.value)}
-                className={TEXTAREA_CLASS}
-                style={{ minHeight: '180px' }}
-              />
+              <>
+                <textarea
+                  id={controlId}
+                  aria-labelledby={legendId}
+                  aria-required={question.required}
+                  aria-invalid={hasError}
+                  aria-describedby={describedBy}
+                  disabled={disabled}
+                  maxLength={TEXT_ANSWER_MAX_LENGTH}
+                  value={selectedValues[0] ?? ''}
+                  onChange={(event) => handleTextChange(question.id, event.target.value)}
+                  className={TEXTAREA_CLASS}
+                  style={{ minHeight: '180px' }}
+                />
+                <p className="text-right text-xs tabular-nums text-charcoal-3">
+                  {(selectedValues[0] ?? '').length}/{TEXT_ANSWER_MAX_LENGTH}
+                </p>
+              </>
             )}
 
             {question.type === 'SINGLE_CHOICE' && (
