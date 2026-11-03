@@ -124,7 +124,7 @@ jobs:
             ! grep -qE '^[[:space:]]+permissions:' "$workflow" \
               || { echo "::error::${workflow} 에 잡 단위 permissions 가 있습니다 — 최상위 {} 를 덮어씁니다"; exit 1; }
             grep -qE '^[[:space:]]+environment:[[:space:]]+backup[[:space:]]*(#.*)?$' "$workflow" \
-              || { echo "::error::${workflow} 잡이 backup 환경을 쓰지 않습니다 — 운영 DB·백업 R2 자격은 develop 만 허용하는 backup 환경에만 있습니다"; exit 1; }
+              || { echo "::error::${workflow} 잡이 backup 환경을 쓰지 않습니다 — 운영 DB·백업 R2 자격은 develop 만 허용하는 backup 환경에만 있습니다. 잡 아래 environment: backup 한 줄로 적습니다(따옴표나 name: 형식은 이 검사가 받지 않습니다)"; exit 1; }
           done
           grep -qE '^[[:space:]]+SUPABASE_CLI_SHA256:[[:space:]]+[0-9a-f]{64}([[:space:]]|$)' .github/workflows/backup.yml \
             || { echo "::error::backup.yml 의 Supabase CLI sha256 인라인 고정(SUPABASE_CLI_SHA256)이 없습니다(#1302)"; exit 1; }

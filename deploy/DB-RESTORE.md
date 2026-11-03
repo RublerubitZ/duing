@@ -35,6 +35,7 @@
 | 실패 대응 | 실패하면 Slack 으로 통지된다(`Notify Slack (backup failure)` 스텝). RPO 가 24시간이라 하루만 빠져도 목표를 넘으므로 **실패 당일** `gh workflow run backup.yml` 로 재실행한다 |
 | 권한 | `permissions: {}`(GITHUB_TOKEN 미사용) |
 
+- 이 환경 분리를 되돌릴 때(잡의 `environment: backup` 줄 제거)는 **저장소 단위 비밀값을 먼저 다시 넣는다**(`--env` 없이 `gh secret set <이름>`). 저장소 사본을 지운 뒤 되돌리면 백업이 빈 자격으로 돌아 실패한다 — Slack 실패 알림은 저장소 단위 `SLACK_WEBHOOK_URL` 이라 그래도 온다.
 - `SUPABASE_DB_URL` 은 **Session Pooler** 주소를 쓴다. Supabase Direct 연결은 IPv6 이고 GitHub 러너는
   IPv4 전용이라 접속 자체가 되지 않는다.
 - R2 는 AWS CLI v2.23+ 의 기본 체크섬을 거부하므로 업로드·다운로드 양쪽에서
