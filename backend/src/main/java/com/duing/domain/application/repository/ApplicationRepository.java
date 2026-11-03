@@ -2,6 +2,7 @@ package com.duing.domain.application.repository;
 
 import com.duing.domain.application.entity.Application;
 import com.duing.domain.application.entity.ApplicationStatus;
+import com.duing.domain.recruitment.repository.RecruitmentCountRow;
 import jakarta.persistence.LockModeType;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -22,16 +23,6 @@ public interface ApplicationRepository extends JpaRepository<Application, Long>,
     long countByRecruitmentId(Long recruitmentId);
 
     boolean existsByRecruitmentIdAndStatusIn(Long recruitmentId, Collection<ApplicationStatus> statuses);
-
-    /**
-     * 기간 종료 자동 마감의 "결과 없는 지원" 확인 — 운영진 지원자 목록처럼 탈퇴한 지원자의 지원서는 보지 않는다(#1635).
-     * 탈퇴자의 지원서는 운영진도 지원자도 처리할 수 없어, 세면 그 모집은 수동 마감 말고는 영영 닫히지 않는다.
-     */
-    @Query("SELECT COUNT(a) > 0 FROM Application a JOIN a.user u "
-            + "WHERE a.recruitment.id = :recruitmentId AND a.status IN :statuses "
-            + "AND a.deletedAt IS NULL AND u.deletedAt IS NULL")
-    boolean existsByRecruitmentIdAndStatusInExcludingWithdrawnApplicants(
-            @Param("recruitmentId") Long recruitmentId, @Param("statuses") Collection<ApplicationStatus> statuses);
 
     @Query("SELECT a FROM Application a "
             + "JOIN FETCH a.recruitment r "
@@ -155,6 +146,19 @@ public interface ApplicationRepository extends JpaRepository<Application, Long>,
             """, nativeQuery = true)
     List<PendingApplicationStatsRow> findPendingStatsByRecruitmentIds(
             @Param("recruitmentIds") Collection<Long> recruitmentIds);
+
+    /**
+     * 기간 종료 자동 마감을 막는 "결과 없는 지원" 수(모집별) — 잡의 마감 판정과 화면의 자동 마감 전망(운영진 통계 요약·
+     * 총동연 목록)이 이 한 쿼리를 쓴다(#1572). 운영진 지원자 목록처럼 탈퇴한 지원자의 지원서는 세지 않는다(#1635) —
+     * 운영진도 지원자도 처리할 수 없어, 세면 그 모집은 수동 마감 말고는 닫히지 않는다.
+     * 건수가 0 인 모집은 행이 없다. 빈 컬렉션으로 부르지 않는다.
+     */
+    @Query("SELECT a.recruitment.id AS recruitmentId, COUNT(a) AS itemCount FROM Application a JOIN a.user u "
+            + "WHERE a.recruitment.id IN :recruitmentIds AND a.status IN :statuses "
+            + "AND a.deletedAt IS NULL AND u.deletedAt IS NULL GROUP BY a.recruitment.id")
+    List<RecruitmentCountRow> countByRecruitmentIdsAndStatusInExcludingWithdrawnApplicants(
+            @Param("recruitmentIds") Collection<Long> recruitmentIds,
+            @Param("statuses") Collection<ApplicationStatus> statuses);
 
     /**
      * 보관기간을 넘긴 soft-delete 지원서의 자유서술 답변(jsonb)을 비운다(이미 빈 답변은 제외 — 멱등).

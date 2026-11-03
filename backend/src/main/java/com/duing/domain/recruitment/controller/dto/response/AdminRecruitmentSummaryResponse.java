@@ -7,6 +7,7 @@ import com.duing.domain.recruitment.entity.RecruitmentStatus;
 import com.duing.domain.recruitment.service.dto.query.AdminRecruitmentListItem;
 import com.duing.domain.recruitment.service.dto.query.AdminRecruitmentRow;
 import com.duing.global.time.TimeMapper;
+import io.swagger.v3.oas.annotations.media.Schema;
 import java.time.Instant;
 import java.time.LocalDate;
 
@@ -39,7 +40,10 @@ public record AdminRecruitmentSummaryResponse(
         Instant updatedAt,
         Long pendingApplicationCount,
         Instant oldestPendingSubmittedAt,
-        Instant operatorsLastActiveAt
+        Instant operatorsLastActiveAt,
+        @Schema(description = "자동 마감 전망 — 기간이 끝났지만 아직 OPEN 인 모집에만 있다. 그 밖의 모집이거나 자동 마감이 "
+                + "꺼져 있으면 null 이다(#1583).", nullable = true)
+        AutoCloseOutlookResponse autoClose
 ) {
     public static AdminRecruitmentSummaryResponse from(AdminRecruitmentListItem listItem) {
         AdminRecruitmentRow recruitmentRow = listItem.recruitmentRow();
@@ -62,7 +66,8 @@ public record AdminRecruitmentSummaryResponse(
                 // 미처리·운영진 접속 시각은 서비스가 regime 별로 이미 절대시각으로 바꿨다(TIMEZONE.md).
                 listItem.pendingApplicationCount(),
                 listItem.oldestPendingSubmittedAt(),
-                listItem.operatorsLastActiveAt()
+                listItem.operatorsLastActiveAt(),
+                AutoCloseOutlookResponse.from(listItem.autoClose())
         );
     }
 }

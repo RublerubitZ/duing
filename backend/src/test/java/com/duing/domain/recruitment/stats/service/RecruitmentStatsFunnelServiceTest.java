@@ -18,6 +18,7 @@ import com.duing.domain.joincode.repository.ClubJoinRequestRepository;
 import com.duing.domain.recruitment.entity.Recruitment;
 import com.duing.domain.recruitment.exception.RecruitmentException;
 import com.duing.domain.recruitment.repository.RecruitmentRepository;
+import com.duing.domain.recruitment.service.RecruitmentAutoCloseService;
 import com.duing.domain.recruitment.stats.repository.RecruitmentStatsRepositoryCustom;
 import com.duing.domain.recruitment.stats.service.dto.query.StatsFunnelQuery;
 import java.time.Clock;
@@ -47,6 +48,7 @@ class RecruitmentStatsFunnelServiceTest {
                 clubAuthService,
                 mock(ApplicationRepository.class),
                 mock(ClubJoinRequestRepository.class),
+                mock(RecruitmentAutoCloseService.class),
                 Clock.systemDefaultZone()
         );
     }

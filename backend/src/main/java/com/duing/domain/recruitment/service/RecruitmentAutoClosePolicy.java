@@ -21,4 +21,12 @@ public final class RecruitmentAutoClosePolicy {
     public static LocalDate endedBefore(LocalDate today) {
         return today.minusDays(GRACE_DAYS);
     }
+
+    /**
+     * 막는 것이 없을 때 자동 마감되는 첫날 — 이날 00:40 실행이 닫는다. {@link #endedBefore} 와 같은 경계다
+     * (오늘 ≥ closesOn ⇔ 종료일 < endedBefore(오늘)). 화면의 자동 마감 날짜 안내가 이 값을 쓴다.
+     */
+    public static LocalDate closesOn(LocalDate endDate) {
+        return endDate.plusDays(GRACE_DAYS + 1L);
+    }
 }

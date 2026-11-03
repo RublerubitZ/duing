@@ -9,6 +9,7 @@ import com.duing.domain.recruitment.entity.Recruitment;
 import com.duing.domain.recruitment.entity.RecruitmentStatus;
 import com.duing.domain.recruitment.exception.RecruitmentException;
 import com.duing.domain.recruitment.repository.RecruitmentRepository;
+import com.duing.domain.recruitment.service.RecruitmentAutoCloseService;
 import com.duing.domain.recruitment.stats.repository.RecruitmentStatsRepositoryCustom;
 import com.duing.domain.recruitment.stats.service.dto.query.StatsDailyPointQuery;
 import com.duing.domain.recruitment.stats.service.dto.query.StatsFunnelQuery;
@@ -39,6 +40,7 @@ public class GeneralRecruitmentStatsService implements RecruitmentStatsService {
     private final ClubAuthService clubAuthService;
     private final ApplicationRepository applicationRepository;
     private final ClubJoinRequestRepository clubJoinRequestRepository;
+    private final RecruitmentAutoCloseService recruitmentAutoCloseService;
     private final Clock clock;
 
     @Override
@@ -66,8 +68,9 @@ public class GeneralRecruitmentStatsService implements RecruitmentStatsService {
                 .map(PendingApplicationStatsRow::getOldestSubmittedAt)
                 .orElse(null);
 
+        // 자동 마감 전망은 잡과 같은 계산이다(#1572) — 기간이 끝난 OPEN 모집이 아니거나 자동 마감이 꺼져 있으면 null.
         return StatsSummaryQuery.of(submitted, onHold, interviewPending, accepted, rejected, recruitment.getCapacity(),
-                oldestPendingSubmittedAt, isDeletable(recruitment));
+                oldestPendingSubmittedAt, isDeletable(recruitment), recruitmentAutoCloseService.findOutlook(recruitment));
     }
 
     /**

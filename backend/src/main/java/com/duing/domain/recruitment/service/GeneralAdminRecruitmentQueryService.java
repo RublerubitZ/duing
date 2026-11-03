@@ -18,6 +18,7 @@ import com.duing.domain.recruitment.service.dto.query.AdminRecruitmentListItem;
 import com.duing.domain.recruitment.service.dto.query.AdminRecruitmentRow;
 import com.duing.domain.recruitment.service.dto.query.AdminRecruitmentSearchCondition;
 import com.duing.domain.recruitment.service.dto.query.AdminRecruitmentSort;
+import com.duing.domain.recruitment.service.dto.query.AutoCloseOutlookQuery;
 import com.duing.global.time.TimeMapper;
 import java.time.Clock;
 import java.time.Instant;
@@ -60,6 +61,7 @@ public class GeneralAdminRecruitmentQueryService implements AdminRecruitmentQuer
     private final ClubMemberRepository clubMemberRepository;
     private final ClubJoinCodeRepository clubJoinCodeRepository;
     private final ClubJoinRequestRepository clubJoinRequestRepository;
+    private final RecruitmentAutoCloseService recruitmentAutoCloseService;
     private final Clock clock;
 
     /**
@@ -86,11 +88,16 @@ public class GeneralAdminRecruitmentQueryService implements AdminRecruitmentQuer
                         .toList())
                 .stream()
                 .collect(Collectors.toMap(OperatorActivityRow::getClubId, Function.identity()));
+        // 자동 마감 전망(#1583) — '오늘'은 표시 상태와 같은 행의 today 다. 목록 쿼리가 한 번 계산해 모든 행에 같은 값을 싣는다.
+        Map<Long, AutoCloseOutlookQuery> autoCloseByRecruitmentId = recruitmentAutoCloseService.findOutlooks(
+                recruitmentRows.stream().map(AdminRecruitmentRow::recruitment).toList(),
+                recruitmentRows.get(0).today());
 
         List<AdminRecruitmentListItem> listItems = recruitmentRows.stream()
                 .map(recruitmentRow -> toListItem(recruitmentRow,
                         pendingStatsByRecruitmentId.get(recruitmentRow.recruitment().getId()),
-                        operatorActivityByClubId.get(recruitmentRow.recruitment().getClub().getId())))
+                        operatorActivityByClubId.get(recruitmentRow.recruitment().getClub().getId()),
+                        autoCloseByRecruitmentId.get(recruitmentRow.recruitment().getId())))
                 .toList();
         return searchCondition.sort() == AdminRecruitmentSort.STALE
                 ? listItems.stream().sorted(STALENESS_ORDER).toList()
@@ -104,18 +111,20 @@ public class GeneralAdminRecruitmentQueryService implements AdminRecruitmentQuer
      */
     private static AdminRecruitmentListItem toListItem(AdminRecruitmentRow recruitmentRow,
                                                        PendingApplicationStatsRow pendingStats,
-                                                       OperatorActivityRow operatorActivity) {
+                                                       OperatorActivityRow operatorActivity,
+                                                       AutoCloseOutlookQuery autoClose) {
         Instant operatorsLastActiveAt = operatorActivity == null ? null : laterOf(
                 TimeMapper.seoulWallClockToInstant(operatorActivity.getLastSessionUsedAt()),
                 TimeMapper.systemWallClockToInstant(operatorActivity.getLastLoginAt()));
         if (recruitmentRow.recruitment().getApplicationMode() == ApplicationMode.EXTERNAL) {
-            return new AdminRecruitmentListItem(recruitmentRow, null, null, operatorsLastActiveAt);
+            // 외부 폼도 기간이 끝나면 자동 마감 대상이다 — 미처리 두 값만 해당 없음이고 전망은 싣는다.
+            return new AdminRecruitmentListItem(recruitmentRow, null, null, operatorsLastActiveAt, autoClose);
         }
         if (pendingStats == null) {
-            return new AdminRecruitmentListItem(recruitmentRow, 0L, null, operatorsLastActiveAt);
+            return new AdminRecruitmentListItem(recruitmentRow, 0L, null, operatorsLastActiveAt, autoClose);
         }
         return new AdminRecruitmentListItem(recruitmentRow, pendingStats.getPendingCount(),
-                TimeMapper.systemWallClockToInstant(pendingStats.getOldestSubmittedAt()), operatorsLastActiveAt);
+                TimeMapper.systemWallClockToInstant(pendingStats.getOldestSubmittedAt()), operatorsLastActiveAt, autoClose);
     }
 
     /** 둘 중 늦은 시각 — 한쪽만 있으면 그 값, 둘 다 없으면 null. */

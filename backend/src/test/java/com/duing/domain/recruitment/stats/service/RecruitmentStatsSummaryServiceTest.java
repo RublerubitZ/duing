@@ -19,6 +19,7 @@ import com.duing.domain.joincode.repository.ClubJoinRequestRepository;
 import com.duing.domain.recruitment.entity.Recruitment;
 import com.duing.domain.recruitment.exception.RecruitmentException;
 import com.duing.domain.recruitment.repository.RecruitmentRepository;
+import com.duing.domain.recruitment.service.RecruitmentAutoCloseService;
 import com.duing.domain.recruitment.stats.repository.RecruitmentStatsRepositoryCustom;
 import com.duing.domain.recruitment.stats.service.dto.query.StatsSummaryQuery;
 import java.time.Clock;
@@ -52,6 +53,7 @@ class RecruitmentStatsSummaryServiceTest {
                 clubAuthService,
                 applicationRepository,
                 mock(ClubJoinRequestRepository.class),
+                mock(RecruitmentAutoCloseService.class),
                 Clock.systemDefaultZone()
         );
     }

@@ -2,6 +2,7 @@ package com.duing.domain.interview.repository;
 
 import com.duing.domain.interview.entity.InterviewRound;
 import com.duing.domain.interview.entity.RoundStatus;
+import com.duing.domain.recruitment.repository.RecruitmentCountRow;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
@@ -46,7 +47,17 @@ public interface InterviewRoundRepository extends JpaRepository<InterviewRound, 
 
     boolean existsByRecruitmentIdAndStatus(Long recruitmentId, RoundStatus status);
 
-    boolean existsByRecruitmentIdAndStatusIn(Long recruitmentId, Collection<RoundStatus> statuses);
+    /**
+     * 기간 종료 자동 마감을 막는 진행 중 면접 라운드 수(모집별) — 잡의 마감 판정과 화면의 자동 마감 전망이 이 한
+     * 쿼리를 쓴다(#1572). 삭제된 라운드는 세지 않는다(@SQLRestriction 과 함께 명시). 건수가 0 인 모집은 행이 없다.
+     * 빈 컬렉션으로 부르지 않는다.
+     */
+    @Query("SELECT r.recruitmentId AS recruitmentId, COUNT(r) AS itemCount FROM InterviewRound r "
+            + "WHERE r.recruitmentId IN :recruitmentIds AND r.status IN :statuses AND r.deletedAt IS NULL "
+            + "GROUP BY r.recruitmentId")
+    List<RecruitmentCountRow> countByRecruitmentIdsAndStatusIn(
+            @Param("recruitmentIds") Collection<Long> recruitmentIds,
+            @Param("statuses") Collection<RoundStatus> statuses);
 
     List<InterviewRound> findByRecruitmentIdOrderByCreatedAtDesc(Long recruitmentId);
 }
