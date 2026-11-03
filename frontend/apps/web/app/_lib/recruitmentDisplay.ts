@@ -59,14 +59,23 @@ export const RECRUITMENT_EXPIRED_OPEN_BADGE = 'pill pill-warm-outline';
 /** 백엔드 자동 마감 유예(RecruitmentAutoClosePolicy.GRACE_DAYS)와 같은 값이다 — 바뀌면 함께 고친다. */
 export const AUTO_CLOSE_GRACE_DAYS = 7;
 
-const EXPIRED_OPEN_LEAD = '모집 기간이 끝났지만 아직 마감 전이에요.';
+/** 만료-OPEN 안내의 첫 문장 — 자동 마감 전망을 받기 전에도 늘 참이라, 화면이 먼저 이 문장으로 안내 자리를 잡는다. */
+export const EXPIRED_OPEN_LEAD = '모집 기간이 끝났지만 아직 마감 전이에요.';
+
+/** 백엔드 자동 마감 잡(RecruitmentAutoCloseJob, 크론 "0 40 0 * * *" Asia/Seoul)이 도는 시각 — 바뀌면 함께 고친다. */
+const AUTO_CLOSE_RUN_TIME_LABEL = '새벽 0시 40분';
 
 /** 자동 마감 날짜 표기("M월 D일")용 — 로케일 패턴을 믿지 않고 formatToParts 로 조립한다. */
 const AUTO_CLOSE_DATE_FORMATTER = kstDateTimeFormatter({ month: 'numeric', day: 'numeric' });
 
 /** 서버가 준 자동 마감 첫날(KST 'YYYY-MM-DD')을 "M월 D일"로 쓴다. */
 export function formatAutoCloseDate(closesOn: string): string {
-  const parts = AUTO_CLOSE_DATE_FORMATTER.formatToParts(parseKstInstant(closesOn));
+  const instant = parseKstInstant(closesOn);
+  // 형식이 어긋난 값이 오면 화면 전체를 깨뜨리지 않고 받은 문자열을 그대로 쓴다(datetime 유틸과 같은 폴백).
+  if (Number.isNaN(instant.getTime())) {
+    return closesOn;
+  }
+  const parts = AUTO_CLOSE_DATE_FORMATTER.formatToParts(instant);
   const month = parts.find((part) => part.type === 'month')?.value ?? '';
   const day = parts.find((part) => part.type === 'day')?.value ?? '';
   return `${month}월 ${day}일`;
@@ -112,7 +121,7 @@ export function recruitmentExpiredOpenNotice(
   }
 
   const when = autoClose.gracePeriodOver
-    ? '곧 자동으로 마감돼요. 매일 새벽 0시 40분에 확인해요.'
+    ? `곧 자동으로 마감돼요. 매일 ${AUTO_CLOSE_RUN_TIME_LABEL}에 확인해요.`
     : `${formatAutoCloseDate(autoClose.closesOn)} 새벽에 자동으로 마감돼요.`;
   return applicationMode === 'EXTERNAL'
     ? `${EXPIRED_OPEN_LEAD} 가입 처리를 마치면 모집을 마감해 주세요. 그대로 두면 ${when}`
@@ -122,7 +131,10 @@ export function recruitmentExpiredOpenNotice(
 export type AdminAutoCloseBadge = {
   label: '운영 개입 필요' | '자동 마감 예정';
   tone: 'warm' | 'neutral';
-  /** 배지 아래에 보이는 글자로 둔다 — 툴팁은 터치에서 열 수 없어 이유를 거기에만 두지 않는다. */
+  /**
+   * 보이는 글자로 둔다 — 툴팁은 터치에서 열 수 없어 이유를 거기에만 두지 않는다. warm 은 칩 아래 줄에, neutral 은 칩 없이
+   * 라벨과 함께 한 줄로 그린다(중립 칩은 같은 표의 '모집마감' 상태 칩과 모양이 같아 헷갈린다).
+   */
   detail: string | null;
 };
 
@@ -153,7 +165,7 @@ export function adminAutoCloseBadge(
   }
   const reasons = [
     autoClose.undecidedApplicationCount > 0 ? `결과 없는 지원 ${autoClose.undecidedApplicationCount}건` : null,
-    autoClose.inProgressRoundCount > 0 ? `면접 라운드 ${autoClose.inProgressRoundCount}개` : null,
+    autoClose.inProgressRoundCount > 0 ? `진행 중 면접 라운드 ${autoClose.inProgressRoundCount}개` : null,
   ].filter((reason): reason is string => reason !== null);
   return { label: '운영 개입 필요', tone: 'warm', detail: reasons.join('·') };
 }

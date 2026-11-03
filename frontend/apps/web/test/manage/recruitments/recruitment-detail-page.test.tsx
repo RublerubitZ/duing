@@ -436,9 +436,9 @@ describe('RecruitmentDetailPage — 마감일 경과·수동 마감 전(만료-O
     expect(await screen.findByRole('button', { name: '모집 마감' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: '수정' })).toBeInTheDocument();
     expect(screen.queryByText('이미 마감된 모집입니다.')).not.toBeInTheDocument();
-    // 기간 종료 안내는 통계 요약(자동 마감 전망)이 온 뒤에 한 번 그려진다(#1572) — 상세 조회만 기다리면 경합이다.
-    expect(await screen.findByText(/모집 기간이 끝났지만 아직 마감 전이에요/)).toBeInTheDocument();
-    expect(screen.getByText(/남은 지원자 심사를 이어서 진행/)).toBeInTheDocument();
+    // 기간 종료 안내의 완성 문장은 통계 요약(자동 마감 전망)이 온 뒤에 채워진다(#1572) — 상세 조회만 기다리면 경합이다.
+    expect(await screen.findByText(/남은 지원자 심사를 이어서 진행/)).toBeInTheDocument();
+    expect(screen.getByText(/모집 기간이 끝났지만 아직 마감 전이에요/)).toBeInTheDocument();
     // 상태 칩도 '모집마감'이 아니라 기간 종료로 표기한다.
     expect(screen.getByText('기간 종료')).toBeInTheDocument();
     expect(screen.queryByText('모집마감')).not.toBeInTheDocument();
@@ -481,7 +481,7 @@ describe('RecruitmentDetailPage — 자동 마감 전망 안내', () => {
     expect(screen.queryByText(/남은 지원자 심사를 이어서 진행/)).not.toBeInTheDocument();
   });
 
-  it('통계 요약을 받기 전에는 안내를 그리지 않는다 — 낭독 영역이 문장을 두 번 읽지 않게', async () => {
+  it('통계 요약을 받기 전에는 첫 문장으로 자리만 잡고 완성 문장을 채우지 않는다 — 낭독 영역이 문장을 두 번 읽지 않게', async () => {
     server.use(
       mockRecruitmentDetail(false, { status: 'OPEN', displayStatus: 'CLOSED' }),
       EMPTY_ROUNDS_HANDLER,
@@ -493,7 +493,8 @@ describe('RecruitmentDetailPage — 자동 마감 전망 안내', () => {
     renderPage();
 
     expect(await screen.findByRole('button', { name: '모집 마감' })).toBeInTheDocument();
-    expect(screen.queryByText(/모집 기간이 끝났지만 아직 마감 전이에요/)).not.toBeInTheDocument();
+    expect(screen.getByRole('status')).toHaveTextContent('모집 기간이 끝났지만 아직 마감 전이에요.');
+    expect(screen.getByRole('status')).not.toHaveTextContent('자동으로 마감');
   });
 });
 

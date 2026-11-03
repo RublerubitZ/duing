@@ -205,19 +205,19 @@ describe('관리자 모집 목록', () => {
 
     render(<AdminRecruitmentsPage />);
 
+    // '자동 마감 예정'은 할 일이 없는 상태라 칩 없이 흐린 한 줄이다(중립 칩은 '모집마감' 칩과 헷갈린다).
     const inGrace = within(rowByTitle('유예 중 모집'));
-    expect(inGrace.getByText('자동 마감 예정')).toBeInTheDocument();
-    expect(inGrace.getByText('12월 8일 새벽')).toBeInTheDocument();
+    expect(inGrace.getByText('자동 마감 예정 · 12월 8일 새벽')).toBeInTheDocument();
     expect(inGrace.queryByText('운영 개입 필요')).toBeNull();
-    expect(within(rowByTitle('오늘 밤 닫힐 모집')).getByText('다음 새벽')).toBeInTheDocument();
+    expect(within(rowByTitle('오늘 밤 닫힐 모집')).getByText('자동 마감 예정 · 다음 새벽')).toBeInTheDocument();
 
     const blocked = within(rowByTitle('라운드에 막힌 모집'));
     expect(blocked.getByText('운영 개입 필요')).toBeInTheDocument();
-    expect(blocked.getByText('면접 라운드 1개')).toBeInTheDocument();
+    expect(blocked.getByText('진행 중 면접 라운드 1개')).toBeInTheDocument();
 
     const blockedInGrace = within(rowByTitle('유예 중 막힌 모집'));
     expect(blockedInGrace.queryByText('운영 개입 필요')).toBeNull();
-    expect(blockedInGrace.queryByText('자동 마감 예정')).toBeNull();
+    expect(blockedInGrace.queryByText(/자동 마감 예정/)).toBeNull();
 
     expect(within(rowByTitle('자동 마감 꺼진 모집')).getByText('운영 개입 필요')).toBeInTheDocument();
   });

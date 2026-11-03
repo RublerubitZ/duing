@@ -101,22 +101,20 @@ export function AdminRecruitmentsTable({ items, onOpenDetail }: Props) {
                     >
                       {recruitment.title}
                     </Link>
-                    {autoCloseBadge && (
-                      <span
-                        className={cn(
-                          'shrink-0 whitespace-nowrap rounded-full px-2 py-0.5 text-[11.5px] font-semibold',
-                          autoCloseBadge.tone === 'warm' ? 'pill-warm' : 'pill-outline',
-                        )}
-                      >
+                    {autoCloseBadge?.tone === 'warm' && (
+                      <span className="pill-warm shrink-0 whitespace-nowrap rounded-full px-2 py-0.5 text-[11.5px] font-semibold">
                         {autoCloseBadge.label}
                       </span>
                     )}
                   </div>
                   {/* 막는 이유·자동 마감 시점은 툴팁이 아니라 보이는 글자로 둔다(터치에서 툴팁을 열 수 없다). 제목 줄을 넓히지
-                      않게 아래 줄에 둔다 — 고정 열이 표 최소 폭 대부분을 차지한다. */}
+                      않게 아래 줄에 둔다 — 고정 열이 표 최소 폭 대부분을 차지한다. '자동 마감 예정'은 할 일이 없는 상태라 칩 없이
+                      흐린 글자로만 쓴다(중립 칩은 상태 열의 '모집마감' 칩과 모양이 같아 헷갈린다). */}
                   {autoCloseBadge?.detail && (
                     <span className="mt-0.5 block whitespace-nowrap text-[11.5px] text-charcoal-3">
-                      {autoCloseBadge.detail}
+                      {autoCloseBadge.tone === 'neutral'
+                        ? `${autoCloseBadge.label} · ${autoCloseBadge.detail}`
+                        : autoCloseBadge.detail}
                     </span>
                   )}
                 </Td>

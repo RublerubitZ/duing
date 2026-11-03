@@ -10,7 +10,13 @@ vi.mock('@/app/_lib/route', () => ({ toRoute: (path: string) => path }));
 const mockCloseMutateAsync = vi.fn();
 const mockStopIntakeMutateAsync = vi.fn();
 const mockPendingJoinRequests = vi.fn(() => ({ data: [] as unknown[] }));
-type StatsSummaryQueryMock = { data: unknown; isPending?: boolean; isFetching?: boolean; isStale?: boolean };
+type StatsSummaryQueryMock = {
+  data: unknown;
+  isPending?: boolean;
+  isFetching?: boolean;
+  isStale?: boolean;
+  isError?: boolean;
+};
 const mockStatsSummary = vi.fn<(recruitmentId: number | undefined) => StatsSummaryQueryMock>(() => ({
   data: undefined,
 }));
@@ -298,11 +304,12 @@ describe('CurrentRecruitmentCard — 서버 자동 마감 전망 안내(#1572)',
     expect(screen.queryByText(/남은 지원자 심사를 이어서 진행하고/)).not.toBeInTheDocument();
   });
 
-  it('통계 요약을 받기 전과, 무효화 뒤 다시 받는 동안에는 안내를 그리지 않는다 — 낭독 영역이 옛 전망을 읽지 않게', () => {
+  it('통계 요약을 받기 전과 다시 받는 동안에는 첫 문장으로 자리만 잡고 옛 전망을 보이지 않는다', () => {
     mockStatsSummary.mockReturnValue({ data: undefined, isPending: true });
     const { rerender } = render(<CurrentRecruitmentCard clubId={1} recruitment={expiredSelf()} />);
 
-    expect(screen.queryByRole('status')).not.toBeInTheDocument();
+    expect(screen.getByRole('status')).toHaveTextContent('모집 기간이 끝났지만 아직 마감 전이에요.');
+    expect(screen.getByRole('status')).not.toHaveTextContent('자동으로 마감');
 
     mockStatsSummary.mockReturnValue({
       data: { autoClose: { closesOn: '2026-12-08', gracePeriodOver: true, undecidedApplicationCount: 0, inProgressRoundCount: 1 } },
@@ -312,7 +319,25 @@ describe('CurrentRecruitmentCard — 서버 자동 마감 전망 안내(#1572)',
     });
     rerender(<CurrentRecruitmentCard clubId={1} recruitment={expiredSelf()} />);
 
-    expect(screen.queryByRole('status')).not.toBeInTheDocument();
+    expect(screen.getByRole('status')).toHaveTextContent('모집 기간이 끝났지만 아직 마감 전이에요.');
+    expect(screen.getByRole('status')).not.toHaveTextContent('끝나지 않은 면접 라운드');
+  });
+
+  it('다시 받기가 실패하면 남은 옛 전망 대신 지원 방식만 본 고정 문장을 보인다', () => {
+    mockStatsSummary.mockReturnValue({
+      data: { autoClose: { closesOn: '2026-12-08', gracePeriodOver: true, undecidedApplicationCount: 0, inProgressRoundCount: 1 } },
+      isPending: false,
+      isFetching: false,
+      isStale: true,
+      isError: true,
+    });
+
+    render(<CurrentRecruitmentCard clubId={1} recruitment={expiredSelf()} />);
+
+    expect(screen.getByRole('status')).toHaveTextContent(
+      '남은 심사·면접이 없으면 종료일로부터 7일이 지난 뒤 자동으로 마감돼요.',
+    );
+    expect(screen.getByRole('status')).not.toHaveTextContent('끝나지 않은 면접 라운드');
   });
 
   it('통계 요약을 받지 못하면 지원 방식만 본 고정 문장을 보인다', () => {

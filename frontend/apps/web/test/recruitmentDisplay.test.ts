@@ -68,6 +68,12 @@ describe('recruitmentExpiredOpenNotice — 서버 자동 마감 전망(#1572)', 
     );
   });
 
+  it('외부 폼인데 막는 수가 오면(있을 수 없는 값) 자체 폼과 같은 막힘 문장을 쓴다', () => {
+    expect(recruitmentExpiredOpenNotice('EXTERNAL', outlook({ undecidedApplicationCount: 1 }))).toBe(
+      `${EXPIRED_OPEN_LEAD} 결과를 정하지 않은 지원 1건이 남아 있어 자동으로 마감되지 않아요. 남은 지원자 심사를 마치거나 직접 '모집 마감'을 눌러 주세요.`,
+    );
+  });
+
   it('외부 폼은 가입 처리 안내와 함께 자동 마감 날짜를 알린다', () => {
     expect(recruitmentExpiredOpenNotice('EXTERNAL', outlook())).toBe(
       `${EXPIRED_OPEN_LEAD} 가입 처리를 마치면 모집을 마감해 주세요. 그대로 두면 12월 8일 새벽에 자동으로 마감돼요.`,
@@ -82,6 +88,10 @@ describe('formatAutoCloseDate', () => {
   it('KST 날짜를 앞자리 0 없이 "M월 D일"로 쓴다', () => {
     expect(formatAutoCloseDate('2026-12-08')).toBe('12월 8일');
     expect(formatAutoCloseDate('2027-01-01')).toBe('1월 1일');
+  });
+
+  it('형식이 어긋난 값이면 화면을 깨뜨리지 않고 받은 문자열을 그대로 쓴다', () => {
+    expect(formatAutoCloseDate('not-a-date')).toBe('not-a-date');
   });
 });
 
@@ -118,10 +128,10 @@ describe('adminAutoCloseBadge — 총동연 모집 목록 배지(#1583)', () => 
         ...expiredOpen,
         autoClose: outlook({ gracePeriodOver: true, undecidedApplicationCount: 2, inProgressRoundCount: 1 }),
       }),
-    ).toEqual({ label: '운영 개입 필요', tone: 'warm', detail: '결과 없는 지원 2건·면접 라운드 1개' });
+    ).toEqual({ label: '운영 개입 필요', tone: 'warm', detail: '결과 없는 지원 2건·진행 중 면접 라운드 1개' });
     expect(
       adminAutoCloseBadge({ ...expiredOpen, autoClose: outlook({ gracePeriodOver: true, inProgressRoundCount: 1 }) }),
-    ).toEqual({ label: '운영 개입 필요', tone: 'warm', detail: '면접 라운드 1개' });
+    ).toEqual({ label: '운영 개입 필요', tone: 'warm', detail: '진행 중 면접 라운드 1개' });
   });
 
   it('막혀 있어도 유예 중이면 배지가 없다 — 아직 운영진의 유예 기간이다', () => {
