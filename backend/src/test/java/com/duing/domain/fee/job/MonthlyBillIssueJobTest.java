@@ -148,15 +148,20 @@ class MonthlyBillIssueJobTest extends IntegrationTestBase {
         job.run();
         FeeBill cancelledBill = feeBillRepository.findAll().get(0);
         jdbcTemplate.update("UPDATE fee_bill SET status = 'CANCELLED' WHERE id = ?", cancelledBill.getId());
+        addActiveMembers(1); // 첫 실행 뒤 가입한 회원 — 취소한 회원만 건너뛰고 이 회원에게는 발행해야 한다
 
         job.run();
 
-        assertThat(feeBillRepository.findAll())
+        List<FeeBill> bills = feeBillRepository.findAll();
+        assertThat(bills)
                 .filteredOn(bill -> bill.getUserId().equals(cancelledBill.getUserId()))
                 .singleElement()
                 .extracting(FeeBill::getStatus).isEqualTo(FeeStatus.CANCELLED);
-        assertThat(billCount()).isEqualTo(2);
-        assertThat(issuedNotificationCount()).isEqualTo(2);
+        assertThat(bills).extracting(FeeBill::getUserId)
+                .containsExactlyInAnyOrderElementsOf(clubMemberRepository.findAll().stream()
+                        .map(member -> member.getUser().getId()).toList());
+        assertThat(billCount()).isEqualTo(3); // 첫 실행 2 + 새 회원 1
+        assertThat(issuedNotificationCount()).isEqualTo(3); // 첫 실행 2 + 새 회원 1
     }
 
     @Test
