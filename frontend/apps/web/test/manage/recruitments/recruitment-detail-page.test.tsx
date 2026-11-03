@@ -475,3 +475,73 @@ describe('RecruitmentDetailPage — 상태 칩 house pill', () => {
     expect(chip.className).not.toMatch(/bg-(emerald|slate|amber)-/);
   });
 });
+
+// #1635: 삭제 버튼은 서버가 내려 준 삭제 가능 여부로만 보인다 — 지원자 수(목록 기준)는 탈퇴한 지원자의 지원서를
+// 빼지만 서버 삭제 가드는 그 지원서도 이력으로 세므로, 수로 판정하면 버튼을 눌렀을 때 409 가 난다.
+describe('RecruitmentDetailPage — 삭제 버튼(서버 삭제 가능 여부)', () => {
+  it('마감 모집이라도 서버가 삭제할 수 없다고 하면 지원자가 0명이어도 삭제 버튼이 없다', async () => {
+    server.use(
+      mockRecruitmentDetail(false, { status: 'CLOSED', displayStatus: 'CLOSED' }),
+      statsSummaryHandler({ total: 0, deletable: false }),
+      EMPTY_ROUNDS_HANDLER,
+    );
+
+    renderPage();
+
+    expect(await screen.findByText('이미 마감된 모집입니다.')).toBeInTheDocument();
+    await waitFor(() => expect(screen.queryByRole('button', { name: '삭제' })).not.toBeInTheDocument());
+  });
+
+  it('서버가 삭제할 수 있다고 하면 마감 모집에 삭제 버튼이 보인다', async () => {
+    server.use(
+      mockRecruitmentDetail(false, { status: 'CLOSED', displayStatus: 'CLOSED' }),
+      statsSummaryHandler({ total: 0, deletable: true }),
+      EMPTY_ROUNDS_HANDLER,
+    );
+
+    renderPage();
+
+    const deleteButton = await screen.findByRole('button', { name: '삭제' });
+    await waitFor(() => expect(deleteButton).toBeEnabled());
+    expect(deleteButton).not.toHaveClass('invisible');
+  });
+
+  it('같은 화면에서 모집을 마감하면 통계를 다시 받아 삭제 버튼이 바로 보인다', async () => {
+    server.use(
+      mockRecruitmentDetail(false),
+      statsSummaryHandler({ total: 0, deletable: false }),
+      EMPTY_ROUNDS_HANDLER,
+      http.patch(`*/leader/recruitments/${RECRUITMENT_ID}/close`, () => {
+        // 마감 뒤 다시 받는 상세·통계는 마감된 값으로 답한다 — 통계를 다시 받지 않으면 진행 중일 때의 false 가 남는다.
+        server.use(
+          mockRecruitmentDetail(false, { status: 'CLOSED', displayStatus: 'CLOSED' }),
+          statsSummaryHandler({ total: 0, deletable: true }),
+        );
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+
+    renderPage();
+
+    await userEvent.click(await screen.findByRole('button', { name: '모집 마감' }));
+    await userEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: '마감' }));
+
+    expect(await screen.findByText('이미 마감된 모집입니다.')).toBeInTheDocument();
+    const deleteButton = await screen.findByRole('button', { name: '삭제' });
+    await waitFor(() => expect(deleteButton).toBeEnabled());
+    expect(deleteButton).not.toHaveClass('invisible');
+  });
+
+  it('통계 요약에 삭제 가능 여부가 없으면(옛 백엔드) 삭제 버튼을 보이지 않는다', async () => {
+    server.use(
+      mockRecruitmentDetail(false, { status: 'CLOSED', displayStatus: 'CLOSED' }),
+      statsSummaryHandler({ total: 0 }),
+      EMPTY_ROUNDS_HANDLER,
+    );
+
+    renderPage();
+
+    expect(await screen.findByText('이미 마감된 모집입니다.')).toBeInTheDocument();
+    await waitFor(() => expect(screen.queryByRole('button', { name: '삭제' })).not.toBeInTheDocument());
+  });
+});

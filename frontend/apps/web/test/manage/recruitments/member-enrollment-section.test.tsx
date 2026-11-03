@@ -109,6 +109,8 @@ const statsHandler = http.get(`*/leader/recruitments/${RECRUITMENT_ID}/stats/sum
     rejected: 0,
     capacity: 10,
     ratio: 0,
+    // 삭제 버튼은 서버 판정으로만 열린다(#1635) — 지원서·대기 가입 요청이 없는 마감 모집이면 서버가 true 를 준다.
+    deletable: true,
   }),
 );
 

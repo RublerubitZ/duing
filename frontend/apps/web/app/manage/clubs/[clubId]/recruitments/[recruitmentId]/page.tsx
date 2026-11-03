@@ -90,12 +90,13 @@ export default function RecruitmentDetailPage({
   // 통계 요약(authoritative total)을 단일 출처로 써서 통계 페이지 수치와 항상 일치시킨다.
   const applicantTotal = statsSummary?.total ?? null;
 
-  // 삭제는 마감(CLOSED)된 0지원자 공고만 가능(백엔드가 강제 — OPEN 은 지원 경쟁으로 고아 발생).
-  // 진행 중 공고는 먼저 '마감' 후 삭제하면 되고, 그 조건을 만족할 때만 버튼을 노출해 409 를 UX 에서 차단한다.
-  // 지원자 수를 아직 모르는 동안은 자리만 예약(invisible)한다 — 로드 뒤 버튼이 갑자기 나타나거나
-  // 비활성 버튼이 사라지는 깜빡임 둘 다 피한다.
+  // 삭제는 서버가 삭제할 수 있다고 내려 준 공고에만 노출해 409 를 UX 에서 차단한다(#1635). 서버 판정은 삭제 가드
+  // (마감·지원서 0건·처리되지 않은 가입 요청 없음)와 같고, 지원서는 탈퇴한 지원자 것도 이력으로 세므로 지원자 수
+  // (목록 기준)로는 판정하지 않는다. 진행 중 공고는 먼저 '마감' 후 삭제한다.
+  // 판정을 받기 전에는 마감 공고만 자리를 예약(invisible)한다 — 로드 뒤 버튼이 갑자기 나타나거나
+  // 비활성 버튼이 사라지는 깜빡임 둘 다 피한다. 값이 없는 옛 백엔드면 숨긴다(지우는 동작이라 닫힌 쪽으로).
   const canDelete =
-    recruitment.status === 'CLOSED' && (isStatsSummaryPending || statsSummary?.total === 0);
+    recruitment.status === 'CLOSED' && (isStatsSummaryPending || statsSummary?.deletable === true);
 
   async function handleDelete() {
     setDeleteError(null);
