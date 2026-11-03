@@ -1,7 +1,7 @@
 import { daysSinceKst } from '@duing/hooks/datetime';
 import type { AdminClubSearchParams, AdminClubSignal, AdminClubSignalDetail } from '@duing/types';
 
-import { OPERATOR_INACTIVE_DAYS, operatorInactiveDays } from '../../_lib/operatorActivity';
+import { OPERATOR_INACTIVE_DAYS, daysAgoText, operatorInactiveDays } from '../../_lib/operatorActivity';
 
 type ContactSignal = Extract<AdminClubSignal, 'RESULT_WAITING' | 'JOIN_REQUEST_WAITING'>;
 type UsageSignal = Exclude<AdminClubSignal, ContactSignal>;
@@ -14,7 +14,10 @@ export const SIGNAL_ORDER: ReadonlyArray<AdminClubSignal> = [
   'OPERATOR_INACTIVE',
 ];
 
-/** 신호 이름 — 신호 줄·해제 버튼 접근 이름·홈 카드 행 이름이 이 표 하나를 쓴다(스펙 §3). */
+/** 목록 신호 화면 주소 — 홈 카드 링크가 쓰고 목록은 ?signal= 첫 값을 SIGNAL_ORDER 로 읽는다(값은 대문자 enum 그대로). */
+export const signalListHref = (signal: AdminClubSignal): `/${string}` => `/admin/clubs?signal=${signal}`;
+
+/** 신호 이름 — 신호 줄·해제 버튼 접근 이름·홈 카드 ① 행 이름이 이 표 하나를 쓴다(② 행은 양수 표기라 카드가 따로 쓴다, 스펙 §3·§8-2). */
 export const SIGNAL_LABEL: Record<AdminClubSignal, string> = {
   RESULT_WAITING: '지원 결과 미확정',
   JOIN_REQUEST_WAITING: '가입 신청 7일 넘게 대기',
@@ -71,7 +74,7 @@ export const signalWatchPoints = (
     },
     joinRequestText:
       joinRequestWaiting &&
-      `대기 신청 ${joinRequestWaiting.requestCount}건 · 가장 오래된 신청은 ${daysSinceKst(joinRequestWaiting.oldestRequestedAt, now)}일 전`,
+      `대기 신청 ${joinRequestWaiting.requestCount}건 · 가장 오래된 신청은 ${daysAgoText(daysSinceKst(joinRequestWaiting.oldestRequestedAt, now))}`,
     operatorText: operatorWatchText(signal, signalDetail.operatorsLastActiveAt, now),
   };
 };
@@ -80,9 +83,7 @@ export const signalWatchPoints = (
 const operatorWatchText = (signal: AdminClubSignal, lastActiveAt: string | null, now: Date): string => {
   const inactiveDays = lastActiveAt === null ? null : operatorInactiveDays(lastActiveAt, now);
   const activityText =
-    inactiveDays === null
-      ? '운영진 접속 기록 없음'
-      : `운영진 마지막 접속 ${inactiveDays <= 0 ? '오늘' : `${inactiveDays}일 전`}`;
+    inactiveDays === null ? '운영진 접속 기록 없음' : `운영진 마지막 접속 ${daysAgoText(inactiveDays)}`;
   const mayMissNotifications = inactiveDays === null || inactiveDays > OPERATOR_INACTIVE_DAYS;
   return isContactSignal(signal) && mayMissNotifications
     ? `${activityText} · 두잉 알림이 닿지 않을 수 있어요`

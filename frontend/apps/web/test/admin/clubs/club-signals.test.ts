@@ -5,6 +5,7 @@ import {
   SIGNAL_LABEL,
   SIGNAL_ORDER,
   signalFilterParams,
+  signalListHref,
   signalScopeText,
   signalWatchPoints,
 } from '@/app/admin/clubs/_lib/clubSignals';
@@ -30,6 +31,15 @@ describe('신호 이름 표', () => {
   it('네 신호를 홈 카드 순서로 두고 스펙 이름을 쓴다', () => {
     expect(SIGNAL_ORDER.map((signal) => SIGNAL_LABEL[signal])).toEqual([
       '지원 결과 미확정', '가입 신청 7일 넘게 대기', '두잉 기록 없음', '운영진 30일 넘게 미접속',
+    ]);
+  });
+
+  it('목록 신호 화면 주소는 ?signal= 에 대문자 신호 값을 그대로 싣는다 — 홈 카드 링크와 목록 첫 값 읽기가 같은 값을 쓴다', () => {
+    expect(SIGNAL_ORDER.map(signalListHref)).toEqual([
+      '/admin/clubs?signal=RESULT_WAITING',
+      '/admin/clubs?signal=JOIN_REQUEST_WAITING',
+      '/admin/clubs?signal=NO_RECORD',
+      '/admin/clubs?signal=OPERATOR_INACTIVE',
     ]);
   });
 
@@ -71,6 +81,13 @@ describe('살펴볼 점', () => {
     }), NOW);
     expect(watchPoints.joinRequestText).toBe('대기 신청 2건 · 가장 오래된 신청은 9일 전');
     expect(watchPoints.recruitment).toBeNull();
+  });
+
+  it('가입 대기 — 처리 경합으로 가장 오래된 신청이 오늘이면 "0일 전" 대신 "오늘"로 쓴다', () => {
+    const watchPoints = signalWatchPoints('JOIN_REQUEST_WAITING', makeDetail({
+      joinRequestWaiting: { requestCount: 1, oldestRequestedAt: NOW.toISOString() },
+    }), NOW);
+    expect(watchPoints.joinRequestText).toBe('대기 신청 1건 · 가장 오래된 신청은 오늘');
   });
 
   it('하위 레코드가 null(처리 경합)이면 그 줄을 빼고 운영진 줄만 남긴다', () => {

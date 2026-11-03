@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { OPERATOR_INACTIVE_DAYS, operatorInactiveDays } from '@/app/admin/_lib/operatorActivity';
+import { OPERATOR_INACTIVE_DAYS, daysAgoText, operatorInactiveDays } from '@/app/admin/_lib/operatorActivity';
 
 // KST 2026-10-13 12:00 — 기준 시각을 고정해 KST 달력 일수 경계를 본다.
 const NOW = new Date('2026-10-13T12:00:00+09:00');
@@ -22,5 +22,16 @@ describe('운영진 접속 경과 일수', () => {
 
   it('기기 시계가 늦어 미래 시각이면 음수다 — 표시는 0 이하를 오늘로 쓴다', () => {
     expect(operatorInactiveDays('2026-10-14T03:00:00Z', NOW)).toBeLessThan(0);
+  });
+});
+
+describe('경과 일수 표시', () => {
+  it.each([
+    [0, '오늘'],
+    [-2, '오늘'],
+    [1, '1일 전'],
+    [31, '31일 전'],
+  ])('%d일 → "%s"(0 이하는 오늘)', (days, expectedText) => {
+    expect(daysAgoText(days)).toBe(expectedText);
   });
 });
