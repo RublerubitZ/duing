@@ -5,6 +5,12 @@ import { FooterClubApplyCta } from './FooterClubApplyCta';
 
 const linkClass = 'hover:text-ink';
 
+/**
+ * 이용 가이드 첫 글("두잉 처음 시작하기") — '이용 가이드' 태그 소식(23~27) 중 첫 편이다.
+ * 그 소식을 지우거나 첫 글이 바뀌면 이 주소도 바꾼다(지우면 링크가 "볼 수 없음" 셸로 간다).
+ */
+const GUIDE_START_HREF = '/notices/23';
+
 export function HomeFooter() {
   return (
     <>
@@ -19,6 +25,11 @@ export function HomeFooter() {
             <Link href="/introduce" className="hover:text-ink">
               서비스 소개
             </Link>
+            <div className="mt-1.5">
+              <Link href={GUIDE_START_HREF} className="hover:text-ink">
+                이용 가이드
+              </Link>
+            </div>
             <div className="mt-1.5">
               <Link href="/terms" className="hover:text-ink">
                 이용약관 및 개인정보 처리방침
@@ -95,6 +106,11 @@ export function HomeFooter() {
           <li>
             <Link href="/introduce" className={linkClass}>
               서비스 소개
+            </Link>
+          </li>
+          <li>
+            <Link href={GUIDE_START_HREF} className={linkClass}>
+              이용 가이드
             </Link>
           </li>
         </FooterColumn>
