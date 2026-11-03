@@ -91,11 +91,13 @@ describe('AdminClubSignalsCard', () => {
 
   it('② 링크 숫자가 0 이면 링크를 빼고 "모두 올렸어요"·"모두 들어왔어요"로 쓰고, 뺄셈은 0 아래로 자른다', () => {
     mockClubSignals.mockReturnValue(loaded(makeSignals({ noRecordClubCount: 0, operatorInactiveClubCount: 170 })));
-    render(<AdminClubSignalsCard />);
+    const { unmount } = render(<AdminClubSignalsCard />);
     expect(screen.getByText('모두 올렸어요')).toBeInTheDocument();
     expect(screen.queryByRole('link', { name: /기록 없는/ })).toBeNull();
     expect(screen.getByText('165 / 165곳')).toBeInTheDocument();
     expect(screen.getByText('0 / 165곳')).toBeInTheDocument();
+    unmount();
+
     mockClubSignals.mockReturnValue(loaded(makeSignals({ operatorInactiveClubCount: 0 })));
     render(<AdminClubSignalsCard />);
     expect(screen.getByText('모두 들어왔어요')).toBeInTheDocument();
