@@ -37,6 +37,7 @@ import io.restassured.http.ContentType;
 import io.restassured.response.Response;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
@@ -172,6 +173,19 @@ class BankTransactionSyncMatchTest extends IntegrationTestBase {
                 .when().post("/api/v1/leader/clubs/" + clubId + "/bank-transactions/sync");
     }
 
+    /** 이전 동기화가 남긴 거래 1건을 그 날짜 10:00(KST)으로 적재한다 — 마지막 거래일 기준점. bankCode 로 옛 계좌 거래를 흉내 낸다. */
+    private void insertStoredTransaction(Long clubId, String bankCode, LocalDate kstDate) {
+        jdbcTemplate.update("""
+                INSERT INTO bank_transaction
+                    (club_id, bank_code, transaction_at, amount, balance, counterparty,
+                     transaction_type, match_status, matched_fee_bill_id, transaction_hash,
+                     raw_payload, created_at, updated_at)
+                VALUES (?, ?, ?::timestamptz, 10000, 50000, NULL, 'DEPOSIT', 'IGNORED', NULL, ?, '{}'::jsonb, now(), now())
+                """,
+                clubId, bankCode, kstDate.atTime(10, 0).atZone(ZoneId.of("Asia/Seoul")).toInstant().toString(),
+                "seed-" + clubId + "-" + kstDate);
+    }
+
     @Test
     @DisplayName("동기화한 입금이 잔액 일치 미납 청구 1건과 만나면 자동매칭되어 autoMatched=1·청구 PAID·TRANSFER 납부·자동확인 알림이 생성된다")
     void syncAutoMatchesSingleCandidate() {
@@ -282,5 +296,35 @@ class BankTransactionSyncMatchTest extends IntegrationTestBase {
                 "SELECT COUNT(*) FROM payment p JOIN fee_bill b ON p.fee_bill_id = b.id WHERE b.club_id = ?",
                 Integer.class, clubId);
         assertThat(paymentCount).isZero();
+    }
+
+    @Test
+    @DisplayName("쉰 기간에서 되살린 14일보다 오래된 입금은 잔액 일치 미납 청구가 1건이어도 자동매칭하지 않고 검토 대기로 남긴다")
+    void syncSkipsAutoMatchForDepositOlderThanLookback() {
+        Club club = saveEnabledClub("쉰기간매칭동아리");
+        Long clubId = club.getId();
+        FeePolicy policy = savePolicy(clubId);
+        User leader = joinAs(club, ClubMemberRole.LEADER);
+        User member = joinAs(club, ClubMemberRole.MEMBER);
+        FeeBill bill = saveBill(clubId, policy.getId(), member.getId(), 10000L, "2026-07");
+        // 실제 시계라 상대 날짜로 둔다 — 25일 전 마지막 거래, 20일 전 입금(자동매칭 범위 14일과 6일 여유).
+        insertStoredTransaction(clubId, "NH", LocalDate.now(ZoneId.of("Asia/Seoul")).minusDays(25));
+        stubBankApiClient.transactionsToReturn = List.of(deposit(LocalDateTime.now().minusDays(20), 10000L, "홍길동"));
+
+        syncAs(tokenOf(leader), clubId)
+                .then().statusCode(HttpStatus.OK.value())
+                .body("data.newlyStored", equalTo(1))
+                .body("data.autoMatched", equalTo(0))     // 수정 전 1
+                .body("data.pendingReview", equalTo(1));  // 수정 전 0
+
+        assertThat(feeBillRepository.findById(bill.getId()).orElseThrow().getStatus()).isEqualTo(FeeStatus.PENDING);
+        Integer paymentCount = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM payment WHERE fee_bill_id = ?", Integer.class, bill.getId());
+        assertThat(paymentCount).isZero();
+        // seed 행(마지막 거래 기준점)을 빼고 이번에 적재된 입금만 본다.
+        String matchStatus = jdbcTemplate.queryForObject(
+                "SELECT match_status FROM bank_transaction WHERE club_id = ? AND transaction_hash NOT LIKE 'seed-%'",
+                String.class, clubId);
+        assertThat(matchStatus).isEqualTo("PENDING");
     }
 }

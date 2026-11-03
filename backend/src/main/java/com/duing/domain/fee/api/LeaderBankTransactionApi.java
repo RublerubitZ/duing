@@ -38,6 +38,7 @@ public interface LeaderBankTransactionApi {
 
     @Operation(summary = "BANK 거래 동기화 (LEADER/OFFICER)",
             description = "계좌 비밀번호와 주민등록번호 앞 6자리로 BANK API 를 호출해 기간 내 거래를 멱등 적재한다. "
+                    + "14일보다 오래된 입금은 자동매칭하지 않고 검토 대기로 둔다. "
                     + "인증정보는 API 호출에만 쓰고 저장하지 않는다. 매칭은 후속 단계에서 처리한다.")
     @PostMapping("/leader/clubs/{clubId}/bank-transactions/sync")
     ResponseEntity<ApiResponse<SyncResultResponse>> sync(
