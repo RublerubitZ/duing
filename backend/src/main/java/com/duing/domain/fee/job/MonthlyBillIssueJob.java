@@ -17,7 +17,7 @@ import org.springframework.stereotype.Component;
 /**
  * 매일 00:20(Asia/Seoul)에 실행되는 회비 자동 월발행 크론.
  * 활성 MONTHLY auto_issue 정책 중 발행일이 오늘 일자 이하인(today.day >= issue_day, 캐치업) 정책의
- * 그 달 청구를 멱등 발행한다(ON CONFLICT DO NOTHING — 이미 발행이면 재발행·재알림 없음).
+ * 그 달 청구를 멱등 발행한다(그 회원·회차 청구가 있으면 — 운영진이 취소한 것 포함 — 재발행·재알림 없음).
  * 이어서 전월 캐치업(월초 {@link #CATCH_UP_WINDOW_DAYS}일 이내만): 월 넘김 구간에 잡이 멈춰 전월 청구가 빠진 경우를
  * 복구한다 — 전월 이전에 만든 정책만 대상(이번 달에 만든 정책이 소급 청구되지 않게), 기발행 회차는 멱등 키로
  * created=0·알림 없음.

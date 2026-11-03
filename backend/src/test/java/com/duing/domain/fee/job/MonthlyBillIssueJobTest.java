@@ -15,6 +15,7 @@ import com.duing.domain.clubmember.repository.ClubMemberRepository;
 import com.duing.domain.fee.entity.BillingType;
 import com.duing.domain.fee.entity.FeeBill;
 import com.duing.domain.fee.entity.FeePolicy;
+import com.duing.domain.fee.entity.FeeStatus;
 import com.duing.domain.fee.repository.FeeBillRepository;
 import com.duing.domain.fee.repository.FeePolicyRepository;
 import com.duing.domain.fee.service.FeeBillService;
@@ -138,6 +139,24 @@ class MonthlyBillIssueJobTest extends IntegrationTestBase {
     }
 
     @Test
+    @DisplayName("운영진이 취소한 청구는 다음 실행이 다시 발행하지 않고 발행 알림도 다시 보내지 않는다")
+    void doesNotReissueCancelledBillOnNextRun() {
+        feePolicyRepository.save(FeePolicyFixture.autoIssue(clubId, 5, 25));
+        job.run();
+        FeeBill cancelledBill = feeBillRepository.findAll().get(0);
+        jdbcTemplate.update("UPDATE fee_bill SET status = 'CANCELLED' WHERE id = ?", cancelledBill.getId());
+
+        job.run();
+
+        assertThat(feeBillRepository.findAll())
+                .filteredOn(bill -> bill.getUserId().equals(cancelledBill.getUserId()))
+                .singleElement()
+                .extracting(FeeBill::getStatus).isEqualTo(FeeStatus.CANCELLED);
+        assertThat(billCount()).isEqualTo(2);
+        assertThat(issuedNotificationCount()).isEqualTo(2);
+    }
+
+    @Test
     @DisplayName("비활성·비-MONTHLY·자동발행 꺼짐 정책은 발행 대상에서 제외된다")
     void excludesNonEligiblePolicies() {
         feePolicyRepository.save(FeePolicyFixture.inactive(clubId)); // active=false
@@ -202,6 +221,23 @@ class MonthlyBillIssueJobTest extends IntegrationTestBase {
 
         assertThat(billingPeriods()).containsExactlyInAnyOrder("2026-05", "2026-05", "2026-06", "2026-06");
         assertThat(issuedNotificationCount()).isEqualTo(2); // 이번 달 발행분만 알림
+    }
+
+    @Test
+    @DisplayName("전월 청구를 취소했으면 월초 캐치업도 그 회원의 전월 청구를 되살리지 않는다")
+    void catchUpDoesNotReviveCancelledPreviousMonthBill() {
+        FeePolicy policy = saveAutoIssuePolicyCreatedAt(5, 25, LocalDateTime.of(2026, 4, 10, 9, 0));
+        for (ClubMember member : clubMemberRepository.findAll()) {
+            feeBillRepository.save(FeeBill.issue(clubId, member.getUser().getId(), policy.getId(), policy.getAmount(),
+                    "2026-05", LocalDate.of(2026, 5, 1), LocalDate.of(2026, 5, 31), LocalDate.of(2026, 5, 25)));
+        }
+        jdbcTemplate.update("UPDATE fee_bill SET status = 'CANCELLED' WHERE id = ?",
+                feeBillRepository.findAll().get(0).getId());
+
+        jobOn(LocalDate.of(2026, 6, 7)).run();
+
+        assertThat(billingPeriods()).containsExactlyInAnyOrder("2026-05", "2026-05", "2026-06", "2026-06");
+        assertThat(issuedNotificationCount()).isEqualTo(2); // 이번 달 발행분만
     }
 
     @Test
