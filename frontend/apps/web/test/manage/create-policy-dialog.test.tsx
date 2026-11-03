@@ -116,7 +116,7 @@ describe('CreatePolicyDialog', () => {
     expect(firstArg.payload).toEqual({ name: '연 회비', amount: 50000, autoIssue: false });
   });
 
-  it('버튼이 막히기 전에 제출이 두 번 들어와도 요청은 한 번이다', async () => {
+  it('버튼을 거치지 않은 제출이 두 번 들어와도 요청은 한 번이다', async () => {
     mockCreateMutate.mockImplementation(() => {}); // 앞 테스트의 onSuccess 구현을 지운다(clearAllMocks 는 구현을 남김)
     const user = userEvent.setup();
     render(<CreatePolicyDialog clubId={1} onClose={vi.fn()} />);
@@ -124,7 +124,7 @@ describe('CreatePolicyDialog', () => {
     await user.type(screen.getByLabelText(/금액/), '10000');
 
     const form = screen.getByRole('button', { name: '추가' }).closest('form')!;
-    // 같은 태스크의 두 번째 제출 — disabled 가 그려지기 전이라 버튼으로는 못 막는다
+    // 같은 태스크의 두 번째 제출 — 버튼을 거치지 않아 disabled 로는 못 막는다
     fireEvent.submit(form);
     fireEvent.submit(form);
     await waitFor(() => expect(mockCreateMutate).toHaveBeenCalled());
