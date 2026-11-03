@@ -28,10 +28,14 @@ import {
  * 화면 숫자가 실제 API 값과 같은지, 행·칸 링크가 실제 화면에 도착해 주소의 첫 필터를 거는지,
  * 권한 없는 주소가 홈 데이터를 부르지 않는지, 폭마다 배치가 규칙을 따르는지.
  *
- * <p>실행(apps/web): E2E_BASE_URL=http://localhost:3011 E2E_API_BASE_URL=http://localhost:8091/api/v1 \
+ * <p>실행(apps/web): PLAYWRIGHT_NO_COPY_PROMPT=1 E2E_BASE_URL=http://localhost:3011 E2E_API_BASE_URL=http://localhost:8091/api/v1 \
  *   pnpm exec playwright test e2e/manage-home.smoke.spec.ts --project=desktop
  * 계정은 환경변수로만 받는다 — 회장 E2E_LEADER_STUDENT_ID·E2E_LEADER_PASSWORD,
  * 운영 동아리가 없는 회원 E2E_MEMBER_STUDENT_ID·E2E_MEMBER_PASSWORD·E2E_MEMBER_CLUB_ID. 없으면 그 묶음을 건너뛴다.
+ *
+ * <p>trace·스크린샷을 꺼도 실패한 테스트는 test-results/ 에 error-context.md 를 쓴다(끄는 설정이 없다).
+ * 로케이터 단언이 실패하면 오류 메시지의 받은 값과 그 요소(못 찾았으면 화면 전체)의 ARIA 스냅숏(실명 등 화면 내용)이 든다.
+ * PLAYWRIGHT_NO_COPY_PROMPT=1 은 그 밖의 실패에 따로 찍는 페이지 스냅숏만 막는다. 실패한 뒤에는 test-results/ 를 지운다.
  *
  * <p>읽기 전용이다 — 쓰기 요청과 열람 감사 GET 은 installReadOnlyGuard 가 서버에 닿기 전에 끊고 테스트를 실패시킨다.
  * 자정(23:59~00:02 KST)에는 돌리지 않는다(날짜·일수가 요청 사이에 바뀐다).
