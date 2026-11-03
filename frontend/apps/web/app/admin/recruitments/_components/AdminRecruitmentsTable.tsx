@@ -12,7 +12,7 @@ import {
   recruitmentStatusChip,
 } from '@/app/_lib/recruitmentDisplay';
 import { toRoute } from '@/app/_lib/route';
-import { OPERATOR_INACTIVE_DAYS, operatorInactiveDays } from '@/app/admin/_lib/operatorActivity';
+import { OPERATOR_INACTIVE_DAYS, daysAgoText, operatorInactiveDays } from '@/app/admin/_lib/operatorActivity';
 import { EmptyState } from '../../_components/EmptyState';
 import { applicationModeLabel } from '../_lib/recruitmentLabels';
 
@@ -187,7 +187,7 @@ const OperatorsLastActiveCell = ({
         inactiveDays > OPERATOR_INACTIVE_DAYS ? ATTENTION_TEXT_CLASS : 'text-charcoal-2',
       )}
     >
-      {inactiveDays <= 0 ? '오늘' : `${inactiveDays}일 전`}
+      {daysAgoText(inactiveDays)}
     </span>
   );
 };
