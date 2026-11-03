@@ -3,11 +3,13 @@ import type { Metadata } from 'next';
 import type { ClubDetail } from '@duing/types';
 import { clubQueryKeys } from '@duing/hooks/query-keys';
 
+import { AdSenseScript } from '@/app/_components/AdSenseScript';
 import { parsePositiveIdParam } from '@/app/_lib/idParam';
 import { toMetaDescription } from '@/app/_lib/metaDescription';
 import { fetchPublicClubDetail, fetchPublicClubHeroActivities, type PublicContent } from '@/app/_lib/public-content';
 import { SeededQuery } from '@/app/_lib/SeededQuery';
 
+import { isAdEligibleClub } from './_lib/adEligibility';
 import { descriptionToPlainText } from './_lib/descriptionText';
 import { ClubDetailPage } from './_pages/ClubDetailPage';
 
@@ -80,9 +82,13 @@ export default async function Page({ params }: Props) {
     );
   // 연락처(회장 휴대전화)는 시드에서 뺀다 — ISR HTML·RSC 페이로드에 박히면 회장이 공개 범위를 줄여도 재생성 주기(최대 7일)
   // 동안 캐시에 남고 원문 HTML 을 읽는 수집기가 번호를 가져간다. 마운트 때 재요청(updatedAt 0)이 뷰어 권한대로 채운다.
+  // 광고 스크립트는 기본 탭 글이 충분한 공개 상세에만 싣는다 — 레이아웃 로더는 상세를 싣지 않는다(AdSenseLoader 주석).
   return (
-    <SeededQuery queryKey={clubQueryKeys.detail(clubId)} data={{ ...content.data, contactPhone: null }}>
-      {seededPage}
-    </SeededQuery>
+    <>
+      {isAdEligibleClub(content.data) && <AdSenseScript />}
+      <SeededQuery queryKey={clubQueryKeys.detail(clubId)} data={{ ...content.data, contactPhone: null }}>
+        {seededPage}
+      </SeededQuery>
+    </>
   );
 }

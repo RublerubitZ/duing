@@ -3,6 +3,7 @@ import type { Metadata } from 'next';
 import type { NoticeDetail } from '@duing/types';
 import { noticeQueryKeys } from '@duing/hooks/query-keys';
 
+import { AdSenseScript } from '@/app/_components/AdSenseScript';
 import { htmlToPlainText } from '@/app/_lib/htmlToPlainText';
 import { parsePositiveIdParam } from '@/app/_lib/idParam';
 import { toMetaDescription } from '@/app/_lib/metaDescription';
@@ -64,9 +65,13 @@ export default async function Page({ params }: Props) {
   const { noticeId, content } = await loadNotice(rawNoticeId);
   const page = <NoticeDetailPage />;
   if (content.status !== 'found' || noticeId === null) return page;
+  // 광고 스크립트는 공개 소식에만 — 레이아웃 로더는 상세를 싣지 않는다(AdSenseLoader 주석). 없거나 동아리 공지인 셸은 위에서 돌아갔다.
   return (
-    <SeededQuery queryKey={noticeQueryKeys.detail(noticeId)} data={content.data}>
-      {page}
-    </SeededQuery>
+    <>
+      <AdSenseScript />
+      <SeededQuery queryKey={noticeQueryKeys.detail(noticeId)} data={content.data}>
+        {page}
+      </SeededQuery>
+    </>
   );
 }

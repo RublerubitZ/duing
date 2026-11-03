@@ -13,6 +13,13 @@ vi.mock('@/app/_lib/public-content', () => ({
   fetchPublicClubHeroActivities: fetchPublicClubHeroActivitiesMock,
 }));
 
+// 광고 스크립트 탐침 — 실제 <script async> 는 React 19 가 문서 단위로 캐시해 테스트 사이에 head 로 다시 넣지 않는다.
+// 실제 head 위치·속성은 adsense-loader.test.tsx 와 운영 API 빌드 확인이 본다.
+vi.mock('@/app/_components/AdSenseScript', async () => {
+  const { createElement } = await import('react');
+  return { AdSenseScript: () => createElement('i', { 'data-testid': 'adsense-script' }) };
+});
+
 // 클라이언트 트리 대신 캐시에 심긴 상세(이름·dataUpdatedAt)를 그대로 보여 주는 탐침.
 vi.mock('@/app/clubs/[clubId]/_pages/ClubDetailPage', async () => {
   const { createElement } = await import('react');
@@ -32,7 +39,18 @@ vi.mock('@/app/clubs/[clubId]/_pages/ClubDetailPage', async () => {
 import ClubDetailRoute, { generateMetadata, revalidate } from '@/app/clubs/[clubId]/page';
 
 function club(overrides: Partial<ClubDetail> = {}): Partial<ClubDetail> {
-  return { id: 4, name: '비호상록회', tagline: '지역사회와 함께하는 따뜻한 봉사동아리', description: null, ...overrides };
+  return {
+    id: 4,
+    name: '비호상록회',
+    tagline: '지역사회와 함께하는 따뜻한 봉사동아리',
+    description: null,
+    // 광고 판정(isAdEligibleClub)이 읽는 필드 — 운영 API 는 항상 배열을 준다.
+    highlights: [],
+    projects: [],
+    faqs: [],
+    photos: [],
+    ...overrides,
+  };
 }
 
 function params(clubId: string) {
@@ -238,5 +256,44 @@ describe('동아리 상세 메타데이터', () => {
     fetchPublicClubDetailMock.mockResolvedValue({ status: 'unavailable' });
 
     await expect(generateMetadata(params('4'))).resolves.toEqual({});
+  });
+});
+
+describe('동아리 상세 라우트 — 광고 스크립트는 기본 탭 글이 충분한 공개 상세에만', () => {
+  it('소개가 300자(공백 제외) 이상인 공개 동아리는 광고 스크립트를 싣는다', async () => {
+    fetchPublicClubDetailMock.mockResolvedValue({ status: 'found', data: club({ description: '가'.repeat(300) }) });
+
+    await renderRoute('4');
+
+    expect(screen.getAllByTestId('adsense-script')).toHaveLength(1);
+  });
+
+  it('소개가 짧은 공개 동아리는 Q&A·사진이 많아도 싣지 않는다 — 둘 다 서버 HTML 에 없다', async () => {
+    fetchPublicClubDetailMock.mockResolvedValue({
+      status: 'found',
+      data: club({
+        description: '역사교육과 축구, 풋살 동아리입니다.',
+        faqs: [{ question: '가'.repeat(200), answer: '나'.repeat(200), order: 0 }],
+        photos: [{ id: 1, storageKey: 'club/photo/a.jpg', caption: null, width: null, height: null, displayOrder: 0 }],
+      }),
+    });
+
+    await renderRoute('4');
+
+    expect(screen.queryAllByTestId('adsense-script')).toHaveLength(0);
+  });
+
+  it.each(['notFound', 'unavailable'] as const)('%s 셸에는 싣지 않는다', async (status) => {
+    fetchPublicClubDetailMock.mockResolvedValue({ status });
+
+    await renderRoute('4');
+
+    expect(screen.queryAllByTestId('adsense-script')).toHaveLength(0);
+  });
+
+  it('형식이 틀린 id 셸에는 싣지 않는다', async () => {
+    await renderRoute('042');
+
+    expect(screen.queryAllByTestId('adsense-script')).toHaveLength(0);
   });
 });
