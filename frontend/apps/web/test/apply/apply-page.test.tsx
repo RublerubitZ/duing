@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll, afterEach, vi } from 'vitest';
 import { Suspense } from 'react';
 import type { ReactNode } from 'react';
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { setupServer } from 'msw/node';
@@ -986,5 +986,75 @@ describe('ApplyForm — 제출 확인', () => {
     await submitAndConfirm(user);
     await waitFor(() => expect(capturedBodies).toHaveLength(1));
     await waitFor(() => expect(mockRouterPush).toHaveBeenCalledTimes(1));
+  });
+});
+
+describe('ApplyPage — 임시저장 조회 실패', () => {
+  it('임시저장 조회가 실패하면 폼 대신 다시 시도 안내를 보여주고 빈 답으로 임시저장하지 않는다', async () => {
+    let draftGetCount = 0;
+    let draftPutCount = 0;
+    server.use(
+      // 첫 조회는 만료 토큰 403(u1 배포 전 실제 응답), 다시 시도부터는 저장본을 준다.
+      http.get(`*/recruitments/${RECRUITMENT_ID}/draft`, () => {
+        draftGetCount += 1;
+        if (draftGetCount === 1) {
+          return HttpResponse.json(
+            { ok: false, data: null, message: '권한이 없습니다.' },
+            { status: 403 },
+          );
+        }
+        return HttpResponse.json({
+          ok: true,
+          data: {
+            exists: true,
+            answers: [{ questionId: TEXT_QUESTION_ID, values: ['저장된 답'] }],
+            updatedAt: '2026-11-01T20:00:00',
+          },
+          message: null,
+        });
+      }),
+      http.put(`*/recruitments/${RECRUITMENT_ID}/draft`, () => {
+        draftPutCount += 1;
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+    const user = userEvent.setup();
+    renderApplyPage();
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('임시저장한 답변을 불러오지 못했습니다.');
+    // 403 의 서버 문구는 로그인한 학생에게 오해를 산다 — 고정 문구만 보인다.
+    expect(screen.queryByText('권한이 없습니다.')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '지원서 제출하기' })).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: '동아리 페이지로 돌아가기' })).toHaveAttribute('href', '/clubs/1');
+    // 폼이 없으니 자동저장 디바운스(2초)가 지나도 빈 답 PUT 이 나가지 않는다.
+    await new Promise((resolve) => setTimeout(resolve, 2500));
+    expect(draftPutCount).toBe(0);
+
+    await user.click(screen.getByRole('button', { name: '다시 시도' }));
+    expect(await screen.findByRole('textbox', { name: /지원 동기/ })).toHaveValue('저장된 답');
+    expect(draftGetCount).toBe(2);
+  }, 10_000);
+
+  it('폼이 열린 뒤 임시저장 재조회가 실패해도 폼과 쓰던 답을 그대로 둔다', async () => {
+    const queryClient = makeQueryClient();
+    const user = userEvent.setup();
+    renderApplyPage(queryClient);
+
+    await user.type(await screen.findByRole('textbox', { name: /지원 동기/ }), '쓰던 답');
+    server.use(
+      http.get(`*/recruitments/${RECRUITMENT_ID}/draft`, () =>
+        HttpResponse.json({ ok: false, data: null, message: '권한이 없습니다.' }, { status: 403 }),
+      ),
+    );
+    // 재연결 재조회(refetchOnReconnect)를 흉내 낸다. 50ms 는 React Query 의 변경 알림(setTimeout 0)까지 흘려보낸다 —
+    // 이 대기가 없으면 조건을 isError 하나로 넓힌 구현도 통과해 버린다.
+    await act(async () => {
+      await queryClient.refetchQueries({ queryKey: draftQueryKeys.byRecruitment(RECRUITMENT_ID) });
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    });
+
+    expect(queryClient.getQueryState(draftQueryKeys.byRecruitment(RECRUITMENT_ID))?.status).toBe('error');
+    expect(screen.getByRole('textbox', { name: /지원 동기/ })).toHaveValue('쓰던 답');
+    expect(screen.queryByRole('button', { name: '다시 시도' })).not.toBeInTheDocument();
   });
 });
