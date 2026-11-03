@@ -31,7 +31,7 @@
 | 산출물 | `roles.sql`(`--role-only`) · `schema.sql`(기본) · `data.sql`(`--data-only --use-copy`, storage 벡터 테이블 2개 제외) — 전부 gzip |
 | 검증 | `gzip -t` 무결성 + `data.sql.gz` 가 10KB 이하이면 **잡 실패**(빈 덤프 방지) |
 | 업로드 | `s3://$R2_BUCKET/YYYY/MM/DD/` — 날짜는 **KST 기준**(`TZ=Asia/Seoul date`) |
-| 시크릿 | `SUPABASE_DB_URL`(Session Pooler 문자열) · `R2_ACCESS_KEY_ID` · `R2_SECRET_ACCESS_KEY` · `R2_BUCKET` · `R2_ENDPOINT` |
+| 시크릿 | `backup` 환경 비밀값(develop 만 허용) — `SUPABASE_DB_URL`(Session Pooler 문자열) · `R2_ACCESS_KEY_ID` · `R2_SECRET_ACCESS_KEY` · `R2_BUCKET` · `R2_ENDPOINT`. 바꿀 때 `gh secret set <이름> --env backup`(`--env` 를 빼면 아무 브랜치가 읽는 저장소 단위 사본이 생기고 잡은 환경 값을 계속 쓴다). develop 밖에서 돌리면 잡이 시작 전에 거부되고, 그때는 아래 Slack 실패 알림도 가지 않는다 |
 | 실패 대응 | 실패하면 Slack 으로 통지된다(`Notify Slack (backup failure)` 스텝). RPO 가 24시간이라 하루만 빠져도 목표를 넘으므로 **실패 당일** `gh workflow run backup.yml` 로 재실행한다 |
 | 권한 | `permissions: {}`(GITHUB_TOKEN 미사용) |
 
