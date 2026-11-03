@@ -110,13 +110,4 @@ public class BankMatchingException extends ApplicationException {
             super(MESSAGE, HttpStatus.CONFLICT);
         }
     }
-
-    /** 매칭된 거래로 표시돼 있으나 연결된 활성 납부를 찾지 못한 경우(데이터 정합성 이상). */
-    public static class MatchedPaymentNotFoundException extends BankMatchingException {
-        private static final String MESSAGE = "매칭된 거래의 납부 내역을 찾을 수 없습니다.";
-
-        public MatchedPaymentNotFoundException() {
-            super(MESSAGE, HttpStatus.CONFLICT);
-        }
-    }
 }
