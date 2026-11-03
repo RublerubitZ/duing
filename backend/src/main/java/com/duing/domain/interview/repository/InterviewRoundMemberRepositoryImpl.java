@@ -114,6 +114,10 @@ public class InterviewRoundMemberRepositoryImpl implements InterviewRoundMemberR
                 .fetch();
     }
 
+    /**
+     * 라운드별 인원 상태 집계 — 인원 목록(findMemberLinesByRoundId)과 같은 사람을 센다. 목록은 철회된 지원서와 탈퇴한
+     * 지원자를 빼므로 여기서도 같은 조인으로 빼고, 지원자 삭제 조건은 조인 제한에 기대지 않고 명시한다(#1635).
+     */
     @Override
     public List<RoundMemberStatusCount> countMembersGroupedByStatus(Collection<Long> roundIds) {
         return queryFactory
@@ -122,7 +126,11 @@ public class InterviewRoundMemberRepositoryImpl implements InterviewRoundMemberR
                         interviewRoundMember.status,
                         interviewRoundMember.count()))
                 .from(interviewRoundMember)
-                .where(interviewRoundMember.roundId.in(roundIds))
+                .join(application).on(
+                        application.id.eq(interviewRoundMember.applicationId)
+                                .and(application.deletedAt.isNull()))
+                .join(application.user, user)
+                .where(interviewRoundMember.roundId.in(roundIds), user.deletedAt.isNull())
                 .groupBy(interviewRoundMember.roundId, interviewRoundMember.status)
                 .fetch();
     }
