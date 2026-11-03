@@ -59,8 +59,8 @@ dependencies {
         exclude(group = "io.projectreactor", module = "reactor-core")
     }
 
-    // JWT
-    implementation("com.auth0:java-jwt:4.6.1")
+    // JWT — 4.6.2 미만은 범위 밖 exp 에 DateTimeException 을 던져 인증 필터를 빠져나간다(CVE-2026-85473)
+    implementation("com.auth0:java-jwt:4.6.2")
 
     // spring-retry — SchoolFacilityClient 룸 단위 재시도(@Retryable, 총 4회 / 0.5·1·2초 / 5xx·네트워크·타임아웃만).
     // @Retryable 은 AOP 프록시로 동작하므로 spring-boot-starter-aop 가 필요하다. 버전은 Spring Boot BOM 이 관리한다.
