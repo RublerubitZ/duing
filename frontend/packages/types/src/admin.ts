@@ -635,6 +635,30 @@ export type AdminJobStatuses = {
 };
 
 /**
+ * GET /admin/club-signals 응답 — 총동연 홈 동아리 현황. 각 수는 목록 ?status=ACTIVE&signal=… 의 totalElements 와 같은 식이다(같은 순간 기준).
+ * oldest* 는 그 묶음의 clubCount 가 0 일 때만, 그리고 그때 반드시 null 이다. 묶음 사이는 별도 문장이라 스냅숏이 다를 수 있다 —
+ * 화면은 묶음 사이 불변식을 가정하지 않는다(뺄셈은 0 아래로 자른다). 404 면 이 API 를 모르는 옛 백엔드다.
+ */
+export type AdminClubSignals = {
+  activeClubCount: number;
+  resultWaiting: {
+    clubCount: number;
+    /** 신호 모집들의 결과 미확정 지원 합(지원서 단위) */
+    applicationCount: number;
+    /** 신호 모집 중 가장 이른 끝난 날 — KST 날짜 'YYYY-MM-DD' */
+    oldestEndedOn: string | null;
+  };
+  joinRequestWaiting: {
+    clubCount: number;
+    /** 신호 동아리의 대기 신청 전부(7일 안 신청 포함) */
+    requestCount: number;
+    oldestRequestedAt: IsoInstantString | null;
+  };
+  noRecordClubCount: number;
+  operatorInactiveClubCount: number;
+};
+
+/**
  * GET /admin/profile-check 응답 — 학기별 사용자 정보 확인 팝업의 설정과 확인 현황(총동연).
  *
  * 학기는 서버가 날짜로 정한다(서울 기준 3~8월 = 그해 1학기, 9~2월 = 그해 2학기). semester* 는 통계 기준 학기

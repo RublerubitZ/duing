@@ -54,4 +54,19 @@ describe('총동연 동아리 신호 API 클라이언트', () => {
     expect(clubPage.content[0]?.signalDetail?.resultWaiting?.applicationCount).toBe(5);
     expect(clubPage.content[0]?.signalDetail?.joinRequestWaiting).toBeNull();
   });
+
+  it('동아리 현황은 GET /admin/club-signals 의 data 를 돌려준다', async () => {
+    const clubSignals = {
+      activeClubCount: 165,
+      resultWaiting: { clubCount: 6, applicationCount: 15, oldestEndedOn: '2026-07-25' },
+      joinRequestWaiting: { clubCount: 1, requestCount: 1, oldestRequestedAt: '2026-10-23T03:00:00Z' },
+      noRecordClubCount: 110,
+      operatorInactiveClubCount: 119,
+    };
+    server.use(
+      http.get(`${BASE_URL}/admin/club-signals`, () => HttpResponse.json({ ok: true, message: null, data: clubSignals })),
+    );
+
+    await expect(client().admin.getClubSignals()).resolves.toEqual(clubSignals);
+  });
 });
