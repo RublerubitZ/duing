@@ -9,6 +9,7 @@ import com.duing.common.fixture.ClubFixture;
 import com.duing.common.fixture.FeePolicyFixture;
 import com.duing.common.fixture.UserFixture;
 import com.duing.domain.club.entity.Club;
+import com.duing.domain.club.entity.ClubStatus;
 import com.duing.domain.club.repository.ClubRepository;
 import com.duing.domain.clubmember.entity.ClubMember;
 import com.duing.domain.clubmember.repository.ClubMemberRepository;
@@ -56,8 +57,10 @@ class MonthlyBillIssueJobTest extends IntegrationTestBase {
 
     @BeforeEach
     void setUp() {
-        Club club = clubRepository.save(ClubFixture.academic("자동발행동아리"));
-        clubId = club.getId();
+        // 자동 발행은 운영 중(ACTIVE) 동아리만 대상이다 — 픽스처 기본값은 PENDING_APPROVAL.
+        Club club = ClubFixture.academic("자동발행동아리");
+        club.changeStatus(ClubStatus.ACTIVE, null, null);
+        clubId = clubRepository.save(club).getId();
         addActiveMembers(2);
     }
 
@@ -166,6 +169,18 @@ class MonthlyBillIssueJobTest extends IntegrationTestBase {
         job.run();
 
         assertThat(billCount()).isZero();
+    }
+
+    @Test
+    @DisplayName("운영 중단(INACTIVE) 동아리의 정책은 이번 달 발행도 전월 캐치업도 하지 않는다")
+    void skipsPoliciesOfInactiveClub() {
+        saveAutoIssuePolicyCreatedAt(5, 25, LocalDateTime.of(2026, 4, 10, 9, 0));
+        jdbcTemplate.update("UPDATE club SET status = 'INACTIVE' WHERE id = ?", clubId);
+
+        jobOn(LocalDate.of(2026, 6, 7)).run();
+
+        assertThat(billCount()).isZero();
+        assertThat(issuedNotificationCount()).isZero();
     }
 
     @Test

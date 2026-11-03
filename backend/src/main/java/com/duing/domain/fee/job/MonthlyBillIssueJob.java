@@ -16,7 +16,7 @@ import org.springframework.stereotype.Component;
 
 /**
  * 매일 00:20(Asia/Seoul)에 실행되는 회비 자동 월발행 크론.
- * 활성 MONTHLY auto_issue 정책 중 발행일이 오늘 일자 이하인(today.day >= issue_day, 캐치업) 정책의
+ * 운영 중(ACTIVE) 동아리의 활성 MONTHLY auto_issue 정책 중 발행일이 오늘 일자 이하인(today.day >= issue_day, 캐치업) 정책의
  * 그 달 청구를 멱등 발행한다(그 회원·회차 청구가 있으면 — 운영진이 취소한 것 포함 — 재발행·재알림 없음).
  * 이어서 전월 캐치업(월초 {@link #CATCH_UP_WINDOW_DAYS}일 이내만): 월 넘김 구간에 잡이 멈춰 전월 청구가 빠진 경우를
  * 복구한다 — 전월 이전에 만든 정책만 대상(이번 달에 만든 정책이 소급 청구되지 않게), 기발행 회차는 멱등 키로
@@ -76,6 +76,7 @@ public class MonthlyBillIssueJob {
         LocalDate previousMonth = today.minusMonths(1);
         LocalDate thisMonthStart = today.withDayOfMonth(1);
         // 전월은 이미 끝났으므로 issue_day 와 무관하게 전 정책이 대상(issue_day 상한 28 ≤ 31).
+        // shortcut: 동아리 상태는 실행 시점만 본다 — 운영 중단에서 월초 7일 안에 재활성되면 중단 때문에 빠진 전월을 캐치업이 청구한다, 재활성 동아리 민원이 생기면 club.status_changed_at 으로 전월 캐치업을 건너뛴다
         List<FeePolicy> catchUpPolicies = feePolicyRepository.findAutoIssueDue(31).stream()
                 .filter(policy -> createdDateInJobZone(policy.getCreatedAt(), ZoneId.systemDefault(), clock.getZone())
                         .isBefore(thisMonthStart))
