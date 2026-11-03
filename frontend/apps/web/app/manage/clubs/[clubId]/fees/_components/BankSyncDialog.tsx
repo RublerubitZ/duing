@@ -78,6 +78,13 @@ export function BankSyncDialog({ clubId, bankLabel, onClose }: BankSyncDialogPro
         addToast(
           `동기화 완료 — ${result.newlyStored}건 적재 · ${result.autoMatched}건 자동매칭 · ${result.pendingReview}건 검토 필요`,
         );
+        // 조회 상한보다 오래 쉬었으면 그 앞 구간은 이번에 못 불러온다 — 통장과 직접 대조해야 하니 닫을 때까지 남긴다.
+        if (result.missedFrom && result.missedTo) {
+          addToast(
+            `${result.missedFrom} ~ ${result.missedTo} 거래는 한 번에 조회할 수 있는 기간을 넘어 불러오지 못했습니다. 이 기간 입금은 통장 내역으로 확인해 직접 처리해 주세요.`,
+            { variant: 'error', durationMs: 0 },
+          );
+        }
         closeAndClear();
       },
     });
