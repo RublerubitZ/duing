@@ -116,7 +116,7 @@ describe('BankSyncDialog', () => {
 
     await waitFor(() =>
       expect(mockAddToast).toHaveBeenCalledWith(
-        '2026-09-01 ~ 2026-09-13 거래는 한 번에 조회할 수 있는 기간을 넘어 불러오지 못했습니다. 이 기간 입금은 통장 내역으로 확인해 직접 처리해 주세요.',
+        '2026-09-01 ~ 2026-09-13 구간은 한 번에 조회할 수 있는 기간을 넘어 이번 동기화에서 확인하지 못했습니다. 그 사이 입금이 있었다면 통장 내역과 대조해 직접 처리해 주세요.',
         { variant: 'error', durationMs: 0 },
       ),
     );
