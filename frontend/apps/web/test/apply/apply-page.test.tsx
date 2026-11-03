@@ -1163,6 +1163,55 @@ describe('자동저장 — 보내는 때와 재전송', () => {
     expect(await screen.findByText(/^마지막 저장 /, {}, { timeout: 7000 })).toBeInTheDocument();
     expect(draftPutCount).toBe(2);
   }, 15_000);
+
+  it('임시저장이 404 이면 같은 내용을 다시 보내지 않고, 답을 고치면 다시 보낸다', async () => {
+    const draftBodies: unknown[] = [];
+    server.use(
+      http.put(`*/recruitments/${RECRUITMENT_ID}/draft`, async ({ request }) => {
+        draftBodies.push(await request.json());
+        return HttpResponse.json(
+          { ok: false, data: null, message: '모집 공고를 찾을 수 없습니다.' },
+          { status: 404 },
+        );
+      }),
+    );
+    const user = userEvent.setup();
+    renderForm();
+    const textarea = screen.getByRole('textbox', { name: /지원 동기/ });
+
+    await user.type(textarea, '열정');
+    expect(await screen.findByText(AUTOSAVE_FAILED_TEXT, {}, { timeout: 4000 })).toBeInTheDocument();
+    expect(draftBodies).toHaveLength(1);
+    await new Promise((resolve) => setTimeout(resolve, 3000));
+    expect(draftBodies).toHaveLength(1);
+
+    await user.type(textarea, '!');
+    await waitFor(() => expect(draftBodies).toHaveLength(2), { timeout: 4000 });
+    expect(draftBodies.at(-1)).toEqual({ answers: [{ questionId: TEXT_QUESTION_ID, values: ['열정!'] }] });
+  }, 15_000);
+
+  it('임시저장이 401 이면 2초 뒤 같은 내용을 다시 보내 저장한다', async () => {
+    const draftBodies: unknown[] = [];
+    server.use(
+      http.put(`*/recruitments/${RECRUITMENT_ID}/draft`, async ({ request }) => {
+        draftBodies.push(await request.json());
+        // 갱신이 잠깐 안 돼(unavailable) 원래 401 이 올라온 경우 — 세션은 살아 있으니 멈추면 마지막 답을 잃는다.
+        if (draftBodies.length === 1) {
+          return HttpResponse.json({ ok: false, data: null, message: '인증이 필요합니다.' }, { status: 401 });
+        }
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+    const user = userEvent.setup();
+    renderForm();
+
+    await user.type(screen.getByRole('textbox', { name: /지원 동기/ }), '열정');
+    expect(await screen.findByText(/^마지막 저장 /, {}, { timeout: 7000 })).toBeInTheDocument();
+    expect(draftBodies).toEqual([
+      { answers: [{ questionId: TEXT_QUESTION_ID, values: ['열정'] }] },
+      { answers: [{ questionId: TEXT_QUESTION_ID, values: ['열정'] }] },
+    ]);
+  }, 15_000);
 });
 
 describe('ApplyForm — 주관식 글자 수', () => {
