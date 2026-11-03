@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
@@ -93,6 +93,50 @@ describe('RecordPaymentDialog', () => {
 
     await waitFor(() => expect(mockAddToast).toHaveBeenCalledWith('납부를 기록했습니다.'));
     expect(onClose).toHaveBeenCalled();
+  });
+
+  it('버튼이 막히기 전에 제출이 두 번 들어와도 요청은 한 번이다', async () => {
+    mockRecordMutate.mockImplementation(() => {}); // 앞 테스트의 onSuccess 구현을 지운다(clearAllMocks 는 구현을 남김)
+    render(<RecordPaymentDialog clubId={1} bill={buildBill()} memberName="김민지" onClose={() => {}} />);
+
+    const form = screen.getByRole('button', { name: '기록' }).closest('form')!;
+    // 같은 태스크의 두 번째 제출 — disabled 가 그려지기 전이라 버튼으로는 못 막는다
+    fireEvent.submit(form);
+    fireEvent.submit(form);
+    await waitFor(() => expect(mockRecordMutate).toHaveBeenCalled());
+    await new Promise((resolve) => setTimeout(resolve, 0)); // 두 handleSubmit 의 비동기 검증이 모두 끝나게
+    expect(mockRecordMutate).toHaveBeenCalledTimes(1);
+  });
+
+  it('요청이 끝나면(onSettled) 다시 제출할 수 있다', async () => {
+    mockRecordMutate.mockImplementation(() => {}); // 앞 테스트의 onSuccess 구현을 지운다(clearAllMocks 는 구현을 남김)
+    const user = userEvent.setup();
+    render(<RecordPaymentDialog clubId={1} bill={buildBill()} memberName="김민지" onClose={() => {}} />);
+
+    await user.click(screen.getByRole('button', { name: '기록' }));
+    await waitFor(() => expect(mockRecordMutate).toHaveBeenCalledTimes(1));
+    const [, callOptions] = mockRecordMutate.mock.calls[0] as [unknown, { onSettled?: () => void }];
+    act(() => callOptions.onSettled?.());
+    await user.click(screen.getByRole('button', { name: '기록' }));
+    await waitFor(() => expect(mockRecordMutate).toHaveBeenCalledTimes(2));
+  });
+
+  it('검증에 실패한 뒤 고쳐서 제출하면 요청이 한 번 나간다', async () => {
+    mockRecordMutate.mockImplementation(() => {});
+    const user = userEvent.setup();
+    render(<RecordPaymentDialog clubId={1} bill={buildBill()} memberName="김민지" onClose={() => {}} />);
+
+    const amountInput = screen.getByLabelText(/납부 금액/);
+    await user.clear(amountInput);
+    await user.type(amountInput, '0');
+    await user.click(screen.getByRole('button', { name: '기록' }));
+    expect(await screen.findByText('납부 금액은 1원 이상이어야 합니다.')).toBeInTheDocument();
+
+    // 검증 실패는 onSubmit 에 닿지 않아 가드를 세우지 않는다 — 고친 뒤 제출은 그대로 나간다.
+    await user.clear(amountInput);
+    await user.type(amountInput, '6000');
+    await user.click(screen.getByRole('button', { name: '기록' }));
+    await waitFor(() => expect(mockRecordMutate).toHaveBeenCalledTimes(1));
   });
 
   it('ApiError(400) 메시지를 에러 배너로 노출한다', () => {
