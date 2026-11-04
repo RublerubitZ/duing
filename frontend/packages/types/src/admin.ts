@@ -602,6 +602,33 @@ export type AdminPendingTrend = {
   recentFlow: { days: number; receivedCount: number; handledCount: number };
 };
 
+/** 주간 브리핑 한 업무의 그 주 접수·처리 건수. */
+export type AdminWeeklyFlow = { receivedCount: number; handledCount: number };
+
+/**
+ * GET /admin/weekly-briefing?weekStart= 응답 — 고른 주(KST 월 00:00 ~ 다음 월 00:00)의 접수·처리·남은 대기·활동.
+ * endPending 은 그 주 일요일 하루 끝 기록(홈 처리 대기 추이의 같은 날 막대)이고, 기록이 없으면 null 이다(0 과 다르다).
+ * 이 API 는 운영 중단 미결 칸을 늘 주므로 Required 다. weekStart 가 범위 밖이면 400(code WEEK_*).
+ */
+export type AdminWeeklyBriefing = {
+  flow: {
+    report: AdminWeeklyFlow;
+    inquiry: AdminWeeklyFlow;
+    facilityBooking: AdminWeeklyFlow;
+    promotionRequest: AdminWeeklyFlow;
+    leaderSuccession: AdminWeeklyFlow;
+  };
+  endPending: Required<AdminPendingCounts> | null;
+  /** 남은 대기 기록이 처음 시작된 날(KST "YYYY-MM-DD"). 기록이 하나도 없으면 null. */
+  pendingRecordStartedOn: string | null;
+  /** 그 주에 나간 답변 수와 접수부터 답변까지 평균(분). 답변이 없으면 averageMinutes 는 null. */
+  inquiryFirstAnswer: { answerCount: number; averageMinutes: number | null };
+  federationNoticeCount: number;
+  recruitment: { createdCount: number; endedCount: number; applicationCount: number };
+  fee: { billCount: number; billedClubCount: number; paymentCount: number; voidedPaymentCount: number; accountChangedClubCount: number };
+  profileCheckConfirmedCount: number;
+};
+
 /** 총동연 홈 자동 작업 키 — 서버 MonitoredJob 선언 순서와 같다. */
 export type AdminJobKey =
   | 'RECRUITMENT_AUTO_CLOSE'
