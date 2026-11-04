@@ -228,17 +228,14 @@ describe('buildActionItems', () => {
     expect(items.filter((item) => item.type === 'INTERVIEW_ROUND_UNCONFIRMED').map((item) => item.roundStatus)).toEqual(['DRAFT']);
   });
 
-  it('응답 수집 1차 + 초안 2차여도 초안이 있으면 라운드 생성 필요 아님', () => {
-    const items = buildActionItems(
-      [
-        dashboardInput({
-          candidateCount: 3,
-          rounds: [round({ roundId: 100, status: 'COLLECTING' }), round({ roundId: 101, title: '2차 면접', status: 'DRAFT' })],
-        }),
-      ],
-      NOW,
-    );
-    expect(items.some((item) => item.type === 'INTERVIEW_ROUND_NEEDED')).toBe(false);
+  it('응답 수집 1차 + 초안 2차여도 초안이 있으면 라운드 생성 필요 아님 — 라운드 순서와 상관없이', () => {
+    const collectingRound = round({ roundId: 100, status: 'COLLECTING' });
+    const draftRound = round({ roundId: 101, title: '2차 면접', status: 'DRAFT' });
+    // 서버는 최신순(초안이 맨 앞)으로 준다 — 두 순서를 다 돌려 첫 라운드만·마지막 라운드만 보는 판정을 함께 막는다.
+    for (const rounds of [[draftRound, collectingRound], [collectingRound, draftRound]]) {
+      const items = buildActionItems([dashboardInput({ candidateCount: 3, rounds })], NOW);
+      expect(items.some((item) => item.type === 'INTERVIEW_ROUND_NEEDED')).toBe(false);
+    }
   });
 
   it.each<InterviewRoundSummary['status']>(['COLLECTING', 'ASSIGNING'])(
@@ -250,20 +247,21 @@ describe('buildActionItems', () => {
     },
   );
 
-  it('확정 1차 + 응답 수집 2차(인원 0)에 대기열 2명이면 라운드 생성 필요 2명과 2차의 줄', () => {
+  it('확정 1차 + 응답 수집 2차(인원 0)에 대기열 2명이면 라운드 생성 필요 2명·2차의 줄·1차 결과 미확정 3명', () => {
     const items = buildActionItems(
       [
         dashboardInput({
+          stats: stats({ interviewPending: 5 }), // 1차 결과 미결 3 + 대기열 2
           candidateCount: 2,
           rounds: [round({ roundId: 6, status: 'SCHEDULED' }), round({ roundId: 7, title: '2차 면접', status: 'COLLECTING' })],
         }),
       ],
       NOW,
     );
-    // 기본 통계는 면접 대상 0명이라 결과 미확정 줄이 없다.
     expect(items).toEqual([
       { type: 'INTERVIEW_ROUND_NEEDED', recruitmentId: 1, recruitmentTitle: '2026 봄 모집', count: 2 },
       { type: 'INTERVIEW_ROUND_UNCONFIRMED', ...roundLine, roundTitle: '2차 면접', roundStatus: 'COLLECTING' },
+      { type: 'INTERVIEW_RESULT_PENDING', recruitmentId: 1, recruitmentTitle: '2026 봄 모집', roundId: 6, roundTitle: '1차 면접', count: 3 },
     ]);
   });
 

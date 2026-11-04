@@ -6,6 +6,7 @@ import { setupServer } from 'msw/node';
 import { http, HttpResponse } from 'msw';
 import { createApiClient } from '@duing/api';
 import { ApiClientProvider } from '@duing/hooks';
+import type { InterviewRoundStatus } from '@duing/types';
 import { InterviewRoundsLanding } from '@/app/manage/clubs/[clubId]/recruitments/[recruitmentId]/interview/_pages/InterviewRoundsLanding';
 
 // MSW 기반 통합 테스트 — 면접 관리 랜딩 (신규 라운드 목록 기반).
@@ -179,23 +180,26 @@ describe('InterviewRoundsLanding — 면접 관리 랜딩', () => {
     expect(screen.getByText('강감찬')).toBeInTheDocument();
   });
 
-  it('응답 수집 중 라운드가 있어도 대기열 인원과 라운드 생성 링크가 보인다 — 할 일의 라운드 생성 필요 줄이 데려오는 곳', async () => {
-    server.use(
-      http.get(`*/recruitments/${RECRUITMENT_ID}/interview-rounds`, () =>
-        HttpResponse.json({ ok: true, data: [COLLECTING_ROUND], message: null }),
-      ),
-      CANDIDATES_HANDLER,
-    );
+  it.each<InterviewRoundStatus>(['COLLECTING', 'ASSIGNING'])(
+    '%s 라운드가 있어도 대기열 인원과 라운드 생성 링크가 보인다 — 할 일의 라운드 생성 필요 줄이 데려오는 곳',
+    async (roundStatus) => {
+      server.use(
+        http.get(`*/recruitments/${RECRUITMENT_ID}/interview-rounds`, () =>
+          HttpResponse.json({ ok: true, data: [{ ...COLLECTING_ROUND, status: roundStatus }], message: null }),
+        ),
+        CANDIDATES_HANDLER,
+      );
 
-    renderLanding();
+      renderLanding();
 
-    const queueHeading = await screen.findByRole('heading', { name: /면접 대기열/ });
-    expect(within(queueHeading).getByText('2명')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: '라운드 생성' })).toHaveAttribute(
-      'href',
-      `/manage/clubs/${CLUB_ID}/recruitments/${RECRUITMENT_ID}/interview/rounds/new`,
-    );
-  });
+      const queueHeading = await screen.findByRole('heading', { name: /면접 대기열/ });
+      expect(within(queueHeading).getByText('2명')).toBeInTheDocument();
+      expect(screen.getByRole('link', { name: '라운드 생성' })).toHaveAttribute(
+        'href',
+        `/manage/clubs/${CLUB_ID}/recruitments/${RECRUITMENT_ID}/interview/rounds/new`,
+      );
+    },
+  );
 
   it('대기열이 비어 있으면 "대기 중인 지원자가 없습니다" 문구가 보인다', async () => {
     server.use(
