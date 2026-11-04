@@ -1,6 +1,7 @@
 'use client';
 
 import { useRef, useState } from 'react';
+import { flushSync } from 'react-dom';
 
 import { useAdminWeeklyFacilityHeatmapQuery } from '@duing/hooks';
 
@@ -75,8 +76,33 @@ function FacilityHeatmapTable({
       </>
     );
   }
-  const days = heatmapDays(weekStart);
   const { visibleRows, hiddenCount } = splitHeatmapRows(heatmap.facilities);
+  const showAllButton = (
+    <button
+      type="button"
+      onClick={() => {
+        // 누른 버튼이 사라진다 — 펼친 표(스크롤 영역)로 포커스를 옮긴다. 모든 시설이 0 인 주는 펼쳐야 표가 생겨 먼저 그린다.
+        flushSync(() => setShowAll(true));
+        scrollRegionRef.current?.focus();
+      }}
+      className="no-print min-h-11 rounded px-1 font-medium text-ink underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink"
+    >
+      모두 보기
+    </button>
+  );
+  if (visibleRows.length === 0 && !showAll) {
+    // 모든 시설이 그 주 내내 0 이면(방학 주 등) 날짜 머리만 있는 빈 표 대신 한 줄로 쓴다.
+    return (
+      <>
+        <h3 className="text-sm font-semibold !leading-5 text-charcoal">{caption}</h3>
+        <p className="mt-2 text-sm text-charcoal-2">
+          {`이 주에는 예약이 없어요(시설 ${heatmap.facilities.length}곳)`}{' '}
+          {showAllButton}
+        </p>
+      </>
+    );
+  }
+  const days = heatmapDays(weekStart);
   const rows = showAll ? heatmap.facilities : visibleRows;
   // 이번 주 표의 지난 날 흐림은 대비 차로 — 오늘·남은 날 머리만 charcoal(12.65:1)로 올리고 지난 날은 머리 행 기본색(charcoal-3 6.10:1). 둘 다 AA.
   const isTodayOrLater = (isoDate: string) => isThisWeek && isoDate >= todayIso;
@@ -139,17 +165,7 @@ function FacilityHeatmapTable({
       {hiddenCount > 0 && !showAll ? (
         <p className="mt-1 text-xs text-charcoal-2">
           {`예약 없는 시설 ${hiddenCount}곳은 뺐어요`}{' '}
-          <button
-            type="button"
-            onClick={() => {
-              // 누른 버튼이 사라진다 — 펼친 표(스크롤 영역)로 포커스를 옮긴다.
-              scrollRegionRef.current?.focus();
-              setShowAll(true);
-            }}
-            className="no-print min-h-11 rounded px-1 font-medium text-ink underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink"
-          >
-            모두 보기
-          </button>
+          {showAllButton}
         </p>
       ) : null}
       {touchesPastMonth(weekStart, todayIso) ? <p className="mt-1 break-keep text-xs text-charcoal-3">{PAST_MONTH_NOTE}</p> : null}

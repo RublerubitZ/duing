@@ -84,6 +84,32 @@ describe('FacilityHeatmap', () => {
     expect(document.activeElement).toBe(screen.getByRole('region', { name: LAST_WEEK.caption }));
   });
 
+  it('모든 시설이 그 주 내내 0 이면(방학 주 등) 날짜 머리만 있는 빈 표 대신 한 줄과 모두 보기만 쓰고, 누르면 표를 펼쳐 포커스를 옮긴다', async () => {
+    server.use(
+      http.get('*/admin/weekly-briefing/facility-heatmap', () =>
+        HttpResponse.json({
+          ok: true,
+          message: null,
+          data: { facilities: HEATMAP.facilities.filter((row) => row.occupiedSlotCounts.every((count) => count === 0)), currentMonthCrawledAt: null },
+        }),
+      ),
+    );
+    const user = userEvent.setup();
+    renderHeatmap(LAST_WEEK);
+
+    expect(await screen.findByText(/이 주에는 예약이 없어요/)).toHaveTextContent('이 주에는 예약이 없어요(시설 2곳) 모두 보기');
+    expect(screen.getByRole('heading', { level: 3, name: LAST_WEEK.caption })).toBeInTheDocument();
+    expect(screen.queryByRole('table')).toBeNull();
+    expect(screen.queryByText(/예약 없는 시설/)).toBeNull();
+    const showAll = screen.getByRole('button', { name: '모두 보기' });
+    expect(showAll).toHaveClass('no-print');
+    await user.click(showAll);
+    expect(screen.getByRole('rowheader', { name: '세미나실' })).toBeInTheDocument();
+    expect(screen.getByRole('rowheader', { name: '동아리방 A' })).toBeInTheDocument();
+    // 표는 펼친 뒤에야 생긴다 — 사라진 버튼 대신 새로 그린 스크롤 영역이 포커스를 받는다.
+    expect(document.activeElement).toBe(screen.getByRole('region', { name: LAST_WEEK.caption }));
+  });
+
   it('시설이 하나도 없으면(보관 제외 뒤) 머리만 있는 빈 표 대신 "등록된 시설이 없어요" 를 쓴다', async () => {
     server.use(
       http.get('*/admin/weekly-briefing/facility-heatmap', () =>
