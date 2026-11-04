@@ -1,6 +1,7 @@
 package com.duing.domain.notification.listener;
 
 import com.duing.domain.application.entity.Application;
+import com.duing.domain.application.entity.ApplicationStatus;
 import com.duing.domain.application.repository.ApplicationRepository;
 import com.duing.domain.interview.entity.InterviewRound;
 import com.duing.domain.interview.event.InterviewAvailabilityRequestedEvent;
@@ -43,6 +44,12 @@ public class InterviewAvailabilityRequestedListener {
             if (application == null) {
                 log.warn("INTERVIEW_AVAILABILITY_REQUESTED 알림 생략 — application 없음: applicationId={}",
                         event.applicationId());
+                return;
+            }
+            // 결과가 정해진 지원자에게는 면접 단계가 없다 — 지원자 화면(ApplicantInterviewPhase)·하루 전 리마인더와 같은 기준.
+            if (application.getStatus() != ApplicationStatus.INTERVIEW_PENDING) {
+                log.debug("INTERVIEW_AVAILABILITY_REQUESTED 알림 생략 — 결과가 정해진 지원: applicationId={}, status={}",
+                        event.applicationId(), application.getStatus());
                 return;
             }
 
