@@ -171,7 +171,7 @@ describe('AdminClubsListPage — 신호 줄', () => {
     expect(screen.getByText('총 0곳')).toBeInTheDocument();
   });
 
-  it('검색어가 있는 0건이면 그 검색어로 찾은 곳이 없다고 쓰고, 검색 초기화가 검색어만 지운다', async () => {
+  it('검색어가 있는 0건이면 그 검색어로 찾은 곳이 없다고 쓰고, 검색 초기화가 검색어만 지우고 포커스를 검색 칸으로 옮긴다', async () => {
     renderPage('signal=RESULT_WAITING');
     await waitFor(() => expect(listRequests).toHaveLength(1));
     await searchKeyword('코딩');
@@ -180,6 +180,8 @@ describe('AdminClubsListPage — 신호 줄', () => {
     await userEvent.click(screen.getByRole('button', { name: '검색 초기화' }));
 
     await waitFor(() => expect(listRequests.at(-1)).toEqual({ status: 'ACTIVE', signal: 'RESULT_WAITING', page: '0', size: '20' }));
+    // 누른 버튼은 빈 문구와 함께 사라진다 — 포커스가 문서 맨 앞으로 떨어지지 않아야 한다.
+    expect(screen.getByPlaceholderText('이름 또는 설명으로 검색')).toHaveFocus();
   });
 
   it('목록을 받는 중에는 건수를 뺀다 — 건수를 받은 뒤 다음 쪽을 받는 동안에도 앞 건수를 남기지 않는다', async () => {
