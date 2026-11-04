@@ -12,6 +12,7 @@ import {
   recruitmentStatusChip,
 } from '@/app/_lib/recruitmentDisplay';
 import { toRoute } from '@/app/_lib/route';
+import { OPERATOR_INACTIVE_DAYS, operatorInactiveDays } from '@/app/admin/_lib/operatorActivity';
 import { EmptyState } from '../../_components/EmptyState';
 import { applicationModeLabel } from '../_lib/recruitmentLabels';
 
@@ -20,8 +21,6 @@ import { applicationModeLabel } from '../_lib/recruitmentLabels';
  * 사이드바 뱃지·운영진 리마인더와는 경계에서 하루 미만 어긋날 수 있다(스펙이 허용).
  */
 export const PENDING_ATTENTION_DAYS = 7;
-/** 운영진 마지막 접속이 이 일수를 넘으면 강조한다. */
-const OPERATOR_INACTIVE_DAYS = 30;
 const ATTENTION_TEXT_CLASS = 'font-semibold text-coral-deep';
 
 type Props = {
@@ -180,7 +179,7 @@ const OperatorsLastActiveCell = ({
   if (!lastActiveAt) {
     return <span className={cn('whitespace-nowrap', ATTENTION_TEXT_CLASS)}>기록 없음</span>;
   }
-  const inactiveDays = -daysUntilKst(lastActiveAt, now);
+  const inactiveDays = operatorInactiveDays(lastActiveAt, now);
   return (
     <span
       className={cn(
