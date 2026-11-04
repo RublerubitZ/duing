@@ -1059,6 +1059,83 @@ describe('ApplyPage — 임시저장 조회 실패', () => {
   });
 });
 
+describe('ApplyPage — 다시 들어올 때 임시저장 저장본', () => {
+  // 앱 루트와 같은 staleTime — 0 이면 다시 그릴 때 저장본을 뒤에서 새로 받아, 캐시가 남아 있어도 새 답이 보일 수 있다.
+  function makeAppQueryClient() {
+    return new QueryClient({
+      defaultOptions: {
+        queries: { staleTime: 30_000, retry: false, refetchOnWindowFocus: false },
+        mutations: { retry: false },
+      },
+    });
+  }
+
+  it('화면을 떠났다 다시 들어오면 저장본을 새로 받아, 그 사이 다른 곳에서 고친 답으로 폼을 연다', async () => {
+    let draftGetCount = 0;
+    let savedAnswer = '처음 쓴 답';
+    server.use(
+      http.get(`*/recruitments/${RECRUITMENT_ID}/draft`, () => {
+        draftGetCount += 1;
+        return HttpResponse.json({
+          ok: true,
+          data: {
+            exists: true,
+            answers: [{ questionId: TEXT_QUESTION_ID, values: [savedAnswer] }],
+            updatedAt: '2026-11-04T10:00:00',
+          },
+          message: null,
+        });
+      }),
+    );
+    const queryClient = makeAppQueryClient();
+
+    const firstVisit = renderApplyPage(queryClient);
+    expect(await screen.findByRole('textbox', { name: /지원 동기/ })).toHaveValue('처음 쓴 답');
+    firstVisit.unmount();
+    // gcTime 만료는 setTimeout 으로 스케줄되므로 매크로태스크 한 틱을 흘려보낸다.
+    await act(() => new Promise((resolve) => setTimeout(resolve, 0)));
+
+    savedAnswer = '다른 기기에서 고친 답';
+    renderApplyPage(queryClient);
+
+    expect(await screen.findByRole('textbox', { name: /지원 동기/ })).toHaveValue('다른 기기에서 고친 답');
+    expect(draftGetCount).toBe(2);
+  });
+
+  it('다시 들어올 때 저장본 조회가 실패하면 옛 답 폼 대신 다시 시도 안내를 보여준다', async () => {
+    server.use(
+      http.get(`*/recruitments/${RECRUITMENT_ID}/draft`, () =>
+        HttpResponse.json({
+          ok: true,
+          data: {
+            exists: true,
+            answers: [{ questionId: TEXT_QUESTION_ID, values: ['처음 쓴 답'] }],
+            updatedAt: '2026-11-04T10:00:00',
+          },
+          message: null,
+        }),
+      ),
+    );
+    const queryClient = makeAppQueryClient();
+
+    const firstVisit = renderApplyPage(queryClient);
+    expect(await screen.findByRole('textbox', { name: /지원 동기/ })).toHaveValue('처음 쓴 답');
+    firstVisit.unmount();
+    await act(() => new Promise((resolve) => setTimeout(resolve, 0)));
+
+    server.use(
+      http.get(`*/recruitments/${RECRUITMENT_ID}/draft`, () =>
+        HttpResponse.json({ ok: false, data: null, message: '권한이 없습니다.' }, { status: 403 }),
+      ),
+    );
+    renderApplyPage(queryClient);
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('임시저장한 답변을 불러오지 못했습니다.');
+    expect(screen.getByRole('button', { name: '다시 시도' })).toBeInTheDocument();
+    expect(screen.queryByRole('textbox', { name: /지원 동기/ })).not.toBeInTheDocument();
+  });
+});
+
 describe('자동저장 — 보내는 때와 재전송', () => {
   const AUTOSAVE_FAILED_TEXT = '임시저장에 실패했어요. 잠시 후 다시 시도해주세요.';
 

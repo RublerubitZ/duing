@@ -8,6 +8,8 @@ export function useApplicationDraftQuery(recruitmentId: number) {
   return useQuery({
     queryKey: draftQueryKeys.byRecruitment(recruitmentId),
     queryFn: () => client.drafts.get(recruitmentId),
+    // 남은 캐시로 다시 열리면 폼이 옛 답으로 시작해 다른 곳에서 고친 답을 자동저장이 덮는다 — 자격 조회처럼 떠나면 바로 버린다.
+    gcTime: 0,
   });
 }
 
