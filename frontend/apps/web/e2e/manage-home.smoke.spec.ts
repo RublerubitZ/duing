@@ -96,6 +96,8 @@ test.describe('진입 차단', () => {
 
     await expect(pageHeading(page, '현재 운영하는 동아리가 없습니다.')).toBeVisible({ timeout: ROUTE_TIMEOUT_MS });
     await expect(page.getByRole('link', { name: '홈으로 돌아가기', exact: true })).toBeVisible();
+    // "부르지 않는다"는 화면이 뜬 직후에 세면 늦게 나가는 조회를 놓친다 — 잠깐 둔 뒤 센다.
+    await page.waitForTimeout(500);
     const homeDataPaths = apiRequests.map((requestUrl) => requestUrl.pathname).filter((pathname) => HOME_DATA_PATH.test(pathname));
     expect(homeDataPaths, '차단 화면에서 나간 홈 데이터 조회').toEqual([]);
   });
@@ -400,6 +402,8 @@ test.describe('회장 홈', () => {
     await page.goto(`/manage/clubs/${FOREIGN_CLUB_ID}`);
     await expect(page.getByText('403 Forbidden', { exact: true })).toBeVisible({ timeout: ROUTE_TIMEOUT_MS });
     await expect(pageHeading(page, '이 동아리의 운영 권한이 없습니다.')).toBeVisible();
+    // "부르지 않는다"는 화면이 뜬 직후에 세면 늦게 나가는 조회를 놓친다 — 잠깐 둔 뒤 센다.
+    await page.waitForTimeout(500);
     const foreignDataPaths = apiRequests.map((requestUrl) => requestUrl.pathname).filter((pathname) => FOREIGN_CLUB_DATA_PATH.test(pathname));
     expect(foreignDataPaths, '남의 동아리 데이터 조회').toEqual([]);
     // 999999 는 기억됐지만 목록에 없어 첫 운영 동아리로 간다(ManageShell.tsx:200-207, app/manage/page.tsx:28-31).
