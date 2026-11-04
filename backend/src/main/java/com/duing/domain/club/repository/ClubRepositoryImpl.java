@@ -25,6 +25,7 @@ import com.duing.domain.club.service.dto.query.AdminClubSignal;
 import com.duing.domain.club.service.dto.query.AdminClubSummaryQuery;
 import com.duing.domain.club.service.dto.query.ClubSearchCondition;
 import com.duing.domain.club.service.dto.query.ClubSignalCutoffs;
+import com.duing.domain.club.service.dto.query.ClubSignalSummaryQuery;
 import com.duing.domain.club.service.dto.query.ClubSortOption;
 import com.duing.domain.club.service.dto.query.ClubStatsQuery;
 import com.duing.domain.club.service.dto.query.ClubSummaryQuery;
@@ -297,6 +298,37 @@ public class ClubRepositoryImpl implements ClubRepositoryCustom {
     }
 
     @Override
+    public ClubSignalSummaryQuery summarizeSignals() {
+        // 기준 시각은 이 메서드 안에서 한 번만 만든다 — 신호 네 문장이 같은 기준을 쓴다(동아리 신호 스펙 §5).
+        ClubSignalCutoffs cutoffs = ClubSignalPolicy.cutoffs(clock);
+        long activeClubCount = countClubs(club.status.eq(ClubStatus.ACTIVE));
+        long noRecordClubCount = countClubs(signalFilter(AdminClubSignal.NO_RECORD, cutoffs));
+        long operatorInactiveClubCount = countClubs(signalFilter(AdminClubSignal.OPERATOR_INACTIVE, cutoffs));
+        // 묶음마다 세 숫자를 한 문장에서 얻는다 — clubCount 0 ⟺ oldest null 이 스냅숏 차이로 깨지지 않는다.
+        List<ResultWaitingRecruitmentRow> resultWaitingRows = findResultWaitingRecruitmentRows(cutoffs, null);
+        List<StaleJoinRequestRow> staleJoinRequestRows = findStaleJoinRequestRows(cutoffs, null);
+        return new ClubSignalSummaryQuery(
+                activeClubCount,
+                new ClubSignalSummaryQuery.ResultWaiting(
+                        resultWaitingRows.stream().map(ResultWaitingRecruitmentRow::clubId).distinct().count(),
+                        resultWaitingRows.stream().mapToLong(ResultWaitingRecruitmentRow::undecidedCount).sum(),
+                        resultWaitingRows.stream().map(ResultWaitingRecruitmentRow::endedOn)
+                                .min(Comparator.naturalOrder()).orElse(null)),
+                new ClubSignalSummaryQuery.JoinRequestWaiting(
+                        staleJoinRequestRows.size(),
+                        staleJoinRequestRows.stream().mapToLong(StaleJoinRequestRow::requestCount).sum(),
+                        staleJoinRequestRows.stream().map(StaleJoinRequestRow::oldestRequestedAt)
+                                .min(Comparator.naturalOrder()).orElse(null)),
+                noRecordClubCount,
+                operatorInactiveClubCount);
+    }
+
+    private long countClubs(BooleanExpression condition) {
+        Long count = queryFactory.select(club.count()).from(club).where(condition).fetchOne();
+        return count == null ? 0L : count;
+    }
+
+    @Override
     public ClubStatsQuery countStats() {
         // 카테고리 GROUP BY 1회 + 모집중 COUNT 1회 = 2 쿼리. 총 수는 카테고리 합으로 얻어 3번째 왕복을 없앤다
         // (FE 가 size=1 목록 조회를 두 번 던져 총계만 뽑던 것을 이 엔드포인트 하나로 대체한다).
@@ -464,7 +496,8 @@ public class ClubRepositoryImpl implements ClubRepositoryCustom {
      * NOT EXISTS 두 개의 AND 로 반조인 한 번씩 훑는다). 로그인 기준은 system regime, 세션 기준은 seoul regime 이라 각자 기준으로 비교한다.
      * 운영진 = 회장·임원, 탈퇴(소프트 삭제) 회원과 남은 멤버십은 제외. auth_session 은 소프트 삭제를 쓰지 않는다 — 폐기·만료 세션도 사용 시각이라 센다.
      * 표시값(행의 운영진 마지막 접속)은 ClubMemberRepository#findOperatorActivityByClubIds(네이티브)가 정의한다 — 두 벌이라 바꿀 때 함께 바꾸고
-     * 판정↔표시 테스트(AdminClubsSignalDetailControllerTest)가 30일 경계 안팎·운영진 없음 표본으로 본다.
+     * 판정↔표시 테스트(AdminClubsSignalDetailControllerTest)가 30일 경계 안팎·운영진 없음 표본으로, 동치 테스트(AdminClubSignalsControllerTest)가
+     * 탈퇴 회원·떠난(멤버십 삭제) 운영진 표본으로 본다.
      */
     private static BooleanExpression noRecentOperatorActivity(ClubSignalCutoffs cutoffs) {
         BooleanExpression liveOperatorOfClub = SIGNAL_OPERATOR.club.id.eq(club.id)
@@ -540,8 +573,9 @@ public class ClubRepositoryImpl implements ClubRepositoryCustom {
     /**
      * 신호 모집별 행(동아리 신호 스펙 §7) — 결과 미확정 지원을 모집으로 묶어 센다. groupBy 에 고른 모집 열을 모두 둔다.
      * 같은 엔티티를 FROM 에 둔 바깥 쿼리라 signalFilter(EXISTS)를 넣지 않고 행 술어를 직접 건다. 동아리 조인의 삭제 조건을 명시한다.
-     * 목록 필터(EXISTS)와 같은 행 술어를 써서 같은 모집을 고른다 — 바꿀 때 함께 고친다. 재료 값은 AdminClubsSignalDetailControllerTest 가 본다
-     * (목록 필터와의 동치 테스트는 아직 없다).
+     * 목록 필터(EXISTS)와 같은 행 술어를 써서 같은 모집을 고른다 — 바꿀 때 함께 고친다. 재료 값은 AdminClubsSignalDetailControllerTest 가,
+     * 목록 필터와 같은 집합인지는 홈 집계 동치 테스트(AdminClubSignalsControllerTest)가 본다.
+     * clubIds 가 null 이면 운영 중 동아리 전체(홈 집계), 아니면 그 동아리만(페이지 재료 — 빈 목록은 넘기지 않는다).
      */
     private List<ResultWaitingRecruitmentRow> findResultWaitingRecruitmentRows(ClubSignalCutoffs cutoffs, List<Long> clubIds) {
         NumberExpression<Long> undecidedCount = application.count();
@@ -553,7 +587,7 @@ public class ClubRepositoryImpl implements ClubRepositoryCustom {
                 .join(application.user, SIGNAL_APPLICANT)
                 .join(recruitment.club, club)
                 .where(resultWaitingRecruitmentRow(cutoffs),
-                        club.status.eq(ClubStatus.ACTIVE), club.deletedAt.isNull(), club.id.in(clubIds))
+                        club.status.eq(ClubStatus.ACTIVE), club.deletedAt.isNull(), clubIds == null ? null : club.id.in(clubIds))
                 .groupBy(recruitment.id, club.id, recruitment.title, recruitment.status,
                         recruitment.closedAt, recruitment.endDate, recruitment.startDate)
                 .fetch()
@@ -578,7 +612,8 @@ public class ClubRepositoryImpl implements ClubRepositoryCustom {
     /**
      * 7일 넘게 대기한 신청이 있는 동아리별 대기 신청 수·가장 오래된 신청 시각(동아리 신호 스펙 §7) —
      * GROUP BY club HAVING min(created_at) < 기준. 안쪽 EXISTS 가 없어 기본 alias 하나로 끝난다.
-     * requestCount 는 그 동아리 대기 신청 전부다(7일 안 신청 포함).
+     * requestCount 는 그 동아리 대기 신청 전부다(7일 안 신청 포함). 목록 필터(EXISTS)와 같은 집합인지는 AdminClubSignalsControllerTest 가 본다.
+     * clubIds 가 null 이면 운영 중 동아리 전체(홈 집계), 아니면 그 동아리만(페이지 재료 — 빈 목록은 넘기지 않는다).
      */
     private List<StaleJoinRequestRow> findStaleJoinRequestRows(ClubSignalCutoffs cutoffs, List<Long> clubIds) {
         NumberExpression<Long> requestCount = clubJoinRequest.count();
@@ -588,7 +623,7 @@ public class ClubRepositoryImpl implements ClubRepositoryCustom {
                 .from(clubJoinRequest)
                 .join(clubJoinRequest.club, club)
                 .where(pendingJoinRequestRow(),
-                        club.status.eq(ClubStatus.ACTIVE), club.deletedAt.isNull(), club.id.in(clubIds))
+                        club.status.eq(ClubStatus.ACTIVE), club.deletedAt.isNull(), clubIds == null ? null : club.id.in(clubIds))
                 .groupBy(club.id)
                 .having(oldestRequestedAt.lt(cutoffs.joinRequestedBefore()))
                 .fetch()
