@@ -90,8 +90,26 @@ class WeekBoundsTest {
                 .isEqualTo(LocalDate.of(2026, 10, 26));
     }
 
+    @Test
+    @DisplayName("히트맵 주는 진행 중인 이번 주까지 받고, 다음 주·53주 전·월요일 아님은 각자의 코드로 거절한다")
+    void startedWeekAcceptsCurrentWeek() {
+        assertThat(WeekBounds.startedWeek(LocalDate.of(2026, 11, 2), MONDAY_JUST_AFTER_MIDNIGHT).lastDay())
+                .isEqualTo(LocalDate.of(2026, 11, 8));
+        assertThat(WeekBounds.startedWeek(LocalDate.of(2025, 11, 3), MONDAY_JUST_AFTER_MIDNIGHT).firstDay())
+                .isEqualTo(LocalDate.of(2025, 11, 3));
+        assertStartedRejected(LocalDate.of(2026, 11, 9), "WEEK_IN_FUTURE");
+        assertStartedRejected(LocalDate.of(2025, 10, 27), "WEEK_TOO_OLD");
+        assertStartedRejected(LocalDate.of(2026, 11, 3), "WEEK_NOT_MONDAY");
+    }
+
     private static void assertRejected(LocalDate weekStart, Clock clock, String expectedCode) {
         assertThatThrownBy(() -> WeekBounds.endedWeek(weekStart, clock))
+                .isInstanceOfSatisfying(AdminConsoleException.class,
+                        exception -> assertThat(exception.getCode()).isEqualTo(expectedCode));
+    }
+
+    private static void assertStartedRejected(LocalDate weekStart, String expectedCode) {
+        assertThatThrownBy(() -> WeekBounds.startedWeek(weekStart, MONDAY_JUST_AFTER_MIDNIGHT))
                 .isInstanceOfSatisfying(AdminConsoleException.class,
                         exception -> assertThat(exception.getCode()).isEqualTo(expectedCode));
     }

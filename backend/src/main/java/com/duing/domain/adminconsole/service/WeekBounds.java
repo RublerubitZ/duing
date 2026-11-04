@@ -52,6 +52,17 @@ public record WeekBounds(
         return of(weekStart);
     }
 
+    /** 끝난 주와 진행 중인 이번 주(M − 52·7 ≤ W ≤ M) — 시설 히트맵은 '이번 주 챙길 것' 표에도 쓴다. */
+    public static WeekBounds startedWeek(LocalDate weekStart, Clock clock) {
+        LocalDate currentMonday = currentMonday(clock);
+        requireMonday(weekStart);
+        if (weekStart.isAfter(currentMonday)) {
+            throw new AdminConsoleException.WeekInFutureException();
+        }
+        requireWithinHistory(weekStart, currentMonday);
+        return of(weekStart);
+    }
+
     static WeekBounds of(LocalDate weekStart) {
         LocalDate nextMonday = weekStart.plusDays(DAYS_IN_WEEK);
         LocalDateTime seoulFrom = weekStart.atStartOfDay();

@@ -6,11 +6,13 @@ import com.duing.domain.adminconsole.controller.dto.response.AdminJobStatusesRes
 import com.duing.domain.adminconsole.controller.dto.response.AdminPendingCountsResponse;
 import com.duing.domain.adminconsole.controller.dto.response.AdminPendingTrendResponse;
 import com.duing.domain.adminconsole.controller.dto.response.AdminWeeklyBriefingResponse;
+import com.duing.domain.adminconsole.controller.dto.response.AdminWeeklyFacilityHeatmapResponse;
 import com.duing.domain.adminconsole.service.AdminClubSignalsQueryService;
 import com.duing.domain.adminconsole.service.AdminJobStatusQueryService;
 import com.duing.domain.adminconsole.service.AdminPendingCountsQueryService;
 import com.duing.domain.adminconsole.service.AdminPendingTrendQueryService;
 import com.duing.domain.adminconsole.service.AdminWeeklyBriefingQueryService;
+import com.duing.domain.adminconsole.service.AdminWeeklyFacilityHeatmapQueryService;
 import com.duing.global.response.ApiResponse;
 import java.time.LocalDate;
 import lombok.RequiredArgsConstructor;
@@ -30,6 +32,7 @@ public class AdminConsoleController implements AdminConsoleApi {
     private final AdminJobStatusQueryService adminJobStatusQueryService;
     private final AdminClubSignalsQueryService adminClubSignalsQueryService;
     private final AdminWeeklyBriefingQueryService adminWeeklyBriefingQueryService;
+    private final AdminWeeklyFacilityHeatmapQueryService adminWeeklyFacilityHeatmapQueryService;
 
     @Override
     public ResponseEntity<ApiResponse<AdminPendingCountsResponse>> getPendingCounts() {
@@ -59,5 +62,11 @@ public class AdminConsoleController implements AdminConsoleApi {
     public ResponseEntity<ApiResponse<AdminWeeklyBriefingResponse>> getWeeklyBriefing(LocalDate weekStart) {
         return ResponseEntity.ok(ApiResponse.success(
                 AdminWeeklyBriefingResponse.from(adminWeeklyBriefingQueryService.getWeeklyBriefing(weekStart))));
+    }
+
+    @Override
+    public ResponseEntity<ApiResponse<AdminWeeklyFacilityHeatmapResponse>> getWeeklyFacilityHeatmap(LocalDate weekStart) {
+        return ResponseEntity.ok(ApiResponse.success(
+                AdminWeeklyFacilityHeatmapResponse.from(adminWeeklyFacilityHeatmapQueryService.getHeatmap(weekStart))));
     }
 }
