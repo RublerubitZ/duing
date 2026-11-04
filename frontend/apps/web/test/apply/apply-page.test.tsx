@@ -8,7 +8,7 @@ import { setupServer } from 'msw/node';
 import { delay, http, HttpResponse } from 'msw';
 import type { DraftAnswer, RecruitmentDetail, RecruitmentQuestionItem } from '@duing/types';
 import { createApiClient } from '@duing/api';
-import { ApiClientProvider, draftQueryKeys } from '@duing/hooks';
+import { ApiClientProvider, applicationQueryKeys, draftQueryKeys } from '@duing/hooks';
 
 const mockRouterPush = vi.fn();
 const mockRouterReplace = vi.fn();
@@ -893,7 +893,7 @@ describe('ApplyPage — 임시저장 시드', () => {
 
 describe('ApplyPage — 제출 후 임시저장 캐시', () => {
   // 서버가 제출과 함께 draft 를 지우므로 재조회는 반드시 exists:false 만 받아오는 낭비된 왕복이다(#985).
-  it('제출에 성공하면 draft 를 다시 조회하지 않고 캐시를 직접 비운다', async () => {
+  it('제출에 성공하면 draft 를 다시 조회하지 않는다', async () => {
     let draftGetCount = 0;
     server.use(
       http.get(`*/recruitments/${RECRUITMENT_ID}/draft`, () => {
@@ -911,9 +911,8 @@ describe('ApplyPage — 제출 후 임시저장 캐시', () => {
       mockSubmitApplication(888),
     );
 
-    const queryClient = makeQueryClient();
     const user = userEvent.setup();
-    renderApplyPage(queryClient);
+    renderApplyPage();
 
     expect(await screen.findByRole('textbox', { name: /지원 동기/ })).toHaveValue('저장된 답');
     expect(draftGetCount).toBe(1);
@@ -921,11 +920,6 @@ describe('ApplyPage — 제출 후 임시저장 캐시', () => {
     await submitAndConfirm(user);
 
     await waitFor(() => expect(mockRouterPush).toHaveBeenCalled());
-    expect(queryClient.getQueryData(draftQueryKeys.byRecruitment(RECRUITMENT_ID))).toEqual({
-      exists: false,
-      answers: [],
-      updatedAt: null,
-    });
     expect(draftGetCount).toBe(1);
   });
 
@@ -964,7 +958,7 @@ describe('ApplyPage — 제출 후 임시저장 캐시', () => {
     expect(queryClient.getQueryState(draftQueryKeys.byRecruitment(RECRUITMENT_ID))).toBeUndefined();
 
     releaseSubmit();
-    // 이동 직전에 캐시를 쓴다 — 여기서 쿼리가 새로 생기면 기본 gcTime 5분으로 남아, 다시 들어올 때 빈 폼이 열린다.
+    // 제출 성공에 캐시 쓰기가 다시 들어와 쿼리를 새로 만들면 기본 gcTime 5분으로 남아 저장본 조회의 gcTime 0 이 무력해진다(지원을 철회한 뒤 5분 안에 다시 들어오면 남은 캐시로 빈 폼이 열린다) — 그 회귀를 잡는다.
     await waitFor(() => expect(mockRouterPush).toHaveBeenCalled());
     expect(queryClient.getQueryData(draftQueryKeys.byRecruitment(RECRUITMENT_ID))).toBeUndefined();
   });
@@ -1003,6 +997,120 @@ describe('ApplyPage — 임시저장 복원 안내', () => {
     await screen.findByRole('button', { name: '지원서 제출하기' });
     expect(screen.queryByText('임시저장한 답변을 불러왔어요')).not.toBeInTheDocument();
   });
+
+  it('임시저장이 없던 지원서는 첫 자동저장이 성공해도 복원 안내를 보여주지 않는다', async () => {
+    let draftPutCount = 0;
+    server.use(
+      http.put(`*/recruitments/${RECRUITMENT_ID}/draft`, () => {
+        draftPutCount += 1;
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+    const user = userEvent.setup();
+    renderApplyPage(); // 기본 draft 핸들러 = exists:false
+
+    await user.type(await screen.findByRole('textbox', { name: /지원 동기/ }), '열정');
+    await waitFor(() => expect(draftPutCount).toBe(1), { timeout: 4000 });
+    // PUT 도착은 캐시 쓰기보다 먼저다 — 캐시 쓰기 뒤에 뜨는 저장 표시까지 기다려야 안내를 캐시로 다시 계산하는 회귀를 잡는다.
+    await screen.findByText(/^마지막 저장 /, {}, { timeout: 4000 });
+
+    expect(screen.queryByText('임시저장한 답변을 불러왔어요')).not.toBeInTheDocument();
+  }, 10_000);
+
+  it('자동저장이 성공해도 복원 안내의 저장 시각은 불러온 저장본의 시각 그대로다', async () => {
+    let draftPutCount = 0;
+    server.use(
+      http.get(`*/recruitments/${RECRUITMENT_ID}/draft`, () =>
+        HttpResponse.json({
+          ok: true,
+          data: {
+            exists: true,
+            answers: [{ questionId: TEXT_QUESTION_ID, values: ['저장된 답'] }],
+            updatedAt: '2026-11-01T20:00:00',
+          },
+          message: null,
+        }),
+      ),
+      http.put(`*/recruitments/${RECRUITMENT_ID}/draft`, () => {
+        draftPutCount += 1;
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+    const user = userEvent.setup();
+    renderApplyPage();
+
+    const textarea = await screen.findByRole('textbox', { name: /지원 동기/ });
+    expect(screen.getByText('임시저장한 답변을 불러왔어요')).toHaveTextContent('11월 1일 20:00 저장');
+    await user.type(textarea, '!');
+    await waitFor(() => expect(draftPutCount).toBe(1), { timeout: 4000 });
+    await screen.findByText(/^마지막 저장 /, {}, { timeout: 4000 });
+
+    expect(screen.getByText('임시저장한 답변을 불러왔어요')).toHaveTextContent('11월 1일 20:00 저장');
+  }, 10_000);
+
+  it('연 뒤 재조회로 저장본이 생겨도 빈 폼에 복원 안내를 보여주지 않는다', async () => {
+    const queryClient = makeQueryClient();
+    renderApplyPage(queryClient); // 기본 draft 핸들러 = exists:false
+
+    expect(await screen.findByRole('textbox', { name: /지원 동기/ })).toHaveValue('');
+    server.use(
+      http.get(`*/recruitments/${RECRUITMENT_ID}/draft`, () =>
+        HttpResponse.json({
+          ok: true,
+          data: {
+            exists: true,
+            answers: [{ questionId: TEXT_QUESTION_ID, values: ['다른 곳에서 쓴 답'] }],
+            updatedAt: '2026-11-01T20:00:00',
+          },
+          message: null,
+        }),
+      ),
+    );
+    // 재연결 재조회(refetchOnReconnect)를 흉내 낸다 — 50ms 는 React Query 의 변경 알림(setTimeout 0)까지 흘려보낸다.
+    await act(async () => {
+      await queryClient.refetchQueries({ queryKey: draftQueryKeys.byRecruitment(RECRUITMENT_ID) });
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    });
+
+    expect(queryClient.getQueryData(draftQueryKeys.byRecruitment(RECRUITMENT_ID))).toMatchObject({ exists: true });
+    expect(screen.getByRole('textbox', { name: /지원 동기/ })).toHaveValue('');
+    expect(screen.queryByText('임시저장한 답변을 불러왔어요')).not.toBeInTheDocument();
+  });
+
+  it('지원 자격 확인에 막혔다 풀려 폼이 다시 열리면 그때의 저장본으로 복원 안내를 다시 정한다', async () => {
+    let draftPutCount = 0;
+    server.use(
+      http.put(`*/recruitments/${RECRUITMENT_ID}/draft`, () => {
+        draftPutCount += 1;
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+    const queryClient = makeQueryClient();
+    const user = userEvent.setup();
+    renderApplyPage(queryClient); // 기본 draft 핸들러 = exists:false
+
+    await user.type(await screen.findByRole('textbox', { name: /지원 동기/ }), '열정');
+    await waitFor(() => expect(draftPutCount).toBe(1), { timeout: 4000 });
+    await screen.findByText(/^마지막 저장 /, {}, { timeout: 4000 });
+
+    // 자격 재확인이 막으면(예: 마감) 폼이 내려가고 풀리면 그때의 캐시로 다시 마운트된다 — 안내를 폼 밖(useRef)에서 고정하면 여기서 틀린다.
+    server.use(mockEligibilityHandler(400, '마감된 모집 공고에는 지원할 수 없습니다.'));
+    await act(async () => {
+      await queryClient.refetchQueries({ queryKey: applicationQueryKeys.eligibility(RECRUITMENT_ID), exact: true });
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    });
+    expect(screen.getByText('마감된 모집 공고에는 지원할 수 없습니다.')).toBeInTheDocument();
+    expect(screen.queryByRole('textbox', { name: /지원 동기/ })).not.toBeInTheDocument();
+
+    server.use(mockEligibilityHandler(200));
+    await act(async () => {
+      await queryClient.refetchQueries({ queryKey: applicationQueryKeys.eligibility(RECRUITMENT_ID), exact: true });
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    });
+
+    expect(screen.getByRole('textbox', { name: /지원 동기/ })).toHaveValue('열정');
+    expect(screen.getByText('임시저장한 답변을 불러왔어요')).toHaveTextContent(/\d+월 \d+일 \d{2}:\d{2} 저장/);
+  }, 10_000);
 });
 
 describe('ApplyForm — 제출 확인', () => {
@@ -1179,7 +1287,7 @@ describe('ApplyPage — 다시 들어올 때 임시저장 저장본', () => {
 describe('자동저장 — 보내는 때와 재전송', () => {
   const AUTOSAVE_FAILED_TEXT = '임시저장에 실패했어요. 잠시 후 다시 시도해주세요.';
 
-  it('임시저장이 있는 지원서를 열기만 하면 PUT 을 보내지 않고 저장 시각 안내도 그대로다', async () => {
+  it('임시저장이 있는 지원서를 열기만 하면 PUT 을 보내지 않는다', async () => {
     let draftPutCount = 0;
     server.use(
       http.get(`*/recruitments/${RECRUITMENT_ID}/draft`, () =>
@@ -1204,8 +1312,6 @@ describe('자동저장 — 보내는 때와 재전송', () => {
     await new Promise((resolve) => setTimeout(resolve, 2500));
 
     expect(draftPutCount).toBe(0);
-    // 저장에 성공하면 캐시의 updatedAt 이 지금 시각으로 바뀌어 안내도 바뀐다 — 열기만 했으니 그대로여야 한다.
-    expect(screen.getByText('임시저장한 답변을 불러왔어요')).toHaveTextContent('11월 1일 20:00 저장');
   }, 10_000);
 
   it('임시저장이 400 이면 같은 내용을 다시 보내지 않고, 답을 고치면 다시 보낸다', async () => {
