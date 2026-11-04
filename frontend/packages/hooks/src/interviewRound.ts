@@ -75,8 +75,10 @@ export function useCreateInterviewRoundMutation(recruitmentId: number) {
       queryClient.invalidateQueries({
         queryKey: interviewRoundKeys.list(recruitmentId),
       });
+      // 대기열은 마법사 1단계만 보여 생성 순간엔 보는 곳이 없다 — 바로 다시 받아 홈이 낡은 대기열로 '생성 필요'를 겹쳐 내지 않게.
       queryClient.invalidateQueries({
         queryKey: interviewRoundKeys.candidates(recruitmentId),
+        refetchType: 'all',
       });
       queryClient.invalidateQueries({
         queryKey: statsQueryKeys.byRecruitment(recruitmentId),

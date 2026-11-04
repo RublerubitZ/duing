@@ -214,7 +214,7 @@ describe('buildActionItems', () => {
     expect(roundNeeded?.daysLeft).toBeUndefined();
   });
 
-  it('SCHEDULED 라운드만 있으면(신규 수용 불가) 여전히 라운드 생성 필요', () => {
+  it('SCHEDULED 라운드만 있으면(초안 없음) 여전히 라운드 생성 필요', () => {
     const items = buildActionItems(
       [dashboardInput({ candidateCount: 3, rounds: [round({ status: 'SCHEDULED' })] })],
       NOW,
@@ -222,15 +222,47 @@ describe('buildActionItems', () => {
     expect(items.some((i) => i.type === 'INTERVIEW_ROUND_NEEDED')).toBe(true);
   });
 
-  it('진행 중 라운드(DRAFT·COLLECTING·ASSIGNING)가 있으면 라운드 생성 필요 대신 그 라운드의 줄 — 인원 0 픽스처라 모두 미확정', () => {
-    for (const inProgressStatus of ['DRAFT', 'COLLECTING', 'ASSIGNING'] as const) {
-      const items = buildActionItems(
-        [dashboardInput({ candidateCount: 3, rounds: [round({ status: inProgressStatus })] })],
-        NOW,
-      );
-      expect(items.some((i) => i.type === 'INTERVIEW_ROUND_NEEDED')).toBe(false);
-      expect(items.filter((i) => i.type === 'INTERVIEW_ROUND_UNCONFIRMED').map((i) => i.roundStatus)).toEqual([inProgressStatus]);
+  it('발송 전 초안(DRAFT)이 있으면 라운드 생성 필요 없이 그 초안의 줄만 — 초안이 새 라운드 생성을 막는다', () => {
+    const items = buildActionItems([dashboardInput({ candidateCount: 3, rounds: [round({ status: 'DRAFT' })] })], NOW);
+    expect(items.some((item) => item.type === 'INTERVIEW_ROUND_NEEDED')).toBe(false);
+    expect(items.filter((item) => item.type === 'INTERVIEW_ROUND_UNCONFIRMED').map((item) => item.roundStatus)).toEqual(['DRAFT']);
+  });
+
+  it('응답 수집 1차 + 초안 2차여도 초안이 있으면 라운드 생성 필요 아님 — 라운드 순서와 상관없이', () => {
+    const collectingRound = round({ roundId: 100, status: 'COLLECTING' });
+    const draftRound = round({ roundId: 101, title: '2차 면접', status: 'DRAFT' });
+    // 서버는 최신순(초안이 맨 앞)으로 준다 — 두 순서를 다 돌려 첫 라운드만·마지막 라운드만 보는 판정을 함께 막는다.
+    for (const rounds of [[draftRound, collectingRound], [collectingRound, draftRound]]) {
+      const items = buildActionItems([dashboardInput({ candidateCount: 3, rounds })], NOW);
+      expect(items.some((item) => item.type === 'INTERVIEW_ROUND_NEEDED')).toBe(false);
     }
+  });
+
+  it.each<InterviewRoundSummary['status']>(['COLLECTING', 'ASSIGNING'])(
+    '%s 라운드가 있어도 초안이 없으면 라운드 생성 필요와 그 라운드의 줄 — 인원 0 픽스처라 미확정',
+    (roundStatus) => {
+      const items = buildActionItems([dashboardInput({ candidateCount: 3, rounds: [round({ status: roundStatus })] })], NOW);
+      expect(items.find((item) => item.type === 'INTERVIEW_ROUND_NEEDED')?.count).toBe(3);
+      expect(items.filter((item) => item.type === 'INTERVIEW_ROUND_UNCONFIRMED').map((item) => item.roundStatus)).toEqual([roundStatus]);
+    },
+  );
+
+  it('확정 1차 + 응답 수집 2차(인원 0)에 대기열 2명이면 라운드 생성 필요 2명·2차의 줄·1차 결과 미확정 3명', () => {
+    const items = buildActionItems(
+      [
+        dashboardInput({
+          stats: stats({ interviewPending: 5 }), // 1차 결과 미결 3 + 대기열 2
+          candidateCount: 2,
+          rounds: [round({ roundId: 6, status: 'SCHEDULED' }), round({ roundId: 7, title: '2차 면접', status: 'COLLECTING' })],
+        }),
+      ],
+      NOW,
+    );
+    expect(items).toEqual([
+      { type: 'INTERVIEW_ROUND_NEEDED', recruitmentId: 1, recruitmentTitle: '2026 봄 모집', count: 2 },
+      { type: 'INTERVIEW_ROUND_UNCONFIRMED', ...roundLine, roundTitle: '2차 면접', roundStatus: 'COLLECTING' },
+      { type: 'INTERVIEW_RESULT_PENDING', recruitmentId: 1, recruitmentTitle: '2026 봄 모집', roundId: 6, roundTitle: '1차 면접', count: 3 },
+    ]);
   });
 
   it('대기열 0명 또는 undefined → 라운드 생성 필요 아님', () => {
@@ -253,7 +285,7 @@ describe('buildActionItems', () => {
     expect(items.some((i) => i.type === 'INTERVIEW_ROUND_NEEDED')).toBe(true);
   });
 
-  it('CANCELLED + COLLECTING 혼재면 진행 중 라운드가 있어 라운드 생성 필요 아님', () => {
+  it('CANCELLED + COLLECTING 혼재여도 초안이 없으면 라운드 생성 필요', () => {
     const items = buildActionItems(
       [
         dashboardInput({
@@ -263,7 +295,7 @@ describe('buildActionItems', () => {
       ],
       NOW,
     );
-    expect(items.some((i) => i.type === 'INTERVIEW_ROUND_NEEDED')).toBe(false);
+    expect(items.find((item) => item.type === 'INTERVIEW_ROUND_NEEDED')?.count).toBe(3);
     // 인원 0 인 COLLECTING 은 응답이 다 모인 라운드다 — 취소 라운드는 줄을 내지 않는다.
     expect(items.filter((i) => i.type === 'INTERVIEW_ROUND_UNCONFIRMED').map((i) => i.roundId)).toEqual([101]);
   });
@@ -464,7 +496,7 @@ describe('buildRecruitmentActionItems — 운영진 홈·모집 상세 단일 �
       candidateCount: 1,
     });
     const items = buildRecruitmentActionItems(input, NOW);
-    expect(items).toHaveLength(2);
+    expect(items).toHaveLength(3);
     expect(items).toEqual(buildActionItems([input], NOW));
   });
 

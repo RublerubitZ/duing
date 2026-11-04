@@ -110,7 +110,7 @@ describe('useRecruitmentActionItems', () => {
     await waitFor(() => expect(result.current.isLoading).toBe(false));
     expect(shape(result.current.groups)).toEqual([
       ['NOW', ['INTERVIEW_ROUND_UNCONFIRMED', 'INTERVIEW_RESULT_PENDING', 'APPLICANTS_AWAITING_REVIEW']],
-      ['WAITING', ['INTERVIEW_RESPONSE_UNCOLLECTED']],
+      ['WAITING', ['INTERVIEW_RESPONSE_UNCOLLECTED', 'INTERVIEW_ROUND_NEEDED']],
     ]);
     const resultPending = result.current.groups[0]?.tasks.find((task) => task.item.type === 'INTERVIEW_RESULT_PENDING');
     expect(resultPending?.item).toMatchObject({ count: 1, roundId: 9 }); // 면접 대상 3 − 대기열 2
