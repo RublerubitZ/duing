@@ -3,7 +3,7 @@ import { describe, it, expect, beforeAll, afterEach, afterAll } from 'vitest';
 import { renderHook, act, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { setupServer } from 'msw/node';
-import { http, HttpResponse } from 'msw';
+import { delay, http, HttpResponse } from 'msw';
 import type { ApplicationDraft, DraftAnswer } from '@duing/types';
 import { createApiClient } from '@duing/api';
 import { ApiClientProvider } from '../src/api-context';
@@ -227,5 +227,34 @@ describe('임시저장 훅 — 저장 후 재조회 없음', () => {
       answers: answersOf('저장된 답'),
       updatedAt: '2026-08-12T00:00:00Z',
     });
+  });
+});
+
+describe('임시저장 훅 — 화면을 떠난 뒤 끝난 저장', () => {
+  it('저장 응답이 화면을 떠난 뒤 오면 저장본 캐시를 새로 만들지 않는다', async () => {
+    server.use(
+      http.put(`*/recruitments/${RECRUITMENT_ID}/draft`, async () => {
+        await delay(50);
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+    const queryClient = newQueryClient();
+    const { result, unmount } = renderHook(() => useDraftScreen(RECRUITMENT_ID), {
+      wrapper: makeWrapper(queryClient),
+    });
+    await waitFor(() => expect(result.current.draft.isSuccess).toBe(true));
+
+    let savePromise: Promise<void> | undefined;
+    act(() => {
+      savePromise = result.current.save.mutateAsync({ answers: answersOf('나간 뒤 끝난 저장') });
+    });
+    unmount();
+    await act(() => new Promise((resolve) => setTimeout(resolve, 0)));
+    // GC 가 저장 응답보다 먼저 돌았다 — 순서가 바뀌면 가드가 없어도 마지막 단언이 통과한다.
+    expect(queryClient.getQueryState(draftQueryKeys.byRecruitment(RECRUITMENT_ID))).toBeUndefined();
+
+    await act(() => savePromise);
+    // 여기서 쿼리가 새로 생기면 기본 gcTime 5분으로 남아, 다시 들어올 때 이 답으로 폼이 열린다.
+    expect(queryClient.getQueryData(draftQueryKeys.byRecruitment(RECRUITMENT_ID))).toBeUndefined();
   });
 });

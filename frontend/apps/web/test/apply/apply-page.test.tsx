@@ -928,6 +928,41 @@ describe('ApplyPage — 제출 후 임시저장 캐시', () => {
     });
     expect(draftGetCount).toBe(1);
   });
+
+  it('제출 응답이 화면을 떠난 뒤 오면 저장본 캐시를 새로 만들지 않는다', async () => {
+    server.use(
+      http.get(`*/recruitments/${RECRUITMENT_ID}/draft`, () =>
+        HttpResponse.json({
+          ok: true,
+          data: {
+            exists: true,
+            answers: [{ questionId: TEXT_QUESTION_ID, values: ['저장된 답'] }],
+            updatedAt: '2026-01-01T09:00:00',
+          },
+          message: null,
+        }),
+      ),
+      http.post(`*/recruitments/${RECRUITMENT_ID}/applications`, async () => {
+        await delay(50);
+        return HttpResponse.json({ ok: true, data: 888, message: null });
+      }),
+    );
+
+    const queryClient = makeQueryClient();
+    const user = userEvent.setup();
+    const view = renderApplyPage(queryClient);
+
+    expect(await screen.findByRole('textbox', { name: /지원 동기/ })).toHaveValue('저장된 답');
+    await submitAndConfirm(user);
+    // '제출 중'에 뒤로 가기 — 응답 전에 화면을 내리고, 저장본 쿼리(gcTime 0)가 지워질 한 틱을 흘린다.
+    view.unmount();
+    await act(() => new Promise((resolve) => setTimeout(resolve, 0)));
+    expect(queryClient.getQueryState(draftQueryKeys.byRecruitment(RECRUITMENT_ID))).toBeUndefined();
+
+    // 이동 직전에 캐시를 쓴다 — 여기서 쿼리가 새로 생기면 기본 gcTime 5분으로 남아, 다시 들어올 때 빈 폼이 열린다.
+    await waitFor(() => expect(mockRouterPush).toHaveBeenCalled());
+    expect(queryClient.getQueryData(draftQueryKeys.byRecruitment(RECRUITMENT_ID))).toBeUndefined();
+  });
 });
 
 describe('ApplyPage — 임시저장 복원 안내', () => {
