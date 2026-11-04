@@ -222,7 +222,7 @@ describe('buildActionItems', () => {
     expect(items.some((i) => i.type === 'INTERVIEW_ROUND_NEEDED')).toBe(true);
   });
 
-  it('진행 중 라운드(DRAFT·COLLECTING·ASSIGNING)가 있으면 라운드 생성 필요 대신 그 라운드의 미확정 줄', () => {
+  it('진행 중 라운드(DRAFT·COLLECTING·ASSIGNING)가 있으면 라운드 생성 필요 대신 그 라운드의 줄 — 인원 0 픽스처라 모두 미확정', () => {
     for (const inProgressStatus of ['DRAFT', 'COLLECTING', 'ASSIGNING'] as const) {
       const items = buildActionItems(
         [dashboardInput({ candidateCount: 3, rounds: [round({ status: inProgressStatus })] })],

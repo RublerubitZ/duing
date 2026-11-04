@@ -78,7 +78,7 @@ export function buildActionItems(inputs: RecruitmentDashboardInput[], now: Date)
 
     // 면접 라운드 생성 필요: 대기열 인원 존재 + 진행 중 라운드(DRAFT·COLLECTING·ASSIGNING) 없음.
     // 초안은 새 라운드 생성을 막아(DraftRoundAlreadyExists) 아래에서 내는 그 초안의 미확정 줄이 운영진을 데려간다.
-    // COLLECTING·ASSIGNING 도 이 줄을 지우는 것은 알려진 빈틈이다 — 제외돼 대기열로 돌아간 지원자가 그 라운드 확정 전까지 안 보인다.
+    // 알려진 빈틈: 진행 중 라운드(COLLECTING·ASSIGNING)가 있는 동안 대기열에 들어온 지원자(라운드에서 제외되거나 새로 면접 대상으로 선정됨)는 그 라운드가 확정·취소될 때까지 이 줄에 잡히지 않는다.
     // rounds === undefined(라운드 쿼리 미로딩·실패)면 '진행 중 라운드 없음'으로 단정할 수 없어 생성하지 않는다.
     const hasInProgressRound = (rounds ?? []).some(
       (round) => round.status === 'DRAFT' || round.status === 'COLLECTING' || round.status === 'ASSIGNING',
@@ -87,7 +87,7 @@ export function buildActionItems(inputs: RecruitmentDashboardInput[], now: Date)
       items.push({ type: 'INTERVIEW_ROUND_NEEDED', ...base, count: candidateCount });
     }
 
-    // 면접 라운드 기반 — 진행 중 라운드마다 정확히 한 줄. 응답 수는 인원 수 이하라 COLLECTING 두 갈래는 여집합이다.
+    // 면접 라운드 기반 — 진행 중 라운드마다 정확히 한 줄.
     for (const round of rounds ?? []) {
       const roundBase = { ...base, roundId: round.roundId, roundTitle: round.title };
       const daysLeft = round.availabilityDeadline ? daysUntilKst(round.availabilityDeadline, now) : undefined;
@@ -98,7 +98,7 @@ export function buildActionItems(inputs: RecruitmentDashboardInput[], now: Date)
           daysLeft,
         });
       } else if (round.status === 'COLLECTING') {
-        // 응답이 다 모였다(인원 0 포함) — 다음 단계인 자동 배정은 운영진이 눌러야 하고 대신 하는 잡이 없다.
+        // 응답 수는 인원 수를 넘지 않아 이 갈래는 응답이 다 모인 라운드(인원 0 포함)다 — 다음 단계인 자동 배정은 운영진이 눌러야 하고 대신 하는 잡이 없다.
         items.push({ type: 'INTERVIEW_ROUND_UNCONFIRMED', ...roundBase, roundStatus: round.status, daysLeft });
       } else if (round.status === 'DRAFT' || round.status === 'ASSIGNING') {
         items.push({ type: 'INTERVIEW_ROUND_UNCONFIRMED', ...roundBase, roundStatus: round.status });
