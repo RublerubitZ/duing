@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Page, type Request } from '@playwright/test';
 
 // 루트 메타데이터의 기본 제목(레이아웃과 같은 상수) — Next 16.4 는 인터셉트 진입 때 모달 페이지 head(제목 없음)를 이 제목으로 그린다.
 import { SITE_TITLE } from '../app/_lib/site';
@@ -427,20 +427,24 @@ test.describe('인터셉트 상세에서 로그아웃(router.refresh)', () => {
     await page.waitForTimeout(ANNOUNCEMENT_SETTLE_MS);
     // refresh 는 인터셉트 상세에서 RSC 를 둘 다시 받는다 — 지금 주소(/clubs/<id>)와 밑 화면(/clubs). 앞의 것만 기다리면 밑 화면 응답이
     // 남은 채 다음 단계로 넘어가 뒤로 공지 단언이 가끔 어긋났다(dev 6회 중 1회). 둘 다 끝난 뒤에 진행한다.
-    const refreshRscFinished = (pathname: string) =>
-      page.waitForEvent('requestfinished', {
-        predicate: (finishedRequest) =>
-          finishedRequest.headers()['rsc'] === '1' &&
-          finishedRequest.headers()['next-router-prefetch'] === undefined &&
-          new URL(finishedRequest.url()).pathname === pathname,
-        timeout: ROUTE_TIMEOUT_MS,
-      });
-    const refreshFinished = Promise.all([refreshRscFinished(`/clubs/${clubId}`), refreshRscFinished('/clubs')]);
+    // 응답 헤더 뒤에 끊긴 요청(net::ERR_ABORTED)은 requestfailed 로만 와서 실패도 끝으로 본다. 끊긴 뒤 같은 경로 RSC 는
+    // 다시 나가지 않아(dev 반복 실측) 실패로 끝나도 refresh 응답을 놓치지 않는다.
+    const refreshRscSettled = (pathname: string) => {
+      const predicate = (settledRequest: Request) =>
+        settledRequest.headers()['rsc'] === '1' &&
+        settledRequest.headers()['next-router-prefetch'] === undefined &&
+        new URL(settledRequest.url()).pathname === pathname;
+      return Promise.race([
+        page.waitForEvent('requestfinished', { predicate, timeout: ROUTE_TIMEOUT_MS }),
+        page.waitForEvent('requestfailed', { predicate, timeout: ROUTE_TIMEOUT_MS }),
+      ]);
+    };
+    const refreshSettled = Promise.all([refreshRscSettled(`/clubs/${clubId}`), refreshRscSettled('/clubs')]);
 
     const logoutAt = await markTime(page);
     await page.locator('header').getByRole('button', { name: /님$/ }).click();
     await page.getByRole('menuitem', { name: '로그아웃' }).click();
-    await refreshFinished;
+    await refreshSettled;
     await expect(page.locator('header').getByRole('link', { name: '로그인' })).toBeVisible();
     await waitForInterceptedDetail(page);
     await page.waitForTimeout(ANNOUNCEMENT_SETTLE_MS);

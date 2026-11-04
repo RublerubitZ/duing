@@ -71,7 +71,8 @@ public interface RecruitmentRepositoryCustom {
      * 총동연(ADMIN) 모집 콘솔의 전 동아리 모집 검색. 페이지네이션은 두지 않는다(스펙 2.1).
      *
      * <p>지원자 수는 외부 폼 모집까지 포함해 한 번에 집계하고(실제 값은 0), 화면에 비울지 여부는
-     * 응답 매핑이 결정한다. 삭제된 모집은 {@code @SQLRestriction} 으로 자동 제외된다.
+     * 응답 매핑이 결정한다. 탈퇴한 지원자의 지원서는 지원자 목록처럼 세지 않는다.
+     * 삭제된 모집은 {@code @SQLRestriction} 으로 자동 제외된다.
      */
     List<AdminRecruitmentRow> searchForAdmin(AdminRecruitmentSearchCondition searchCondition);
 }

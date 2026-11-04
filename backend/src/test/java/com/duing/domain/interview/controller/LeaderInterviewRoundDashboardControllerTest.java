@@ -22,7 +22,6 @@ import com.duing.domain.interview.repository.InterviewScheduleRepository;
 import com.duing.domain.interview.repository.InterviewSlotRepository;
 import com.duing.domain.recruitment.entity.Recruitment;
 import com.duing.domain.user.entity.User;
-import com.duing.domain.user.service.UserService;
 import io.restassured.RestAssured;
 import java.time.LocalDateTime;
 import org.junit.jupiter.api.BeforeEach;
@@ -51,7 +50,6 @@ class LeaderInterviewRoundDashboardControllerTest extends InterviewControllerTes
     @Autowired private InterviewSlotRepository interviewSlotRepository;
     @Autowired private InterviewAvailabilityRepository interviewAvailabilityRepository;
     @Autowired private InterviewScheduleRepository interviewScheduleRepository;
-    @Autowired private UserService userService;
 
     private User leader;
     private String leaderToken;
@@ -101,7 +99,8 @@ class LeaderInterviewRoundDashboardControllerTest extends InterviewControllerTes
         saveMember(round, saveInterviewPendingApplication(recruitment, "남음"), RoundMemberStatus.RESPONDED, null);
         Application withdrawnApplicant = saveInterviewPendingApplication(recruitment, "탈퇴");
         saveMember(round, withdrawnApplicant, RoundMemberStatus.RESPONDED, null);
-        userService.withdraw(withdrawnApplicant.getUser().getId());
+        // 탈퇴의 면접 정리(#1637)를 타지 않고 지운 표시만 남긴다 — 정리 전에 남은 행·라운드 생성과 엇갈려 남은 행은 이 집계의 지원자 조인만 거른다.
+        userRepository.delete(withdrawnApplicant.getUser());
         Application cancelledApplication = saveInterviewPendingApplication(recruitment, "철회");
         saveMember(round, cancelledApplication, RoundMemberStatus.INVITED, null);
         applicationRepository.delete(cancelledApplication);

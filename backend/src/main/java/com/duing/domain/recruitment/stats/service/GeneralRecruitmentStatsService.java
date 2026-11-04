@@ -60,7 +60,7 @@ public class GeneralRecruitmentStatsService implements RecruitmentStatsService {
         long accepted = statusCountMap.getOrDefault(ApplicationStatus.ACCEPTED, 0L);
         long rejected = statusCountMap.getOrDefault(ApplicationStatus.REJECTED, 0L);
 
-        // 총동연 모집 목록과 같은 미처리 정의(SUBMITTED·미삭제)를 단건으로 재사용한다 — 권한 검사 뒤에만 부른다.
+        // 총동연 모집 목록과 같은 미처리 정의(SUBMITTED·미삭제·탈퇴자 제외)를 단건으로 재사용한다 — 권한 검사 뒤에만 부른다.
         LocalDateTime oldestPendingSubmittedAt = applicationRepository
                 .findPendingStatsByRecruitmentIds(List.of(recruitmentId))
                 .stream()

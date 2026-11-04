@@ -43,7 +43,10 @@ public enum ClubAuditEventType {
     FEE_PAYMENT_VOIDED,
     FEE_TX_MANUAL_MATCHED,
     FEE_TX_IGNORED,
-    /** 매칭이 취소됐다 — 같은 트랜잭션에 FEE_PAYMENT_VOIDED 가 함께 남는다(엔티티 직접 void 경로라 별도 기록, 스펙 §4). */
+    /**
+     * 매칭이 취소됐다 — 연결 납부가 아직 활성이면 같은 트랜잭션에 FEE_PAYMENT_VOIDED 가 함께 남는다(엔티티 직접 void 경로라
+     * 별도 기록, 스펙 §4). 청구 쪽에서 납부를 먼저 정정한 거래면 정정 감사는 그때 남은 1건뿐이고 이 이벤트만 더해진다.
+     */
     FEE_TX_UNMATCHED,
     FEE_ACCOUNT_REGISTERED,
     FEE_ACCOUNT_UPDATED,
