@@ -65,7 +65,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 
 /**
  * 홈 동아리 현황 집계 = 목록 신호 필터(동아리 신호 스펙 §10-1 동치 (1)~(10)).
- * 신호마다 양성·음성·경계·삭제·운영 중단·폐쇄·다른 동아리가 섞인 같은 데이터에서 집계 숫자와 목록 건수·id 집합·행 합이 같은지 본다.
+ * 신호마다 양성·음성·경계·삭제·탈퇴·운영 중단·폐쇄·다른 동아리가 섞인 같은 데이터에서 집계 숫자와 목록 건수·id 집합·행 합이 같은지 본다.
  */
 @Import(TestcontainersConfiguration.class)
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
@@ -238,14 +238,14 @@ class AdminClubSignalsControllerTest extends IntegrationTestBase {
      * 운영 중 10곳 + 운영 중단 1곳 + 폐쇄 1곳.
      * <pre>
      *  동아리             결과 대기         가입 대기        기록   운영진 접속
-     *  resultA           늦은 마감+기간지남 —               있음   회장 로그인 1일 전
+     *  resultA           늦은 마감(탈퇴자 지원 1 포함)+기간지남 — 있음 회장 로그인 1일 전
      *  resultB           레거시 마감        —               없음   운영진 없음
      *  resultBoundary    끝난 날 오늘−7     —               null   회장 세션 29일 전
      *  resultDeleted     삭제된 모집·삭제된 지원 —           없음   회장 로그인 31일 전
      *  joinA             —                 오늘−9·오늘−1     있음   임원 폐기 세션 2일 전
      *  joinB             —                 오늘−20          없음   일반 부원만 접속
      *  joinBoundary      —                 오늘−7(12시·0시)·처리된 옛·삭제된 옛 있음 회장 세션 30일−3시간 전
-     *  usageOnly         —                 —               있음   탈퇴한 회장의 최근 로그인
+     *  usageOnly         탈퇴자 지원서만 남은 옛 마감 —     있음   탈퇴한 회장의 최근 로그인
      *  joinEdge          —                 오늘−8 23:59     있음   회장 로그인 1시간 전
      *  operatorLeft      —                 —               있음   떠난(멤버십 삭제) 회장의 최근 로그인·세션
      *  inactive(운영중단) 결과 대기 모양    오래된 대기       없음   없음
@@ -258,6 +258,8 @@ class AdminClubSignalsControllerTest extends IntegrationTestBase {
                 today.minusDays(40), today.minusDays(30), today.atTime(9, 0));
         saveApplication(lateClosed, ApplicationStatus.SUBMITTED);
         saveApplication(lateClosed, ApplicationStatus.ON_HOLD);
+        // 탈퇴한 지원자의 지원 완료 — 재료·홈 집계 모두 세지 않아야 결과 미확정 합 4 가 맞는다
+        saveWithdrawnApplication(lateClosed, ApplicationStatus.SUBMITTED);
         saveApplication(ClubSignalFixture.saveOpenRecruitment(recruitmentRepository, resultA,
                 today.minusDays(30), today.minusDays(10)), ApplicationStatus.INTERVIEW_PENDING);
         ClubSignalFixture.saveMetric(clubMetricRepository, resultA, seoulNow.minusDays(3));
@@ -325,6 +327,9 @@ class AdminClubSignalsControllerTest extends IntegrationTestBase {
         User withdrawnLeader = leaderOf(usageOnly);
         ClubSignalFixture.recordLogin(jdbcTemplate, withdrawnLeader, systemNow.minusHours(1));
         ClubSignalFixture.withdraw(jdbcTemplate, withdrawnLeader);
+        // 탈퇴자 지원서만 남은 오래된 마감 모집 — 결과 대기가 아니다(목록 EXISTS·홈 집계 모두 빠져야 하고, 끝난 날 오늘−40 이 가장 오래된 값을 바꾸면 안 된다)
+        saveWithdrawnApplication(ClubSignalFixture.saveClosedRecruitment(recruitmentRepository, usageOnly,
+                today.minusDays(50), today.minusDays(40), today.minusDays(40).atTime(12, 0)), ApplicationStatus.SUBMITTED);
 
         // 기준 시각 바로 앞(오늘−8 23:59 KST)은 포함 — 기준을 하루 당기거나 변환을 두 번 해 더 이르게 만들면 이 행이 빠진다
         // (변환 누락·반대 변환은 기준이 늦어지는 쪽이라 이 행은 그대로 포함되고, 위 오늘−7 00:00 행이 잡는다)
@@ -399,6 +404,13 @@ class AdminClubSignalsControllerTest extends IntegrationTestBase {
 
     private void saveApplication(Recruitment recruitment, ApplicationStatus status) {
         PendingItemsFixture.saveApplication(applicationRepository, recruitment, userRepository.save(UserFixture.unique()), status);
+    }
+
+    /** 회원 탈퇴 모양 — 지원서는 남기고 지원자만 소프트 삭제한다. */
+    private void saveWithdrawnApplication(Recruitment recruitment, ApplicationStatus status) {
+        User applicant = userRepository.save(UserFixture.unique());
+        PendingItemsFixture.saveApplication(applicationRepository, recruitment, applicant, status);
+        ClubSignalFixture.withdraw(jdbcTemplate, applicant);
     }
 
     private ClubJoinCode inviteCode(Club club) {
