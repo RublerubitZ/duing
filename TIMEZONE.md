@@ -103,6 +103,7 @@ Du-ing 전체(backend/frontend/DB)의 날짜·시간 처리 정책. 2026-07 타�
 | MySessionResponse.lastUsedAt | auth_sessions.last_used_at | **seoul** | GeneralAuthSessionService#issue·#rotate now(clock) |
 | PasswordResetStartResponse.expiresAt / PhoneVerificationIssueResponse.expiresAt | phone_verifications.expires_at | **seoul** | GeneralPhoneVerificationService#issue 의 now(clock) 에서 파생(#startPasswordReset 도 #issue 로 위임) |
 | RecruitmentDetailResponse 전 시각 필드 | recruitments.* (LocalDate) | 유지 | 모집/면접 일정(Schedule) |
+| AutoCloseOutlookResponse.closesOn (StatsSummaryResponse.autoClose · AdminRecruitmentSummaryResponse.autoClose) | recruitment.end_date + 8일(계산, 저장 안 함) | 유지(Schedule, KST 날짜) | RecruitmentAutoClosePolicy#closesOn — 같은 응답의 gracePeriodOver 는 서버가 LocalDate.now(seoulClock) 로 판정해 화면이 날짜를 비교하지 않는다(#1572) |
 
 ### Group 2 — cashbook/facility/facilitybooking/facilitysubmission/federation/fee/interview
 

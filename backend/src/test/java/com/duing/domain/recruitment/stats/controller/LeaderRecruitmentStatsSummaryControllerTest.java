@@ -161,6 +161,23 @@ class LeaderRecruitmentStatsSummaryControllerTest extends IntegrationTestBase {
                 .isEqualTo(TimeMapper.systemWallClockToInstant(remainingSubmittedAt));
     }
 
+    @Test
+    @DisplayName("자동 마감이 꺼져 있으면 기간이 끝난 모집에도 자동 마감 전망을 싣지 않는다 — '자동 마감 예정'이 거짓이 되지 않게")
+    void omitsAutoCloseOutlookWhileAutoCloseIsOff() {
+        jdbcTemplate.update("UPDATE recruitment SET start_date = ?, end_date = ? WHERE id = ?",
+                LocalDate.now(clock).minusDays(40), LocalDate.now(clock).minusDays(10), recruitment.getId());
+
+        RestAssured
+                .given()
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
+                .when()
+                    .get(SUMMARY_PATH, recruitment.getId())
+                .then()
+                    .statusCode(HttpStatus.OK.value())
+                    .body("data", hasKey("autoClose"))
+                    .body("data.autoClose", nullValue());
+    }
+
     private Application saveApplication() {
         return applicationRepository.save(
                 Application.submit(recruitment, userRepository.save(UserFixture.unique()), List.of()));

@@ -159,6 +159,8 @@ class AdminRecruitmentQueryControllerTest extends IntegrationTestBase {
         assertThat(expiredRow.get("status")).as("액션 게이트는 저장 상태를 본다").isEqualTo("OPEN");
         assertThat(expiredRow.get("displayStatus")).as("표기는 학생 화면과 같은 값을 쓴다").isEqualTo("CLOSED");
         assertThat(expiredRow.get("closedAt")).as("아직 마감되지 않았으므로 마감 시각은 없다").isNull();
+        // 자동 마감이 꺼져 있으면(테스트 기본값) 전망을 싣지 않는다 — '자동 마감 예정'이 거짓이 되지 않게(#1572).
+        assertThat(expiredRow).as("자동 마감 전망 자리는 있되 비어 있다").containsEntry("autoClose", null);
 
         Map<String, Object> closedRow = findRow(getList(adminToken, Map.of()), closedRecruitment.getId());
         assertThat(closedRow.get("displayStatus")).isEqualTo("CLOSED");

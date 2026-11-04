@@ -7,6 +7,7 @@ import com.duing.domain.recruitment.entity.RecruitmentStatus;
 import com.duing.domain.recruitment.service.dto.query.AdminRecruitmentListItem;
 import com.duing.domain.recruitment.service.dto.query.AdminRecruitmentRow;
 import com.duing.global.time.TimeMapper;
+import io.swagger.v3.oas.annotations.media.Schema;
 import java.time.Instant;
 import java.time.LocalDate;
 
@@ -20,9 +21,10 @@ import java.time.LocalDate;
  * 저장 상태를, 화면 표기는 표시 상태를 본다 — 총동연 콘솔만 저장 상태를 그대로 적어 같은 모집이
  * 총동연 "모집중" / 학생 "모집마감"으로 갈리던 것을 없앤다(#896).
  *
- * <p>목록 전용 세 값 — {@code pendingApplicationCount}·{@code oldestPendingSubmittedAt} 은 처리되지 않은(SUBMITTED)
+ * <p>목록 전용 네 값 — {@code pendingApplicationCount}·{@code oldestPendingSubmittedAt} 은 처리되지 않은(SUBMITTED)
  * 지원서의 수와 가장 오래된 제출 시각이며 외부 폼 모집이면 지원자 수와 같은 규칙으로 비어 있다.
- * {@code operatorsLastActiveAt} 은 회장·임원의 세션 사용·로그인 중 가장 늦은 시각이다. 상세 응답에는 싣지 않는다.
+ * {@code operatorsLastActiveAt} 은 회장·임원의 세션 사용·로그인 중 가장 늦은 시각이다. {@code autoClose} 는 기간이 끝났지만
+ * 아직 OPEN 인 모집의 자동 마감 전망이다(#1583). 상세 응답에는 싣지 않는다.
  */
 public record AdminRecruitmentSummaryResponse(
         Long recruitmentId,
@@ -39,7 +41,10 @@ public record AdminRecruitmentSummaryResponse(
         Instant updatedAt,
         Long pendingApplicationCount,
         Instant oldestPendingSubmittedAt,
-        Instant operatorsLastActiveAt
+        Instant operatorsLastActiveAt,
+        @Schema(description = "자동 마감 전망 — 기간이 끝났지만 아직 OPEN 인 모집에만 있다. 그 밖의 모집이거나 자동 마감이 "
+                + "꺼져 있으면 null 이다(#1583).", nullable = true)
+        AutoCloseOutlookResponse autoClose
 ) {
     public static AdminRecruitmentSummaryResponse from(AdminRecruitmentListItem listItem) {
         AdminRecruitmentRow recruitmentRow = listItem.recruitmentRow();
@@ -62,7 +67,8 @@ public record AdminRecruitmentSummaryResponse(
                 // 미처리·운영진 접속 시각은 서비스가 regime 별로 이미 절대시각으로 바꿨다(TIMEZONE.md).
                 listItem.pendingApplicationCount(),
                 listItem.oldestPendingSubmittedAt(),
-                listItem.operatorsLastActiveAt()
+                listItem.operatorsLastActiveAt(),
+                AutoCloseOutlookResponse.from(listItem.autoClose())
         );
     }
 }
