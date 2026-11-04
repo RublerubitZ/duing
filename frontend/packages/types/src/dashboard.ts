@@ -1,6 +1,7 @@
 // 운영자 대시보드 v1 뷰모델 — 백엔드 DTO가 아니라 FE에서 조합한 파생 타입.
 // 라우팅 경로(href)는 담지 않는다(식별자만). 링크는 web 레이어에서 toRoute로 생성.
 import type { BookingStatus } from './facility';
+import type { InterviewRoundStatus } from './interviewRound';
 
 export type ActionItemType =
   | 'APPLICANTS_AWAITING_REVIEW'
@@ -16,6 +17,8 @@ export type ActionItem = {
   recruitmentTitle: string;
   roundId?: number;
   roundTitle?: string;
+  /** 라운드 상태 — INTERVIEW_ROUND_UNCONFIRMED 에만. 같은 줄 이름 아래 묶음·버튼·이동을 상태별로 나누는 데 쓴다. */
+  roundStatus?: InterviewRoundStatus;
   /** 검토 대기 인원, 미응답 인원 등 맥락 수치 */
   count?: number;
   /** 마감/기한까지 남은 일수. 음수면 경과 */
