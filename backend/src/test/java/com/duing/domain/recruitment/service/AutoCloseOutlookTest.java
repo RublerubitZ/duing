@@ -187,6 +187,28 @@ class AutoCloseOutlookTest extends IntegrationTestBase {
         assertThat(adminRowOf(adminList, inPeriod)).as("기간 중 모집 — 총동연 목록").containsEntry("autoClose", null);
     }
 
+    @Test
+    @DisplayName("통계 요약 한 응답에서 지원 완료·보류·면접 대기 합과 자동 마감을 막는 결과 없는 지원 수가 같다 — 둘 다 탈퇴한 지원자의 지원은 세지 않는다")
+    void summaryUndecidedCountsMatchAutoCloseBlockingCount() {
+        Recruitment recruitment = saveSelfRecruitmentEndedDaysAgo(10);
+        saveApplication(recruitment, ApplicationStatus.SUBMITTED);
+        saveApplication(recruitment, ApplicationStatus.ON_HOLD);
+        Application withdrawnApplication = saveApplication(recruitment, ApplicationStatus.SUBMITTED);
+        userService.withdraw(withdrawnApplication.getUser().getId());
+
+        Response summary = RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
+                .when().get(SUMMARY_PATH, recruitment.getId());
+        summary.then().statusCode(HttpStatus.OK.value());
+
+        long undecidedInSummary = summary.jsonPath().getLong("data.submitted")
+                + summary.jsonPath().getLong("data.onHold")
+                + summary.jsonPath().getLong("data.interviewPending");
+        assertThat(undecidedInSummary).as("요약의 지원 완료 + 보류 + 면접 대기").isEqualTo(2);
+        assertThat(summary.jsonPath().getLong("data.autoClose.undecidedApplicationCount"))
+                .as("같은 응답의 자동 마감을 막는 결과 없는 지원 수").isEqualTo(2);
+    }
+
     // ── 헬퍼 ─────────────────────────────────────────────────────────────────
 
     /** 화면 전망 값을 확인한 뒤 잡을 돌려, 잡의 마감 여부가 전망의 '유예 끝남·막는 것 없음'과 같은지 본다. */
