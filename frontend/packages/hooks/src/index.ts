@@ -149,6 +149,7 @@ export {
   useAdminPendingTrendQuery,
   useAdminJobStatusesQuery,
   ADMIN_JOB_STATUSES_REFETCH_INTERVAL_MS,
+  useAdminClubSignalsQuery,
   useAdminClubMembersQuery,
   useAdminClubsQuery,
   useAdminClubDetailQuery,

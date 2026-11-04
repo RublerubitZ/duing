@@ -9,3 +9,6 @@ export const OPERATOR_INACTIVE_DAYS = 30;
 /** 운영진 마지막 접속부터 오늘까지의 KST 달력 일수 — 0 이하면 '오늘'로 쓴다(기기 시계가 늦어 미래 시각이면 음수). */
 // 단항 `-` 는 같은 날에 -0 을 내 Object.is 비교(toBe(0))에서 어긋난다 — 0 에서 빼서 +0 으로 둔다.
 export const operatorInactiveDays = (lastActiveAt: string, now: Date): number => 0 - daysUntilKst(lastActiveAt, now);
+
+/** KST 달력 경과 일수의 'N일 전' 표시 — 0 이하(같은 날·기기 시계가 늦은 미래 시각)는 '오늘'로 쓴다. 운영진 접속·신호 경과일이 함께 쓴다. */
+export const daysAgoText = (days: number): string => (days <= 0 ? '오늘' : `${days}일 전`);
