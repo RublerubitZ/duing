@@ -448,7 +448,8 @@ test.describe('총동연 홈', () => {
     for (let index = 0; index < 8; index += 1) {
       await expect(tileLinks.nth(index).locator(':scope > span').nth(1)).toHaveText('');
     }
-    await expect(queueCard).not.toContainText('전체 ');
+    // 요약 줄(triageQueueSummary 형식)만 본다 — 사람이 쓴 행 제목에도 "전체"가 들어갈 수 있다.
+    await expect(queueCard.getByText(/^(오래 기다린 \d+건 · )?전체 \d+건$/)).toHaveCount(0);
     // 전체 메뉴 배지(AdminSectionPendingBadge)도 같은 집계를 쓴다.
     await expect(page.getByText(/건 처리 대기$/)).toHaveCount(0);
   });
