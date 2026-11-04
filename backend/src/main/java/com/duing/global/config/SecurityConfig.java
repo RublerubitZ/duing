@@ -125,10 +125,11 @@ public class SecurityConfig {
                         // 위 인증 필수 clubs 하위 경로들과 path 가 겹치지 않아 순서에 영향을 주지 않는다.
                         .requestMatchers(HttpMethod.POST, "/api/v1/clubs/*/views").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/clubs", "/api/v1/clubs/**").permitAll()
-                        // 지원 가능 여부 사전 확인은 현재 사용자 기준 판정이므로 인증이 필요하다.
-                        // 아래 recruitments/** permitAll 보다 반드시 앞에 위치해야 first-match 원칙상
-                        // 인증 가드가 적용된다 (미인증은 401 → 클라이언트 세션 만료 처리 경로).
+                        // 지원 가능 여부 사전 확인·임시저장 조회는 현재 사용자 기준 응답이므로 인증이 필요하다.
+                        // 아래 recruitments/** permitAll 보다 반드시 앞에 위치해야 first-match 원칙상 인증 가드가
+                        // 적용된다 — 미인증·만료 토큰이 403 이면 FE 가 토큰을 갱신하지 않는다(임시저장 덮어쓰기, #823).
                         .requestMatchers(HttpMethod.GET, "/api/v1/recruitments/*/applications/eligibility").authenticated()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/recruitments/*/draft").authenticated()
                         .requestMatchers(HttpMethod.GET, "/api/v1/recruitments", "/api/v1/recruitments/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/notices", "/api/v1/notices/**").permitAll()
                         // 학생 코드 확인 — 비로그인도 동아리명을 확인할 수 있어야 한다(스펙 4.5, rate limit 으로 완화).
