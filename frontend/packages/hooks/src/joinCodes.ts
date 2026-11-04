@@ -8,6 +8,7 @@ import type {
 } from '@duing/types';
 import { useApiClient } from './api-context';
 import { clubQueryKeys } from './clubQueryKeys';
+import { statsQueryKeys } from './statsQueryKeys';
 
 /**
  * 모집의 활성 가입 링크 조회. 활성 링크가 없으면 200 + data:null 이므로 `data === null` 이 "링크 없음"이고
@@ -157,6 +158,7 @@ export function useJoinRequestPhoneMutation(clubId: number) {
 
 // 처리 한 건이 요청 목록·회원 명단·코드 사용량(usedCount)을 함께 바꾸므로 셋 다 무효화한다.
 // 요청 콘솔은 클럽 단위라 어느 모집의 코드였는지 모른다 — 코드는 클럽 프리픽스로 통째 무효화한다.
+// 대기 요청이 남은 모집은 삭제할 수 없어(#1635) 통계 요약의 삭제 가능 여부도 바뀐다 — 통계 키엔 클럽이 없어 전체를 무효화한다.
 function invalidateAfterDecision(
   queryClient: ReturnType<typeof useQueryClient>,
   clubId: number,
@@ -164,6 +166,7 @@ function invalidateAfterDecision(
   queryClient.invalidateQueries({ queryKey: clubQueryKeys.joinRequestsAll(clubId) });
   queryClient.invalidateQueries({ queryKey: clubQueryKeys.members(clubId) });
   queryClient.invalidateQueries({ queryKey: clubQueryKeys.joinCodesAll(clubId) });
+  queryClient.invalidateQueries({ queryKey: statsQueryKeys.all });
 }
 
 /**

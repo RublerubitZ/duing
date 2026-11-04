@@ -3,6 +3,7 @@ package com.duing.domain.recruitment.repository;
 import static com.duing.domain.application.entity.QApplication.application;
 import static com.duing.domain.club.entity.QClub.club;
 import static com.duing.domain.recruitment.entity.QRecruitment.recruitment;
+import static com.duing.domain.user.entity.QUser.user;
 
 import com.duing.domain.club.entity.ClubStatus;
 import com.duing.domain.recruitment.entity.ApplicationMode;
@@ -246,16 +247,20 @@ public class RecruitmentRepositoryImpl implements RecruitmentRepositoryCustom {
     /**
      * 동아리는 join 만 하고 이름을 스칼라로 뽑는다 — 지원자 집계(groupBy)와 fetch join 은 함께 쓸 수 없다.
      * 지원서는 leftJoin 이라 지원자가 없는 모집도 0 으로 남는다.
+     * 지원자 수는 지원자 목록처럼 탈퇴한 지원자의 지원서를 세지 않는다(#1594) — 지원자 조인이 비면 user.id 가 NULL 이라 빠진다.
+     * user.id 는 지원서의 FK 가 아니라 조인된 users.id 로 번역돼야 한다 — applicantCountsExcludeWithdrawnApplicants 테스트가 지킨다.
      */
     @Override
     public List<AdminRecruitmentRow> searchForAdmin(AdminRecruitmentSearchCondition searchCondition) {
         List<Tuple> rows = queryFactory
-                .select(recruitment, club.name, application.count())
+                .select(recruitment, club.name, user.id.count())
                 .from(recruitment)
                 .join(recruitment.club, club)
                 .leftJoin(application)
                     .on(application.recruitment.eq(recruitment)
                             .and(application.deletedAt.isNull()))
+                .leftJoin(application.user, user)
+                    .on(user.deletedAt.isNull())
                 .where(
                         keywordMatches(searchCondition.q()),
                         statusEq(searchCondition.status()),
@@ -272,7 +277,7 @@ public class RecruitmentRepositoryImpl implements RecruitmentRepositoryCustom {
                 .map(row -> new AdminRecruitmentRow(
                         row.get(recruitment),
                         row.get(club.name),
-                        row.get(application.count()),
+                        row.get(user.id.count()),
                         today))
                 .toList();
     }
@@ -282,7 +287,7 @@ public class RecruitmentRepositoryImpl implements RecruitmentRepositoryCustom {
         return switch (sort) {
             case LATEST -> new OrderSpecifier<?>[]{recruitment.createdAt.desc()};
             case APPLICANTS -> new OrderSpecifier<?>[]{
-                    application.count().desc(), recruitment.createdAt.desc()};
+                    user.id.count().desc(), recruitment.createdAt.desc()};
             case DEADLINE -> new OrderSpecifier<?>[]{
                     recruitment.endDate.asc().nullsLast(), recruitment.createdAt.desc()};
             // 방치 기준(가장 오래된 미처리 지원서)은 이 쿼리에 없는 별도 집계라 서비스가 다시 정렬한다 —

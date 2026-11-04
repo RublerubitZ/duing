@@ -12,6 +12,7 @@ import type {
   AdminPendingCounts,
   AdminPendingTrend,
   AdminJobStatuses,
+  AdminClubSignals,
   AdminWeeklyBriefing,
   AdminSuccessionDetail,
   AdminSuccessionSearchParams,
@@ -121,6 +122,8 @@ export type AdminApi = {
   pendingTrend(): Promise<AdminPendingTrend>;
   /** 총동연 홈 자동 작업 상태 — 작업 5개의 최근 실행 결과와 화면 상태. */
   jobStatuses(): Promise<AdminJobStatuses>;
+  /** 총동연 홈 동아리 현황 — 운영 중 수와 신호별 동아리 수(목록 ?signal= totalElements 와 같은 식). 옛 백엔드는 404. */
+  getClubSignals(): Promise<AdminClubSignals>;
   /** 총동연 주간 브리핑 '한 주 돌아보기' — weekStart(그 주 월요일) 주의 접수·처리·남은 대기·활동. 범위 밖이면 400(code WEEK_*). */
   weeklyBriefing(weekStart: string): Promise<AdminWeeklyBriefing>;
   clubs: {
@@ -371,6 +374,7 @@ export function createAdminApi(deps: {
     pendingCounts: () => jsonOk<AdminPendingCounts>(http.get('admin/pending-counts')),
     pendingTrend: () => jsonOk<AdminPendingTrend>(http.get('admin/pending-trend')),
     jobStatuses: () => jsonOk<AdminJobStatuses>(http.get('admin/job-statuses')),
+    getClubSignals: () => jsonOk<AdminClubSignals>(http.get('admin/club-signals')),
     weeklyBriefing: (weekStart) =>
       jsonOk<AdminWeeklyBriefing>(http.get('admin/weekly-briefing', { searchParams: { weekStart } })),
     clubs: {

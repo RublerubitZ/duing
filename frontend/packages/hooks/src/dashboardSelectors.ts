@@ -25,6 +25,13 @@ export const CLOSING_SOON_DAYS = 3;
 /** 미처리 대기가 이 일수(KST 날짜) 이상이면 늦은 것 — 두 콘솔의 칩 톤·운영진 '지금 처리'가 같이 쓴다. 서버 미처리 알림의 168시간 경계와는 다른 규칙이다(합치지 않는다). */
 export const STALE_WAITING_DAYS = 7;
 
+// 판정은 raw status — 마감일이 지났어도 수동 마감 전이면 백엔드는 모집을 OPEN(심사 진행 중)으로 다루고,
+// 그 구간에 미결 지원자가 남아 있다. displayStatus 로 판정하면 이 필터를 공유하는 진행 중 모집 카드·
+// 지원자 요약·처리 필요 업무가 모두 그 모집을 통째로 빼버려 "처리 필요 0건"이 표시된다.
+export function isActiveRecruitment(recruitment: RecruitmentSummary): boolean {
+  return recruitment.status !== 'CLOSED';
+}
+
 /** 모집 1건 + 그 모집의 통계·면접 라운드 묶음 */
 export type RecruitmentDashboardInput = {
   recruitment: RecruitmentSummary;
@@ -62,6 +69,8 @@ export function buildActionItems(inputs: RecruitmentDashboardInput[], now: Date)
           type: 'APPLICANTS_AWAITING_REVIEW',
           ...base,
           count: awaiting,
+          submitted: stats.submitted,
+          onHold: stats.onHold,
           ...(pendingDays === undefined ? {} : { pendingDays }),
         });
       }
@@ -145,6 +154,16 @@ export function buildClosedRecruitmentItems(inputs: ClosedRecruitmentDashboardIn
     }
   }
   return items;
+}
+
+/**
+ * 모집 1건의 할 일 — 운영진 홈(useClubActionItems)과 모집 상세(useRecruitmentActionItems)가 함께 쓰는 단일 입구라 두 화면 규칙이 갈리지 않는다.
+ * 진행 중(외부 폼 포함)은 buildActionItems, 마감 자체 폼은 결과 미확정만, 마감 외부 폼은 지원서가 없어 없다. 정렬은 부르는 쪽이 한다.
+ */
+export function buildRecruitmentActionItems(input: RecruitmentDashboardInput, now: Date): ActionItem[] {
+  if (isActiveRecruitment(input.recruitment)) return buildActionItems([input], now);
+  if (input.recruitment.applicationMode === 'SELF') return buildClosedRecruitmentItems([input]);
+  return [];
 }
 
 export function sortActionItems(items: ActionItem[]): ActionItem[] {

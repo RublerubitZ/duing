@@ -4,6 +4,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.equalTo;
 
+import com.auth0.jwt.JWT;
+import com.auth0.jwt.algorithms.Algorithm;
 import com.duing.domain.club.entity.Club;
 import com.duing.domain.club.entity.ClubCategory;
 import com.duing.domain.club.entity.ClubStatus;
@@ -21,10 +23,13 @@ import com.duing.domain.user.entity.Grade;
 import com.duing.domain.user.entity.UserRole;
 import com.duing.domain.user.repository.UserRepository;
 import com.duing.global.auth.JwtTokenProvider;
+import com.duing.global.auth.WebAuthCookieService;
 import io.restassured.RestAssured;
 import io.restassured.http.ContentType;
+import io.restassured.response.Response;
 import java.lang.reflect.Field;
 import java.time.LocalDate;
+import java.util.Date;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicLong;
@@ -32,6 +37,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import com.duing.common.IntegrationTestBase;
 import com.duing.common.TestcontainersConfiguration;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -65,6 +71,9 @@ class ApplicationDraftControllerTest extends IntegrationTestBase {
 
     @Autowired
     private JdbcTemplate jdbcTemplate;
+
+    @Value("${jwt.secret}")
+    private String jwtSecret;
 
     private final AtomicLong sequence = new AtomicLong(System.nanoTime());
 
@@ -341,16 +350,39 @@ class ApplicationDraftControllerTest extends IntegrationTestBase {
     }
 
     @Test
-    @DisplayName("인증 없이 GET draft 를 호출하면 인증 오류(4xx)를 반환한다")
-    void getDraftWithoutAuthIsRejected() {
-        int statusCode = RestAssured
+    @DisplayName("인증 없이 GET draft 를 호출하면 URL 레이어에서 401 로 막힌다 — recruitments/** GET permitAll 보다 앞선 규칙 잠금")
+    void getDraftWithoutAuthReturns401() {
+        RestAssured
                 .given()
                 .when()
                     .get("/api/v1/recruitments/{recruitmentId}/draft", openRecruitment.getId())
                 .then()
-                    .extract().statusCode();
+                    .statusCode(HttpStatus.UNAUTHORIZED.value());
+    }
 
-        assertThat(statusCode).isIn(401, 403);
+    @Test
+    @DisplayName("만료된 access 쿠키로 GET draft 를 호출하면 401 과 access 쿠키 삭제를 돌려준다 — FE 토큰 갱신 신호")
+    void getDraftWithExpiredAccessCookieReturns401AndClearsAccessCookie() {
+        String expiredToken = JWT.create()
+                .withSubject(String.valueOf(student.getId()))
+                .withClaim("role", student.getRole().name())
+                .withClaim("tokenVersion", student.getTokenVersion())
+                .withIssuedAt(new Date(System.currentTimeMillis() - 120_000))
+                .withExpiresAt(new Date(System.currentTimeMillis() - 60_000))
+                .sign(Algorithm.HMAC256(jwtSecret));
+
+        Response response = RestAssured
+                .given()
+                    .cookie(WebAuthCookieService.ACCESS_COOKIE_NAME, expiredToken)
+                .when()
+                    .get("/api/v1/recruitments/{recruitmentId}/draft", openRecruitment.getId());
+
+        assertThat(response.statusCode()).isEqualTo(HttpStatus.UNAUTHORIZED.value());
+        List<String> setCookies = response.getHeaders().getValues(HttpHeaders.SET_COOKIE);
+        assertThat(setCookies).hasSize(1);
+        assertThat(setCookies.get(0))
+                .startsWith(WebAuthCookieService.ACCESS_COOKIE_NAME + "=")
+                .contains("Max-Age=0");
     }
 
     @Test

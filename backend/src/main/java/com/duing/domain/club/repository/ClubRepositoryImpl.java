@@ -15,16 +15,22 @@ import com.duing.domain.club.entity.ClubCategory;
 import com.duing.domain.club.entity.ClubStatus;
 import com.duing.domain.club.metric.entity.QClubMetric;
 import com.duing.domain.user.entity.College;
+import com.duing.domain.user.entity.QAuthSession;
 import com.duing.domain.user.entity.QUser;
 import com.duing.domain.club.service.ClubRecommendationPolicy;
+import com.duing.domain.club.service.ClubSignalPolicy;
 import com.duing.domain.club.service.dto.query.AdminClubSearchCondition;
+import com.duing.domain.club.service.dto.query.AdminClubSignalDetailQuery;
+import com.duing.domain.club.service.dto.query.AdminClubSignal;
 import com.duing.domain.club.service.dto.query.AdminClubSummaryQuery;
 import com.duing.domain.club.service.dto.query.ClubSearchCondition;
+import com.duing.domain.club.service.dto.query.ClubSignalCutoffs;
 import com.duing.domain.club.service.dto.query.ClubSortOption;
 import com.duing.domain.club.service.dto.query.ClubStatsQuery;
 import com.duing.domain.club.service.dto.query.ClubSummaryQuery;
 import com.duing.domain.club.service.dto.query.RecruitmentStatusFilter;
 import com.duing.domain.clubmember.entity.ClubMemberRole;
+import com.duing.domain.clubmember.entity.QClubMember;
 import com.duing.domain.joincode.entity.JoinRequestStatus;
 import com.duing.domain.recruitment.entity.RecruitmentStatus;
 import com.duing.domain.recruitment.repository.RecruitmentPredicates;
@@ -35,6 +41,7 @@ import com.querydsl.core.types.Order;
 import com.querydsl.core.types.OrderSpecifier;
 import com.querydsl.core.types.dsl.BooleanExpression;
 import com.querydsl.core.types.dsl.CaseBuilder;
+import com.querydsl.core.types.dsl.DateTimeExpression;
 import com.querydsl.core.types.dsl.Expressions;
 import com.querydsl.core.types.dsl.NumberExpression;
 import com.querydsl.jpa.JPAExpressions;
@@ -45,10 +52,12 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
@@ -67,6 +76,31 @@ public class ClubRepositoryImpl implements ClubRepositoryCustom {
      * 가려 엉뚱한 행을 읽는다({@code QUser actor} 와 같은 선례).
      */
     private static final QClubMetric SUMMARY_METRIC = new QClubMetric("summaryMetric");
+
+    /**
+     * 운영진 미접속 신호(OPERATOR_INACTIVE)의 서브쿼리 전용 alias.
+     * <p>규약이다 — findByAdminCondition 의 행 쿼리가 회장 조인에 기본 alias {@code clubMember}·{@code user} 를 쓰는데, 서브쿼리가
+     * 바깥 기본 alias 를 다시 선언하면 바깥과 상관하려던 참조가 조용히 안쪽 선언에 묶인다. 지금 식은 club 하나만 상관해 결과는 같다
+     * (Hibernate 6 은 서브쿼리 alias 를 자기 범위에서 먼저 찾는다). 회장 칸 회귀 테스트(AdminClubsSignalUsageControllerTest)는 결과 검사다.
+     * 두 NOT EXISTS 는 형제 서브쿼리라 같은 alias 를 다시 쓴다.
+     */
+    private static final QClubMember SIGNAL_OPERATOR = new QClubMember("signalOperator");
+    private static final QUser SIGNAL_OPERATOR_USER = new QUser("signalOperatorUser");
+    private static final QAuthSession SIGNAL_OPERATOR_SESSION = new QAuthSession("signalOperatorSession");
+
+    /**
+     * 지원 결과 미확정 신호(RESULT_WAITING)의 지원자 조인 전용 alias — SIGNAL_OPERATOR 와 같은 규약(행 쿼리의 회장 조인이 기본 alias {@code user} 를 쓴다).
+     * 목록 EXISTS 와 재료·집계의 행 쿼리가 resultWaitingRecruitmentRow 를 함께 쓰므로 두 쿼리 모두 이 alias 로 application.user 를 조인한다.
+     */
+    private static final QUser SIGNAL_APPLICANT = new QUser("signalApplicant");
+
+    /** 재료가 없는 신호 행 — 하위 레코드가 없는 신호(NO_RECORD·OPERATOR_INACTIVE)이거나 처리 경합으로 재료 문장이 비었다. */
+    private static final AdminClubSignalDetailQuery NO_SIGNAL_MATERIAL = new AdminClubSignalDetailQuery(null, null, null);
+
+    /** 가장 오래된 신호 모집 — 끝난 날 이른 순, 같으면 모집 id 작은 순(동아리 신호 스펙 §6-1). */
+    private static final Comparator<ResultWaitingRecruitmentRow> OLDEST_ENDED_FIRST =
+            Comparator.comparing(ResultWaitingRecruitmentRow::endedOn)
+                    .thenComparing(ResultWaitingRecruitmentRow::recruitmentId);
 
     /**
      * 키워드 검색에서 태그를 이어 붙일 때의 구분자 — 화면에서 입력할 수 없는 단위 구분자(U+001F)다.
@@ -161,12 +195,15 @@ public class ClubRepositoryImpl implements ClubRepositoryCustom {
 
     @Override
     public Page<AdminClubSummaryQuery> findByAdminCondition(AdminClubSearchCondition condition, Pageable pageable) {
+        // 신호 기준 시각은 이 메서드 안에서 한 번만 만든다 — 행·총 건수가 같은 predicates 로 같은 기준을 쓴다(동아리 신호 스펙 §5).
+        ClubSignalCutoffs signalCutoffs = condition.signal() == null ? null : ClubSignalPolicy.cutoffs(clock);
         BooleanExpression[] predicates = {
                 adminStatusEq(condition.status()),
                 categoryEq(condition.category()),
                 divisionEq(condition.division()),
                 keywordContains(condition.keyword()),
                 pendingCleanupFilter(condition.needsPendingCleanup()),
+                signalFilter(condition.signal(), signalCutoffs),
         };
 
         // leader 는 한 동아리당 0~1명. ClubMember(role=LEADER) 로 left join 해 leader 부재 시에도 행이 보존되게 한다.
@@ -194,9 +231,17 @@ public class ClubRepositoryImpl implements ClubRepositoryCustom {
                 .toList();
         Map<Long, Long> undecidedApplicationCounts = countUndecidedApplicationsByClub(inactiveClubIds);
         Map<Long, Long> pendingJoinRequestCounts = countPendingJoinRequestsByClub(inactiveClubIds);
+        // 신호 재료는 이 페이지 동아리 id 로만 한 문장 모은다. null = 신호 없는 요청(행의 signalDetail 을 null 키로 내보낸다).
+        Map<Long, AdminClubSignalDetailQuery> signalDetails = condition.signal() == null
+                ? null
+                : signalDetailsByClub(condition.signal(), signalCutoffs, rows.stream()
+                        .map(row -> row.get(club))
+                        .filter(Objects::nonNull)
+                        .map(Club::getId)
+                        .toList());
 
         List<AdminClubSummaryQuery> content = rows.stream()
-                .map(row -> toAdminSummary(row, actor, undecidedApplicationCounts, pendingJoinRequestCounts))
+                .map(row -> toAdminSummary(row, actor, undecidedApplicationCounts, pendingJoinRequestCounts, signalDetails))
                 .toList();
 
         Long total = queryFactory
@@ -209,7 +254,8 @@ public class ClubRepositoryImpl implements ClubRepositoryCustom {
     }
 
     private AdminClubSummaryQuery toAdminSummary(Tuple row, QUser actor, Map<Long, Long> undecidedApplicationCounts,
-                                                 Map<Long, Long> pendingJoinRequestCounts) {
+                                                 Map<Long, Long> pendingJoinRequestCounts,
+                                                 Map<Long, AdminClubSignalDetailQuery> signalDetails) {
         Club source = row.get(club);
         if (source == null) {
             throw new IllegalStateException("Admin 동아리 목록 조회 결과 row 에 club 이 비어있을 수 없습니다.");
@@ -234,7 +280,9 @@ public class ClubRepositoryImpl implements ClubRepositoryCustom {
                 row.get(actor.name),
                 source.approvalPendingSince(),
                 inactive ? undecidedApplicationCounts.getOrDefault(source.getId(), 0L) : null,
-                inactive ? pendingJoinRequestCounts.getOrDefault(source.getId(), 0L) : null
+                inactive ? pendingJoinRequestCounts.getOrDefault(source.getId(), 0L) : null,
+                // 신호를 보낸 요청은 모든 행이 객체(재료가 없으면 하위 레코드가 모두 null), 아니면 null.
+                signalDetails == null ? null : signalDetails.getOrDefault(source.getId(), NO_SIGNAL_MATERIAL)
         );
     }
 
@@ -348,6 +396,95 @@ public class ClubRepositoryImpl implements ClubRepositoryCustom {
                 .and(clubJoinRequest.deletedAt.isNull());
     }
 
+    /**
+     * 동아리 신호 필터(동아리 신호 스펙 §4) — 운영 중(ACTIVE) 조건을 품는다. 목록의 행 쿼리·총 건수가 이 식 하나를 쓴다.
+     * 같은 엔티티(application·recruitment·clubJoinRequest)를 FROM 에 둔 바깥 쿼리 안에는 넣지 않는다 — 기본 별칭이 겹치면 바깥과
+     * 상관하려던 참조가 안쪽 선언에 묶일 수 있어 규약으로 막는다(지금 식은 club 하나만 상관해 결과가 같다 — SIGNAL_OPERATOR 주석과 같은 규칙).
+     * 재료·집계는 같은 행 술어를 GROUP BY 로 따로 읽는다.
+     */
+    private static BooleanExpression signalFilter(AdminClubSignal signal, ClubSignalCutoffs cutoffs) {
+        if (signal == null) {
+            return null;
+        }
+        BooleanExpression signalCondition = switch (signal) {
+            case RESULT_WAITING -> JPAExpressions.selectOne()
+                    .from(application)
+                    .join(application.recruitment, recruitment)
+                    .join(application.user, SIGNAL_APPLICANT)
+                    .where(recruitment.club.id.eq(club.id), resultWaitingRecruitmentRow(cutoffs))
+                    .exists();
+            case JOIN_REQUEST_WAITING -> JPAExpressions.selectOne()
+                    .from(clubJoinRequest)
+                    .where(clubJoinRequest.club.id.eq(club.id), staleJoinRequestRow(cutoffs))
+                    .exists();
+            case NO_RECORD -> JPAExpressions.selectOne()
+                    .from(clubMetric)
+                    .where(clubMetric.clubId.eq(club.id), clubMetric.lastActivityAt.isNotNull())
+                    .notExists();
+            case OPERATOR_INACTIVE -> noRecentOperatorActivity(cutoffs);
+        };
+        return club.status.eq(ClubStatus.ACTIVE).and(signalCondition);
+    }
+
+    /**
+     * 신호 모집의 결과 미확정 지원 행(스펙 §4-1) — 동아리 상관이 없어 목록 EXISTS·재료·집계가 같이 쓴다.
+     * 호출 측이 recruitment 기본 별칭으로 application.recruitment 를(undecidedApplicationRow 와 같은 조건), SIGNAL_APPLICANT 로
+     * application.user 를 조인해야 한다. 탈퇴한 지원자의 지원서는 세지 않는다 — 운영진 지원자 목록이 지원자를 조인해 빼므로, 세면
+     * 운영진이 치울 수 없는 건으로 신호가 남는다(#1594). 조인 ON 의 @SQLRestriction 에 기대지 않고 명시한다(운영 중단 미결 정리는 일부러 센다).
+     */
+    private static BooleanExpression resultWaitingRecruitmentRow(ClubSignalCutoffs cutoffs) {
+        return undecidedApplicationRow().and(recruitmentEndedBefore(cutoffs.resultEndedBefore()))
+                .and(SIGNAL_APPLICANT.deletedAt.isNull());
+    }
+
+    /**
+     * 모집의 끝난 날 < endedBefore — ClubSignalPolicy#endedOn 의 술어 판(date 함수 없이). 바꿀 때 함께 바꾼다.
+     * CLOSED 는 closed_at 날짜·end_date 중 이른 날(둘 다 없으면 start_date), OPEN 은 end_date 만 본다.
+     * OPEN·end_date null(상시모집)은 첫 항·둘째 항 모두 거짓이라 저절로 빠진다.
+     */
+    private static BooleanExpression recruitmentEndedBefore(LocalDate endedBefore) {
+        return recruitment.endDate.lt(endedBefore)
+                .or(recruitment.status.eq(RecruitmentStatus.CLOSED).and(
+                        recruitment.closedAt.lt(endedBefore.atStartOfDay())
+                                .or(recruitment.closedAt.isNull()
+                                        .and(recruitment.endDate.isNull())
+                                        .and(recruitment.startDate.lt(endedBefore)))));
+    }
+
+    /**
+     * 7일 넘게 대기한 가입 신청 행(스펙 §4-2) — created_at 은 system regime 이라 기준도 저장 존 벽시계다(ClubSignalPolicy#cutoffs).
+     * 동아리에 이런 행이 있다 ⟺ 그 동아리 대기 신청의 created_at 최솟값 < 기준(재료·집계의 HAVING 과 같은 집합).
+     */
+    private static BooleanExpression staleJoinRequestRow(ClubSignalCutoffs cutoffs) {
+        return pendingJoinRequestRow().and(clubJoinRequest.createdAt.lt(cutoffs.joinRequestedBefore()));
+    }
+
+    /**
+     * 운영진 30일 넘게 미접속(스펙 §4-4) — 최근 로그인한 운영진도, 최근 세션을 쓴 운영진도 없다(드모르간 — 상관 EXISTS 를 OR 안에 두지 않고
+     * NOT EXISTS 두 개의 AND 로 반조인 한 번씩 훑는다). 로그인 기준은 system regime, 세션 기준은 seoul regime 이라 각자 기준으로 비교한다.
+     * 운영진 = 회장·임원, 탈퇴(소프트 삭제) 회원과 남은 멤버십은 제외. auth_session 은 소프트 삭제를 쓰지 않는다 — 폐기·만료 세션도 사용 시각이라 센다.
+     * 표시값(행의 운영진 마지막 접속)은 ClubMemberRepository#findOperatorActivityByClubIds(네이티브)가 정의한다 — 두 벌이라 바꿀 때 함께 바꾸고
+     * 판정↔표시 테스트(AdminClubsSignalDetailControllerTest)가 30일 경계 안팎·운영진 없음 표본으로 본다.
+     */
+    private static BooleanExpression noRecentOperatorActivity(ClubSignalCutoffs cutoffs) {
+        BooleanExpression liveOperatorOfClub = SIGNAL_OPERATOR.club.id.eq(club.id)
+                .and(SIGNAL_OPERATOR.role.in(ClubMemberRole.MANAGER_ROLES))
+                .and(SIGNAL_OPERATOR.deletedAt.isNull())
+                .and(SIGNAL_OPERATOR_USER.deletedAt.isNull());
+        return JPAExpressions.selectOne()
+                .from(SIGNAL_OPERATOR)
+                .join(SIGNAL_OPERATOR.user, SIGNAL_OPERATOR_USER)
+                .where(liveOperatorOfClub, SIGNAL_OPERATOR_USER.lastLoginAt.goe(cutoffs.operatorLoggedInSince()))
+                .notExists()
+                .and(JPAExpressions.selectOne()
+                        .from(SIGNAL_OPERATOR)
+                        .join(SIGNAL_OPERATOR.user, SIGNAL_OPERATOR_USER)
+                        .join(SIGNAL_OPERATOR_SESSION).on(SIGNAL_OPERATOR_SESSION.userId.eq(SIGNAL_OPERATOR_USER.id))
+                        .where(liveOperatorOfClub,
+                                SIGNAL_OPERATOR_SESSION.lastUsedAt.goe(cutoffs.operatorSessionUsedSince()))
+                        .notExists());
+    }
+
     private Map<Long, Long> countUndecidedApplicationsByClub(List<Long> clubIds) {
         if (clubIds.isEmpty()) {
             return Map.of();
@@ -377,6 +514,87 @@ public class ClubRepositoryImpl implements ClubRepositoryCustom {
                 .fetch()
                 .stream()
                 .collect(Collectors.toMap(row -> row.get(clubJoinRequest.club.id), row -> row.get(joinRequestCount)));
+    }
+
+    /**
+     * 신호 재료(동아리 신호 스펙 §6-1) — 이 페이지 동아리 id 로만 한 문장 모은다(빈 페이지면 문장 없음 — IN () 오류).
+     * 운영진 접속(operatorsLastActiveAt)은 서비스가 채운다 — 저장소가 다른 저장소를 부르지 않는다.
+     */
+    private Map<Long, AdminClubSignalDetailQuery> signalDetailsByClub(AdminClubSignal signal, ClubSignalCutoffs cutoffs,
+                                                                     List<Long> pageClubIds) {
+        if (pageClubIds.isEmpty()) {
+            return Map.of();
+        }
+        return switch (signal) {
+            case RESULT_WAITING -> findResultWaitingRecruitmentRows(cutoffs, pageClubIds).stream()
+                    .collect(Collectors.groupingBy(ResultWaitingRecruitmentRow::clubId,
+                            Collectors.collectingAndThen(Collectors.toList(),
+                                    clubRows -> new AdminClubSignalDetailQuery(null, toResultWaiting(clubRows), null))));
+            case JOIN_REQUEST_WAITING -> findStaleJoinRequestRows(cutoffs, pageClubIds).stream()
+                    .collect(Collectors.toMap(StaleJoinRequestRow::clubId, row -> new AdminClubSignalDetailQuery(null, null,
+                            new AdminClubSignalDetailQuery.JoinRequestWaiting(row.requestCount(), row.oldestRequestedAt()))));
+            case NO_RECORD, OPERATOR_INACTIVE -> Map.of();
+        };
+    }
+
+    /**
+     * 신호 모집별 행(동아리 신호 스펙 §7) — 결과 미확정 지원을 모집으로 묶어 센다. groupBy 에 고른 모집 열을 모두 둔다.
+     * 같은 엔티티를 FROM 에 둔 바깥 쿼리라 signalFilter(EXISTS)를 넣지 않고 행 술어를 직접 건다. 동아리 조인의 삭제 조건을 명시한다.
+     * 목록 필터(EXISTS)와 같은 행 술어를 써서 같은 모집을 고른다 — 바꿀 때 함께 고친다. 재료 값은 AdminClubsSignalDetailControllerTest 가 본다
+     * (목록 필터와의 동치 테스트는 아직 없다).
+     */
+    private List<ResultWaitingRecruitmentRow> findResultWaitingRecruitmentRows(ClubSignalCutoffs cutoffs, List<Long> clubIds) {
+        NumberExpression<Long> undecidedCount = application.count();
+        return queryFactory
+                .select(recruitment.id, club.id, recruitment.title, recruitment.status,
+                        recruitment.closedAt, recruitment.endDate, recruitment.startDate, undecidedCount)
+                .from(application)
+                .join(application.recruitment, recruitment)
+                .join(application.user, SIGNAL_APPLICANT)
+                .join(recruitment.club, club)
+                .where(resultWaitingRecruitmentRow(cutoffs),
+                        club.status.eq(ClubStatus.ACTIVE), club.deletedAt.isNull(), club.id.in(clubIds))
+                .groupBy(recruitment.id, club.id, recruitment.title, recruitment.status,
+                        recruitment.closedAt, recruitment.endDate, recruitment.startDate)
+                .fetch()
+                .stream()
+                .map(row -> new ResultWaitingRecruitmentRow(
+                        row.get(recruitment.id),
+                        row.get(club.id),
+                        row.get(recruitment.title),
+                        ClubSignalPolicy.endedOn(row.get(recruitment.status), row.get(recruitment.closedAt),
+                                row.get(recruitment.endDate), row.get(recruitment.startDate)),
+                        row.get(undecidedCount)))
+                .toList();
+    }
+
+    /** 한 동아리의 신호 모집 행들 → 가장 오래된 모집·모집 수·결과 미확정 지원 합. */
+    private static AdminClubSignalDetailQuery.ResultWaiting toResultWaiting(List<ResultWaitingRecruitmentRow> clubRows) {
+        ResultWaitingRecruitmentRow oldest = clubRows.stream().min(OLDEST_ENDED_FIRST).orElseThrow();
+        return new AdminClubSignalDetailQuery.ResultWaiting(oldest.recruitmentId(), oldest.title(), oldest.endedOn(),
+                clubRows.size(), clubRows.stream().mapToLong(ResultWaitingRecruitmentRow::undecidedCount).sum());
+    }
+
+    /**
+     * 7일 넘게 대기한 신청이 있는 동아리별 대기 신청 수·가장 오래된 신청 시각(동아리 신호 스펙 §7) —
+     * GROUP BY club HAVING min(created_at) < 기준. 안쪽 EXISTS 가 없어 기본 alias 하나로 끝난다.
+     * requestCount 는 그 동아리 대기 신청 전부다(7일 안 신청 포함).
+     */
+    private List<StaleJoinRequestRow> findStaleJoinRequestRows(ClubSignalCutoffs cutoffs, List<Long> clubIds) {
+        NumberExpression<Long> requestCount = clubJoinRequest.count();
+        DateTimeExpression<LocalDateTime> oldestRequestedAt = clubJoinRequest.createdAt.min();
+        return queryFactory
+                .select(club.id, requestCount, oldestRequestedAt)
+                .from(clubJoinRequest)
+                .join(clubJoinRequest.club, club)
+                .where(pendingJoinRequestRow(),
+                        club.status.eq(ClubStatus.ACTIVE), club.deletedAt.isNull(), club.id.in(clubIds))
+                .groupBy(club.id)
+                .having(oldestRequestedAt.lt(cutoffs.joinRequestedBefore()))
+                .fetch()
+                .stream()
+                .map(row -> new StaleJoinRequestRow(row.get(club.id), row.get(requestCount), row.get(oldestRequestedAt)))
+                .toList();
     }
 
     private BooleanExpression keywordContains(String keyword) {
@@ -650,5 +868,14 @@ public class ClubRepositoryImpl implements ClubRepositoryCustom {
                 new OrderSpecifier<>(Order.DESC, latestActiveStart, OrderSpecifier.NullHandling.NullsLast),
                 club.createdAt.desc()
         };
+    }
+
+    /** 신호 모집 한 건 — 페이지 재료와 홈 집계가 같은 문장으로 읽는다. endedOn 은 ClubSignalPolicy#endedOn(신호 모집은 항상 non-null). */
+    private record ResultWaitingRecruitmentRow(Long recruitmentId, Long clubId, String title, LocalDate endedOn,
+                                               long undecidedCount) {
+    }
+
+    /** 7일 넘게 대기한 신청이 있는 동아리 한 곳 — 대기 신청 전부의 수와 가장 오래된 신청 시각(system regime 벽시계). */
+    private record StaleJoinRequestRow(Long clubId, long requestCount, LocalDateTime oldestRequestedAt) {
     }
 }
