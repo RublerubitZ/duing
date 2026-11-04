@@ -6,7 +6,11 @@ import { setupServer } from 'msw/node';
 import { http, HttpResponse } from 'msw';
 import { createApiClient } from '@duing/api';
 import { ApiClientProvider } from '../src/api-context';
-import { useAdminWeeklyBriefingQuery } from '../src/adminWeeklyBriefing';
+import {
+  useAdminClosingRecruitmentsQuery,
+  useAdminWeeklyBriefingQuery,
+  useAdminWeeklyFacilityHeatmapQuery,
+} from '../src/adminWeeklyBriefing';
 import { adminQueryKeys } from '../src/adminQueryKeys';
 
 const apiClient = createApiClient({ baseUrl: 'http://localhost:8080/api/v1' });
@@ -98,5 +102,88 @@ describe('useAdminWeeklyBriefingQuery', () => {
     await new Promise((resolve) => setTimeout(resolve, 50));
     expect(result.current.fetchStatus).toBe('idle');
     expect(requestedWeeks).toEqual([]);
+  });
+});
+
+describe('useAdminWeeklyFacilityHeatmapQuery·useAdminClosingRecruitmentsQuery', () => {
+  let heatmapRequests = 0;
+  let closingRequests = 0;
+  const useBriefingSideHandlers = () =>
+    server.use(
+      http.get('*/admin/weekly-briefing/facility-heatmap', () => {
+        heatmapRequests += 1;
+        return HttpResponse.json({ ok: true, message: null, data: { facilities: [], currentMonthCrawledAt: null } });
+      }),
+      http.get('*/admin/weekly-briefing/closing-recruitments', () => {
+        closingRequests += 1;
+        return HttpResponse.json({ ok: true, message: null, data: { weekStart: '2026-11-02', recruitments: [] } });
+      }),
+    );
+
+  it('히트맵 키는 시설 예약 접두, 이번 주 모집 키는 모집 접두 아래라 승인·강제 마감 뒤 무효화가 이번 주 칸에도 닿는다', async () => {
+    heatmapRequests = 0;
+    closingRequests = 0;
+    useBriefingSideHandlers();
+    const queryClient = new QueryClient();
+    const wrapper = makeWrapper(queryClient);
+    const heatmap = renderHook(() => useAdminWeeklyFacilityHeatmapQuery('2026-11-02'), { wrapper });
+    const closing = renderHook(() => useAdminClosingRecruitmentsQuery(), { wrapper });
+    await waitFor(() => expect(heatmap.result.current.isSuccess && closing.result.current.isSuccess).toBe(true));
+
+    expect(adminQueryKeys.weeklyFacilityHeatmap('2026-11-02')).toEqual(['admin', 'facility-bookings', 'weekly-heatmap', '2026-11-02']);
+    expect(adminQueryKeys.closingRecruitments()).toEqual(['admin', 'recruitments', 'closing-this-week']);
+    await queryClient.invalidateQueries({ queryKey: adminQueryKeys.facilityBookingsAll });
+    await queryClient.invalidateQueries({ queryKey: adminQueryKeys.recruitmentsAll });
+    await waitFor(() => {
+      expect(heatmapRequests).toBe(2);
+      expect(closingRequests).toBe(2);
+    });
+  });
+
+  // 테스트 기본 retry 를 3 으로 둔다 — 훅의 retry 줄이 빠지면 1초 뒤 다시 받아 waitFor(1초) 안에 실패가 되지 않고 요청 수도 늘어난다.
+  it('히트맵은 옛 백엔드 404 를 다시 받지 않는다 — 그 자리 실패로 바로 그린다', async () => {
+    heatmapRequests = 0;
+    server.use(
+      http.get('*/admin/weekly-briefing/facility-heatmap', () => {
+        heatmapRequests += 1;
+        return HttpResponse.json({ ok: false, message: 'Not Found', data: null }, { status: 404 });
+      }),
+    );
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: 3 } } });
+    const { result } = renderHook(() => useAdminWeeklyFacilityHeatmapQuery('2026-10-26'), { wrapper: makeWrapper(queryClient) });
+
+    await waitFor(() => expect(result.current.isError).toBe(true));
+    expect(heatmapRequests).toBe(1);
+    expect(result.current.error).toMatchObject({ status: 404 });
+  });
+
+  it('이번 주 모집은 옛 백엔드 404 를 다시 받지 않는다 — 구역 실패로 바로 그린다', async () => {
+    closingRequests = 0;
+    server.use(
+      http.get('*/admin/weekly-briefing/closing-recruitments', () => {
+        closingRequests += 1;
+        return HttpResponse.json({ ok: false, message: 'Not Found', data: null }, { status: 404 });
+      }),
+    );
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: 3 } } });
+    const { result } = renderHook(() => useAdminClosingRecruitmentsQuery(), { wrapper: makeWrapper(queryClient) });
+
+    await waitFor(() => expect(result.current.isError).toBe(true));
+    expect(closingRequests).toBe(1);
+    expect(result.current.error).toMatchObject({ status: 404 });
+  });
+
+  it('enabled 가 false 면 히트맵·이번 주 모집을 부르지 않는다', async () => {
+    heatmapRequests = 0;
+    closingRequests = 0;
+    useBriefingSideHandlers();
+    const queryClient = new QueryClient();
+    const wrapper = makeWrapper(queryClient);
+    renderHook(() => useAdminWeeklyFacilityHeatmapQuery('2026-11-02', { enabled: false }), { wrapper });
+    renderHook(() => useAdminClosingRecruitmentsQuery({ enabled: false }), { wrapper });
+
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(heatmapRequests).toBe(0);
+    expect(closingRequests).toBe(0);
   });
 });

@@ -38,4 +38,23 @@ describe('주간 브리핑 API 클라이언트', () => {
       createApiClient({ baseUrl: BASE_URL, authTransport: 'cookie' }).admin.weeklyBriefing('2026-11-02'),
     ).rejects.toMatchObject({ status: 400, code: 'WEEK_NOT_ENDED' });
   });
+
+  it('히트맵은 weekStart 를 쿼리로, 이번 주 모집은 파라미터 없이 부른다', async () => {
+    const requested: string[] = [];
+    server.use(
+      http.get(`${BASE_URL}/admin/weekly-briefing/facility-heatmap`, ({ request }) => {
+        requested.push(`heatmap:${new URL(request.url).searchParams.get('weekStart')}`);
+        return HttpResponse.json({ ok: true, message: null, data: { facilities: [], currentMonthCrawledAt: null } });
+      }),
+      http.get(`${BASE_URL}/admin/weekly-briefing/closing-recruitments`, ({ request }) => {
+        requested.push(`closing:${new URL(request.url).search}`);
+        return HttpResponse.json({ ok: true, message: null, data: { weekStart: '2026-11-02', recruitments: [] } });
+      }),
+    );
+    const client = createApiClient({ baseUrl: BASE_URL, authTransport: 'cookie' });
+
+    expect((await client.admin.weeklyFacilityHeatmap('2026-11-02')).facilities).toEqual([]);
+    expect((await client.admin.closingRecruitments()).weekStart).toBe('2026-11-02');
+    expect(requested).toEqual(['heatmap:2026-11-02', 'closing:']);
+  });
 });

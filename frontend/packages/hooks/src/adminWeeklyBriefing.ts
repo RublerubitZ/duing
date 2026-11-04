@@ -24,3 +24,25 @@ export function useAdminWeeklyBriefingQuery(
     ...(options.isLatestWeek ? { staleTime: 0 } : {}),
   });
 }
+
+/** 주간 브리핑 시설 히트맵 — 한 주 돌아보기(고른 주)와 이번 주 챙길 것(서버가 정한 이번 주) 두 곳이 쓴다. */
+export function useAdminWeeklyFacilityHeatmapQuery(weekStart: string, options: { enabled?: boolean } = {}) {
+  const client = useApiClient();
+  return useQuery({
+    queryKey: adminQueryKeys.weeklyFacilityHeatmap(weekStart),
+    queryFn: () => client.admin.weeklyFacilityHeatmap(weekStart),
+    enabled: options.enabled ?? true,
+    retry: retryWeeklyBriefing,
+  });
+}
+
+/** 이번 주 모집 기간이 끝나는 모집 — 응답의 weekStart 가 둘째 구역의 '이번 주'다(기기 시계 대신 서버 주). */
+export function useAdminClosingRecruitmentsQuery(options: { enabled?: boolean } = {}) {
+  const client = useApiClient();
+  return useQuery({
+    queryKey: adminQueryKeys.closingRecruitments(),
+    queryFn: () => client.admin.closingRecruitments(),
+    enabled: options.enabled ?? true,
+    retry: retryWeeklyBriefing,
+  });
+}

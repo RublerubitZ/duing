@@ -324,7 +324,7 @@ export {
   useClubFeedCounts,
 } from './dashboard';
 export { useAdminTriageQueue } from './adminTriage';
-export { useAdminWeeklyBriefingQuery } from './adminWeeklyBriefing';
+export { useAdminClosingRecruitmentsQuery, useAdminWeeklyBriefingQuery, useAdminWeeklyFacilityHeatmapQuery } from './adminWeeklyBriefing';
 export { buildPendingTrendBars, pendingTrendComparison, recordedDayCount } from './adminPendingTrend';
 export type { PendingTrendBar, PendingTrendComparison } from './adminPendingTrend';
 export {

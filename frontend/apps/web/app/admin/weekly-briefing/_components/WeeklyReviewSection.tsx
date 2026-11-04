@@ -1,12 +1,14 @@
 import { ErrorState } from '@/app/admin/_components/ErrorState';
 import { Skeleton } from '@/components/loading/Skeleton';
 
+import { reviewHeatmapCaption } from '../_lib/heatmapPresentation';
 import {
   PREVIOUS_WEEK_FAILED_TEXT,
   WEEK_LOAD_FAILED_TEXT,
   screenWeekRange,
   weeklySummarySentences,
 } from '../_lib/weeklyBriefingPresentation';
+import { FacilityHeatmap } from './FacilityHeatmap';
 import { WeekPicker } from './WeekPicker';
 import { WeeklyActivityCards } from './WeeklyActivityCards';
 import { WeeklyFlowTable } from './WeeklyFlowTable';
@@ -49,11 +51,13 @@ export function WeeklyReviewSection({
     <section
       id="weekly-review"
       aria-labelledby="weekly-review-heading"
-      className="card p-5 print:border-0 print:p-0 print:shadow-none"
+      // 바로가기 대상 — 모바일 상단 고정 바 아래로 제목이 깔리지 않게 scroll-margin 을 둔다(콘솔 관례, paginationScroll.ts).
+      className="card scroll-mt-16 p-5 md:scroll-mt-6 print:border-0 print:p-0 print:shadow-none"
     >
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <h2 id="weekly-review-heading" className="text-base font-semibold text-ink">한 주 돌아보기</h2>
+          {/* tabIndex -1: '지난주로 돌아가기'를 누르면 버튼이 사라져 포커스가 여기로 온다(ProfileCheckPanel 제목 선례). */}
+          <h2 id="weekly-review-heading" tabIndex={-1} className="text-base font-semibold text-ink outline-none">한 주 돌아보기</h2>
           <p aria-live="polite" className="mt-1 flex flex-wrap items-center gap-2 text-xl font-bold text-ink-deep">
             <span>{screenWeekRange(weekStart, todayIso)}</span>
             {weekStart === range.latestWeek ? (
@@ -83,6 +87,12 @@ export function WeeklyReviewSection({
           </div>
         )}
       </div>
+      <FacilityHeatmap
+        weekStart={weekStart}
+        todayIso={todayIso}
+        caption={reviewHeatmapCaption(weekStart, todayIso, weekStart === range.latestWeek)}
+        isThisWeek={false}
+      />
     </section>
   );
 }
