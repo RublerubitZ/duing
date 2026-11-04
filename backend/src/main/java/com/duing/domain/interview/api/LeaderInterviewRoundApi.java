@@ -64,6 +64,7 @@ public interface LeaderInterviewRoundApi {
     @Operation(
             summary = "면접 라운드 발송 (Availability 요청)",
             description = "준비 중(DRAFT) 라운드를 응답 수집(COLLECTING) 상태로 전환하고 초대된 전원에게 가능 시간 선택 알림을 보낸다 — wizard Step4. "
+                    + "결과가 정해진 지원자는 알림에서 빠지며, 응답의 인원(notifiedMemberCount)은 대상 멤버 수다. "
                     + "가드: 슬롯 1개 이상 + 초대 상태 대상자 1명 이상 + 마감 시각 설정(미래). 충족하지 못하면 409/400. "
                     + "이미 발송됐거나 취소된 라운드는 409."
     )
@@ -76,6 +77,7 @@ public interface LeaderInterviewRoundApi {
     @Operation(
             summary = "면접 라운드 재알림",
             description = "응답 수집 중(COLLECTING) 라운드의 미응답 대상자에게 새 회차로 알림을 재발송한다. "
+                    + "결과가 정해진 지원자는 알림에서 빠지며, 응답의 인원(notifiedMemberCount)은 대상 멤버 수다. "
                     + "마감 경과 여부와 무관하게 가능하다. 미응답 대상자가 없으면 409."
     )
     @PostMapping("/leader/interview-rounds/{roundId}/remind")

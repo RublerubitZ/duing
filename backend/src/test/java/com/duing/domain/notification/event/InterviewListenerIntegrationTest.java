@@ -20,7 +20,9 @@ import com.duing.domain.interview.entity.InterviewRoundMember;
 import com.duing.domain.interview.entity.InterviewSchedule;
 import com.duing.domain.interview.entity.InterviewSlot;
 import com.duing.domain.interview.entity.RoundStatus;
+import com.duing.domain.interview.event.InterviewAvailabilityRequestedEvent;
 import com.duing.domain.interview.event.InterviewCancelledEvent;
+import com.duing.domain.interview.event.InterviewScheduledEvent;
 import com.duing.domain.interview.event.InterviewUpdatedEvent;
 import com.duing.domain.interview.repository.InterviewRoundMemberRepository;
 import com.duing.domain.interview.repository.InterviewRoundRepository;
@@ -51,6 +53,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 // 슬롯 이동/취소 서비스는 라운드 API PR(BE#3~)에서 재도입된다. 이 테스트는 리스너 계약만 고정한다 —
 // 이벤트를 직접 발행해 INTERVIEW_UPDATED / INTERVIEW_CANCELLED 알림 생성·dedup·예외 격리를 검증한다.
+// 요청·확정·변경 알림은 결과가 정해진(INTERVIEW_PENDING 이 아닌) 지원에는 만들지 않는다 — "0건"은 면접 대상 대조군과 함께 본다.
 @Import(TestcontainersConfiguration.class)
 @SpringBootTest
 class InterviewListenerIntegrationTest extends IntegrationTestBase {
@@ -115,8 +118,12 @@ class InterviewListenerIntegrationTest extends IntegrationTestBase {
     }
 
     private Application saveInterviewPendingApplication(Recruitment recruitment, User user) {
+        return saveApplicationWithStatus(recruitment, user, ApplicationStatus.INTERVIEW_PENDING);
+    }
+
+    private Application saveApplicationWithStatus(Recruitment recruitment, User user, ApplicationStatus status) {
         Application application = Application.submit(recruitment, user, List.of());
-        ReflectionTestUtils.setField(application, "status", ApplicationStatus.INTERVIEW_PENDING);
+        ReflectionTestUtils.setField(application, "status", status);
         return applicationRepository.save(application);
     }
 
@@ -131,6 +138,13 @@ class InterviewListenerIntegrationTest extends IntegrationTestBase {
      */
     private void publishAfterCommit(Object event) {
         transactionTemplate.executeWithoutResult(transactionStatus -> eventPublisher.publishEvent(event));
+    }
+
+    private long countNotifications(User recipient, NotificationType type) {
+        return notificationRepository.findAll().stream()
+                .filter(notification -> notification.getUserId().equals(recipient.getId()))
+                .filter(notification -> notification.getType() == type)
+                .count();
     }
 
     // ── 테스트 ───────────────────────────────────────────────────────────────────
@@ -233,5 +247,75 @@ class InterviewListenerIntegrationTest extends IntegrationTestBase {
                 .filter(notification -> notification.getType() == NotificationType.INTERVIEW_CANCELLED)
                 .toList();
         assertThat(cancelledNotifications).isEmpty();
+    }
+
+    @Test
+    @DisplayName("결과가 정해진(합격) 지원자에게는 INTERVIEW_SCHEDULED 알림을 만들지 않고 같은 라운드의 면접 대상에게만 만든다")
+    void 결과가_정해진_지원자에게는_INTERVIEW_SCHEDULED_알림_생략() {
+        Club club = saveActiveClub();
+        Recruitment recruitment = saveRecruitment(club);
+        InterviewRound round = saveCollectingRound(recruitment);
+        InterviewSlot slot = saveSlot(round.getId());
+
+        User pendingApplicant = saveUser("면접대상");
+        User acceptedApplicant = saveUser("합격자");
+        Application pendingApplication = saveInterviewPendingApplication(recruitment, pendingApplicant);
+        Application acceptedApplication =
+                saveApplicationWithStatus(recruitment, acceptedApplicant, ApplicationStatus.ACCEPTED);
+        for (Application application : List.of(pendingApplication, acceptedApplication)) {
+            roundMemberRepository.save(InterviewRoundMember.invite(round.getId(), application.getId()));
+            saveAssignedSchedule(application.getId(), slot.getId(), round.getId());
+            publishAfterCommit(new InterviewScheduledEvent(application.getId(), slot.getId(), recruitment.getId()));
+        }
+
+        assertThat(countNotifications(pendingApplicant, NotificationType.INTERVIEW_SCHEDULED)).isEqualTo(1);
+        assertThat(countNotifications(acceptedApplicant, NotificationType.INTERVIEW_SCHEDULED)).isZero();
+    }
+
+    @Test
+    @DisplayName("결과가 정해진(불합격) 지원자에게는 INTERVIEW_UPDATED 알림을 만들지 않고 같은 라운드의 면접 대상에게만 만든다")
+    void 결과가_정해진_지원자에게는_INTERVIEW_UPDATED_알림_생략() {
+        Club club = saveActiveClub();
+        Recruitment recruitment = saveRecruitment(club);
+        InterviewRound round = saveCollectingRound(recruitment);
+        InterviewSlot slotA = saveSlot(round.getId());
+        InterviewSlot slotB = saveSlot(round.getId());
+
+        User pendingApplicant = saveUser("면접대상");
+        User rejectedApplicant = saveUser("불합격자");
+        Application pendingApplication = saveInterviewPendingApplication(recruitment, pendingApplicant);
+        Application rejectedApplication =
+                saveApplicationWithStatus(recruitment, rejectedApplicant, ApplicationStatus.REJECTED);
+        for (Application application : List.of(pendingApplication, rejectedApplication)) {
+            roundMemberRepository.save(InterviewRoundMember.invite(round.getId(), application.getId()));
+            saveAssignedSchedule(application.getId(), slotA.getId(), round.getId());
+            publishAfterCommit(new InterviewUpdatedEvent(application.getId(), slotB.getId(), recruitment.getId()));
+        }
+
+        assertThat(countNotifications(pendingApplicant, NotificationType.INTERVIEW_UPDATED)).isEqualTo(1);
+        assertThat(countNotifications(rejectedApplicant, NotificationType.INTERVIEW_UPDATED)).isZero();
+    }
+
+    @Test
+    @DisplayName("결과가 정해진(합격) 지원자에게는 INTERVIEW_AVAILABILITY_REQUESTED 알림을 만들지 않고 같은 라운드의 면접 대상에게만 만든다")
+    void 결과가_정해진_지원자에게는_INTERVIEW_AVAILABILITY_REQUESTED_알림_생략() {
+        Club club = saveActiveClub();
+        Recruitment recruitment = saveRecruitment(club);
+        InterviewRound round = saveCollectingRound(recruitment);
+
+        User pendingApplicant = saveUser("면접대상");
+        User acceptedApplicant = saveUser("합격자");
+        Application pendingApplication = saveInterviewPendingApplication(recruitment, pendingApplicant);
+        Application acceptedApplication =
+                saveApplicationWithStatus(recruitment, acceptedApplicant, ApplicationStatus.ACCEPTED);
+        for (Application application : List.of(pendingApplication, acceptedApplication)) {
+            roundMemberRepository.save(InterviewRoundMember.invite(round.getId(), application.getId()));
+            publishAfterCommit(new InterviewAvailabilityRequestedEvent(round.getId(), application.getId(), 1));
+        }
+
+        assertThat(countNotifications(pendingApplicant, NotificationType.INTERVIEW_AVAILABILITY_REQUESTED))
+                .isEqualTo(1);
+        assertThat(countNotifications(acceptedApplicant, NotificationType.INTERVIEW_AVAILABILITY_REQUESTED))
+                .isZero();
     }
 }

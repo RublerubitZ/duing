@@ -114,6 +114,35 @@ class LeaderInterviewConfirmControllerTest extends InterviewControllerTestSuppor
     }
 
     @Test
+    @DisplayName("확정 전에 결과가 정해진 지원자에게는 면접 확정 알림이 가지 않고 면접 대상 지원자에게만 간다")
+    void confirmSkipsNotificationForDecidedApplicant() {
+        InterviewRound round = saveRound(RoundStatus.ASSIGNING);
+        InterviewSlot slot = saveSlot(round, "2026-06-20T14:00:00", 2);
+        Application pendingApplication = saveInterviewPendingApplication(recruitment, "면접대상");
+        Application rejectedApplication = saveInterviewPendingApplication(recruitment, "확정전불합격");
+        saveMemberWithSchedule(round, pendingApplication, slot, RoundMemberStatus.RESPONDED);
+        saveMemberWithSchedule(round, rejectedApplication, slot, RoundMemberStatus.RESPONDED);
+
+        // 라운드가 진행 중이어도 결과 변경은 막히지 않는다.
+        givenLeader()
+                .contentType(ContentType.JSON)
+                .body(Map.of("status", "REJECTED"))
+                .when().patch("/api/v1/leader/applications/{applicationId}/status", rejectedApplication.getId())
+                .then().statusCode(HttpStatus.NO_CONTENT.value());
+
+        // 인원은 실제 알림 수가 아닌 대상 멤버 수다 — 결과가 정해진 멤버가 라운드에 남는 드문 경우라 맞추지 않았다.
+        givenLeader()
+                .when().post(CONFIRM_PATH, round.getId())
+                .then().statusCode(HttpStatus.OK.value())
+                .body("data.assignedMemberCount", equalTo(2));
+
+        assertThat(notificationRepository.existsByUserIdAndDedupKey(pendingApplication.getUser().getId(),
+                "INTERVIEW_SCHEDULED:a=" + pendingApplication.getId() + ":s=" + slot.getId())).isTrue();
+        assertThat(notificationRepository.existsByUserIdAndDedupKey(rejectedApplication.getUser().getId(),
+                "INTERVIEW_SCHEDULED:a=" + rejectedApplication.getId() + ":s=" + slot.getId())).isFalse();
+    }
+
+    @Test
     @DisplayName("미처리 멤버가 있으면 강제 없는 확정은 2종으로 분리된 경고와 함께 거부된다")
     void unresolvedMembersBlockConfirmWithSplitWarning() {
         InterviewRound round = saveRound(RoundStatus.ASSIGNING);
