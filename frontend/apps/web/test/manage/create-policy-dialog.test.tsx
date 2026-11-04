@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
@@ -114,6 +114,50 @@ describe('CreatePolicyDialog', () => {
     expect(firstArg.payload).not.toHaveProperty('billingType');
     // autoIssue=false 이므로 issueDay/dueDay 는 동봉하지 않는다.
     expect(firstArg.payload).toEqual({ name: '연 회비', amount: 50000, autoIssue: false });
+  });
+
+  it('버튼을 거치지 않은 제출이 두 번 들어와도 요청은 한 번이다', async () => {
+    mockCreateMutate.mockImplementation(() => {}); // 앞 테스트의 onSuccess 구현을 지운다(clearAllMocks 는 구현을 남김)
+    const user = userEvent.setup();
+    render(<CreatePolicyDialog clubId={1} onClose={vi.fn()} />);
+    await user.type(screen.getByLabelText(/정책 이름/), '월 회비');
+    await user.type(screen.getByLabelText(/금액/), '10000');
+
+    const form = screen.getByRole('button', { name: '추가' }).closest('form')!;
+    // 같은 태스크의 두 번째 제출 — 버튼을 거치지 않아 disabled 로는 못 막는다
+    fireEvent.submit(form);
+    fireEvent.submit(form);
+    await waitFor(() => expect(mockCreateMutate).toHaveBeenCalled());
+    await new Promise((resolve) => setTimeout(resolve, 0)); // 두 handleSubmit 의 비동기 검증이 모두 끝나게
+    expect(mockCreateMutate).toHaveBeenCalledTimes(1);
+  });
+
+  it('요청이 끝나면(onSettled) 다시 제출할 수 있다', async () => {
+    mockCreateMutate.mockImplementation(() => {}); // 앞 테스트의 onSuccess 구현을 지운다(clearAllMocks 는 구현을 남김)
+    const user = userEvent.setup();
+    render(<CreatePolicyDialog clubId={1} onClose={vi.fn()} />);
+    await user.type(screen.getByLabelText(/정책 이름/), '월 회비');
+    await user.type(screen.getByLabelText(/금액/), '10000');
+
+    await user.click(screen.getByRole('button', { name: '추가' }));
+    await waitFor(() => expect(mockCreateMutate).toHaveBeenCalledTimes(1));
+    const [, callOptions] = mockCreateMutate.mock.calls[0] as [unknown, { onSettled?: () => void }];
+    act(() => callOptions.onSettled?.());
+    await user.click(screen.getByRole('button', { name: '추가' }));
+    await waitFor(() => expect(mockCreateMutate).toHaveBeenCalledTimes(2));
+  });
+
+  it('수정 모드에서도 저장이 끝나면(onSettled) 다시 저장할 수 있다', async () => {
+    mockUpdateMutate.mockImplementation(() => {});
+    const user = userEvent.setup();
+    render(<CreatePolicyDialog clubId={1} policy={yearlyPolicy} onClose={() => {}} />);
+
+    await user.click(screen.getByRole('button', { name: '수정' }));
+    await waitFor(() => expect(mockUpdateMutate).toHaveBeenCalledTimes(1));
+    const [, callOptions] = mockUpdateMutate.mock.calls[0] as [unknown, { onSettled?: () => void }];
+    act(() => callOptions.onSettled?.());
+    await user.click(screen.getByRole('button', { name: '수정' }));
+    await waitFor(() => expect(mockUpdateMutate).toHaveBeenCalledTimes(2));
   });
 
   it('MONTHLY 자동발행을 켜고 발행일·마감일을 입력하면 페이로드에 실려 생성된다', async () => {

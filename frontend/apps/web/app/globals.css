@@ -780,9 +780,11 @@ html[data-had-session] [data-auth-seeding] { visibility: hidden; }
   }
 }
 
-/* 회비 영수증 인쇄: .receipt-sheet 만 보이게 하고 화면 크롬(.no-print·네비)을 모두 숨긴다. */
+/* 회비 영수증 인쇄: .receipt-sheet 가 있는 화면에서만 영수증 말고 모두 숨긴다. 숨김 줄은 :where 로 명시도 0 이다 —
+   body:has(...) 를 그대로 쓰면 명시도 (0,1,1) 이 아래 .receipt-sheet *(0,1,0) 을 이겨 영수증까지 숨긴다.
+   다른 화면(주간 브리핑)의 인쇄는 .no-print 만 숨긴다. */
 @media print {
-  body * {
+  :where(body:has(.receipt-sheet)) * {
     visibility: hidden;
   }
   .receipt-sheet,

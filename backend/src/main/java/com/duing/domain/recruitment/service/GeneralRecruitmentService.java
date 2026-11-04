@@ -379,7 +379,8 @@ public class GeneralRecruitmentService implements RecruitmentService {
         }
 
         // 마감 전 들어온 지원이 1건이라도 있으면 지원서·상태이력·면접 데이터가 고아가 되므로 삭제를 막는다.
-        // 잘못/중복 생성한 빈 공고만 삭제 대상이다.
+        // 잘못/중복 생성한 빈 공고만 삭제 대상이다. 이 메서드의 가드(마감·지원서·대기 가입 요청)를 바꾸면 화면 삭제 버튼의
+        // 판정(GeneralRecruitmentStatsService#isDeletable)도 함께 바꾼다(#1635).
         if (applicationRepository.countByRecruitmentId(recruitmentId) > 0) {
             throw new RecruitmentException.ApplicationsExistException();
         }

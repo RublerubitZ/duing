@@ -30,6 +30,8 @@ export const adminQueryKeys = {
   pendingTrend: () => ['admin', 'pending-counts', 'trend'] as const,
   // 총동연 홈 자동 작업 상태 — pending-counts 접두에 두지 않는다(처리 동작과 무관해 무효화 대상이 아니다).
   jobStatuses: () => ['admin', 'job-statuses'] as const,
+  // 총동연 주간 브리핑 '한 주 돌아보기' — 주마다 따로 캐시한다. 끝난 주 기록이라 처리 뮤테이션과 무관해 pending-counts 접두에 두지 않는다.
+  weeklyBriefing: (weekStart: string) => [...adminQueryKeys.all, 'weekly-briefing', weekStart] as const,
   // 학기별 사용자 정보 확인 팝업 — 설정·현황이 한 응답이라 파라미터 축이 없다. 저장 성공 시 이 키만 무효화한다.
   profileCheck: () => [...adminQueryKeys.all, 'profile-check'] as const,
   clubsAll: ['admin', 'clubs'] as const,
@@ -46,6 +48,9 @@ export const adminQueryKeys = {
     [...adminQueryKeys.clubsAll, 'detail', clubId] as const,
   clubMembers: (clubId: number) =>
     [...adminQueryKeys.clubsAll, 'members', clubId] as const,
+  // 총동연 홈 동아리 현황 — clubsAll 아래라 동아리 상태 변경·폐쇄·생성 등의 clubsAll 무효화가 카드도 다시 부른다
+  // (정보 수정처럼 신호와 무관한 무효화도 덮지만 165행 규모라 받아들인다 — 동아리 신호 스펙 §8-1).
+  clubSignals: () => [...adminQueryKeys.clubsAll, 'signals'] as const,
   // 캘린더용 전 동아리 일정. 'admin' 접두사가 있어 동아리별 키(clubEventKeys)와 겹치지 않는다.
   clubEventsAll: ['admin', 'club-events'] as const,
   clubEventsList: (params: ClubEventListParams) =>
@@ -70,6 +75,8 @@ export const adminQueryKeys = {
   // 지원서 상세도 모집 접두사 아래에 둔다 — 강제 마감 뒤 한 번의 무효화로 함께 되살아난다.
   applicationsDetail: (applicationId: number) =>
     [...adminQueryKeys.recruitmentsAll, 'application-detail', applicationId] as const,
+  // 이번 주 기간 끝나는 모집 — 모집 접두 아래라 강제 마감 뒤 recruitmentsAll 무효화가 이 줄도 다시 불러온다.
+  closingRecruitments: () => [...adminQueryKeys.recruitmentsAll, 'closing-this-week'] as const,
   leaderSuccessionAll: ['admin', 'leader-succession'] as const,
   leaderSuccessionList: (params: AdminSuccessionSearchParams) =>
     [...adminQueryKeys.leaderSuccessionAll, 'list', params] as const,
@@ -99,6 +106,9 @@ export const adminQueryKeys = {
   facilityBookingDetail: (bookingId: number) =>
     [...adminQueryKeys.facilityBookingsAll, 'detail', bookingId] as const,
   facilityBookingSummary: () => [...adminQueryKeys.facilityBookingsAll, 'summary'] as const,
+  // 주간 브리핑 시설 히트맵 — 시설 예약 접두 아래라 승인·반려·취소 뮤테이션의 facilityBookingsAll 무효화가 이번 주 칸도 다시 불러온다.
+  weeklyFacilityHeatmap: (weekStart: string) =>
+    [...adminQueryKeys.facilityBookingsAll, 'weekly-heatmap', weekStart] as const,
   facilitySubmissionAll: ['admin', 'facility-submission'] as const,
   facilitySubmissionCandidates: (params: SubmissionCandidatesParams) =>
     [...adminQueryKeys.facilitySubmissionAll, 'candidates', params] as const,

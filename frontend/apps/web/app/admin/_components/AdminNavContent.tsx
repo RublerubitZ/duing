@@ -11,10 +11,11 @@ import type { AdminPendingCounts } from '@duing/types';
 import { cn } from '@/app/_lib/cn';
 import { toRoute } from '../../_lib/route';
 import {
-  ADMIN_DASHBOARD,
   ADMIN_NAV_PARENTS,
   ADMIN_SECTIONS,
   ADMIN_SECTION_GROUP_ORDER,
+  ADMIN_STANDALONE_SECTIONS,
+  isStandaloneSectionActive,
   type AdminNavParentKey,
   type AdminSection,
 } from '../_lib/adminSections';
@@ -52,13 +53,16 @@ export function AdminNavContent({
 
   return (
     <div className="flex flex-col gap-1">
-      <NavRow
-        href={ADMIN_DASHBOARD.href}
-        title={ADMIN_DASHBOARD.title}
-        Icon={ADMIN_DASHBOARD.icon}
-        active={pathname === ADMIN_DASHBOARD.href}
-        collapsed={collapsed}
-      />
+      {ADMIN_STANDALONE_SECTIONS.map((section) => (
+        <NavRow
+          key={section.href}
+          href={section.href}
+          title={section.title}
+          Icon={section.icon}
+          active={isStandaloneSectionActive(section, pathname)}
+          collapsed={collapsed}
+        />
+      ))}
 
       {ADMIN_SECTION_GROUP_ORDER.map((group, groupIndex) => {
         const parents = ADMIN_NAV_PARENTS.filter((parent) => parent.group === group);

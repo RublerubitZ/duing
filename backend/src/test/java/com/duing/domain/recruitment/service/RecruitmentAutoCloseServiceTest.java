@@ -28,6 +28,7 @@ import com.duing.domain.recruitment.entity.TargetRole;
 import com.duing.domain.recruitment.repository.RecruitmentRepository;
 import com.duing.domain.user.entity.User;
 import com.duing.domain.user.repository.UserRepository;
+import com.duing.domain.user.service.UserService;
 import com.duing.global.frontend.FrontendRevalidationAsyncConfig;
 import com.duing.global.frontend.FrontendRevalidator;
 import java.time.LocalDate;
@@ -55,7 +56,10 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
  * 동아리당 OPEN 모집은 1건뿐이라(uk_recruitment_club_active) 모집마다 동아리를 따로 만든다.
  */
 @Import({TestcontainersConfiguration.class, FixedClockConfig.class})
-@SpringBootTest
+// AutoCloseOutlookTest 와 설정(웹 환경·자동 마감 켬)을 맞춰 테스트 컨텍스트 하나를 함께 쓴다 — 이 클래스는 잡 메서드를 직접 부르므로
+// 스위치 값과 무관하다(스위치는 잡 등록과 화면 전망만 본다).
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
+        properties = "duing.recruitment.auto-close.enabled=true")
 class RecruitmentAutoCloseServiceTest extends IntegrationTestBase {
 
     private static final long ASYNC_WAIT_MS = 3_000;
@@ -72,6 +76,7 @@ class RecruitmentAutoCloseServiceTest extends IntegrationTestBase {
     @Autowired InterviewRoundRepository interviewRoundRepository;
     @Autowired ClubRepository clubRepository;
     @Autowired UserRepository userRepository;
+    @Autowired UserService userService;
     @Autowired JdbcTemplate jdbcTemplate;
     @Autowired @Qualifier(FrontendRevalidationAsyncConfig.EXECUTOR_BEAN_NAME)
     ThreadPoolTaskExecutor frontendRevalidationTaskExecutor;
@@ -212,6 +217,18 @@ class RecruitmentAutoCloseServiceTest extends IntegrationTestBase {
         Recruitment recruitment = saveOpenRecruitmentEndedDaysAgo(8);
         Application deletedApplication = saveApplication(recruitment, ApplicationStatus.SUBMITTED);
         jdbcTemplate.update("UPDATE application SET deleted_at = NOW() WHERE id = ?", deletedApplication.getId());
+
+        assertThat(recruitmentAutoCloseService.closeIfSettled(recruitment.getId())).isTrue();
+        assertThat(reload(recruitment).getStatus()).isEqualTo(RecruitmentStatus.CLOSED);
+    }
+
+    @Test
+    @DisplayName("결과 없는 지원이 탈퇴한 지원자의 것뿐이면 모집은 마감된다 — 운영진 목록에 없어 아무도 처리할 수 없다")
+    void closesRecruitmentWhoseOnlyUnsettledApplicationBelongsToWithdrawnApplicant() {
+        Recruitment recruitment = saveOpenRecruitmentEndedDaysAgo(8);
+        saveApplication(recruitment, ApplicationStatus.ACCEPTED);
+        Application withdrawnApplication = saveApplication(recruitment, ApplicationStatus.SUBMITTED);
+        userService.withdraw(withdrawnApplication.getUser().getId());
 
         assertThat(recruitmentAutoCloseService.closeIfSettled(recruitment.getId())).isTrue();
         assertThat(reload(recruitment).getStatus()).isEqualTo(RecruitmentStatus.CLOSED);

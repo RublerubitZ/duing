@@ -48,7 +48,7 @@ export function AdminSidebar() {
     <aside
       aria-label="관리자 메뉴"
       className={cn(
-        'sticky top-0 hidden max-h-dvh shrink-0 flex-col self-start overflow-hidden md:flex',
+        'no-print sticky top-0 hidden max-h-dvh shrink-0 flex-col self-start overflow-hidden md:flex',
         'm-3 rounded-lg border border-line bg-paper-warm shadow-1',
         'motion-safe:transition-[width] motion-safe:duration-200 motion-safe:ease-out',
         collapsed ? 'w-[84px]' : 'w-[248px]',

@@ -25,6 +25,21 @@ export type RecruitmentSummary = {
   closedAt: string | null;
 };
 
+/**
+ * 기간이 끝났는데 OPEN 인 모집의 자동 마감 전망(#1572·#1583) — 서버가 자동 마감 잡과 같은 계산으로 낸다.
+ * 유예가 끝났는지는 서버의 오늘로 판정한 gracePeriodOver 를 그대로 쓴다(화면은 날짜를 비교하지 않는다, #896).
+ * 값이 null·undefined 면 옛 서버이거나, 기간이 끝난 OPEN 모집이 아니거나, 자동 마감이 꺼져 있다 — 화면은 옛 동작으로 돌아간다.
+ */
+export type RecruitmentAutoCloseOutlook = {
+  /** 막는 것이 없을 때 자동 마감되는 첫날(KST 'YYYY-MM-DD') — 이날 새벽 0시 40분 실행이 닫는다. */
+  closesOn: string;
+  gracePeriodOver: boolean;
+  /** 자동 마감을 막는 결과 없는 지원 수(지원 완료·보류·면접 대기, 탈퇴한 지원자 제외). */
+  undecidedApplicationCount: number;
+  /** 자동 마감을 막는 진행 중 면접 라운드 수(초안·응답 수집·배정 중). */
+  inProgressRoundCount: number;
+};
+
 export type QuestionType = 'TEXT' | 'SINGLE_CHOICE' | 'MULTIPLE_CHOICE';
 
 export type RecruitmentQuestionChoice = {
@@ -150,6 +165,8 @@ export type AdminRecruitmentListItem = AdminRecruitmentSummary & {
   oldestPendingSubmittedAt: string | null;
   /** 회장·임원의 세션 사용·로그인 중 가장 늦은 시각. 운영진이 없거나 기록이 남지 않았으면 null. */
   operatorsLastActiveAt: string | null;
+  /** 자동 마감 전망 — 목록에만 온다. 없으면(undefined·null) '운영 개입 필요'를 지금처럼 붙인다. */
+  autoClose?: RecruitmentAutoCloseOutlook | null;
 };
 
 /** 외부 폼 모집의 가입 코드·요청 현황. 전부 서버 계산값이라 화면은 표시만 한다. */

@@ -24,7 +24,7 @@ export function ErrorState({
       >
         <span>{message}</span>
         {onRetry && (
-          <button type="button" onClick={onRetry} className="btn btn-ghost btn-sm ml-2">
+          <button type="button" onClick={onRetry} className="no-print btn btn-ghost btn-sm ml-2">
             다시 시도
           </button>
         )}
@@ -40,7 +40,7 @@ export function ErrorState({
       <p className="text-[15.5px] font-bold text-ink-deep">{message}</p>
       {onRetry && (
         <div className="mt-5 flex justify-center">
-          <button type="button" onClick={onRetry} className="btn btn-sm btn-secondary">
+          <button type="button" onClick={onRetry} className="no-print btn btn-sm btn-secondary">
             다시 시도
           </button>
         </div>

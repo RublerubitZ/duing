@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
@@ -106,6 +106,54 @@ describe('금전출납부 등록 다이얼로그', () => {
     expect(payload).not.toHaveProperty('amount');
     expect(payload).not.toHaveProperty('description');
     expect(payload).not.toHaveProperty('transactionDate');
+  });
+
+  it('버튼을 거치지 않은 제출이 두 번 들어와도 요청은 한 번이다', async () => {
+    mockCreateMutate.mockImplementation(() => {});
+    const user = userEvent.setup();
+    render(<CashbookEntryDialog clubId={1} entryType="EXPENSE" onClose={vi.fn()} />);
+    await user.clear(screen.getByLabelText('금액(원)'));
+    await user.type(screen.getByLabelText('금액(원)'), '30000');
+    await user.type(screen.getByLabelText('설명'), 'MT 버스비');
+
+    const form = screen.getByRole('button', { name: '등록' }).closest('form')!;
+    // 같은 태스크의 두 번째 제출 — 버튼을 거치지 않아 disabled 로는 못 막는다
+    fireEvent.submit(form);
+    fireEvent.submit(form);
+    await waitFor(() => expect(mockCreateMutate).toHaveBeenCalled());
+    await new Promise((resolve) => setTimeout(resolve, 0)); // 두 handleSubmit 의 비동기 검증이 모두 끝나게
+    expect(mockCreateMutate).toHaveBeenCalledTimes(1);
+  });
+
+  it('요청이 끝나면(onSettled) 다시 제출할 수 있다', async () => {
+    mockCreateMutate.mockImplementation(() => {});
+    const user = userEvent.setup();
+    render(<CashbookEntryDialog clubId={1} entryType="EXPENSE" onClose={vi.fn()} />);
+    await user.clear(screen.getByLabelText('금액(원)'));
+    await user.type(screen.getByLabelText('금액(원)'), '30000');
+    await user.type(screen.getByLabelText('설명'), 'MT 버스비');
+
+    await user.click(screen.getByRole('button', { name: '등록' }));
+    await waitFor(() => expect(mockCreateMutate).toHaveBeenCalledTimes(1));
+    const [, callOptions] = mockCreateMutate.mock.calls[0] as [unknown, { onSettled?: () => void }];
+    act(() => callOptions.onSettled?.());
+    await user.click(screen.getByRole('button', { name: '등록' }));
+    await waitFor(() => expect(mockCreateMutate).toHaveBeenCalledTimes(2));
+  });
+
+  it('수정 모드에서도 저장이 끝나면(onSettled) 다시 저장할 수 있다', async () => {
+    mockUpdateMutate.mockImplementation(() => {});
+    const user = userEvent.setup();
+    const bankEntry = buildEntry();
+    render(<CashbookEntryDialog clubId={1} entryType={bankEntry.entryType} entry={bankEntry} onClose={vi.fn()} />);
+    await user.selectOptions(screen.getByLabelText('카테고리'), 'DINING');
+
+    await user.click(screen.getByRole('button', { name: '수정' }));
+    await waitFor(() => expect(mockUpdateMutate).toHaveBeenCalledTimes(1));
+    const [, callOptions] = mockUpdateMutate.mock.calls[0] as [unknown, { onSettled?: () => void }];
+    act(() => callOptions.onSettled?.());
+    await user.click(screen.getByRole('button', { name: '수정' }));
+    await waitFor(() => expect(mockUpdateMutate).toHaveBeenCalledTimes(2));
   });
 
   // 스피너 svg 는 aria-hidden 이라, 전송 중 통지는 버튼 밖 sr-only role="status" 리전이 맡는다(#914).
