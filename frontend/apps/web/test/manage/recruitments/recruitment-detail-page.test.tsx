@@ -546,6 +546,33 @@ describe('RecruitmentDetailPage — 이 모집에서 할 일 카드', () => {
     expect(names[0]).toContain('김서연');
     expect(names[1]).toContain('박지후');
   });
+
+  it('자동 마감을 막는 발송 전 라운드는 할 일 줄로 보인다 — 기간 종료 안내와 "할 일 없음"이 부딪히지 않게', async () => {
+    server.use(
+      mockRecruitmentDetail(true, { status: 'OPEN', displayStatus: 'CLOSED' }),
+      http.get(`*/recruitments/${RECRUITMENT_ID}/interview-rounds`, () =>
+        HttpResponse.json({
+          ok: true,
+          data: [{ roundId: 99, title: '1차 면접', status: 'DRAFT', availabilityDeadline: null, location: null, totalMemberCount: 2, respondedMemberCount: 0 }],
+          message: null,
+        }),
+      ),
+      statsSummaryHandler({
+        total: 3,
+        accepted: 2,
+        rejected: 1,
+        autoClose: { closesOn: '2026-12-08', gracePeriodOver: true, undecidedApplicationCount: 0, inProgressRoundCount: 1 },
+      }),
+    );
+
+    renderPage();
+
+    expect(await screen.findByText(/끝나지 않은 면접 라운드 1개가 남아 있어 자동으로 마감되지 않아요/)).toBeInTheDocument();
+    const card = await screen.findByRole('region', { name: '이 모집에서 할 일' });
+    // 카드는 로딩 중에도 바로 그려진다 — 줄을 기다린 뒤에 부재를 본다.
+    expect(await within(card).findByText('면접 일정 미확정')).toBeInTheDocument();
+    expect(within(card).queryByText('지금 처리할 일이 없어요.')).not.toBeInTheDocument();
+  });
 });
 
 // #1635: 삭제 버튼은 서버가 내려 준 삭제 가능 여부로만 보인다 — 지원자 수(목록 기준)는 탈퇴한 지원자의 지원서를

@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import type {
+  ActionItem,
   RecruitmentSummary,
   StatsSummary,
   InterviewRoundSummary,
@@ -74,12 +75,14 @@ describe('buildActionItems', () => {
 
   it('ASSIGNING 라운드 → 미확정 면접 라운드', () => {
     const input: RecruitmentDashboardInput[] = [
-      dashboardInput({ rounds: [round({ roundId: 7, status: 'ASSIGNING', title: '2차' })] }),
+      dashboardInput({ rounds: [round({ roundId: 7, status: 'ASSIGNING', title: '2차', availabilityDeadline: '2026-06-10' })] }),
     ];
     const items = buildActionItems(input, NOW);
     const unconfirmed = items.find((i) => i.type === 'INTERVIEW_ROUND_UNCONFIRMED');
     expect(unconfirmed?.roundId).toBe(7);
     expect(unconfirmed?.roundTitle).toBe('2차');
+    expect(unconfirmed?.roundStatus).toBe('ASSIGNING');
+    expect(unconfirmed?.daysLeft).toBeUndefined();
   });
 
   it('COLLECTING & 미응답 인원 존재 → 응답 미수집', () => {
@@ -92,6 +95,38 @@ describe('buildActionItems', () => {
     const uncollected = items.find((i) => i.type === 'INTERVIEW_RESPONSE_UNCOLLECTED');
     expect(uncollected?.count).toBe(6); // 미응답 10-4
     expect(uncollected?.daysLeft).toBe(-2); // 6/10 마감 → 경과
+  });
+
+  // '응답 마감 없음' 줄 말고는 응답 마감을 넣는다 — 마감이 없으면 'daysLeft 없음' 기대가 아무것도 고정하지 못한다.
+  const roundLine = { recruitmentId: 1, recruitmentTitle: '2026 봄 모집', roundId: 7, roundTitle: '1차 면접' };
+  it.each<[string, Partial<InterviewRoundSummary>, ActionItem[]]>([
+    ['DRAFT', { status: 'DRAFT', availabilityDeadline: '2026-06-10' }, [{ type: 'INTERVIEW_ROUND_UNCONFIRMED', ...roundLine, roundStatus: 'DRAFT' }]],
+    [
+      'COLLECTING 응답 4/10',
+      { status: 'COLLECTING', totalMemberCount: 10, respondedMemberCount: 4, availabilityDeadline: '2026-06-10' },
+      [{ type: 'INTERVIEW_RESPONSE_UNCOLLECTED', ...roundLine, count: 6, daysLeft: -2 }],
+    ],
+    [
+      'COLLECTING 응답 10/10',
+      { status: 'COLLECTING', totalMemberCount: 10, respondedMemberCount: 10, availabilityDeadline: '2026-06-15' },
+      [{ type: 'INTERVIEW_ROUND_UNCONFIRMED', ...roundLine, roundStatus: 'COLLECTING', daysLeft: 3 }],
+    ],
+    [
+      'COLLECTING 인원 0',
+      { status: 'COLLECTING', totalMemberCount: 0, respondedMemberCount: 0, availabilityDeadline: '2026-06-15' },
+      [{ type: 'INTERVIEW_ROUND_UNCONFIRMED', ...roundLine, roundStatus: 'COLLECTING', daysLeft: 3 }],
+    ],
+    [
+      'COLLECTING 응답 10/10·응답 마감 없음',
+      { status: 'COLLECTING', totalMemberCount: 10, respondedMemberCount: 10, availabilityDeadline: null },
+      [{ type: 'INTERVIEW_ROUND_UNCONFIRMED', ...roundLine, roundStatus: 'COLLECTING' }],
+    ],
+    ['ASSIGNING', { status: 'ASSIGNING', availabilityDeadline: '2026-06-10' }, [{ type: 'INTERVIEW_ROUND_UNCONFIRMED', ...roundLine, roundStatus: 'ASSIGNING' }]],
+    ['SCHEDULED', { status: 'SCHEDULED', availabilityDeadline: '2026-06-10' }, []],
+    ['CANCELLED', { status: 'CANCELLED', availabilityDeadline: '2026-06-10' }, []],
+  ])('라운드 상태별 할 일 줄(진행 중이면 정확히 한 줄) — %s', (_name, roundOverrides, expectedItems) => {
+    const items = buildActionItems([dashboardInput({ rounds: [round({ roundId: 7, ...roundOverrides })] })], NOW);
+    expect(items).toEqual(expectedItems);
   });
 
   it('SCHEDULED 라운드 + 배정 인원(interviewPending-대기열) 존재 → 결과 미확정, 단일 라운드 귀속', () => {
@@ -187,13 +222,14 @@ describe('buildActionItems', () => {
     expect(items.some((i) => i.type === 'INTERVIEW_ROUND_NEEDED')).toBe(true);
   });
 
-  it('수용 가능 라운드(DRAFT·COLLECTING·ASSIGNING)가 있으면 라운드 생성 필요 아님', () => {
-    for (const acceptingStatus of ['DRAFT', 'COLLECTING', 'ASSIGNING'] as const) {
+  it('진행 중 라운드(DRAFT·COLLECTING·ASSIGNING)가 있으면 라운드 생성 필요 대신 그 라운드의 줄 — 인원 0 픽스처라 모두 미확정', () => {
+    for (const inProgressStatus of ['DRAFT', 'COLLECTING', 'ASSIGNING'] as const) {
       const items = buildActionItems(
-        [dashboardInput({ candidateCount: 3, rounds: [round({ status: acceptingStatus })] })],
+        [dashboardInput({ candidateCount: 3, rounds: [round({ status: inProgressStatus })] })],
         NOW,
       );
       expect(items.some((i) => i.type === 'INTERVIEW_ROUND_NEEDED')).toBe(false);
+      expect(items.filter((i) => i.type === 'INTERVIEW_ROUND_UNCONFIRMED').map((i) => i.roundStatus)).toEqual([inProgressStatus]);
     }
   });
 
@@ -217,7 +253,7 @@ describe('buildActionItems', () => {
     expect(items.some((i) => i.type === 'INTERVIEW_ROUND_NEEDED')).toBe(true);
   });
 
-  it('CANCELLED + COLLECTING 혼재면 수용 가능 라운드가 있어 라운드 생성 필요 아님', () => {
+  it('CANCELLED + COLLECTING 혼재면 진행 중 라운드가 있어 라운드 생성 필요 아님', () => {
     const items = buildActionItems(
       [
         dashboardInput({
@@ -228,6 +264,8 @@ describe('buildActionItems', () => {
       NOW,
     );
     expect(items.some((i) => i.type === 'INTERVIEW_ROUND_NEEDED')).toBe(false);
+    // 인원 0 인 COLLECTING 은 응답이 다 모인 라운드다 — 취소 라운드는 줄을 내지 않는다.
+    expect(items.filter((i) => i.type === 'INTERVIEW_ROUND_UNCONFIRMED').map((i) => i.roundId)).toEqual([101]);
   });
 
   it('검토 대기에 미처리가 있으면 가장 오래된 미처리부터 지난 KST 날짜 수를 싣는다', () => {

@@ -3,6 +3,8 @@ import type { ActionItem, DashboardTask, OperationItem } from '@duing/types';
 
 import { pendingDaysChip, presentDashboardTask } from '@/app/manage/_components/dashboard/dashboardTaskPresentation';
 
+import type { TaskRowModel } from '@/app/manage/_components/dashboard/dashboardTaskPresentation';
+
 const NOW = new Date('2026-10-28T03:00:00Z'); // 10/28 KST 12:00
 const recruitment = (item: Partial<ActionItem> & Pick<ActionItem, 'type'>): DashboardTask => ({
   source: 'RECRUITMENT',
@@ -80,6 +82,24 @@ describe('presentDashboardTask — 모집 업무', () => {
     const row = presentDashboardTask(10, recruitment({ type: 'INTERVIEW_ROUND_UNCONFIRMED', roundId: 7, roundTitle: '1차' }), NOW);
     expect(row.actionLabel).toBe('일정 확정');
     expect(row.href).toBe('/manage/clubs/10/recruitments/1/interview/rounds/7');
+  });
+
+  it.each<[string, Partial<ActionItem>, Pick<TaskRowModel, 'actionLabel' | 'href' | 'chip'>]>([
+    ['DRAFT', { roundStatus: 'DRAFT' }, { actionLabel: '이어서 작성', href: '/manage/clubs/10/recruitments/1/interview/rounds/new', chip: null }],
+    [
+      'COLLECTING·응답 마감 D-2',
+      { roundStatus: 'COLLECTING', daysLeft: 2 },
+      { actionLabel: '자동 배정', href: '/manage/clubs/10/recruitments/1/interview/rounds/7', chip: { text: '응답 마감 D-2', tone: 'soon' } },
+    ],
+    [
+      'COLLECTING·응답 마감 1일 지남',
+      { roundStatus: 'COLLECTING', daysLeft: -1 },
+      { actionLabel: '자동 배정', href: '/manage/clubs/10/recruitments/1/interview/rounds/7', chip: { text: '응답 마감 1일 지남', tone: 'late' } },
+    ],
+    ['ASSIGNING', { roundStatus: 'ASSIGNING' }, { actionLabel: '일정 확정', href: '/manage/clubs/10/recruitments/1/interview/rounds/7', chip: null }],
+  ])('면접 일정 미확정 %s → 라운드 상태별 처리 문구·이동·응답 마감 칩', (_name, roundFields, expectedRow) => {
+    const row = presentDashboardTask(10, recruitment({ type: 'INTERVIEW_ROUND_UNCONFIRMED', roundId: 7, roundTitle: '1차 면접', ...roundFields }), NOW);
+    expect({ actionLabel: row.actionLabel, href: row.href, chip: row.chip }).toEqual(expectedRow);
   });
 });
 
