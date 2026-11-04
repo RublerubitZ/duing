@@ -8,7 +8,7 @@ import { setupServer } from 'msw/node';
 import { delay, http, HttpResponse } from 'msw';
 import type { DraftAnswer, RecruitmentDetail, RecruitmentQuestionItem } from '@duing/types';
 import { createApiClient } from '@duing/api';
-import { ApiClientProvider, draftQueryKeys } from '@duing/hooks';
+import { ApiClientProvider, draftQueryKeys, recruitmentQueryKeys } from '@duing/hooks';
 
 const mockRouterPush = vi.fn();
 const mockRouterReplace = vi.fn();
@@ -1082,6 +1082,48 @@ describe('ApplyPage — 임시저장 복원 안내', () => {
     expect(screen.getByRole('textbox', { name: /지원 동기/ })).toHaveValue('');
     expect(screen.queryByText('임시저장한 답변을 불러왔어요')).not.toBeInTheDocument();
   });
+
+  it('모집 정보를 다시 받다 실패한 뒤 폼이 다시 열리면 그때의 저장본으로 복원 안내를 다시 정한다', async () => {
+    let draftPutCount = 0;
+    server.use(
+      http.put(`*/recruitments/${RECRUITMENT_ID}/draft`, () => {
+        draftPutCount += 1;
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+    const queryClient = makeQueryClient();
+    const user = userEvent.setup();
+    renderApplyPage(queryClient); // 기본 draft 핸들러 = exists:false
+
+    await user.type(await screen.findByRole('textbox', { name: /지원 동기/ }), '열정');
+    await waitFor(() => expect(draftPutCount).toBe(1), { timeout: 4000 });
+    await screen.findByText(/^마지막 저장 /, {}, { timeout: 4000 });
+
+    // 상세 재조회가 실패하면 폼이 내려가고 회복되면 그때의 캐시로 다시 마운트된다 — 안내를 폼 밖(useRef)에서 고정하면 여기서 틀린다.
+    server.use(
+      http.get(`*/recruitments/${RECRUITMENT_ID}`, () =>
+        HttpResponse.json(
+          { ok: false, data: null, message: '일시적인 오류가 발생했습니다.' },
+          { status: 500 },
+        ),
+      ),
+    );
+    await act(async () => {
+      await queryClient.refetchQueries({ queryKey: recruitmentQueryKeys.detail(RECRUITMENT_ID), exact: true });
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    });
+    expect(screen.getByRole('alert')).toHaveTextContent('일시적인 오류가 발생했습니다.');
+    expect(screen.queryByRole('textbox', { name: /지원 동기/ })).not.toBeInTheDocument();
+
+    server.use(mockRecruitmentDetailHandler());
+    await act(async () => {
+      await queryClient.refetchQueries({ queryKey: recruitmentQueryKeys.detail(RECRUITMENT_ID), exact: true });
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    });
+
+    expect(screen.getByRole('textbox', { name: /지원 동기/ })).toHaveValue('열정');
+    expect(screen.getByText('임시저장한 답변을 불러왔어요')).toBeInTheDocument();
+  }, 10_000);
 });
 
 describe('ApplyForm — 제출 확인', () => {
