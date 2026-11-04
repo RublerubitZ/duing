@@ -134,7 +134,7 @@ describe('RecruitmentsPage', () => {
 
     // 현재 모집 카드(제목 링크 1회 + 마감 액션)로 렌더된다 — 지난 모집 표는 비어 있다.
     expect(await screen.findByRole('link', { name: '11기 신입 모집' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: '모집 종료' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '모집 마감' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: '모집글 편집' })).toBeInTheDocument();
     expect(screen.getByText('아직 마감된 모집이 없어요.')).toBeInTheDocument();
     // 심사가 남아 있음이 KPI(검토 대기 5건)와 안내 문구로 드러난다.

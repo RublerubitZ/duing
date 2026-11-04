@@ -15,8 +15,10 @@ import { cn } from '@/app/_lib/cn';
 import { useToast } from '@/app/_components/toast/ToastProvider';
 
 import { feeStatusChip, feeStatusLabel, formatWon } from '@/app/_lib/feeLabels';
+import { scrollToPaginatedListStart } from '@/app/_lib/paginationScroll';
 import { toRoute } from '@/app/_lib/route';
 
+import { FEE_STATUSES } from '../_lib/feeTabs';
 import { RecordPaymentDialog } from './RecordPaymentDialog';
 import { PaymentHistory } from './PaymentHistory';
 import { LoadingGate } from '@/components/loading/LoadingGate';
@@ -24,17 +26,11 @@ import { ButtonSpinner } from '@/components/loading/Spinner';
 
 type BillListProps = {
   clubId: number;
+  /** 처음 상태 필터 — 운영진 홈 회비 연체 행은 OVERDUE 로 연다. 없으면 전체. */
+  initialStatusFilter?: FeeStatus | '';
 };
 
 const PAGE_SIZE = 20;
-
-const STATUS_OPTIONS: FeeStatus[] = [
-  'PENDING',
-  'PAID',
-  'PARTIAL_PAID',
-  'OVERDUE',
-  'CANCELLED',
-];
 
 const inputCls =
   'rounded-md border border-line px-3 py-2 text-sm outline-none transition-colors focus-visible:border-ink focus-visible:ring-1 focus-visible:ring-ink';
@@ -42,9 +38,9 @@ const inputCls =
 // 부원 검색 드롭다운에 한 번에 보여줄 최대 결과 수.
 const MEMBER_SEARCH_LIMIT = 8;
 
-export function BillList({ clubId }: BillListProps) {
+export function BillList({ clubId, initialStatusFilter = '' }: BillListProps) {
   const [page, setPage] = useState(0);
-  const [statusFilter, setStatusFilter] = useState<FeeStatus | ''>('');
+  const [statusFilter, setStatusFilter] = useState<FeeStatus | ''>(initialStatusFilter);
   const [periodFilter, setPeriodFilter] = useState('');
   const [selectedMember, setSelectedMember] = useState<ClubMember | null>(null);
   const [memberQuery, setMemberQuery] = useState('');
@@ -109,7 +105,7 @@ export function BillList({ clubId }: BillListProps) {
   const hasNext = bills?.hasNext ?? false;
 
   return (
-    <div className="space-y-4">
+    <div data-pagination-anchor="" className="space-y-4 scroll-mt-16 md:scroll-mt-6">
       <div className="flex flex-wrap items-end gap-3">
         <div className="flex flex-col gap-1">
           <label htmlFor="bill-filter-period" className="text-xs font-semibold text-charcoal-2">
@@ -143,7 +139,7 @@ export function BillList({ clubId }: BillListProps) {
             className={inputCls}
           >
             <option value="">전체</option>
-            {STATUS_OPTIONS.map((status) => (
+            {FEE_STATUSES.map((status) => (
               <option key={status} value={status}>
                 {feeStatusLabel(status)}
               </option>
@@ -228,7 +224,10 @@ export function BillList({ clubId }: BillListProps) {
             <div className="flex items-center gap-2">
               <button
                 type="button"
-                onClick={() => setPage((current) => Math.max(0, current - 1))}
+                onClick={(event) => {
+                  setPage((current) => Math.max(0, current - 1));
+                  scrollToPaginatedListStart(event.currentTarget);
+                }}
                 disabled={page0Based === 0}
                 className="rounded-md border border-line px-2 py-1 disabled:opacity-40"
               >
@@ -239,7 +238,10 @@ export function BillList({ clubId }: BillListProps) {
               </span>
               <button
                 type="button"
-                onClick={() => setPage((current) => current + 1)}
+                onClick={(event) => {
+                  setPage((current) => current + 1);
+                  scrollToPaginatedListStart(event.currentTarget);
+                }}
                 disabled={!hasNext}
                 className="rounded-md border border-line px-2 py-1 disabled:opacity-40"
               >
@@ -459,5 +461,5 @@ function CancelBillConfirm({ clubId, bill, memberName, onClose }: CancelBillConf
 }
 
 function isFeeStatus(value: string): value is FeeStatus {
-  return STATUS_OPTIONS.some((status) => status === value);
+  return FEE_STATUSES.some((status) => status === value);
 }

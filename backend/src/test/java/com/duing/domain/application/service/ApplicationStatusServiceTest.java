@@ -127,6 +127,7 @@ class ApplicationStatusServiceTest {
 
         Application application = stubApplication(clubId, 20L, TargetRole.MEMBER);
         when(applicationRepository.findById(applicationId)).thenReturn(Optional.of(application));
+        when(applicationRepository.findClubIdByApplicationId(applicationId)).thenReturn(Optional.of(clubId));
         when(userRepository.findById(managerId)).thenReturn(Optional.of(mock(User.class)));
 
         applicationService.updateStatus(
@@ -155,6 +156,7 @@ class ApplicationStatusServiceTest {
                 .when(application).transitionTo(ApplicationStatus.ACCEPTED, false, false);
 
         when(applicationRepository.findById(applicationId)).thenReturn(Optional.of(application));
+        when(applicationRepository.findClubIdByApplicationId(applicationId)).thenReturn(Optional.of(clubId));
 
         assertThatThrownBy(() -> applicationService.updateStatus(
                 new UpdateApplicationStatusCommand(applicationId, managerId, ApplicationStatus.ACCEPTED)))
@@ -182,6 +184,7 @@ class ApplicationStatusServiceTest {
         stubActorRole(ClubMemberRole.LEADER);
         Application application = stubApplication(clubId, applicantId, TargetRole.OFFICER);
         when(applicationRepository.findById(applicationId)).thenReturn(Optional.of(application));
+        when(applicationRepository.findClubIdByApplicationId(applicationId)).thenReturn(Optional.of(clubId));
         when(userRepository.findById(leaderId)).thenReturn(Optional.of(mock(User.class)));
 
         applicationService.updateStatus(
@@ -210,6 +213,7 @@ class ApplicationStatusServiceTest {
         stubActorRole(ClubMemberRole.OFFICER);
         Application application = stubApplication(clubId, 20L, TargetRole.OFFICER);
         when(applicationRepository.findById(applicationId)).thenReturn(Optional.of(application));
+        when(applicationRepository.findClubIdByApplicationId(applicationId)).thenReturn(Optional.of(clubId));
 
         assertThatThrownBy(() -> applicationService.updateStatus(
                 new UpdateApplicationStatusCommand(applicationId, officerId, ApplicationStatus.ACCEPTED)))
@@ -230,6 +234,7 @@ class ApplicationStatusServiceTest {
         stubActorRole(ClubMemberRole.OFFICER);
         Application application = stubApplication(clubId, 20L, TargetRole.MEMBER);
         when(applicationRepository.findById(applicationId)).thenReturn(Optional.of(application));
+        when(applicationRepository.findClubIdByApplicationId(applicationId)).thenReturn(Optional.of(clubId));
         when(userRepository.findById(officerId)).thenReturn(Optional.of(mock(User.class)));
 
         assertThatCode(() -> applicationService.updateStatus(
@@ -253,6 +258,7 @@ class ApplicationStatusServiceTest {
         stubActorRole(ClubMemberRole.OFFICER);
         Application application = stubApplication(clubId, 20L, TargetRole.OFFICER);
         when(applicationRepository.findById(applicationId)).thenReturn(Optional.of(application));
+        when(applicationRepository.findClubIdByApplicationId(applicationId)).thenReturn(Optional.of(clubId));
         when(userRepository.findById(officerId)).thenReturn(Optional.of(mock(User.class)));
 
         applicationService.updateStatus(
@@ -273,6 +279,7 @@ class ApplicationStatusServiceTest {
 
         Application application = stubApplication(clubId, applicantId, TargetRole.MEMBER);
         when(applicationRepository.findById(applicationId)).thenReturn(Optional.of(application));
+        when(applicationRepository.findClubIdByApplicationId(applicationId)).thenReturn(Optional.of(clubId));
         when(userRepository.findById(managerId)).thenReturn(Optional.of(mock(User.class)));
 
         applicationService.updateStatus(
@@ -298,6 +305,7 @@ class ApplicationStatusServiceTest {
 
         Application application = stubApplication(clubId, 20L, TargetRole.MEMBER);
         when(applicationRepository.findById(applicationId)).thenReturn(Optional.of(application));
+        when(applicationRepository.findClubIdByApplicationId(applicationId)).thenReturn(Optional.of(clubId));
         when(userRepository.findById(managerId)).thenReturn(Optional.of(mock(User.class)));
 
         applicationService.updateStatus(
@@ -317,8 +325,7 @@ class ApplicationStatusServiceTest {
         Long nonManagerUserId = 99L;
         Long clubId = 5L;
 
-        Application application = stubApplication(clubId, 20L, TargetRole.MEMBER);
-        when(applicationRepository.findById(applicationId)).thenReturn(Optional.of(application));
+        when(applicationRepository.findClubIdByApplicationId(applicationId)).thenReturn(Optional.of(clubId));
 
         doThrow(new AccessDeniedException("해당 동아리의 운영진(LEADER/OFFICER)만 가능한 작업입니다."))
                 .when(clubAuthService).requireManagerOrHidden(eq(nonManagerUserId), eq(clubId), any());
@@ -327,8 +334,8 @@ class ApplicationStatusServiceTest {
                 new UpdateApplicationStatusCommand(applicationId, nonManagerUserId, ApplicationStatus.ON_HOLD)))
                 .isInstanceOf(AccessDeniedException.class);
 
-        // 권한 차단 후 상태 변경 로직이 실행되어서는 안 된다
-        verify(application, never()).transitionTo(any(), any(boolean.class), any(boolean.class));
+        // 인가가 지원서(지원자 개인정보) 로드보다 먼저다 — 경량 clubId 조회만 하고 막혀 상태 변경 로직에 닿지 않는다
+        verify(applicationRepository, never()).findById(any());
     }
 
     // ────────────────────────────────────────────────────────────
@@ -345,6 +352,7 @@ class ApplicationStatusServiceTest {
 
         Application application = stubApplication(clubId, 20L, TargetRole.MEMBER);
         when(applicationRepository.findById(applicationId)).thenReturn(Optional.of(application));
+        when(applicationRepository.findClubIdByApplicationId(applicationId)).thenReturn(Optional.of(clubId));
         when(userRepository.findById(managerId)).thenReturn(Optional.of(mock(User.class)));
 
         // 다른 트랜잭션이 먼저 status 를 변경한 상황을 모사한다.

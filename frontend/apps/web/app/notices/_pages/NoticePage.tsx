@@ -7,6 +7,7 @@ import { ImageOff } from 'lucide-react';
 import type { NoticeCategory, NoticeSource } from '@duing/types';
 import { formatDateKst, parseKstInstant, useNoticeListQuery } from '@duing/hooks';
 import { cn } from '@/app/_lib/cn';
+import { scrollToPaginatedListStart } from '@/app/_lib/paginationScroll';
 import { SEARCH_KEYWORD_MAX_LENGTH } from '@/app/_lib/searchKeyword';
 import { useEntranceMotion } from '@/app/_lib/useEntranceMotion';
 import { useHydrated } from '@/app/_lib/useHydrated';
@@ -736,7 +737,10 @@ export function NoticePage() {
                 }}>
                   <button
                     type="button"
-                    onClick={() => setPage((prev) => Math.max(0, prev - 1))}
+                    onClick={(event) => {
+                      setPage((prev) => Math.max(0, prev - 1));
+                      scrollToPaginatedListStart(event.currentTarget);
+                    }}
                     disabled={page === 0}
                     style={{
                       width: 32, height: 32, borderRadius: 8, border: 'none',
@@ -752,7 +756,11 @@ export function NoticePage() {
                     <button
                       key={i}
                       type="button"
-                      onClick={() => setPage(i)}
+                      onClick={(event) => {
+                        setPage(i);
+                        // 현재 번호를 다시 누른 것은 이동이 아니다 — 새 페이지일 때만 첫머리로 옮긴다.
+                        if (i !== page) scrollToPaginatedListStart(event.currentTarget);
+                      }}
                       style={{
                         width: 32, height: 32, borderRadius: 8, border: 'none',
                         background: i === page ? 'var(--ink)' : 'transparent',
@@ -764,7 +772,10 @@ export function NoticePage() {
                   ))}
                   <button
                     type="button"
-                    onClick={() => setPage((prev) => Math.min(totalPages - 1, prev + 1))}
+                    onClick={(event) => {
+                      setPage((prev) => Math.min(totalPages - 1, prev + 1));
+                      scrollToPaginatedListStart(event.currentTarget);
+                    }}
                     disabled={page === totalPages - 1}
                     style={{
                       width: 32, height: 32, borderRadius: 8, border: 'none',

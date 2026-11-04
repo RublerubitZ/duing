@@ -84,13 +84,10 @@ export function resolvePeriodParams(
 /** useSearchParams 의 ReadonlyURLSearchParams 와 URLSearchParams 를 함께 받기 위한 최소 형태. */
 type ParamReader = { get(key: string): string | null };
 
-/** 손으로 고친 주소가 조회를 깨뜨리지 않도록 알 수 없는 값은 기본값으로 떨어뜨린다. */
-export function readPeriodValue(
-  params: ParamReader,
-  fallback: FeePeriodPreset = 'ALL',
-): FeePeriodValue {
+/** 손으로 고친 주소가 조회를 깨뜨리지 않도록 알 수 없는 값은 기본값(전체)으로 떨어뜨린다. */
+export function readPeriodValue(params: ParamReader): FeePeriodValue {
   const raw = params.get('period');
-  const preset = FEE_PERIOD_PRESETS.find((candidate) => candidate === raw) ?? fallback;
+  const preset = FEE_PERIOD_PRESETS.find((candidate) => candidate === raw) ?? 'ALL';
   if (preset !== 'CUSTOM') return { preset };
   // 날짜 형식이 아닌 값은 그대로 서버로 보내지 않는다 — 주소는 아무나 고칠 수 있는 입력이다.
   return { preset, from: readDate(params.get('from')), to: readDate(params.get('to')) };
@@ -101,16 +98,11 @@ function readDate(raw: string | null): string | undefined {
 }
 
 /**
- * 그 화면의 기본 프리셋(= 주소에 기간이 없을 때 복원되는 값)만 주소에서 뺀다 — 기본 상태의 주소가
- * 지저분해지지 않게 한다. 생략 기준은 화면마다 다르다: 목록은 전체 기간이 기본이라 ALL 을 빼지만,
- * 상세는 최근 30일이 기본이라 ALL 을 반드시 실어야 한다(빼면 다음 렌더가 30일로 되돌린다).
+ * 기본 프리셋(전체 = 주소에 기간이 없을 때 복원되는 값)만 주소에서 뺀다 — 기본 상태의 주소가
+ * 지저분해지지 않게 한다. 목록과 상세 모두 전체 기간이 기본이라 생략 기준이 같다.
  */
-export function writePeriodParams(
-  params: URLSearchParams,
-  value: FeePeriodValue,
-  fallback: FeePeriodPreset = 'ALL',
-): void {
-  if (value.preset === fallback) return;
+export function writePeriodParams(params: URLSearchParams, value: FeePeriodValue): void {
+  if (value.preset === 'ALL') return;
   params.set('period', value.preset);
   if (value.preset !== 'CUSTOM') return;
   if (value.from !== undefined) params.set('from', value.from);
@@ -137,15 +129,11 @@ export const DEFAULT_FEE_CLUB_SORT: AdminFeeClubSort = 'OUTSTANDING';
 /** 주소창은 사람이 읽고 고치는 자리라 페이지를 1부터 센다. 내부 페이지 번호는 0부터다. */
 const FIRST_PAGE_IN_URL = 1;
 
-/** fallback 은 주소에 기간이 없을 때 쓸 기본 프리셋 — 목록은 전체, 상세는 최근 30일이 기본이다. */
-export function readFeesQuery(
-  params: ParamReader,
-  fallback: FeePeriodPreset = 'ALL',
-): FeesQueryState {
+export function readFeesQuery(params: ParamReader): FeesQueryState {
   const rawUsage = params.get('usage');
   const rawSort = params.get('sort');
   return {
-    period: readPeriodValue(params, fallback),
+    period: readPeriodValue(params),
     usage: USAGE_FILTERS.find((candidate) => candidate === rawUsage),
     sort: CLUB_SORTS.find((candidate) => candidate === rawSort) ?? DEFAULT_FEE_CLUB_SORT,
     page: readPage(params.get('page')),

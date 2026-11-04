@@ -1,7 +1,8 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import { useState } from 'react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
+import type { LatestPromotionRequest } from '@duing/types';
 
 const mockImageUploaderCalls: Array<{
   value: string;
@@ -53,7 +54,7 @@ describe('PromotionRequestModal 의 배너 이미지 입력', () => {
   it('배너 이미지 영역에 ImageUploader 가 purpose=PROMOTION_REQUEST_BANNER + aspectRatio=16/9 로 렌더된다', () => {
     render(
       <ToastProvider>
-        <PromotionRequestModal clubId={1} clubName="두잉" onClose={vi.fn()} />
+        <PromotionRequestModal clubId={1} clubName="두잉" latestRequest={null} onClose={vi.fn()} />
       </ToastProvider>,
     );
     expect(screen.getByTestId('banner-uploader')).toBeInTheDocument();
@@ -66,7 +67,7 @@ describe('PromotionRequestModal 의 배너 이미지 입력', () => {
   it('promo-banner-url id 의 URL input 이 더 이상 존재하지 않는다', () => {
     const { container } = render(
       <ToastProvider>
-        <PromotionRequestModal clubId={1} clubName="두잉" onClose={vi.fn()} />
+        <PromotionRequestModal clubId={1} clubName="두잉" latestRequest={null} onClose={vi.fn()} />
       </ToastProvider>,
     );
     expect(container.querySelector('#promo-banner-url')).toBeNull();
@@ -84,7 +85,12 @@ describe('PromotionRequestModal 의 배너 이미지 입력', () => {
       return (
         <ToastProvider>
           {open && (
-            <PromotionRequestModal clubId={1} clubName="두잉" onClose={() => setOpen(false)} />
+            <PromotionRequestModal
+              clubId={1}
+              clubName="두잉"
+              latestRequest={null}
+              onClose={() => setOpen(false)}
+            />
           )}
         </ToastProvider>
       );
@@ -111,9 +117,78 @@ describe('PromotionRequestModal 의 배너 이미지 입력', () => {
     mockSubmitPending = true;
     render(
       <ToastProvider>
-        <PromotionRequestModal clubId={1} clubName="두잉" onClose={vi.fn()} />
+        <PromotionRequestModal clubId={1} clubName="두잉" latestRequest={null} onClose={vi.fn()} />
       </ToastProvider>,
     );
     expect(screen.getByRole('status')).toHaveTextContent('홍보 요청 보내는 중');
+  });
+});
+
+describe('PromotionRequestModal 의 최근 요청 카드', () => {
+  beforeEach(() => {
+    mockSubmit.mockReset();
+    mockSubmitPending = false;
+  });
+
+  function latestRequest(overrides: Partial<LatestPromotionRequest> = {}): LatestPromotionRequest {
+    return {
+      requestId: 3,
+      status: 'ACCEPTED',
+      title: '가을 정기 공연 홍보',
+      actionNote: '다음 주 월요일부터 게시합니다.',
+      // 둘 다 KST 자정 직후 — UTC 날짜를 그대로 쓰면 하루씩 어긋난다.
+      createdAt: '2026-10-01T15:10:00Z',
+      handledAt: '2026-10-03T15:20:00Z',
+      ...overrides,
+    };
+  }
+
+  function renderModal(latest: LatestPromotionRequest | null) {
+    return render(
+      <ToastProvider>
+        <PromotionRequestModal clubId={1} clubName="두잉" latestRequest={latest} onClose={vi.fn()} />
+      </ToastProvider>,
+    );
+  }
+
+  it('최근 요청의 상태·제목·제출일·처리일·처리 메모를 보여 준다', () => {
+    renderModal(latestRequest());
+
+    const card = screen.getByRole('region', { name: '최근 홍보 요청' });
+    expect(within(card).getByText('수락됨')).toBeInTheDocument();
+    expect(within(card).getByText('가을 정기 공연 홍보')).toBeInTheDocument();
+    expect(within(card).getByText('제출일').nextElementSibling).toHaveTextContent('2026.10.02');
+    expect(within(card).getByText('처리일').nextElementSibling).toHaveTextContent('2026.10.04');
+    expect(within(card).getByText('처리 메모').nextElementSibling).toHaveTextContent('다음 주 월요일부터 게시합니다.');
+  });
+
+  it('처리 메모가 없으면(null) 메모 줄을 그리지 않는다', () => {
+    renderModal(latestRequest({ status: 'REJECTED', actionNote: null }));
+
+    const card = screen.getByRole('region', { name: '최근 홍보 요청' });
+    expect(within(card).getByText('거절됨')).toBeInTheDocument();
+    expect(within(card).queryByText('처리 메모')).not.toBeInTheDocument();
+  });
+
+  it('검토 대기 중이면 처리일 줄 없이 제출일만 보여 준다', () => {
+    renderModal(latestRequest({ status: 'PENDING', actionNote: null, handledAt: null }));
+
+    const card = screen.getByRole('region', { name: '최근 홍보 요청' });
+    expect(within(card).getByText('검토 대기 중')).toBeInTheDocument();
+    expect(within(card).getByText('제출일')).toBeInTheDocument();
+    expect(within(card).queryByText('처리일')).not.toBeInTheDocument();
+  });
+
+  // 폼이 길어 390 폭에서도 뷰포트를 넘고(최근 요청 카드로 더 길어진다) 위쪽이 화면 밖으로 잘렸다 — 창 안에서 스크롤한다.
+  it('창 높이를 뷰포트 85% 로 제한하고 넘치면 안에서 스크롤한다', () => {
+    renderModal(latestRequest());
+
+    expect(screen.getByRole('dialog')).toHaveClass('max-h-[85vh]', 'overflow-y-auto');
+  });
+
+  it('요청한 적이 없으면 카드를 그리지 않는다', () => {
+    renderModal(null);
+
+    expect(screen.queryByRole('region', { name: '최근 홍보 요청' })).not.toBeInTheDocument();
   });
 });

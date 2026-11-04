@@ -24,7 +24,11 @@ public record AdminClubSummaryResponse(
         boolean facilitySecuredTimeTarget,
         String rejectionReason,
         Instant statusChangedAt,
-        String statusChangedByName
+        String statusChangedByName,
+        Instant pendingSince,
+        // 운영 중단 행만 숫자(0 포함), 다른 상태는 null — 의미는 AdminClubSummaryQuery 주석.
+        Long undecidedApplicationCount,
+        Long pendingJoinRequestCount
 ) {
     public static AdminClubSummaryResponse from(AdminClubSummaryQuery summaryQuery) {
         return new AdminClubSummaryResponse(
@@ -43,7 +47,10 @@ public record AdminClubSummaryResponse(
                 summaryQuery.facilitySecuredTimeTarget(),
                 summaryQuery.rejectionReason(),
                 TimeMapper.systemWallClockToInstant(summaryQuery.statusChangedAt()),
-                summaryQuery.statusChangedByName()
+                summaryQuery.statusChangedByName(),
+                TimeMapper.systemWallClockToInstant(summaryQuery.pendingSince()),
+                summaryQuery.undecidedApplicationCount(),
+                summaryQuery.pendingJoinRequestCount()
         );
     }
 }

@@ -168,7 +168,7 @@ export function AdminUsersPage() {
       {searchQuery.isSuccess && (
         // 목업처럼 표와 페이지 이동을 한 카드가 감싼다 — 페이지 이동은 이 목록에 딸린 것이지
         // 화면 전체에 딸린 것이 아니다.
-        <ConsoleCard>
+        <ConsoleCard data-pagination-anchor="" className="scroll-mt-16 md:scroll-mt-6">
           <AdminUsersTable items={items} onOpenDetail={(user) => setDetailUserId(user.id)} />
           <Pagination
             page={page}

@@ -5,6 +5,7 @@ import type { FormEvent, ReactNode } from 'react';
 import type {
   AdminUpdateClubPayload, ClubCategory, ClubDetail, ClubDayOfWeek, College,
 } from '@duing/types';
+import { kstDateTimeFormatter } from '@duing/hooks/datetime';
 import { updateClubSchema, adminUpdateClubSchema } from '@duing/schemas';
 import { TagsInput } from './TagsInput';
 import { SnsLinksRepeater } from './SnsLinksRepeater';
@@ -49,6 +50,9 @@ const LOCKED_NOTICE =
 
 // 소개글 글자 수 정책 — 텍스트(getText) 기준. HTML 백스톱은 zod(clubProfileBaseSchema.description).
 const DESCRIPTION_TEXT_LIMIT = 1500;
+
+// "저장됨 (오후 3:04:05)" — 기기 시간대·로케일이 아니라 한국 시간·한국어로 읽는다(TIMEZONE.md).
+const SAVED_TIME_FORMATTER = kstDateTimeFormatter({ timeStyle: 'medium' });
 
 /**
  * 자유입력 텍스트 정규화 — 서버(Club.normalizeDepartment)와 같은 규칙.
@@ -779,7 +783,7 @@ export function ClubInfoForm({ detail, mode, mutation, onCancel, onSaved }: Club
 
           {error && <p className="mt-2 text-[13px] text-[#b35a3a]">{error}</p>}
           {savedAt && !error && (
-            <p className="mt-2 text-[13px] text-[#3e5b34]">저장됨 ({savedAt.toLocaleTimeString()})</p>
+            <p className="mt-2 text-[13px] text-[#3e5b34]">저장됨 ({SAVED_TIME_FORMATTER.format(savedAt)})</p>
           )}
 
           {!readOnly && (

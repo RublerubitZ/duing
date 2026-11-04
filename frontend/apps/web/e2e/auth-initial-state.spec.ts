@@ -150,6 +150,11 @@ type RouteApiOptions = {
   user?: typeof TEST_USER;
   /** 찜 목록 응답 지연(ms) — "방향 모름" 구간을 관측 가능한 폭으로 벌린다. */
   favoriteIdsDelayMs?: number;
+  /**
+   * 갱신 응답을 이 약속이 풀릴 때까지 붙든다 — "확인 중"(확정 신호 전) 구간을 테스트가 닫을 때까지 벌린다.
+   * 앱의 갱신 타임아웃(authFlow 8초) 안에 풀어야 한다 — 넘기면 'unavailable' 로 끝나 확정 신호가 서지 않는다.
+   */
+  refreshGate?: Promise<void>;
 };
 
 type ApiHarness = {
@@ -201,6 +206,7 @@ async function routeApi(
 
     if (pathname.endsWith('/auth/web/refresh')) {
       refreshCalls += 1;
+      if (options.refreshGate) await options.refreshGate;
       if (scenario === 'anonymous') return route.fulfill(unauthorized());
       if (scenario === 'refresh-unavailable') {
         return route.fulfill(json(503, fail('일시적으로 처리할 수 없습니다.')));
@@ -262,6 +268,10 @@ async function routeApi(
 type AuthFrame = {
   t: number;
   hasLoginButton: boolean;
+  /** 로그인 버튼이 실제로 보였는가 — DOM 에 있어도 하이드레이션 전 숨김(visibility)·숨은 스트리밍 경계면 거짓. */
+  hasVisibleLoginButton: boolean;
+  /** 하이드레이션 전 인증 자리(data-auth-seeding)가 화면에 배치돼 있었는가 — 하이드레이션 전 창을 실제로 관측했다는 증거. */
+  hasDisplayedSeedingSlot: boolean;
   hasHeaderPlaceholder: boolean;
   hasUserMenu: boolean;
   /** 이 프레임의 본문 텍스트에서 발견된 감시 문구. */
@@ -286,9 +296,14 @@ async function recordAuthFrames(page: Page, probe: FrameProbe = {}): Promise<voi
       const poll = () => {
         const header = document.querySelector('header');
         const bodyText = document.body === null ? '' : (document.body.textContent ?? '');
+        const loginLink = header?.querySelector('a[href="/login"]');
+        const seedingSlot = header?.querySelector('[data-auth-seeding]');
         frames.push({
           t: performance.now(),
-          hasLoginButton: header?.querySelector('a[href="/login"]') != null,
+          hasLoginButton: loginLink != null,
+          hasVisibleLoginButton:
+            loginLink?.checkVisibility({ visibilityProperty: true, checkVisibilityCSS: true }) ?? false,
+          hasDisplayedSeedingSlot: seedingSlot?.checkVisibility() ?? false,
           hasHeaderPlaceholder: header?.querySelector('[role="status"]') != null,
           hasUserMenu: Array.from(header?.querySelectorAll('button') ?? []).some((node) =>
             (node.textContent ?? '').includes('님'),
@@ -429,6 +444,18 @@ async function assertAnonymousHomeHasNoPlaceholder(
   expect(reactErrors).toEqual([]);
 }
 
+// 하이드레이션 전 창을 확실히 만든다 — 로컬 next start 는 청크가 즉시 와서 그 창이 0~1 프레임일 수 있다.
+// JS 만 늦춘다 — CSS 도 같은 chunks 경로라 함께 늦추면 렌더 차단으로 첫 페인트까지 밀려 창이 다시 좁아진다.
+// 스트리밍 경계 공개($RC)는 인라인 스크립트라 청크와 무관하게 먼저 일어나므로, 헤더가 보이는 채 하이드레이션만 늦어진다.
+async function delayScriptChunks(context: BrowserContext, delayMs: number): Promise<void> {
+  await context.route(/\/_next\/static\/chunks\/.+\.js(\?|$)/, async (route) => {
+    await new Promise((resolve) => setTimeout(resolve, delayMs));
+    await route.continue();
+  });
+}
+
+const CHUNK_DELAY_MS = 1500;
+
 /* ────────────────────────── 스펙 ────────────────────────── */
 
 test.describe('PR-3 인증 초기 상태', () => {
@@ -457,6 +484,52 @@ test.describe('PR-3 인증 초기 상태', () => {
   test('[metric 2] CPU 4x — 비로그인 홈에서도 자리표시 0프레임', async ({ browser }) => {
     const context = await browser.newContext();
     await assertAnonymousHomeHasNoPlaceholder(context, { cpuThrottlingRate: 4 });
+    await context.close();
+  });
+
+  // 정적 HTML 은 늘 비로그인으로 그려진다 — 로그인 이력이 있는 브라우저는 하이드레이션 전 인증 자리를 숨긴다(빈 자리).
+  test('로그인 이력 브라우저 — JS 가 늦게 와도 보이는 로그인 버튼 0프레임(하이드레이션 전 빈 자리)', async ({
+    browser,
+  }) => {
+    const context = await browser.newContext();
+    await seedLoggedInCookies(context);
+    await routeApi(context, 'expired');
+    await delayScriptChunks(context, CHUNK_DELAY_MS);
+    const page = await context.newPage();
+    const reactErrors = collectReactErrors(page);
+    await recordAuthFrames(page);
+
+    await page.goto('/', { waitUntil: 'commit' });
+    // 청크를 늦췄으므로 기본 5초보다 넉넉히 기다린다 — 실패하면 지연 탓인지 회귀인지 갈리게.
+    await expect(page.getByRole('button', { name: /홍길동님/ })).toBeVisible({ timeout: 10_000 });
+    await waitForHeaderFrame(page, 'hasUserMenu');
+
+    const frames = await readAuthFrames(page);
+    expect(frames.filter((frame) => frame.hasVisibleLoginButton)).toHaveLength(0);
+    expect(frames.filter((frame) => frame.hasDisplayedSeedingSlot).length).toBeGreaterThan(0);
+    expect(frames.filter((frame) => frame.hasHeaderPlaceholder)).toHaveLength(0);
+    expect(reactErrors).toEqual([]);
+    await context.close();
+  });
+
+  test('비로그인 브라우저 — JS 가 늦게 와도 하이드레이션 전부터 보이는 로그인 버튼', async ({ browser }) => {
+    const context = await browser.newContext();
+    await routeApi(context, 'anonymous');
+    await delayScriptChunks(context, CHUNK_DELAY_MS);
+    const page = await context.newPage();
+    const reactErrors = collectReactErrors(page);
+    await recordAuthFrames(page);
+
+    await page.goto('/', { waitUntil: 'commit' });
+    await expect(page.locator('header a[href="/login"]')).toBeVisible({ timeout: 10_000 });
+    await waitForHeaderFrame(page, 'hasLoginButton');
+
+    const frames = await readAuthFrames(page);
+    const seedingFrames = frames.filter((frame) => frame.hasDisplayedSeedingSlot);
+    expect(seedingFrames.length).toBeGreaterThan(0);
+    expect(seedingFrames.every((frame) => frame.hasVisibleLoginButton)).toBe(true);
+    expect(frames.filter((frame) => frame.hasUserMenu)).toHaveLength(0);
+    expect(reactErrors).toEqual([]);
     await context.close();
   });
 
@@ -609,7 +682,13 @@ test.describe('PR-3 인증 초기 상태', () => {
     browser,
   }) => {
     const context = await browser.newContext();
-    const api = await routeApi(context, 'anonymous');
+    // 갱신 401 이 곧바로 오면 하이드레이션(안내는 그 뒤에만 그린다 — #1545)과 확정 신호가 같은 커밋에 겹쳐
+    // 안내가 0프레임인 채 이동할 수 있다 — 갱신을 붙들어 "확인 중" 구간을 고정한다.
+    let releaseRefresh = () => {};
+    const refreshGate = new Promise<void>((resolve) => {
+      releaseRefresh = resolve;
+    });
+    const api = await routeApi(context, 'anonymous', { refreshGate });
     const page = await context.newPage();
     await recordAuthFrames(page, {
       texts: [NOTIFICATIONS_LOGIN_TEXT],
@@ -619,13 +698,14 @@ test.describe('PR-3 인증 초기 상태', () => {
     await page.goto('/notifications', { waitUntil: 'commit' });
     // 확인이 끝나기 전에도 로그인 진입점을 준다(fail-open) — 갱신이 401 이 아닌 이유로 실패하면
     // 확정 신호가 영영 서지 않으므로, 대기 화면만 두면 익명 방문자가 갇힌다.
-    // 이 확정은 곧 이어질 replace 와 경합하므로 라이브 단언 대신 기록된 프레임으로 되짚는다.
     await waitForTextFrame(page, NOTIFICATIONS_LOGIN_TEXT);
     const frames = await readAuthFrames(page);
     expect(
       frames.filter((frame) => frame.selectors.includes(NOTIFICATIONS_LOGIN_LINK_SELECTOR)),
     ).not.toHaveLength(0);
+    expect(currentLocation(page)).toBe('/notifications');
 
+    releaseRefresh();
     await expect.poll(() => currentLocation(page)).toBe('/login?next=/notifications');
     // 이동은 부트스트랩 401 체인(갱신 시도까지)이 끝난 뒤에만 일어난다.
     expect(api.refreshCalls()).toBeGreaterThanOrEqual(1);

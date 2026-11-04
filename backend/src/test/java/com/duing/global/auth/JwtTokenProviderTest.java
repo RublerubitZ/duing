@@ -5,6 +5,9 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.auth0.jwt.JWT;
 import com.auth0.jwt.algorithms.Algorithm;
+import com.auth0.jwt.exceptions.JWTVerificationException;
+import java.nio.charset.StandardCharsets;
+import java.util.Base64;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -98,5 +101,21 @@ class JwtTokenProviderTest {
         String token = providerWithMultibyteSecret.createToken(2L, "STUDENT");
 
         assertThat(providerWithMultibyteSecret.parse(token).userId()).isEqualTo(2L);
+    }
+
+    @Test
+    @DisplayName("만료 시각이 표현 범위를 넘는 위조 토큰은 인증 필터가 잡는 검증 예외로 거부된다")
+    void rejectsOutOfRangeExpiryWithVerificationException() {
+        // 서명 없이 만든 토큰이다. java-jwt 4.6.1 이하는 서명 검증 전에 DateTimeException 을 던져
+        // 인증 필터(JWTVerificationException 만 잡는다) 밖으로 새어 나갔다(CVE-2026-85473).
+        String forgedToken = base64Url("{\"alg\":\"HS256\",\"typ\":\"JWT\"}") + "."
+                + base64Url("{\"sub\":\"7\",\"exp\":9000000000000000000}") + ".forged-signature";
+
+        assertThatThrownBy(() -> jwtTokenProvider.parse(forgedToken))
+                .isInstanceOf(JWTVerificationException.class);
+    }
+
+    private static String base64Url(String json) {
+        return Base64.getUrlEncoder().withoutPadding().encodeToString(json.getBytes(StandardCharsets.UTF_8));
     }
 }

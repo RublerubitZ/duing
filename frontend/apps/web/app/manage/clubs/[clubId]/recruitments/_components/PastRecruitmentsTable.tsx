@@ -3,13 +3,10 @@
 import Link from 'next/link';
 import { useQueries } from '@tanstack/react-query';
 import type { RecruitmentSummary, StatsSummary } from '@duing/types';
-import { statsQueryKeys, useApiClient } from '@duing/hooks';
+import { countUndecided, statsQueryKeys, useApiClient } from '@duing/hooks';
+import { APPLICATION_UNDECIDED_LABEL } from '@/app/_constants/application-status';
 import { toRoute } from '@/app/_lib/route';
-import {
-  recruitmentPeriodLabel,
-  RECRUITMENT_DISPLAY_STATUS_BADGE,
-  RECRUITMENT_DISPLAY_STATUS_LABEL,
-} from '@/app/_lib/recruitmentDisplay';
+import { recruitmentPeriodLabel, recruitmentStatusChip } from '@/app/_lib/recruitmentDisplay';
 import { recruitmentFlowLabel } from '@/app/manage/clubs/[clubId]/recruitments/_lib/recruitmentFlowLabel';
 import {
   recruitmentClosedLabel,
@@ -26,15 +23,18 @@ export function PastRecruitmentsTable({ clubId, recruitments: unsortedRecruitmen
   const recruitments = sortPastRecruitments(unsortedRecruitments);
   // 행별 지원/합격 집계 — 단일 소비처라 라우트 로컬 fan-out(대시보드 useApplicantSummary와 동일 패턴,
   // statsQueryKeys.summary 공유로 대시보드·상세·통계와 캐시 일치). 지난 모집은 클럽당 연 1~2건 수준.
+  // 외부 폼은 지원 데이터가 없어 자체 폼 행만 조회한다 — combine 도 같은 배열로 인덱싱해야 수치가 제 행에 붙는다.
+  // 외부 폼 행은 Map 에 없어 "—" 가 된다(다른 화면이 같은 키를 0 으로 채워도 이 표는 그 키를 구독하지 않는다).
+  const selfRecruitments = recruitments.filter((recruitment) => recruitment.applicationMode === 'SELF');
   const summariesById = useQueries({
-    queries: recruitments.map((recruitment) => ({
+    queries: selfRecruitments.map((recruitment) => ({
       queryKey: statsQueryKeys.summary(recruitment.id),
       queryFn: () => client.stats.summary(recruitment.id),
     })),
     combine: (results) => {
       const byId = new Map<number, StatsSummary>();
       results.forEach((result, index) => {
-        const recruitment = recruitments[index];
+        const recruitment = selfRecruitments[index];
         if (recruitment !== undefined && result.data !== undefined) {
           byId.set(recruitment.id, result.data);
         }
@@ -56,6 +56,11 @@ export function PastRecruitmentsTable({ clubId, recruitments: unsortedRecruitmen
     return summary ? `${summary.total} / ${summary.accepted}` : '—';
   }
 
+  function undecidedCount(recruitmentId: number): number {
+    const summary = summariesById.get(recruitmentId);
+    return summary ? countUndecided(summary) : 0;
+  }
+
   return (
     <div className="card overflow-hidden">
       {/* 데스크탑: 표 */}
@@ -71,114 +76,130 @@ export function PastRecruitmentsTable({ clubId, recruitments: unsortedRecruitmen
             </tr>
           </thead>
           <tbody className="divide-y divide-line">
-            {recruitments.map((recruitment) => (
-              <tr key={recruitment.id}>
-                <td className="px-4 py-3">
-                  <Link
-                    href={toRoute(`/manage/clubs/${clubId}/recruitments/${recruitment.id}`)}
-                    className="font-medium text-ink-deep hover:underline"
-                  >
-                    {recruitment.title}
-                  </Link>
-                  <div className="mt-0.5 text-xs text-charcoal-3">
-                    전형 {recruitmentFlowLabel(recruitment.useInterview)}
-                  </div>
-                </td>
-                <td className="px-4 py-3 tabular-nums text-xs text-charcoal-2">
-                  {recruitmentPeriodLabel(recruitment.startDate, recruitment.endDate)}
-                  {recruitmentClosedLabel(recruitment) !== null && (
-                    <div className="mt-0.5 text-charcoal-3">{recruitmentClosedLabel(recruitment)}</div>
-                  )}
-                </td>
-                <td className="px-4 py-3 tabular-nums text-charcoal">{appliedAcceptedLabel(recruitment.id)}</td>
-                <td className="px-4 py-3">
-                  <span
-                    className={`rounded-full px-2 py-0.5 text-xs font-medium ${RECRUITMENT_DISPLAY_STATUS_BADGE[recruitment.displayStatus]}`}
-                  >
-                    {RECRUITMENT_DISPLAY_STATUS_LABEL[recruitment.displayStatus]}
-                  </span>
-                </td>
-                <td className="px-4 py-3">
-                  <div className="flex justify-end gap-2">
-                    {recruitment.applicationMode === 'SELF' && (
+            {recruitments.map((recruitment) => {
+              const statusChip = recruitmentStatusChip(recruitment);
+              return (
+                <tr key={recruitment.id}>
+                  <td className="px-4 py-3">
+                    <Link
+                      href={toRoute(`/manage/clubs/${clubId}/recruitments/${recruitment.id}`)}
+                      className="font-medium text-ink-deep hover:underline"
+                    >
+                      {recruitment.title}
+                    </Link>
+                    <div className="mt-0.5 text-xs text-charcoal-3">
+                      전형 {recruitmentFlowLabel(recruitment.useInterview)}
+                    </div>
+                  </td>
+                  <td className="px-4 py-3 tabular-nums text-xs text-charcoal-2">
+                    {recruitmentPeriodLabel(recruitment.startDate, recruitment.endDate)}
+                    {recruitmentClosedLabel(recruitment) !== null && (
+                      <div className="mt-0.5 text-charcoal-3">{recruitmentClosedLabel(recruitment)}</div>
+                    )}
+                  </td>
+                  <td className="px-4 py-3 tabular-nums text-charcoal">
+                    {appliedAcceptedLabel(recruitment.id)}
+                    {undecidedCount(recruitment.id) > 0 && (
+                      <div className="mt-0.5 text-xs font-semibold text-coral-deep">
+                        {APPLICATION_UNDECIDED_LABEL} {undecidedCount(recruitment.id)}명
+                      </div>
+                    )}
+                  </td>
+                  <td className="px-4 py-3">
+                    <span
+                      className={`rounded-full px-2 py-0.5 text-xs font-medium ${statusChip.badgeClass}`}
+                    >
+                      {statusChip.label}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="flex justify-end gap-2">
+                      {recruitment.applicationMode === 'SELF' && (
+                        <Link
+                          href={toRoute(
+                            `/manage/clubs/${clubId}/recruitments/${recruitment.id}/applicants`,
+                          )}
+                          className="btn btn-secondary btn-sm"
+                        >
+                          지원자
+                        </Link>
+                      )}
                       <Link
-                        href={toRoute(
-                          `/manage/clubs/${clubId}/recruitments/${recruitment.id}/applicants`,
-                        )}
+                        href={toRoute(`/manage/clubs/${clubId}/recruitments/${recruitment.id}/stats`)}
                         className="btn btn-secondary btn-sm"
                       >
-                        지원자
+                        결과 보기
                       </Link>
-                    )}
-                    <Link
-                      href={toRoute(`/manage/clubs/${clubId}/recruitments/${recruitment.id}/stats`)}
-                      className="btn btn-secondary btn-sm"
-                    >
-                      결과 보기
-                    </Link>
-                    <Link
-                      href={toRoute(`/manage/clubs/${clubId}/recruitments/new?cloneFrom=${recruitment.id}`)}
-                      className="btn btn-ghost btn-sm"
-                    >
-                      양식 복제
-                    </Link>
-                  </div>
-                </td>
-              </tr>
-            ))}
+                      <Link
+                        href={toRoute(`/manage/clubs/${clubId}/recruitments/new?cloneFrom=${recruitment.id}`)}
+                        className="btn btn-ghost btn-sm"
+                      >
+                        양식 복제
+                      </Link>
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
 
       {/* 모바일: 카드 리스트 */}
       <div className="divide-y divide-line md:hidden">
-        {recruitments.map((recruitment) => (
-          <div key={recruitment.id} className="p-4">
-            <div className="flex items-start justify-between gap-2">
-              <Link
-                href={toRoute(`/manage/clubs/${clubId}/recruitments/${recruitment.id}`)}
-                className="font-medium text-ink-deep hover:underline"
-              >
-                {recruitment.title}
-              </Link>
-              <span
-                className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${RECRUITMENT_DISPLAY_STATUS_BADGE[recruitment.displayStatus]}`}
-              >
-                {RECRUITMENT_DISPLAY_STATUS_LABEL[recruitment.displayStatus]}
-              </span>
-            </div>
-            <div className="mt-1 text-xs text-charcoal-3">
-              {recruitmentPeriodLabel(recruitment.startDate, recruitment.endDate)}
-              {recruitmentClosedLabel(recruitment) !== null && ` · ${recruitmentClosedLabel(recruitment)}`} · 전형{' '}
-              {recruitmentFlowLabel(recruitment.useInterview)}
-            </div>
-            <div className="mt-1 tabular-nums text-sm text-charcoal">
-              지원 {appliedAcceptedLabel(recruitment.id)}
-            </div>
-            <div className="mt-3 flex gap-2">
-              {recruitment.applicationMode === 'SELF' && (
+        {recruitments.map((recruitment) => {
+          const statusChip = recruitmentStatusChip(recruitment);
+          return (
+            <div key={recruitment.id} className="p-4">
+              <div className="flex items-start justify-between gap-2">
                 <Link
-                  href={toRoute(`/manage/clubs/${clubId}/recruitments/${recruitment.id}/applicants`)}
+                  href={toRoute(`/manage/clubs/${clubId}/recruitments/${recruitment.id}`)}
+                  className="font-medium text-ink-deep hover:underline"
+                >
+                  {recruitment.title}
+                </Link>
+                <span
+                  className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${statusChip.badgeClass}`}
+                >
+                  {statusChip.label}
+                </span>
+              </div>
+              <div className="mt-1 text-xs text-charcoal-3">
+                {recruitmentPeriodLabel(recruitment.startDate, recruitment.endDate)}
+                {recruitmentClosedLabel(recruitment) !== null && ` · ${recruitmentClosedLabel(recruitment)}`} · 전형{' '}
+                {recruitmentFlowLabel(recruitment.useInterview)}
+              </div>
+              <div className="mt-1 tabular-nums text-sm text-charcoal">
+                지원 {appliedAcceptedLabel(recruitment.id)}
+                {undecidedCount(recruitment.id) > 0 && (
+                  <span className="font-semibold text-coral-deep"> · {APPLICATION_UNDECIDED_LABEL} {undecidedCount(recruitment.id)}명</span>
+                )}
+              </div>
+              <div className="mt-3 flex gap-2">
+                {recruitment.applicationMode === 'SELF' && (
+                  <Link
+                    href={toRoute(`/manage/clubs/${clubId}/recruitments/${recruitment.id}/applicants`)}
+                    className="btn btn-secondary btn-sm flex-1"
+                  >
+                    지원자
+                  </Link>
+                )}
+                <Link
+                  href={toRoute(`/manage/clubs/${clubId}/recruitments/${recruitment.id}/stats`)}
                   className="btn btn-secondary btn-sm flex-1"
                 >
-                  지원자
+                  결과 보기
                 </Link>
-              )}
-              <Link
-                href={toRoute(`/manage/clubs/${clubId}/recruitments/${recruitment.id}/stats`)}
-                className="btn btn-secondary btn-sm flex-1"
-              >
-                결과 보기
-              </Link>
-              <Link
-                href={toRoute(`/manage/clubs/${clubId}/recruitments/new?cloneFrom=${recruitment.id}`)}
-                className="btn btn-ghost btn-sm flex-1"
-              >
-                양식 복제
-              </Link>
+                <Link
+                  href={toRoute(`/manage/clubs/${clubId}/recruitments/new?cloneFrom=${recruitment.id}`)}
+                  className="btn btn-ghost btn-sm flex-1"
+                >
+                  양식 복제
+                </Link>
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );

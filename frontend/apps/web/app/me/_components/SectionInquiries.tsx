@@ -10,15 +10,18 @@ import {
   INQUIRY_STATUS_BADGE_CLASS,
   INQUIRY_STATUS_LABEL,
 } from '@/app/_lib/federationInquiryLabels';
+import { ListRowsSkeleton } from '@/components/loading/Skeleton';
 
 import { SectionHeader } from './SectionHeader';
 
 type Props = {
   inquiries: FederationInquirySummary[];
   totalCount: number;
+  /** 조회 중 — 빈 상태 대신 스켈레톤(정적 HTML·조회 전에 거짓 "없어요"를 그리지 않는다, #1500). */
+  isPending?: boolean;
 };
 
-export function SectionInquiries({ inquiries, totalCount }: Props) {
+export function SectionInquiries({ inquiries, totalCount, isPending = false }: Props) {
   return (
     <section
       data-section="inquiries"
@@ -27,7 +30,7 @@ export function SectionInquiries({ inquiries, totalCount }: Props) {
     >
       <div className="max-w-layout mx-auto px-4 sm:px-6 md:px-10">
         <SectionHeader
-          title={`내 문의 · ${totalCount}`}
+          title={isPending ? '내 문의' : `내 문의 · ${totalCount}`}
           hint="총동아리연합회에 남긴 1:1 문의 내역입니다."
           extra={
             <Link
@@ -39,7 +42,9 @@ export function SectionInquiries({ inquiries, totalCount }: Props) {
           }
         />
 
-        {totalCount === 0 ? (
+        {isPending ? (
+          <ListRowsSkeleton rows={2} rowClassName="h-[88px] rounded-lg" label="내 문의 불러오는 중" />
+        ) : totalCount === 0 ? (
           <div className="bg-paper border border-line rounded-lg px-8 py-12 text-center text-charcoal-3 text-sm">
             아직 문의 내역이 없어요.{' '}
             <Link

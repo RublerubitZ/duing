@@ -24,7 +24,9 @@ import { ExploreNav } from '@/app/_components/ExploreNav';
 import {
   APPLICATION_STATUS_APPLICANT_LABEL,
   isClosedWithoutResult,
+  isEndedByClubDeactivation,
 } from '@/app/_constants/application-status';
+import { useHydrated } from '@/app/_lib/useHydrated';
 import { ListRowsSkeleton } from '@/components/loading/Skeleton';
 
 import { FILTERS, STATUS_TO_FILTER, PAGE_PAD, PAGE_MAX } from '../_constants/data';
@@ -52,9 +54,12 @@ export function toAppStatus(
   status: ApplicationStatus,
   interview: AssignedInterview | null,
   recruitmentStatus: RecruitmentStatus | undefined,
+  endedByClubDeactivation?: boolean,
 ): AppStatus {
   // 모집이 마감됐는데 결과가 없으면 진행 표기(심사 중·면접)는 전부 거짓이다 — 상태 파생 전에 가른다.
   if (isClosedWithoutResult(status, recruitmentStatus)) return 'closed-unresolved';
+  // 운영 중단 정리로 끝난 불합격 — 운영진 불합격('failed')과 가른다. 이전 백엔드(칸 없음)는 'failed' 그대로.
+  if (isEndedByClubDeactivation(status, endedByClubDeactivation)) return 'deactivation-ended';
   switch (status) {
     case 'SUBMITTED':         return 'applied';
     // 보류는 지원자에게 심사 중과 동일하다 — 별도 시각 구분을 두지 않는다 (스펙 §1-1).
@@ -68,10 +73,11 @@ export function toAppStatus(
 function deriveSteps(
   status: ApplicationStatus,
   recruitmentStatus: RecruitmentStatus | undefined,
+  endedByClubDeactivation: boolean | undefined,
 ): Step[] {
   type StepStateValue = 'done' | 'current' | 'pending';
-  // 결과 없이 종료된 지원은 어느 단계도 "진행 중"이 아니다 — 현재 단계 점을 없애 멈춘 진행바로 보이지 않게 한다.
-  if (isClosedWithoutResult(status, recruitmentStatus)) {
+  // 결과 없이 종료된 지원(운영 중단으로 선발이 끝난 지원 포함)은 어느 단계도 "진행 중"이 아니다 — 현재 단계 점을 없애 멈춘 진행바로 보이지 않게 한다.
+  if (isClosedWithoutResult(status, recruitmentStatus) || isEndedByClubDeactivation(status, endedByClubDeactivation)) {
     return [
       { label: '심사',      date: '-', state: 'done'    },
       { label: '면접',      date: '-', state: 'pending' },
@@ -141,8 +147,8 @@ function toApp(summary: ApplicationSummary): App {
     department: '-',
     files: [],
     memo: '',
-    steps: deriveSteps(summary.status, summary.recruitmentStatus),
-    status: toAppStatus(summary.status, summary.interview, summary.recruitmentStatus),
+    steps: deriveSteps(summary.status, summary.recruitmentStatus, summary.endedByClubDeactivation),
+    status: toAppStatus(summary.status, summary.interview, summary.recruitmentStatus, summary.endedByClubDeactivation),
     right: deriveRight(summary.status, summary.interview, summary.recruitmentStatus),
     logo: toLogo(summary.logoUrl, summary.clubName),
   };
@@ -157,6 +163,10 @@ export function ApplicationsPage({ defaultOpenId = null }: Props) {
   const [openId, setOpenId] = useState<string | null>(defaultOpenId);
 
   const { data: applicationSummaries, isLoading, isFetching, isError } = useMyApplicationsQuery();
+  const hydrated = useHydrated();
+  // 정적 HTML·하이드레이션 프레임은 조회가 꺼져 있어 isLoading 이 false 다 — 하이드레이션 전에는 로딩으로 둔다(#1500).
+  // 숫자(탭·요약·필터)는 최소한 목록 스켈레톤과 같은 조건에서 숨겨야 "불러오는 중인데 0건" 이 보이지 않는다.
+  const listPending = !hydrated || isLoading;
 
   const openApplicationId = openId !== null ? Number(openId) : undefined;
   const { data: openDetail } = useMyApplicationDetailQuery(openApplicationId);
@@ -183,6 +193,8 @@ export function ApplicationsPage({ defaultOpenId = null }: Props) {
     });
     return countMap;
   }, [apps]);
+  // 받은 목록이 없으면(첫 조회 실패) 셀 것이 없다 — 0 은 거짓이다. 옛 목록을 든 채 재조회가 실패하면 마지막 숫자를 둔다.
+  const shownCounts = listPending || applicationSummaries === undefined ? null : counts;
 
   const visibleApps = useMemo(() => {
     if (selected.includes('all')) return apps;
@@ -217,7 +229,7 @@ export function ApplicationsPage({ defaultOpenId = null }: Props) {
     <div className="duing min-h-dvh bg-cream">
       <ExploreNav slimOnMobile />
       <ApplyStatusHero />
-      <ApplyTopTabs active={selected} onToggle={toggleFilter} counts={counts} />
+      <ApplyTopTabs active={selected} onToggle={toggleFilter} counts={shownCounts} />
 
       <section style={{ padding: `16px ${PAGE_PAD} 40px` }}>
         <div
@@ -225,7 +237,7 @@ export function ApplicationsPage({ defaultOpenId = null }: Props) {
           style={{ maxWidth: PAGE_MAX }}
         >
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {isLoading ? (
+            {listPending ? (
               <ListRowsSkeleton
                 rows={4}
                 rowClassName="h-[84px] rounded-[14px]"
@@ -272,8 +284,8 @@ export function ApplicationsPage({ defaultOpenId = null }: Props) {
 
           {/* 요약·단계 필터 사이드바 — 데스크탑 전용. 모바일은 상단 ApplyTopTabs 가 필터를 제공한다. */}
           <aside className="sticky top-4 hidden flex-col gap-3 md:flex">
-            <ApplySummaryCard counts={counts} />
-            <StageFilterCard checked={selected} onToggle={toggleFilter} counts={counts} />
+            <ApplySummaryCard counts={shownCounts} />
+            <StageFilterCard checked={selected} onToggle={toggleFilter} counts={shownCounts} />
           </aside>
         </div>
       </section>

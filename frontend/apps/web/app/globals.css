@@ -724,6 +724,11 @@ body {
    기존 group-hover 정지·motion-reduce 정지와는 서로 독립이다. */
 [data-offscreen] .animate-marquee { animation-play-state: paused; }
 
+/* 하이드레이션 전 상단 내비 "로그인·회원가입" 숨김 — 정적 HTML 은 늘 비로그인으로 그려져, 로그인 사용자가 JS 를 받을 때까지
+   로그아웃된 것처럼 보였다. data-had-session 은 루트 레이아웃의 첫 페인트 전 스크립트가(로그인 이력 있을 때만),
+   data-auth-seeding 은 HomeNavAuthSlot 이 하이드레이션 전에만 단다. 자리는 남겨(visibility) 레이아웃이 움직이지 않는다. */
+html[data-had-session] [data-auth-seeding] { visibility: hidden; }
+
 /* 접근성: OS '동작 줄이기' 설정 시 무한 반복되는 장식 애니메이션을 멈춘다.
    framer-motion 은 MotionConfig reducedMotion="user" 로 이미 처리되지만,
    CSS 키프레임 유틸리티는 별도 가드가 없으면 계속 재생되므로 여기서 함께 끈다. */

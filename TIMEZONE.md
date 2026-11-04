@@ -28,8 +28,9 @@ Du-ing 전체(backend/frontend/DB)의 날짜·시간 처리 정책. 2026-07 타�
 - **무클럭 `LocalDateTime.now()` 신규 작성 금지** — `ClocklessNowGuardTest`가 파일별 개수 허용목록으로 차단한다. 의도적 예외는 허용목록에 근거와 함께 등재.
 
 ### Frontend
-- 날짜 표시는 **`@duing/hooks` 공통 유틸만** 사용: `formatDateTimeKst` / `formatDateKst` / `formatTimeKst` / `formatRelativeTime` (+ 특수 포맷은 `kstDateTimeFormatter`, KST 캘린더 연산은 `kstDateString`/`isTodayKst`/`daysUntilKst`).
+- 날짜 표시는 **`@duing/hooks` 공통 유틸만** 사용: `formatDateTimeKst` / `formatDateKst` / `formatTimeKst` / `formatRelativeTime` (+ 특수 포맷은 `kstDateTimeFormatter`, KST 캘린더 연산은 `kstDateString`/`isTodayKst`/`daysUntilKst`, KST "오늘"·오프셋 없는 일정 시각 읽기는 `todayKstDateString`/`parseKstInstant`, 날짜 산술은 `addDaysIso`).
 - 금지: `toLocaleString()`류 직접 호출(timeZone 미지정), 시각 문자열 `slice()`, `getHours()` 등 로컬 게터, 화면별 지역 포맷 함수. Event 필드는 `…Z`라 slice 시 UTC 숫자가 노출된다.
+- **기기 시간대 Date API 신규 사용 금지** — `frontend/apps/web/test/lint/device-timezone-guard.test.ts`가 로컬 게터·세터·`new Date(y, m, …)`는 파일별 개수 허용목록으로, `toLocaleDateString`/`toLocaleTimeString`(timeZone 을 넣어도 — 포맷은 `kstDateTimeFormatter`)·`toDateString`/`toTimeString`/`Date()`·timeZone 없는 날짜 포맷은 0건으로 차단한다. 의도적 예외(시간대와 무관한 계산 — 달력 날짜 산술 등)는 허용목록에 근거와 함께 등재.
 - 파싱 규칙(공통 유틸 내장): 오프셋/Z 있으면 그대로, 없으면 KST 벽시계(`+09:00`)로 간주 — Event(Z)와 Schedule(무오프셋) 모두 자동으로 올바르다.
 
 ### DB (현재)
@@ -51,7 +52,7 @@ Du-ing 전체(backend/frontend/DB)의 날짜·시간 처리 정책. 2026-07 타�
 
 **writer 근거는 `파일#메서드` 로 적는다 — 줄번호는 리팩터링마다 드리프트해 오히려 틀린 정보가 된다.**
 
-### Group 1 — application/draft/club/clubevent/clubmember/favorite/globalevent/joincode/notice/notification/promotion/recruitment/report/user
+### Group 1 — adminconsole/application/draft/club/clubevent/clubmember/favorite/globalevent/joincode/notice/notification/promotion/recruitment/report/user
 
 | 응답DTO.필드 | 원본 테이블.컬럼 | regime | writer 근거 |
 |---|---|---|---|
@@ -62,12 +63,14 @@ Du-ing 전체(backend/frontend/DB)의 날짜·시간 처리 정책. 2026-07 타�
 | AdminApplicationDetailResponse.AdminStatusHistoryItem.changedAt | application_status_histories.created_at | system | 위 StatusHistoryItem.changedAt 과 같은 컬럼·같은 변환 |
 | DraftResponse.updatedAt | application_drafts.updated_at | system | ApplicationDraft#create·#replace 무클럭 now() |
 | AdminClubSummaryResponse.statusChangedAt | clubs.status_changed_at | system | Club#changeStatus 무클럭 now() |
+| AdminClubSummaryResponse.pendingSince | (파생 — 저장 컬럼 없음) clubs.status_changed_at ?? clubs.created_at | system | Club#approvalPendingSince — 승인 대기(PENDING_APPROVAL)일 때만, 아니면 null. Club#changeStatus 무클럭 now() / BaseEntity @CreatedDate |
 | ClubEventDetailResponse.createdAt/updatedAt | club_events.* | system | BaseEntity (startAt/endAt은 Schedule 유지) |
 | ClubMember{Export,History,…}Response.joinedAt/createdAt | club_members·club_member_histories.created_at | system | BaseEntity (joinedAt = created_at 알리아스) |
 | SuccessionRequest{Detail,Summary}Response.createdAt/handledAt | leader_succession_requests.* | system | BaseEntity / LeaderSuccessionRequest#process 무클럭 now() (승인·거절 공용) |
+| MyLatestSuccessionRequestResponse.createdAt·handledAt (요청자 본인의 최근 승계 요청) | leader_succession_requests.created_at·handled_at | system | 위 SuccessionRequest 계열과 같은 컬럼·같은 변환 — BaseEntity @CreatedDate / LeaderSuccessionRequest#process 무클럭 now() |
 | FavoriteClubResponse.favoritedAt | club_favorites.created_at | system | ClubFavorite#create 무클럭 now() |
 | AdminGlobalEvent{Detail,Summary}Response.createdAt/updatedAt | global_events.* | system | BaseEntity (startAt/endAt은 Schedule 유지) |
-| RecruitmentSummaryResponse.closedAt (공개 모집 목록·캘린더 공용) | recruitment.closed_at | **seoul** | GeneralRecruitmentService 의 4개 writer — #create(만료 OPEN 자동 마감)·#close(수동)·#closeAllOnClubClosure(폐쇄 시 행별 마감)·#closeAllOnClubDeactivation(벌크 closeAllOpenByClubId) 모두 now(clock). 아래 joinExpiresAt 의 기준점이기도 하다. #stopIntake 는 closed_at 을 쓰지 않는다 |
+| RecruitmentSummaryResponse.closedAt (공개 모집 목록·캘린더 공용) | recruitment.closed_at | **seoul** | 6개 writer — GeneralRecruitmentService #create(만료 OPEN 자동 마감)·#close(수동)·#closeAllOnClubClosure(폐쇄 시 행별 마감)·#closeAllOnClubDeactivation(벌크 closeAllOpenByClubId), GeneralAdminRecruitmentCommandService#forceClose(총동연 강제 마감), GeneralRecruitmentAutoCloseService#closeIfSettled(매일 00:40 기간 종료 모집 자동 마감) 모두 now(clock). 아래 joinExpiresAt 의 기준점이기도 하다. #stopIntake 는 closed_at 을 쓰지 않는다 |
 | JoinCodeResponse.joinExpiresAt | (파생 — 저장 컬럼 없음) | **seoul** | recruitment.closed_at + club_join_code.join_window_days 로 계산(ClubJoinCode#getJoinExpiresAt) 후 seoulWallClockToInstant. 기준점이 seoul 이라 파생값도 seoul |
 | JoinCodeResponse.inviteExpiresAt (V107 부원 초대 링크) | club_join_code.invite_expires_at | **seoul** | GeneralJoinCodeService#createClubInvite 가 now(clock) + expiresInHours 로 계산해 저장. 같은 DTO 의 joinExpiresAt 과 동일 regime 이지만 이쪽은 실제 저장 컬럼이다 |
 | AdminJoinLinkStatusResponse.joinExpiresAt | (파생 — 저장 컬럼 없음) | **seoul** | 위 JoinCodeResponse.joinExpiresAt 과 같은 파생·같은 변환(총동연 상세의 가입 링크 현황) |
@@ -76,13 +79,17 @@ Du-ing 전체(backend/frontend/DB)의 날짜·시간 처리 정책. 2026-07 타�
 | AdminClubJoinCodeResponse.createdAt | club_join_code.created_at | system | BaseEntity 감사 — 같은 응답의 나머지 세 시각(seoul) 과 regime 이 갈린다 |
 | AdminRecruitment{Summary,Detail}Response.updatedAt | recruitment.updated_at | system | BaseEntity @LastModifiedDate — 같은 응답의 closedAt·joinLink.joinExpiresAt(seoul) 과 regime 이 갈린다 |
 | AdminRecruitment{Summary,Detail}Response.closedAt | recruitment.closed_at | **seoul** | 위 RecruitmentSummaryResponse.closedAt 과 같은 컬럼·같은 변환(총동연 콘솔이 강제 마감 판단 근거로 쓴다) |
-| AdminRecruitmentSummaryResponse.oldestPendingSubmittedAt | MIN(applications.created_at) (SUBMITTED·미삭제) | system | BaseEntity @CreatedDate — 위 ApplicantDetailResponse.submittedAt 과 같은 컬럼·같은 변환(GeneralAdminRecruitmentQueryService#search 가 변환) |
+| AdminRecruitmentSummaryResponse.oldestPendingSubmittedAt · StatsSummaryResponse.oldestPendingSubmittedAt | MIN(applications.created_at) (SUBMITTED·미삭제) | system | BaseEntity @CreatedDate — 위 ApplicantDetailResponse.submittedAt 과 같은 컬럼·같은 변환(GeneralAdminRecruitmentQueryService#search 가 변환) / GeneralRecruitmentStatsService#getSummary 가 같은 쿼리를 단건으로 재사용, StatsSummaryResponse#from 이 변환(운영진 통계 요약) |
+| AdminPendingTrendResponse.days[].date | admin_pending_snapshot.snapshot_date (DATE) | **seoul**(날짜) | AdminPendingSnapshotJob#run — LocalDate.now(seoulClock).minusDays(1) 로 기록(KST 어제), 조회도 LocalDate.now(seoulClock) 기준 13일. 같은 행의 recorded_at 은 TIMESTAMPTZ·Instant(응답 미노출) |
+| AdminPendingTrendResponse.recentFlow (응답 시각 없음 — 7일 창 계산) | report.created_at·handled_at, federation_inquiry.created_at·answered_at·closed_at, facility_booking.created_at, promotion_request.created_at·handled_at, leader_succession_request.created_at·handled_at / facility_booking.decided_at | system / **seoul** | AdminPendingTrendQueryService#recentFlow — system 열은 TimeMapper.systemNow(clock).minusDays(7), decided_at 만 LocalDateTime.now(clock).minusDays(7)(GeneralFacilityBookingAdminService#approve·#reject now(clock)) |
+| JobStatusResponse.lastFinishedAt · lastSucceededAt (총동연 홈 자동 작업, V137) | scheduled_job_run.last_finished_at · last_succeeded_at (timestamptz) | **Instant** | JobRunRecorder#record — Instant.now(seoulClock) 를 그대로 저장(절대 시각, 변환 없음). 같은 행의 last_started_at 은 응답 미노출 |
 | AdminRecruitmentSummaryResponse.operatorsLastActiveAt | MAX(auth_sessions.last_used_at) + MAX(users.last_login_at) (회장·임원) | **seoul** + system | 아래 MySessionResponse.lastUsedAt(seoul)·AdminUserDetailResponse.lastLoginAt(system) 과 같은 컬럼 — GeneralAdminRecruitmentQueryService#search 가 각각 seoulWallClockToInstant·systemWallClockToInstant 로 바꾼 뒤 늦은 값. 벽시계 그대로 비교하면 prod 에서 9시간 어긋난다 |
 | JoinRequest{Summary,Detail}Response.requestedAt | club_join_request.created_at | system | BaseEntity @CreatedDate |
 | JoinRequestDetailResponse.reviewedAt | club_join_request.reviewed_at | **seoul** | GeneralJoinRequestService#applyDecision(#decide·#bulkApprove 공용) 과 #createRequest(자동 승인 경로) 가 now(clock) — 같은 DTO 의 requestedAt(system) 과 regime 이 갈린다 |
 | Notice 계열 4종.createdAt/updatedAt | notices.* | system | BaseEntity (expiresAt·EventInfo.startAt/endAt은 Schedule 유지) |
 | NotificationResponse.createdAt/readAt | notifications.* / notice_broadcasts.created_at | system | Notification#create·#markRead · NoticeBroadcast#snapshot 무클럭 now() (읽음 벌크는 NotificationRepositoryImpl 무클럭 now()) |
 | Promotion 계열.createdAt/updatedAt/handledAt | promotions·promotion_requests.* | system | BaseEntity / PromotionRequest#process 무클럭 now() (startAt/endAt은 Schedule 유지) |
+| LatestPromotionRequestResponse.createdAt·handledAt (운영진 최근 홍보 요청) | promotion_requests.created_at·handled_at | system | 위 Promotion 계열과 같은 컬럼·같은 변환 — BaseEntity @CreatedDate / PromotionRequest#process 무클럭 now() |
 | Report{Detail,Summary}Response.createdAt/handledAt | reports.* | system | BaseEntity / Report#process 무클럭 now() |
 | PublicActivityResponse.Item.occurredAt (공개 활동 피드) | recruitment·notice·interview_round·club_event·fee_policy.created_at (5종) | system | PublicActivityQueryRepository#toItems 의 기본 변환이 systemWallClockToInstant — 이 5종은 BaseEntity 감사라 정합 |
 | PublicActivityResponse.Item.occurredAt (INTERVIEW_RESULT 피드만) | interview_round.assignment_completed_at (timestamptz) | **Instant** | GeneralInterviewAssignmentService#confirmRound 가 `Instant.now(clock)` 을 InterviewRound#confirm 에 넘겨 절대시각으로 저장 — 읽기도 PublicActivityQueryRepository#findRecentInterviewResult 가 TimeMapper 없이 직비교·직반환(2026-08-21 에 넣었던 seoul 해석 축은 제거). 위 5종(system)과 저장 regime 만 갈리고 응답 절대시각은 정합. V113 백필 완료(2026-08-22) |

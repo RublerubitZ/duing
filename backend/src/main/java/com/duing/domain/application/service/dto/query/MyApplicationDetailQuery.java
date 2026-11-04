@@ -30,7 +30,9 @@ public record MyApplicationDetailQuery(
         LocalDateTime submittedAt,
         int interviewAvailabilityCount,
         LocalDateTime availabilityDeadline,
-        boolean useInterview
+        boolean useInterview,
+        /** 운영 중단 동아리 남은 미결 정리로 불합격된 지원서인지(스펙 §3-2) — 지원서 칸을 그대로 옮긴다. */
+        boolean endedByClubDeactivation
 ) {
     /**
      * 면접 진행 필드(가능시간 제출 수 / 배정 면접 / 마감 시각)를 기본값으로 채워 반환한다.
@@ -84,7 +86,8 @@ public record MyApplicationDetailQuery(
                 interviewAvailabilityCount,
                 availabilityDeadline,
                 // 지원자 stepper 가 면접 단계를 그릴지 판단하는 유일한 근거 — 모집 설정에서 그대로 전달한다.
-                recruitment.isUseInterview()
+                recruitment.isUseInterview(),
+                application.isEndedByClubDeactivation()
         );
     }
 }

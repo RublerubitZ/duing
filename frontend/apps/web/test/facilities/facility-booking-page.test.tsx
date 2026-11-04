@@ -327,10 +327,14 @@ beforeAll(() => {
     }),
   });
 });
+// 기기 시간대를 바꾸는 케이스(신청 접수 시각)의 원복 — undefined 를 대입하면 문자열 "undefined" 가 들어가 UTC 로 동작하므로 지운다.
+const originalTz = process.env.TZ;
 afterEach(() => {
   server.resetHandlers();
   mockSearchParams.value = '';
   vi.useRealTimers(); // 매 테스트 후 고정 Date 원복(누적 방지 + 다른 파일 누수 차단).
+  if (originalTz === undefined) delete process.env.TZ;
+  else process.env.TZ = originalTz;
 });
 afterAll(() => server.close());
 
@@ -499,6 +503,8 @@ describe('FacilityBookingPage — 월↔주 뷰 전환(시설 오픈일 창)', (
   });
 
   it('시나리오 5: 로그인 신청이 확인 Dialog 를 거쳐 성공하면 정확한 payload(대표 연락처 포함) 전송·승인 타임라인 노출 후 "다른 시설 예약하기"로 홈에 복귀한다', async () => {
+    // 뉴욕 기기(아직 7/13 23:30)에서 신청해도 접수 시각은 한국 시간(7/14 12:30)이다(TIMEZONE.md).
+    process.env.TZ = 'America/New_York';
     useAuthStore.setState({ status: 'authenticated', user: AUTH_USER });
     let capturedBody: unknown = null;
     let postCount = 0;
@@ -544,6 +550,7 @@ describe('FacilityBookingPage — 월↔주 뷰 전환(시설 오픈일 창)', (
     // 성공 화면: 세로 승인 타임라인(관리자 승인 대기 단계) + 겹침 경고.
     const timeline = await screen.findByLabelText('승인 진행 타임라인');
     expect(within(timeline).getByText('관리자 승인 대기')).toBeInTheDocument();
+    expect(within(timeline).getByText('7월 14일 12:30 접수')).toBeInTheDocument();
     expect(within(timeline).queryByText('보통')).not.toBeInTheDocument();
     expect(screen.getByText(/1건이 함께 대기/)).toBeInTheDocument();
 

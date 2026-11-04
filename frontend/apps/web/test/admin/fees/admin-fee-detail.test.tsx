@@ -7,6 +7,7 @@ import type {
   AdminFeeBillRow,
   AdminFeeClubDetail,
   AdminFeePaymentRow,
+  AdminFeePeriodParams,
 } from '@duing/types';
 
 /* ── 모듈 모킹 ─────────────────────────────────────────────── */
@@ -66,8 +67,10 @@ import { AdminFeeClubDetailPage } from '@/app/admin/fees/[clubId]/_pages/AdminFe
 import { resolvePeriodParams } from '@/app/admin/fees/_lib/feePeriod';
 
 const CLUB_ID = 7;
-/** 상세의 기본 기간은 최근 30일이다. 절대 날짜를 박으면 그날이 오는 순간 테스트가 깨진다. */
-const DEFAULT_PERIOD = resolvePeriodParams({ preset: 'LAST_30D' });
+/** 상세의 기본 기간은 전체다 — 주소에 기간이 없으면 from/to 를 하나도 싣지 않고 묻는다. */
+const DEFAULT_PERIOD: AdminFeePeriodParams = {};
+/** 절대 날짜를 박으면 그날이 오는 순간 테스트가 깨진다. */
+const LAST_30D_PERIOD = resolvePeriodParams({ preset: 'LAST_30D' });
 
 /* ── 테스트 데이터 ───────────────────────────────────────────── */
 function makeDetail(overrides: Partial<AdminFeeClubDetail> = {}): AdminFeeClubDetail {
@@ -371,32 +374,58 @@ describe('관리자 회비 감사 상세', () => {
     expect(refetch).toHaveBeenCalled();
   });
 
+  it('주소에 기간이 없으면 전체 기간으로 연다', () => {
+    renderDetail();
+
+    // 전체 = from/to 없이 묻는다(undefined 키는 요청·쿼리키에서 어차피 빠지지만 모양을 고정해 둔다).
+    expect(mockDetailQuery.mock.lastCall).toStrictEqual([CLUB_ID, DEFAULT_PERIOD]);
+    expect(screen.getByLabelText('기간')).toHaveValue('ALL');
+  });
+
   it('기간을 전체로 바꾸면 from/to 없이 다시 묻는다', async () => {
     const user = userEvent.setup();
+    // 기본값이 전체라 빈 주소에서 시작하면 이미 전체인 상태를 다시 고르는 셈이 된다.
+    currentSearch = 'period=LAST_30D';
     const { rerender } = renderDetail();
 
-    expect(mockDetailQuery).toHaveBeenLastCalledWith(CLUB_ID, DEFAULT_PERIOD);
+    // 기간이 실린 옛 주소는 그 값대로 연다.
+    expect(mockDetailQuery).toHaveBeenLastCalledWith(CLUB_ID, LAST_30D_PERIOD);
+    expect(screen.getByLabelText('기간')).toHaveValue('LAST_30D');
 
     await user.selectOptions(screen.getByLabelText('기간'), 'ALL');
     rerender(<AdminFeeClubDetailPage clubId={CLUB_ID} />);
 
-    // 전체는 상세의 기본값(최근 30일)이 아니므로 주소에 실려야 한다 — 생략하면 다음 렌더가 30일로 되돌린다.
-    expect(mockReplace).toHaveBeenLastCalledWith(`/admin/fees/${CLUB_ID}?period=ALL`, {
-      scroll: false,
-    });
+    // 전체는 이 화면의 기본값이라 주소에서 빠진다 — 기간이 없는 주소는 그대로 전체로 복원된다.
+    expect(mockReplace).toHaveBeenLastCalledWith(`/admin/fees/${CLUB_ID}`, { scroll: false });
     expect(screen.getByLabelText('기간')).toHaveValue('ALL');
     // 조회 인자가 그대로면 쿼리키가 안 바뀌어 재요청 자체가 일어나지 않는다.
-    expect(mockDetailQuery).toHaveBeenLastCalledWith(CLUB_ID, {});
+    expect(mockDetailQuery.mock.lastCall).toStrictEqual([CLUB_ID, DEFAULT_PERIOD]);
+  });
+
+  it('최근 30일을 고르면 주소에 실려 다시 렌더해도 30일로 남는다', async () => {
+    const user = userEvent.setup();
+    const { rerender } = renderDetail();
+
+    await user.selectOptions(screen.getByLabelText('기간'), 'LAST_30D');
+    rerender(<AdminFeeClubDetailPage clubId={CLUB_ID} />);
+
+    // 기본값이 아닌 기간을 주소에서 빼면 다음 렌더가 전체로 되돌린다(#1039 의 반대 방향).
+    expect(mockReplace).toHaveBeenLastCalledWith(`/admin/fees/${CLUB_ID}?period=LAST_30D`, {
+      scroll: false,
+    });
+    expect(screen.getByLabelText('기간')).toHaveValue('LAST_30D');
+    expect(mockDetailQuery).toHaveBeenLastCalledWith(CLUB_ID, LAST_30D_PERIOD);
   });
 
   it('탭을 바꾸면 기간을 유지한 채 주소에 탭만 얹는다', async () => {
     const user = userEvent.setup();
+    // 기본값(전체)에서 시작하면 탭 클릭이 기간을 전체로 초기화해도 같은 결과라 회귀를 못 잡는다 — 30일에서 시작한다.
+    currentSearch = 'period=LAST_30D';
     renderDetail();
 
     await user.click(screen.getByRole('tab', { name: '납부' }));
 
-    // 최근 30일은 이 화면의 기본값이라 주소에서 빠진다 — 기간이 없는 주소는 그대로 30일로 복원된다.
-    expect(mockReplace).toHaveBeenLastCalledWith(`/admin/fees/${CLUB_ID}?tab=payments`, {
+    expect(mockReplace).toHaveBeenLastCalledWith(`/admin/fees/${CLUB_ID}?period=LAST_30D&tab=payments`, {
       scroll: false,
     });
     expect(screen.getByLabelText('기간')).toHaveValue('LAST_30D');

@@ -1,6 +1,7 @@
 'use client';
 
 import type { StatsSummary } from '@duing/types';
+import { APPLICATION_STATUS_OPERATOR_LABEL } from '@/app/_constants/application-status';
 
 type SummaryCardsProps = {
   statsSummary: StatsSummary;
@@ -19,10 +20,10 @@ export function SummaryCards({ statsSummary }: SummaryCardsProps) {
 
   const cards: CardDefinition[] = [
     { label: '전체', value: statsSummary.total },
-    { label: '보류', value: statsSummary.onHold },
-    { label: '면접대기', value: statsSummary.interviewPending },
-    { label: '합격', value: statsSummary.accepted, subLabel: acceptanceRatio },
-    { label: '불합격', value: statsSummary.rejected },
+    { label: APPLICATION_STATUS_OPERATOR_LABEL.ON_HOLD, value: statsSummary.onHold },
+    { label: APPLICATION_STATUS_OPERATOR_LABEL.INTERVIEW_PENDING, value: statsSummary.interviewPending },
+    { label: APPLICATION_STATUS_OPERATOR_LABEL.ACCEPTED, value: statsSummary.accepted, subLabel: acceptanceRatio },
+    { label: APPLICATION_STATUS_OPERATOR_LABEL.REJECTED, value: statsSummary.rejected },
   ];
 
   return (

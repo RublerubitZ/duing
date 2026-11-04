@@ -1,6 +1,6 @@
 # CLAUDE.md — du-ing-be
 
-프로젝트 개요, 구조, 명령어, 핵심 패턴은 @backend/AGENTS.md 참조.
+프로젝트 개요, 구조, 명령어, 핵심 패턴은 @AGENTS.md 참조.
 모노레포 구조: `backend/` (Spring Boot 3.5 / Java 21), `frontend/` (Next.js 16 + React 19).
 프론트엔드 작업 규칙은 [`../frontend/CLAUDE.md`](../frontend/CLAUDE.md), 루트 공통 규칙은 [`../CLAUDE.md`](../CLAUDE.md) 참조.
 
@@ -32,15 +32,14 @@
 6. 테스트 작성 (RestAssured + Fixture Monkey)
 
 ### 패키지 구조 원칙
-- 도메인별 패키지: `domain/{도메인명}/` 하위에 api / controller / service / repository / entity / dto 배치
-- dto는 목적별로 분리: `dto/command/` (쓰기), `dto/query/` (읽기)
+- 도메인별 패키지: `domain/{도메인명}/` 하위에 api / controller / service / repository / entity / exception 배치
+- DTO 는 경계별로 분리: HTTP 경계 `controller/dto/{request,response}`, 서비스 경계 `service/dto/{command,query}`(쓰기·읽기) — AGENTS.md 의 DTO 2-tier
 - 전역 설정은 `global/` 패키지에만 위치
 - 모든 DTO는 Java `record` 사용
 
-### 확장성 원칙 (추후 배포 대비)
+### 외부 의존성 추상화
 - 파일 업로드는 `FileStorageService` 인터페이스로 추상화
-  - 현재: `LocalFileStorageService` 구현체 사용
-  - 추후: `S3FileStorageService` 구현체로 교체만 하면 됨
+  - 구현체는 `file.storage.provider` 로 고른다: `LocalFileStorageService`(local, 기본) / `S3FileStorageService`(s3, 운영은 Cloudflare R2)
 - 환경별 설정은 `application-local.yml` / `application-prod.yml`로 분리
 - 시크릿은 항상 환경변수로 주입 (배포 시 그대로 사용 가능)
 

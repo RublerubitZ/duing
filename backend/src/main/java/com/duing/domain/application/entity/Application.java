@@ -51,6 +51,14 @@ public class Application extends BaseEntity {
     @Column(nullable = false, length = 20)
     private ApplicationStatus status;
 
+    /**
+     * 운영 중단 동아리의 남은 미결 정리로 불합격된 지원서 표시(스펙 §3-2, V138). 그 밖의 경로는 건드리지 않는다(기본 false).
+     * REJECTED 는 끝 상태라 한 번 참이 되면 풀 경로가 없고, 동아리가 다시 활동해도 참은 유지된다.
+     * 원시 boolean 이어야 한다 — Boolean 이면 null 이 NOT NULL 칸에 들어가 INSERT 가 깨진다.
+     */
+    @Column(name = "ended_by_club_deactivation", nullable = false)
+    private boolean endedByClubDeactivation;
+
     // 두 운영진이 동시에 상태를 변경하면 후행 UPDATE 가 0 row affected →
     // ObjectOptimisticLockingFailureException 으로 차단된다. Hibernate 가 직접 채운다.
     @Version
@@ -128,6 +136,14 @@ public class Application extends BaseEntity {
             case INTERVIEW_PENDING -> to == ApplicationStatus.ACCEPTED || to == ApplicationStatus.REJECTED;
             case ACCEPTED, REJECTED -> false;
         };
+    }
+
+    /** 정리 실행이 불합격 전이 뒤에 부른다 — 불합격이 아니면 호출 순서 실수라 막는다. */
+    public void markEndedByClubDeactivation() {
+        if (this.status != ApplicationStatus.REJECTED) {
+            throw new IllegalStateException("불합격으로 바꾼 뒤에만 운영 중단 표시를 남길 수 있습니다: " + this.status);
+        }
+        this.endedByClubDeactivation = true;
     }
 
     public List<ApplicationAnswer> getAnswers() {

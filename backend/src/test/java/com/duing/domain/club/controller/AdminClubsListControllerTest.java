@@ -1,8 +1,11 @@
 package com.duing.domain.club.controller;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasItem;
+import static org.hamcrest.Matchers.hasKey;
 import static org.hamcrest.Matchers.not;
+import static org.hamcrest.Matchers.nullValue;
 
 import com.duing.domain.club.entity.Club;
 import com.duing.domain.club.entity.ClubCategory;
@@ -16,11 +19,15 @@ import com.duing.domain.user.entity.User;
 import com.duing.domain.user.entity.UserRole;
 import com.duing.domain.user.repository.UserRepository;
 import com.duing.global.auth.JwtTokenProvider;
+import com.duing.global.time.TimeMapper;
 import com.duing.common.IntegrationTestBase;
 import com.duing.common.TestcontainersConfiguration;
 import io.restassured.RestAssured;
 import java.lang.reflect.Field;
+import java.sql.Timestamp;
+import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -31,6 +38,7 @@ import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.context.annotation.Import;
+import org.springframework.jdbc.core.JdbcTemplate;
 
 @Import(TestcontainersConfiguration.class)
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
@@ -42,6 +50,7 @@ class AdminClubsListControllerTest extends IntegrationTestBase {
     @Autowired ClubRepository clubRepository;
     @Autowired ClubMemberRepository clubMemberRepository;
     @Autowired JwtTokenProvider jwtTokenProvider;
+    @Autowired JdbcTemplate jdbcTemplate;
 
     private final AtomicLong sequence = new AtomicLong(System.nanoTime());
 
@@ -128,6 +137,54 @@ class AdminClubsListControllerTest extends IntegrationTestBase {
                     .statusCode(HttpStatus.FORBIDDEN.value());
     }
 
+    @Test
+    @DisplayName("새로 만든 승인 대기 동아리의 승인 대기 시작은 생성 시각이다")
+    void newPendingClubPendingSinceIsCreatedAt() throws Exception {
+        Club pending = saveClubWithLeader("대기시각신규", ClubStatus.PENDING_APPROVAL);
+        LocalDateTime createdAt = backdateCreatedAt(pending, 10);
+
+        String pendingSinceText = getPendingSince(pending);
+
+        assertThat(pendingSinceText).as("응답 시각은 …Z 절대시각으로 직렬화한다").endsWith("Z");
+        assertThat(Instant.parse(pendingSinceText)).isEqualTo(TimeMapper.systemWallClockToInstant(createdAt));
+    }
+
+    @Test
+    @DisplayName("반려 뒤 다시 승인 대기로 돌린 동아리의 승인 대기 시작은 생성 시각이 아니라 다시 대기에 들어온 시각이다")
+    void repeatedPendingClubPendingSinceIsStatusChangedAt() throws Exception {
+        Club club = saveClubWithLeader("대기시각재대기", ClubStatus.PENDING_APPROVAL);
+        LocalDateTime createdAt = backdateCreatedAt(club, 10);
+        Club storedClub = clubRepository.findById(club.getId()).orElseThrow();
+        storedClub.changeStatus(ClubStatus.REJECTED, "활동 계획서 보완", adminUser.getId());
+        storedClub.changeStatus(ClubStatus.PENDING_APPROVAL, null, adminUser.getId());
+        clubRepository.save(storedClub);
+        LocalDateTime statusChangedAt = clubRepository.findById(club.getId()).orElseThrow().getStatusChangedAt();
+
+        Instant pendingSince = Instant.parse(getPendingSince(club));
+
+        assertThat(pendingSince).isEqualTo(TimeMapper.systemWallClockToInstant(statusChangedAt));
+        assertThat(pendingSince).isNotEqualTo(TimeMapper.systemWallClockToInstant(createdAt));
+    }
+
+    @Test
+    @DisplayName("승인 대기가 아닌 동아리의 승인 대기 시작은 비어 있다")
+    void nonPendingClubPendingSinceIsNull() throws Exception {
+        Club active = saveClubWithLeader("대기시각활성", ClubStatus.ACTIVE);
+
+        RestAssured
+                .given()
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                    .queryParam("size", 100)
+                    .queryParam("keyword", active.getName())
+                .when()
+                    .get("/api/v1/admin/clubs")
+                .then()
+                    .statusCode(HttpStatus.OK.value())
+                    // 키 부재도 JsonPath 로는 null 이라, 필드가 있고 값이 null 인지 따로 본다(FE 는 부재를 옛 백엔드로 읽는다).
+                    .body("data.content[0]", hasKey("pendingSince"))
+                    .body("data.content[0].pendingSince", nullValue());
+    }
+
     private User saveUser(String name, UserRole role) {
         long unique = sequence.getAndIncrement();
         return userRepository.save(User.create(
@@ -152,5 +209,25 @@ class AdminClubsListControllerTest extends IntegrationTestBase {
         Club saved = clubRepository.save(created);
         clubMemberRepository.save(ClubMember.asLeader(saved, leaderUser));
         return saved;
+    }
+
+    private String getPendingSince(Club club) {
+        return RestAssured
+                .given()
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                    .queryParam("size", 100)
+                    .queryParam("keyword", club.getName())
+                .when()
+                    .get("/api/v1/admin/clubs")
+                .then()
+                    .statusCode(HttpStatus.OK.value())
+                    .extract().path("data.content[0].pendingSince");
+    }
+
+    /** created_at 은 @CreatedDate 가 INSERT 때 채워 저장 뒤 JDBC 로 과거로 옮긴다(감사 필드 = system regime). */
+    private LocalDateTime backdateCreatedAt(Club club, long days) {
+        LocalDateTime createdAt = LocalDateTime.now().minusDays(days).truncatedTo(ChronoUnit.SECONDS);
+        jdbcTemplate.update("UPDATE club SET created_at = ? WHERE id = ?", Timestamp.valueOf(createdAt), club.getId());
+        return createdAt;
     }
 }

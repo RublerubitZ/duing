@@ -82,7 +82,9 @@ export function FeeAnomalyList({
 
   if (report === undefined) return null;
 
-  const evaluatedNote = `평가 시각 ${formatDateTimeKst(report.evaluatedAt)} · 평가 구간 ${report.window.from} ~ ${report.window.to} — 조회 시점에 그때그때 평가한 결과입니다.`;
+  // 기간이 없으면(전체, 날짜를 비운 직접 선택) 서버는 이상징후를 최근 30일로 평가한다(스펙 §7.0) — 헤더와 구간이 달라 보이는 까닭을 적는다.
+  const isAllPeriod = period.from === undefined && period.to === undefined;
+  const evaluatedNote = `평가 시각 ${formatDateTimeKst(report.evaluatedAt)} · 평가 구간 ${report.window.from} ~ ${report.window.to} — 조회 시점에 그때그때 평가한 결과입니다.${isAllPeriod ? ' 기간을 정하지 않으면 이상징후는 최근 30일로 평가합니다.' : ''}`;
 
   return (
     <div className="flex flex-col gap-3">
@@ -169,7 +171,7 @@ export function FeeAnomalyList({
 
 /**
  * 감사 로그 탭으로 가는 주소. 지금 주소의 기간을 그대로 물고 탭·유형그룹만 갈아 끼운다 —
- * 기간이 주소에 없는 기본 상태(최근 30일)도 그대로 옮겨져 두 탭이 같은 구간을 보게 된다.
+ * 기간이 없는 기본 상태(전체)에서는 이상징후가 서버 기본 30일로 평가돼 감사 로그(전체 기간)가 더 넓게 보인다.
  */
 function auditLogHref(clubId: number, currentQuery: string, group: FeeEventGroup | 'ALL') {
   const params = new URLSearchParams(currentQuery);

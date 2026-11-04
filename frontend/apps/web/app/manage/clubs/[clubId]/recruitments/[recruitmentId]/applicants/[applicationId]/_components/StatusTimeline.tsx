@@ -15,7 +15,7 @@ export function StatusTimeline({ history, submittedAt }: Props) {
       <h2 className="mb-3 text-base font-semibold text-ink">상태 변경 이력</h2>
       <ol className="flex flex-col gap-3">
         {history
-          // V99 치환 잔재(previousStatus === newStatus)는 숨긴다 — DB 는 감사 목적으로 보존
+          // V103 치환 잔재(previousStatus === newStatus)는 숨긴다 — DB 는 감사 목적으로 보존
           .filter((item) => item.previousStatus !== item.newStatus)
           .map((item) => (
             <li key={`${item.changedAt}-${item.changedById}`} className="flex items-start gap-3">

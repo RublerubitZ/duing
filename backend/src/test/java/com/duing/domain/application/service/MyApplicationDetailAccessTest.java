@@ -77,7 +77,7 @@ class MyApplicationDetailAccessTest {
         Application application = mock(Application.class);
         when(application.getUser()).thenReturn(owner);
 
-        when(applicationRepository.findById(1L)).thenReturn(Optional.of(application));
+        when(applicationRepository.findWithRecruitmentAndClubById(1L)).thenReturn(Optional.of(application));
 
         assertThatThrownBy(() -> applicationService.getMyApplicationDetail(1L, 999L))
                 .isInstanceOf(ApplicationDomainException.ForbiddenApplicationAccessException.class);
@@ -102,7 +102,7 @@ class MyApplicationDetailAccessTest {
         LocalDateTime submittedAt = LocalDateTime.of(2026, 5, 15, 9, 30);
         when(application.getCreatedAt()).thenReturn(submittedAt);
 
-        when(applicationRepository.findById(1L)).thenReturn(Optional.of(application));
+        when(applicationRepository.findWithRecruitmentAndClubById(1L)).thenReturn(Optional.of(application));
 
         var detail = applicationService.getMyApplicationDetail(1L, 10L);
 
@@ -118,7 +118,7 @@ class MyApplicationDetailAccessTest {
     @Test
     @DisplayName("존재하지 않는 지원 ID 로 조회하면 ApplicationNotFoundException 이 발생한다")
     void missingApplicationThrowsNotFound() {
-        when(applicationRepository.findById(404L)).thenReturn(Optional.empty());
+        when(applicationRepository.findWithRecruitmentAndClubById(404L)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> applicationService.getMyApplicationDetail(404L, 10L))
                 .isInstanceOf(ApplicationDomainException.ApplicationNotFoundException.class);
@@ -133,7 +133,7 @@ class MyApplicationDetailAccessTest {
         LocalDateTime deadline = LocalDateTime.of(2026, 6, 15, 18, 0);
 
         Application application = stubOwnedApplication(applicationId, currentUserId, recruitmentId, true);
-        when(applicationRepository.findById(applicationId)).thenReturn(Optional.of(application));
+        when(applicationRepository.findWithRecruitmentAndClubById(applicationId)).thenReturn(Optional.of(application));
         // 레포지토리 조합은 interview 도메인(InterviewAssignmentQueryServiceTest)이 검증하고,
         // 여기서는 그 결과가 상세 응답 필드로 매핑되는지만 본다. 배정이 없으면 interview = null.
         when(interviewAssignmentQueryService.findApplicantProgress(applicationId))
@@ -156,7 +156,7 @@ class MyApplicationDetailAccessTest {
         Application application = stubOwnedApplication(applicationId, currentUserId, recruitmentId, false);
         // useInterview=false 모집은 INTERVIEW_PENDING 으로 진입 불가능하므로 status 를 SUBMITTED 로 덮어 쓴다.
         when(application.getStatus()).thenReturn(ApplicationStatus.SUBMITTED);
-        when(applicationRepository.findById(applicationId)).thenReturn(Optional.of(application));
+        when(applicationRepository.findWithRecruitmentAndClubById(applicationId)).thenReturn(Optional.of(application));
 
         var detail = applicationService.getMyApplicationDetail(applicationId, currentUserId);
 

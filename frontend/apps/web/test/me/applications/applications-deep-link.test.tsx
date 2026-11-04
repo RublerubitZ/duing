@@ -1,4 +1,5 @@
 import { render, screen } from '@testing-library/react';
+import { renderToString } from 'react-dom/server';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -121,5 +122,19 @@ describe('내 지원 딥링크', () => {
     });
 
     expect(() => renderPage('99')).not.toThrow();
+  });
+
+  // 정적 HTML 은 조회가 꺼져 있어(isLoading false·data 없음) 빈 목록 문구가 실렸다(#1500) — 하이드레이션 전에는 로딩으로 둔다.
+  it('서버 렌더(정적 HTML)는 빈 목록 문구 대신 로딩 스켈레톤이다', () => {
+    mockApplicationsQuery.mockReturnValue({ data: undefined, isLoading: false, isFetching: false, isError: false });
+
+    const html = renderToString(
+      <ToastProvider>
+        <ApplicationsPage />
+      </ToastProvider>,
+    );
+
+    expect(html).not.toContain('아직 지원한 동아리가 없습니다');
+    expect(html).toContain('aria-busy="true"');
   });
 });

@@ -17,6 +17,10 @@ import { APPLICATION_STATUS_BADGE_CLASS, collegeMajorLabel } from '../_lib/recru
  */
 export function AdminApplicationSheetContent({ detail }: { detail: AdminApplicationDetail }) {
   const { applicant } = detail;
+  // V103 치환 잔재(previousStatus === newStatus)는 숨긴다 — 운영진 StatusTimeline 과 같은 규칙, DB 는 감사 목적으로 보존
+  const visibleHistory = detail.statusHistory.filter(
+    (entry) => entry.previousStatus !== entry.newStatus,
+  );
 
   return (
     <div className="flex h-full flex-col">
@@ -49,19 +53,19 @@ export function AdminApplicationSheetContent({ detail }: { detail: AdminApplicat
         </dl>
 
         <SectionLabel className="mt-6">상태 변경 이력</SectionLabel>
-        {detail.statusHistory.length === 0 ? (
+        {visibleHistory.length === 0 ? (
           <p className="text-[12.5px] text-charcoal-3">상태 변경 이력이 없습니다</p>
         ) : (
           <ul aria-label="상태 변경 이력" className="flex flex-col">
-            {detail.statusHistory.map((entry, index) => (
+            {visibleHistory.map((entry, index) => (
               <li key={`${entry.changedAt}-${index}`} className="flex gap-3">
                 <div aria-hidden className="flex flex-col items-center">
                   <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-sage" />
-                  {index < detail.statusHistory.length - 1 && (
+                  {index < visibleHistory.length - 1 && (
                     <span className="w-0.5 flex-1 bg-line" />
                   )}
                 </div>
-                <div className={index < detail.statusHistory.length - 1 ? 'pb-3' : ''}>
+                <div className={index < visibleHistory.length - 1 ? 'pb-3' : ''}>
                   <p className="text-[12.5px] font-semibold text-ink">
                     {/* 최초 제출은 이전 상태가 없다 — 화살표 없이 결과 상태만 적는다. */}
                     {entry.previousStatus === null

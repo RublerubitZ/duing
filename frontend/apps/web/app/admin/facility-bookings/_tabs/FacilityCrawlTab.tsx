@@ -63,7 +63,7 @@ export function FacilityCrawlTab() {
   const monthOptions = [previousYearMonth(currentMonth), currentMonth, nextYearMonth(currentMonth)];
 
   return (
-    <div className="space-y-4">
+    <div data-pagination-anchor="" className="space-y-4 scroll-mt-16 md:scroll-mt-6">
       <div className="flex flex-wrap items-center gap-2">
         <div role="group" aria-label="정리 기준" className="flex rounded-lg border border-line bg-paper p-0.5">
           {GROUP_BY_OPTIONS.map((option) => (

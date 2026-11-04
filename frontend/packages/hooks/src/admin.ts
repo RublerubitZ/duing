@@ -30,6 +30,35 @@ export function useAdminPendingCountsQuery() {
   });
 }
 
+/**
+ * 총동연 홈 처리 대기 추이. 키가 pendingCounts() 아래라 처리 뮤테이션의 pendingCounts 무효화가 이 쿼리도 다시
+ * 불러온다(접수·처리 숫자가 처리 직후 바뀐다). staleTime 은 pending-counts 와 같은 전역 기본값.
+ */
+export function useAdminPendingTrendQuery() {
+  const client = useApiClient();
+  return useQuery({
+    queryKey: adminQueryKeys.pendingTrend(),
+    queryFn: () => client.admin.pendingTrend(),
+  });
+}
+
+/** 자동 작업 상태를 다시 받는 주기 — 10분 잡의 판정 단위(30분)보다 충분히 짧다. */
+export const ADMIN_JOB_STATUSES_REFETCH_INTERVAL_MS = 5 * 60 * 1000;
+
+/**
+ * 총동연 홈 자동 작업 상태. 앱 전역 기본값은 창 포커스 때 다시 받지 않아(providers.tsx), 그대로 두면 홈을 열어 둔 채로는
+ * "늦음"이 끝내 나타나지 않고 상대 시각("8분 전")도 멈춘다 — 포커스·5분 주기로 다시 받는다(useUnreadCountQuery 전례).
+ */
+export function useAdminJobStatusesQuery() {
+  const client = useApiClient();
+  return useQuery({
+    queryKey: adminQueryKeys.jobStatuses(),
+    queryFn: () => client.admin.jobStatuses(),
+    refetchOnWindowFocus: true,
+    refetchInterval: ADMIN_JOB_STATUSES_REFETCH_INTERVAL_MS,
+  });
+}
+
 export function useAdminClubsQuery(params: AdminClubSearchParams = {}) {
   const client = useApiClient();
   return useQuery({
@@ -201,6 +230,8 @@ export function useUpdateClubStatusMutation() {
       queryClient.invalidateQueries({ queryKey: clubQueryKeys.all });
       // 사이드바 뱃지 — 승인/반려 즉시 승인 대기 수가 줄어야 한다.
       queryClient.invalidateQueries({ queryKey: adminQueryKeys.pendingCounts() });
+      // 운영 중단 전환은 진행 중 모집을 일괄 마감한다 — 총동연 홈 대기열·모집 목록에 마감된 모집이 남지 않게.
+      queryClient.invalidateQueries({ queryKey: adminQueryKeys.recruitmentsAll });
     },
   });
 }
@@ -216,6 +247,35 @@ export function useCloseClubMutation() {
       queryClient.invalidateQueries({ queryKey: clubQueryKeys.detail(clubId) });
       queryClient.invalidateQueries({ queryKey: adminQueryKeys.clubActivityEventsAll(clubId) });
       queryClient.invalidateQueries({ queryKey: clubQueryKeys.all });
+      // 폐쇄는 대기 승계 취소·모집 마감·홍보 요청 반려를 함께 한다 — 사이드바 배지·총동연 홈 대기열에 처리된 건이 남지 않게.
+      queryClient.invalidateQueries({ queryKey: adminQueryKeys.pendingCounts() });
+      queryClient.invalidateQueries({ queryKey: adminQueryKeys.recruitmentsAll });
+      queryClient.invalidateQueries({ queryKey: adminQueryKeys.leaderSuccessionAll });
+      queryClient.invalidateQueries({ queryKey: adminQueryKeys.promotionRequestsAll });
+    },
+  });
+}
+
+/**
+ * 운영 중단 동아리의 남은 미결 정리(결과 미정 지원서 불합격·대기 가입 신청 거절). 성공·실패 모두 무효화한다 —
+ * 응답을 못 받았지만 서버는 커밋했거나(타임아웃), 409(그사이 재활성·동시 수정)로 끝나 목록이 낡았을 때 스스로 맞춘다(bank.ts 선례).
+ */
+export function useCleanupClubPendingMutation() {
+  const client = useApiClient();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (clubId: number) => client.admin.clubs.cleanupPending(clubId),
+    onSettled: (_cleanupResult, _cleanupError, clubId) => {
+      // 동아리 목록·총동연 홈 대기열(두 목록 모두 clubsList)
+      queryClient.invalidateQueries({ queryKey: adminQueryKeys.clubsAll });
+      // 사이드바 배지·홈 칸 — 접두 아래 추이도 함께
+      queryClient.invalidateQueries({ queryKey: adminQueryKeys.pendingCounts() });
+      // 총동연 모집 목록 미처리 열·지원자 목록·지원서 상세
+      queryClient.invalidateQueries({ queryKey: adminQueryKeys.recruitmentsAll });
+      // 가입 신청 거절 감사 행
+      queryClient.invalidateQueries({ queryKey: adminQueryKeys.clubActivityEventsAll(clubId) });
+      // 총동연 가입 링크 목록 — 링크 사용 수·대기 수
+      queryClient.invalidateQueries({ queryKey: adminQueryKeys.clubJoinCodes(clubId) });
     },
   });
 }

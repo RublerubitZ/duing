@@ -3,6 +3,7 @@ package com.duing.domain.facility.crawler;
 import com.duing.domain.facility.config.FacilityCrawlerProperties;
 import com.duing.domain.facility.crawler.exception.FacilityClientException.FacilityBadResponseException;
 import com.duing.domain.facility.crawler.exception.FacilityClientException.FacilityFetchException;
+import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.databind.JsonNode;
 import java.io.IOException;
 import java.time.YearMonth;
@@ -123,7 +124,12 @@ public class SchoolFacilityClient {
         }
         JsonNode body;
         try {
-            body = objectMapper.readTree(response.getBody());
+            // 학교 응답은 통제할 수 없어 공용 매퍼의 중복 키 거절(JacksonConfig)을 끄고 지금처럼 뒤 값으로 읽는다.
+            // JsonFactory 에 켠 기능이라 ObjectReader 로는 꺼지지 않는다 — 파서에서 끈다. 빈 본문이면 null(아래 형식 오류).
+            try (JsonParser parser = objectMapper.createParser(response.getBody())) {
+                parser.disable(JsonParser.Feature.STRICT_DUPLICATE_DETECTION);
+                body = objectMapper.readTree(parser);
+            }
         } catch (IOException malformed) {
             // 2xx 인데 HTML/깨진 JSON(세션만료·차단 페이지 등) — 비재시도, 예외 계층 안에 유지.
             log.warn("시설 예약 응답 JSON 파싱 실패: roomSeq={}, status={}", roomSeq, status.value());

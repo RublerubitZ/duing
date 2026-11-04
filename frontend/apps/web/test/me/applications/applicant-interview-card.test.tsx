@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll, afterEach } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, afterEach, vi } from 'vitest';
 import type { ReactNode } from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -250,6 +250,35 @@ describe('ApplicantInterviewCard', () => {
 
     await screen.findByText(/10:00/);
     expect(screen.queryByRole('button', { name: '변경하기' })).not.toBeInTheDocument();
+  });
+
+  // 마감은 오프셋 없는 한국 시간이다 — 기기 시간대로 읽으면 해외 기기에서 버튼이 늦게까지 남아 서버 409 를 만난다(TIMEZONE.md).
+  it('마감은 한국 시간으로 비교한다 — 뉴욕 기기(아직 10/31)에서도 한국 마감 11/01 00:00 이 지나면 변경하기가 없다', async () => {
+    const originalTz = process.env.TZ;
+    process.env.TZ = 'America/New_York';
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-11-01T00:10:00+09:00'));
+    try {
+      mockView({
+        phase: 'RESPONDED',
+        availabilityDeadline: '2026-11-01T00:00:00',
+        slots: [
+          { slotId: 1, startTime: '2026-11-03T10:00:00', endTime: '2026-11-03T10:30:00', selected: true },
+        ],
+        myAlternativeText: null,
+        scheduledInterview: null,
+      });
+
+      renderCard();
+
+      await screen.findByText(/10:00/);
+      expect(screen.queryByRole('button', { name: '변경하기' })).not.toBeInTheDocument();
+    } finally {
+      vi.useRealTimers();
+      // undefined 를 대입하면 문자열 "undefined" 가 들어가 UTC 로 동작한다 — 원래 없었으면 지운다.
+      if (originalTz === undefined) delete process.env.TZ;
+      else process.env.TZ = originalTz;
+    }
   });
 
   it('가능없음으로 응답한 경우 내 사유가 보인다', async () => {

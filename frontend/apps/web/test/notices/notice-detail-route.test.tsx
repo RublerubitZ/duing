@@ -7,6 +7,13 @@ const { fetchPublicNoticeDetailMock } = vi.hoisted(() => ({ fetchPublicNoticeDet
 
 vi.mock('@/app/_lib/public-content', () => ({ fetchPublicNoticeDetail: fetchPublicNoticeDetailMock }));
 
+// 광고 스크립트 탐침 — 실제 <script async> 는 React 19 가 문서 단위로 캐시해 테스트 사이에 head 로 다시 넣지 않는다.
+// 실제 head 위치·속성은 adsense-loader.test.tsx 와 운영 API 빌드 확인이 본다.
+vi.mock('@/app/_components/AdSenseScript', async () => {
+  const { createElement } = await import('react');
+  return { AdSenseScript: () => createElement('i', { 'data-testid': 'adsense-script' }) };
+});
+
 // 클라이언트 트리 대신 캐시에 심긴 상세(제목·dataUpdatedAt)를 그대로 보여 주는 탐침.
 vi.mock('@/app/notices/[noticeId]/_pages/NoticeDetailPage', async () => {
   const { createElement } = await import('react');
@@ -138,5 +145,29 @@ describe('소식 상세 메타데이터', () => {
     fetchPublicNoticeDetailMock.mockResolvedValue({ status: 'unavailable' });
 
     await expect(generateMetadata(params('42'))).resolves.toEqual({});
+  });
+});
+
+describe('소식 상세 라우트 — 광고 스크립트는 공개 소식에만', () => {
+  it('공개 소식은 광고 스크립트를 싣는다', async () => {
+    fetchPublicNoticeDetailMock.mockResolvedValue({ status: 'found', data: notice() });
+
+    await renderRoute('42');
+
+    expect(screen.getAllByTestId('adsense-script')).toHaveLength(1);
+  });
+
+  it.each(['notFound', 'unavailable'] as const)('%s 셸에는 싣지 않는다', async (status) => {
+    fetchPublicNoticeDetailMock.mockResolvedValue({ status });
+
+    await renderRoute('42');
+
+    expect(screen.queryAllByTestId('adsense-script')).toHaveLength(0);
+  });
+
+  it('형식이 틀린 id 셸에는 싣지 않는다', async () => {
+    await renderRoute('042');
+
+    expect(screen.queryAllByTestId('adsense-script')).toHaveLength(0);
   });
 });

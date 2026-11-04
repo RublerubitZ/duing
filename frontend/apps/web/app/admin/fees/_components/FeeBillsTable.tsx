@@ -58,7 +58,7 @@ export function FeeBillsTable({
   const bills = billsQuery.data?.content ?? [];
 
   return (
-    <div className="flex flex-col gap-3">
+    <div data-pagination-anchor="" className="flex flex-col gap-3 scroll-mt-16 md:scroll-mt-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
         <input
           type="search"

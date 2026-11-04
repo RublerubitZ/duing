@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { useFacilityAvailabilityQuery, useFacilityUsageQuery } from '@duing/hooks';
+import { kstDateTimeFormatter, useFacilityAvailabilityQuery, useFacilityUsageQuery } from '@duing/hooks';
 import type { BookingDayAvailability, CreateFacilityBookingResult } from '@duing/types';
 import { useToast } from '@/app/_components/toast/ToastProvider';
 import { PageSegment } from '@/app/_components/PageSegment';
@@ -34,6 +34,21 @@ import { useIsMobileViewport } from '../_lib/useIsMobileViewport';
 import { FacilityContextBar } from '../_components/booking/FacilityContextBar';
 import { FacilityHomeCard } from '../_components/booking/FacilityHomeCard';
 import { MyBookingsChip } from '../_components/booking/MyBookingsChip';
+
+// 신청 접수 시각 라벨('M월 d일 HH:mm') — 기기 시간대가 아니라 한국 시간으로 읽는다(TIMEZONE.md).
+const SUBMITTED_AT_FORMATTER = kstDateTimeFormatter({
+  month: 'numeric',
+  day: 'numeric',
+  hour: '2-digit',
+  minute: '2-digit',
+  hourCycle: 'h23',
+});
+
+function submittedAtLabel(now: Date): string {
+  const parts = SUBMITTED_AT_FORMATTER.formatToParts(now);
+  const read = (type: Intl.DateTimeFormatPartTypes) => parts.find((part) => part.type === type)?.value ?? '';
+  return `${read('month')}월 ${read('day')}일 ${read('hour')}:${read('minute')}`;
+}
 
 /** URL 은 딥링크 전용 — 상태 변경은 리렌더 없는 replaceState 로만 반영한다(App Router replace 는 RSC 왕복). */
 function syncUrl(facilityId: number | null, date: string | null) {
@@ -411,10 +426,7 @@ export function FacilityBookingPage() {
 
   // 신청 성공 처리 — 제출 시각 캡처 + 성공 스텝 전환. 주간 사이드바 패널·모바일 빠른 예약 시트가 공유한다.
   const handleSubmitted = (result: CreateFacilityBookingResult, clubId: number) => {
-    const now = new Date();
-    setSubmittedAt(
-      `${now.getMonth() + 1}월 ${now.getDate()}일 ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`,
-    );
+    setSubmittedAt(submittedAtLabel(new Date()));
     setSubmittedResult(result);
     setSubmittedClubId(clubId);
     setStep('success');

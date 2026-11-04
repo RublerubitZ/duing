@@ -58,6 +58,11 @@ export function useLogout() {
   };
 }
 
+/**
+ * 내 정보. 웹(SSR)에서는 이 결과의 어떤 값으로든(data·isLoading·isError·status …) 분기하는 렌더에 하이드레이션 게이트
+ * (apps/web 의 useHydrated)를 둔다 — 셸의 부팅 세션 복원이 본문 하이드레이션 전에 이 조회를 등록하거나 끝내 첫 렌더가
+ * 서버 HTML 과 갈린다(#1003·#1496).
+ */
 export function useMeQuery() {
   const client = useApiClient();
   const isAuthenticated = useAuthStore(selectIsAuthenticated);

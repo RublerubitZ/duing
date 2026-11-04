@@ -3,6 +3,7 @@ import type { Metadata } from 'next';
 import type { NoticeDetail } from '@duing/types';
 import { noticeQueryKeys } from '@duing/hooks/query-keys';
 
+import { AdSenseScript } from '@/app/_components/AdSenseScript';
 import { htmlToPlainText } from '@/app/_lib/htmlToPlainText';
 import { parsePositiveIdParam } from '@/app/_lib/idParam';
 import { toMetaDescription } from '@/app/_lib/metaDescription';
@@ -20,6 +21,7 @@ type Props = {
 // 브라우저는 시드(updatedAt 0) 덕에 마운트 때 지금처럼 최신 데이터를 다시 받는다(SeededQuery).
 // 익명 조회라 동아리 공지(CLUB_SCOPED)는 404 → noindex 셸이 되고, 부원은 클라이언트가 쿠키로 받아 그대로 본다.
 // ⚠️ cookies()·headers()·searchParams 를 읽으면 동적 라우트가 돼 요청마다 함수가 돈다 — 쓰지 말 것.
+// 광고 스크립트(AdSenseScript)도 head 대신 body 로 밀려 크롤러 초기 HTML 의 head 요건(#1126)이 깨진다.
 // 요청별 값이 HTML 에 굳는 문제는 그대로다 — sentry-trace·baggage meta 가 경로별로 고정되므로 트레이싱
 // (tracesSampleRate)을 켤 때 이 라우트의 캐시 전략을 함께 재검토할 것.
 export const revalidate = 86400;
@@ -64,9 +66,13 @@ export default async function Page({ params }: Props) {
   const { noticeId, content } = await loadNotice(rawNoticeId);
   const page = <NoticeDetailPage />;
   if (content.status !== 'found' || noticeId === null) return page;
+  // 광고 스크립트는 공개 소식에만 — 레이아웃 로더는 상세를 싣지 않는다(AdSenseLoader 주석). 없거나 동아리 공지인 셸은 위에서 돌아갔다.
   return (
-    <SeededQuery queryKey={noticeQueryKeys.detail(noticeId)} data={content.data}>
-      {page}
-    </SeededQuery>
+    <>
+      <AdSenseScript />
+      <SeededQuery queryKey={noticeQueryKeys.detail(noticeId)} data={content.data}>
+        {page}
+      </SeededQuery>
+    </>
   );
 }

@@ -136,11 +136,11 @@ describe('RecruitmentSwitcher — 그룹·정렬·제외', () => {
       expect.stringContaining('7기 모집'),
     ]);
 
-    // '마감' 뱃지는 지난 모집에만.
-    expect(within(menuItems[0]!).queryByText('마감')).not.toBeInTheDocument();
-    expect(within(menuItems[1]!).queryByText('마감')).not.toBeInTheDocument();
-    expect(within(menuItems[2]!).getByText('마감')).toBeInTheDocument();
-    expect(within(menuItems[3]!).getByText('마감')).toBeInTheDocument();
+    // '모집마감' 뱃지는 지난 모집에만.
+    expect(within(menuItems[0]!).queryByText('모집마감')).not.toBeInTheDocument();
+    expect(within(menuItems[1]!).queryByText('모집마감')).not.toBeInTheDocument();
+    expect(within(menuItems[2]!).getByText('모집마감')).toBeInTheDocument();
+    expect(within(menuItems[3]!).getByText('모집마감')).toBeInTheDocument();
   });
 
   it('외부 폼 모집은 진행 중·마감 모두 목록에 없다', async () => {

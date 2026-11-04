@@ -1,5 +1,5 @@
 import { render, screen } from '@testing-library/react';
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import type { RecruitmentSummary, StatsSummary } from '@duing/types';
 
 const mockSummary = vi.fn();
@@ -49,6 +49,8 @@ function statsSummary(over: Partial<StatsSummary> = {}): StatsSummary {
 }
 
 describe('RecruitmentKpiRow', () => {
+  beforeEach(() => mockSummary.mockReset());
+
   it('4개 타일에 summary 버킷 값을 표시하고 검토 대기는 submitted+onHold 합이다', () => {
     mockSummary.mockReturnValue({
       data: statsSummary({ total: 34, submitted: 5, onHold: 7, interviewPending: 8, accepted: 2 }),
@@ -61,13 +63,16 @@ describe('RecruitmentKpiRow', () => {
     expect(screen.getByText('모집 인원 20명')).toBeInTheDocument();
     expect(screen.getByText('검토 대기')).toBeInTheDocument();
     expect(screen.getByText('12')).toBeInTheDocument();
-    expect(screen.getByText('면접 대기')).toBeInTheDocument();
+    // 검토 대기는 상태 필터 두 칩의 합이라 자체 지원 모집에서는 무엇을 더했는지 함께 보인다
+    expect(screen.getByText('지원 완료 + 보류')).toBeInTheDocument();
+    expect(screen.getByText('면접 대상')).toBeInTheDocument();
+    expect(screen.queryByText('면접 대기')).not.toBeInTheDocument();
     expect(screen.getByText('8')).toBeInTheDocument();
     expect(screen.getByText('합격')).toBeInTheDocument();
     expect(screen.getByText('2')).toBeInTheDocument();
   });
 
-  it('면접을 진행하지 않는 모집은 데이터가 있어도 면접 대기를 —로 표시한다', () => {
+  it('면접을 진행하지 않는 모집은 데이터가 있어도 면접 대상을 —로 표시한다', () => {
     mockSummary.mockReturnValue({
       data: statsSummary({ total: 5, submitted: 0, onHold: 1, interviewPending: 8, accepted: 0 }),
       isLoading: false,
@@ -84,5 +89,29 @@ describe('RecruitmentKpiRow', () => {
 
     expect(screen.getAllByText('—')).toHaveLength(4);
     expect(screen.getByText('모집 인원 20명')).toBeInTheDocument();
+  });
+
+  it('외부 폼 모집은 통계를 조회하지 않고 4개 값 모두 —로 표시한다 (정원 부제는 유지)', () => {
+    // 숫자 id 로 조회하면 값이 생기게 해 둔다 — 조회 인자가 바뀌지 않으면 숫자가 그려져 실패한다
+    mockSummary.mockImplementation((recruitmentId: number | undefined) =>
+      recruitmentId === undefined
+        ? { data: undefined, isLoading: false }
+        : {
+            data: statsSummary({ total: 34, submitted: 5, onHold: 7, interviewPending: 8, accepted: 2 }),
+            isLoading: false,
+          },
+    );
+    render(
+      <RecruitmentKpiRow
+        recruitment={recruitment({ applicationMode: 'EXTERNAL', externalFormUrl: 'https://forms.gle/abc' })}
+      />,
+    );
+
+    expect(mockSummary).toHaveBeenCalledWith(undefined);
+    expect(mockSummary).not.toHaveBeenCalledWith(expect.any(Number));
+    expect(screen.getAllByText('—')).toHaveLength(4);
+    expect(screen.getByText('모집 인원 20명')).toBeInTheDocument();
+    // 외부 폼은 검토 대기 값이 없으니 무엇을 더했는지도 붙이지 않는다 — 맨 "—"만
+    expect(screen.queryByText('지원 완료 + 보류')).not.toBeInTheDocument();
   });
 });

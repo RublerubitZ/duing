@@ -1,4 +1,5 @@
 import { act, render, screen } from '@testing-library/react';
+import { renderToString } from 'react-dom/server';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { useAuthStore } from '@duing/stores';
 
@@ -91,5 +92,14 @@ describe('NotificationsPage — 렌더는 status, 이동은 확정 신호', () =
     useAuthStore.getState().seedSession('authenticated');
     render(<NotificationsPage />);
     expect(screen.getByTestId('home-nav')).toBeInTheDocument();
+  });
+
+  // 정적 HTML·하이드레이션 프레임은 스토어 초기값(미인증)이라, 거기서 안내를 그리면 로그인한 사용자도 JS 가 오기 전까지
+  // "로그인 후 확인"을 본다(#1500). 하이드레이션 뒤 미인증이면 위 테스트처럼 안내가 바로 나온다(fail-open 유지).
+  it('서버 렌더(정적 HTML)는 로그인 안내 대신 목록 자리만 그린다', () => {
+    const html = renderToString(<NotificationsPage />);
+    expect(html).not.toContain('로그인 후 확인');
+    expect(html).not.toContain('로그인하기');
+    expect(html).toContain('알림 목록 불러오는 중');
   });
 });

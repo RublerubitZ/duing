@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import type { SubmissionBatchSummary } from '@duing/types';
 import {
   AUDIT_ACTION_LABELS,
@@ -65,10 +65,23 @@ describe('BATCH_STATUS_META', () => {
 });
 
 describe('defaultBatchMemo', () => {
+  const originalTz = process.env.TZ;
+  afterEach(() => {
+    // undefined 를 대입하면 문자열 "undefined" 가 들어가 UTC 로 동작한다 — 원래 없었으면 지운다.
+    if (originalTz === undefined) delete process.env.TZ;
+    else process.env.TZ = originalTz;
+  });
+
   it('오늘 날짜 기준 "M월 N주차 · 동아리명"을 만든다 — 월말(29~31일)은 5주차', () => {
-    expect(defaultBatchMemo('밴드부', new Date(2026, 6, 1))).toBe('7월 1주차 · 밴드부');
-    expect(defaultBatchMemo('밴드부', new Date(2026, 6, 20))).toBe('7월 3주차 · 밴드부');
-    expect(defaultBatchMemo('방송국', new Date(2026, 6, 31))).toBe('7월 5주차 · 방송국');
+    expect(defaultBatchMemo('밴드부', new Date('2026-07-01T00:00:00+09:00'))).toBe('7월 1주차 · 밴드부');
+    expect(defaultBatchMemo('밴드부', new Date('2026-07-20T00:00:00+09:00'))).toBe('7월 3주차 · 밴드부');
+    expect(defaultBatchMemo('방송국', new Date('2026-07-31T00:00:00+09:00'))).toBe('7월 5주차 · 방송국');
+  });
+
+  it('오늘은 기기 시간대가 아니라 한국 시간 — 뉴욕 기기(아직 10/31)에서 한국 11/01 00:10 이면 11월 1주차', () => {
+    process.env.TZ = 'America/New_York';
+
+    expect(defaultBatchMemo('밴드부', new Date('2026-11-01T00:10:00+09:00'))).toBe('11월 1주차 · 밴드부');
   });
 });
 

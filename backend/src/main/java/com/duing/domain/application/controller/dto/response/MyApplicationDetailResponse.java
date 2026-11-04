@@ -23,7 +23,9 @@ public record MyApplicationDetailResponse(
         Instant submittedAt,
         int interviewAvailabilityCount,
         LocalDateTime availabilityDeadline,
-        boolean useInterview
+        boolean useInterview,
+        /** 운영 중단 정리로 끝난 지원서 — 지원자 화면이 "최종 불합격" 대신 "선발 종료"를 보이는 근거다. */
+        boolean endedByClubDeactivation
 ) {
 
     public static MyApplicationDetailResponse from(MyApplicationDetailQuery detailQuery) {
@@ -42,7 +44,8 @@ public record MyApplicationDetailResponse(
                 TimeMapper.systemWallClockToInstant(detailQuery.submittedAt()),
                 detailQuery.interviewAvailabilityCount(),
                 detailQuery.availabilityDeadline(),
-                detailQuery.useInterview()
+                detailQuery.useInterview(),
+                detailQuery.endedByClubDeactivation()
         );
     }
 }

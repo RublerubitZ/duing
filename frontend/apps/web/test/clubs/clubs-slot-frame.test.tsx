@@ -2,7 +2,7 @@ import { act, cleanup, render, screen, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { http, HttpResponse } from 'msw';
 import { setupServer } from 'msw/node';
-import { StrictMode, useEffect, useSyncExternalStore, type ReactNode } from 'react';
+import { StrictMode, useEffect, useSyncExternalStore, type ComponentProps, type ReactNode } from 'react';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { createApiClient } from '@duing/api';
@@ -16,7 +16,8 @@ import { clearNavigationPending } from '@/app/_lib/backDismiss';
  * 보임/숨겨 유지/렌더 안 함 중 하나로 그리고, 루트 표식(data-clubs-slot)과 숨은 목록 표식(data-clubs-hidden-list)을 단다.
  * 훅 값은 Next 16.3.8 실측 그대로다 — modal 경로 앞에 Next 내부 세그먼트 '(__SLOT__)' 가 끼고, 인터셉트((...)clubs/[clubId])는
  * '(...)clubs' 와 동아리 id 로, 하드 로드 상세·회원 화면에는 미러 그룹 '(passthrough)' 가 들어 있다. 판별은 fail-open 이라 모르는
- * 내부 세그먼트·기본값·숫자 아닌 id 는 인터셉트가 아니다(그 경우도 매트릭스에 있다).
+ * 내부 세그먼트·기본값·숫자 아닌 id 는 인터셉트가 아니다(그 경우도 매트릭스에 있다). 라우트 공지 영역에는 children 세그먼트 경로를
+ * 밑 화면 키(underlyingKey)로 넘긴다(스펙 2026-10-24 제목 연속성 §3.2).
  * next/navigation 의 훅들은 테스트가 바꾸는 탐색 상태 하나를 읽는다 — 실제 라우터처럼 한 번의 변경이 한 번의 커밋이다.
  */
 
@@ -24,15 +25,15 @@ type SlotNavigation = {
   pathname: string;
   /** useSelectedLayoutSegments('modal') 의 값(Next 내부 세그먼트 포함). */
   modalSegments: string[];
-  /** useSelectedLayoutSegment() — children 의 첫 세그먼트(목록이면 null). */
-  childSegment: string | null;
+  /** useSelectedLayoutSegments() — children 세그먼트 경로(목록이면 빈 배열). 단수형 useSelectedLayoutSegment() 는 그 첫 원소다. */
+  childSegments: string[];
   /** modal 슬롯이 그리는 인터셉트 상세의 동아리 id — 목록 짝·기본값·미러는 비어 있어 null 이다. */
   modalDetailClubId: string | null;
 };
 
 const { navigationStore, routerMock } = vi.hoisted(() => {
   const listeners = new Set<() => void>();
-  let current: SlotNavigation = { pathname: '/clubs', modalSegments: ['(__SLOT__)'], childSegment: null, modalDetailClubId: null };
+  let current: SlotNavigation = { pathname: '/clubs', modalSegments: ['(__SLOT__)'], childSegments: [], modalDetailClubId: null };
   return {
     navigationStore: {
       read: () => current,
@@ -60,10 +61,11 @@ vi.mock('next/navigation', async () => {
     usePathname: () => useNavigation().pathname,
     useSearchParams: () => new URLSearchParams(),
     // modal 경로는 복수형 훅으로만 읽는다 — 단수형 useSelectedLayoutSegment('modal') 은 경로의 마지막 세그먼트라 하드 로드 상세와
-    // 인터셉트가 같은 id 다. 판별이 다른 슬롯·인자를 읽으면 바로 실패시킨다.
+    // 인터셉트가 같은 id 다. 인자 없음(children)은 공지 영역의 밑 화면 키다. 그 밖의 슬롯을 읽으면 바로 실패시킨다.
     useSelectedLayoutSegments: (parallelRouteKey?: string) => {
       const navigation = useNavigation();
-      if (parallelRouteKey !== 'modal') throw new Error(`useSelectedLayoutSegments(${String(parallelRouteKey)}) — 'modal' 만 읽는다`);
+      if (parallelRouteKey === undefined || parallelRouteKey === 'children') return navigation.childSegments;
+      if (parallelRouteKey !== 'modal') throw new Error(`useSelectedLayoutSegments(${parallelRouteKey}) — 'modal'·children 만 읽는다`);
       return navigation.modalSegments;
     },
     useSelectedLayoutSegment: (parallelRouteKey?: string) => {
@@ -71,7 +73,24 @@ vi.mock('next/navigation', async () => {
       if (parallelRouteKey !== undefined && parallelRouteKey !== 'children') {
         throw new Error(`useSelectedLayoutSegment('${parallelRouteKey}') — children 만 읽는다(modal 은 useSelectedLayoutSegments)`);
       }
-      return navigation.childSegment;
+      return navigation.childSegments[0] ?? null;
+    },
+  };
+});
+
+// 라우트 공지 영역이 받은 밑 화면 키 — 실제 컴포넌트를 그대로 그리며 prop 만 적는다.
+const { announcerUnderlyingKeys } = vi.hoisted(() => {
+  const announcerUnderlyingKeys: string[] = [];
+  return { announcerUnderlyingKeys };
+});
+
+vi.mock('@/app/clubs/_components/ClubsRouteAnnouncer', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/app/clubs/_components/ClubsRouteAnnouncer')>();
+  return {
+    ...actual,
+    ClubsRouteAnnouncer: (props: ComponentProps<typeof actual.ClubsRouteAnnouncer>) => {
+      announcerUnderlyingKeys.push(props.underlyingKey);
+      return <actual.ClubsRouteAnnouncer {...props} />;
     },
   };
 });
@@ -79,26 +98,26 @@ vi.mock('next/navigation', async () => {
 import { MemberAccessGuard } from '@/app/clubs/[clubId]/member/_components/MemberAccessGuard';
 import { ClubsSlotFrame } from '@/app/clubs/_components/ClubsSlotFrame';
 
-const LIST: SlotNavigation = { pathname: '/clubs', modalSegments: ['(__SLOT__)'], childSegment: null, modalDetailClubId: null };
+const LIST: SlotNavigation = { pathname: '/clubs', modalSegments: ['(__SLOT__)'], childSegments: [], modalDetailClubId: null };
 const hardDetail = (clubId: string): SlotNavigation => ({
   pathname: `/clubs/${clubId}`,
   modalSegments: ['(__SLOT__)', '(passthrough)', clubId],
-  childSegment: clubId,
+  childSegments: [clubId],
   modalDetailClubId: null,
 });
 // 하드 로드든, 인터셉트 상세에서 소프트 이동했든 회원 화면의 modal 경로는 같다.
 const hardMember = (clubId: string): SlotNavigation => ({
   pathname: `/clubs/${clubId}/member/notices`,
   modalSegments: ['(__SLOT__)', '(passthrough)', clubId, 'member', 'notices'],
-  childSegment: clubId,
+  childSegments: [clubId, 'member', 'notices'],
   modalDetailClubId: null,
 });
-// 인터셉트 — modal 경로가 (...)clubs/[clubId] 의 '(...)clubs' 와 동아리 id 다. 밑의 children 세그먼트는 그대로다(목록이면 null, 회원
-// 화면이면 그 화면의 id).
-const intercepted = (clubId: string, childSegment: string | null): SlotNavigation => ({
+// 인터셉트 — modal 경로가 (...)clubs/[clubId] 의 '(...)clubs' 와 동아리 id 다. 밑의 children 세그먼트 경로는 그대로다(목록이면 빈
+// 배열, 회원 화면이면 그 화면의 경로).
+const intercepted = (clubId: string, childSegments: string[]): SlotNavigation => ({
   pathname: `/clubs/${clubId}`,
   modalSegments: ['(__SLOT__)', '(...)clubs', clubId],
-  childSegment,
+  childSegments,
   modalDetailClubId: clubId,
 });
 // fail-open(스펙 P1 §3.2) — 인터셉트는 '(passthrough)' 가 없고 마지막 원소가 양의 정수 id 일 때뿐이다. 그 밖의 경로는 children
@@ -115,7 +134,7 @@ const FAIL_OPEN_CASES: Array<[string, 'list' | 'page', SlotNavigation]> = [
   [
     '마지막 원소가 숫자 아닌 인터셉트 경로(/clubs/abc)',
     'list',
-    { pathname: '/clubs/abc', modalSegments: ['(__SLOT__)', '(...)clubs', 'abc'], childSegment: null, modalDetailClubId: 'abc' },
+    { pathname: '/clubs/abc', modalSegments: ['(__SLOT__)', '(...)clubs', 'abc'], childSegments: [], modalDetailClubId: 'abc' },
   ],
 ];
 
@@ -143,7 +162,7 @@ function PageProbe() {
 
 // 실제 레이아웃처럼 children 은 지금 세그먼트가 고른다 — 목록(null)이면 목록, 아니면 상세·회원 화면.
 function ChildrenProbe() {
-  return useNavigation().childSegment === null ? <ListProbe /> : <PageProbe />;
+  return useNavigation().childSegments.length === 0 ? <ListProbe /> : <PageProbe />;
 }
 
 // modal 슬롯 — 인터셉트일 때만 상세 셸이 있다(목록 짝·기본값·미러는 null).
@@ -192,6 +211,7 @@ afterEach(() => {
   routerMock.replace.mockReset();
   mountCounts.list = 0;
   mountCounts.page = 0;
+  announcerUnderlyingKeys.length = 0;
   clearNavigationPending();
 });
 
@@ -236,7 +256,7 @@ describe('ClubsSlotFrame — 판별 매트릭스(스펙 P1 §3.2)', () => {
     const listNode = screen.getByTestId('list-probe');
     const listWrapper = listNode.parentElement;
 
-    navigateTo(intercepted('5', null));
+    navigateTo(intercepted('5', []));
     expect(frameRoot()).toHaveAttribute('data-clubs-slot', 'intercepted');
     expect(screen.getByTestId('list-probe')).toBe(listNode);
     expect(listNode.parentElement).toBe(listWrapper);
@@ -246,7 +266,7 @@ describe('ClubsSlotFrame — 판별 매트릭스(스펙 P1 §3.2)', () => {
     // 고정 오버레이가 아니라 children 래퍼 뒤의 형제 흐름이다.
     expect((listWrapper?.compareDocumentPosition(modal) ?? 0) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
 
-    navigateTo(intercepted('6', null));
+    navigateTo(intercepted('6', []));
     expect(screen.getByTestId('modal-probe')).toHaveTextContent('6');
     expect(screen.getByTestId('list-probe')).toBe(listNode);
     expectKeptHidden(listWrapper);
@@ -272,7 +292,7 @@ describe('ClubsSlotFrame — 판별 매트릭스(스펙 P1 §3.2)', () => {
     renderFrame();
     const listNode = screen.getByTestId('list-probe');
 
-    navigateTo({ ...intercepted('5', null), modalSegments });
+    navigateTo({ ...intercepted('5', []), modalSegments });
     expect(frameRoot()).toHaveAttribute('data-clubs-slot', 'intercepted');
     expect(screen.getByTestId('list-probe')).toBe(listNode);
     expectKeptHidden(listNode.parentElement);
@@ -287,7 +307,7 @@ describe('ClubsSlotFrame — 판별 매트릭스(스펙 P1 §3.2)', () => {
     renderFrame();
     expect(mountCounts.page).toBe(1);
 
-    navigateTo(intercepted('6', '5'));
+    navigateTo(intercepted('6', page.childSegments));
     expect(frameRoot()).toHaveAttribute('data-clubs-slot', 'intercepted');
     expect(screen.queryByTestId('page-probe')).toBeNull();
     expect(document.querySelector('[data-clubs-hidden-list]')).toBeNull();
@@ -307,7 +327,7 @@ describe('ClubsSlotFrame — 판별 매트릭스(스펙 P1 §3.2)', () => {
     expect(screen.queryByTestId('list-probe')).toBeNull();
 
     // 회원 화면 → 뒤로 — 앞서 열었던 인터셉트 엔트리가 복원된다(children 은 목록 세그먼트지만 지금 마운트돼 있지 않다).
-    navigateTo(intercepted('5', null));
+    navigateTo(intercepted('5', []));
     expect(frameRoot()).toHaveAttribute('data-clubs-slot', 'intercepted');
     expect(screen.queryByTestId('list-probe')).toBeNull();
     expect(document.querySelector('[data-clubs-hidden-list]')).toBeNull();
@@ -320,7 +340,7 @@ describe('ClubsSlotFrame — 판별 매트릭스(스펙 P1 §3.2)', () => {
   });
 
   it('StrictMode(dev 이중 effect)에서 인터셉트 엔트리로 처음 마운트해도 목록을 숨긴 채 새로 마운트하지 않는다 — 다른 화면에서 뒤로 들어온 엔트리', () => {
-    navigationStore.set(intercepted('5', null));
+    navigationStore.set(intercepted('5', []));
     render(
       <StrictMode>
         <ClubsSlotFrame modal={<ModalProbe />}>
@@ -337,9 +357,24 @@ describe('ClubsSlotFrame — 판별 매트릭스(스펙 P1 §3.2)', () => {
     expect(listNode).toBeVisible();
 
     // 그 뒤 인터셉트는 같은 노드로 숨긴다(커밋 뒤 갱신이 두 번 돌아도 같은 값).
-    navigateTo(intercepted('6', null));
+    navigateTo(intercepted('6', []));
     expect(screen.getByTestId('list-probe')).toBe(listNode);
     expectKeptHidden(listNode.parentElement);
+  });
+
+  // 첫 세그먼트만으로는 상세(5)와 회원 화면(5/member/notices)이 같다 — 회원 화면에서 돌아온 인터셉트 엔트리를 가르려면 경로 전체여야 한다.
+  it.each<[string, SlotNavigation, string]>([
+    ['목록', LIST, ''],
+    ['하드 로드 상세', hardDetail('5'), '5'],
+    ['회원 화면', hardMember('5'), '5/member/notices'],
+    ['목록 위 인터셉트', intercepted('6', []), ''],
+    ['하드 로드 상세 위 인터셉트', intercepted('6', ['5']), '5'],
+    ['회원 화면 위 인터셉트', intercepted('6', ['5', 'member', 'notices']), '5/member/notices'],
+  ])('라우트 공지 영역의 밑 화면 키는 children 세그먼트 경로다 — %s', (_label, navigation, expectedKey) => {
+    navigationStore.set(navigation);
+    renderFrame();
+
+    expect(announcerUnderlyingKeys.at(-1)).toBe(expectedKey);
   });
 
   it('라우트 공지 영역은 프레임 루트의 마지막 자식이다 — 같은 커밋에서 상세의 effect 뒤에 돈다(스펙 P1 §3.6)', () => {
@@ -367,7 +402,7 @@ describe('ClubsSlotFrame — 거부된 회원 화면의 replace(스펙 P1 §4)',
     routerMock.replace.mockImplementation(() => {
       // 실제 라우터처럼 — 회원 화면 주소의 Next-Url 이 인터셉트 헤더 정규식에 맞아 /clubs/1 이 modal 로 열리고, 커밋 통지는 그 렌더
       // 뒤 다음 틱에 온다(예약 → 렌더 → 커밋 통지). 같은 호출에서 풀면 예약 상태가 한 번도 렌더되지 않아 숨겨 유지한 회귀를 못 잡는다.
-      navigationStore.set(intercepted('1', '1'));
+      navigationStore.set(intercepted('1', hardMember('1').childSegments));
       setTimeout(clearNavigationPending, 0);
     });
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });

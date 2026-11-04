@@ -20,17 +20,22 @@ describe('AdSenseLoader — 게시자 콘텐츠가 있는 공개 화면에서만
     hoistedAdSenseScripts().forEach((script) => script.remove());
   });
 
-  it.each([
-    '/',
-    '/clubs',
-    '/clubs/1',
-    '/notices',
-    '/notices/14',
-    '/introduce',
-    '/terms',
-  ])('게시자 콘텐츠가 있는 공개 경로 %s 는 허용된다', (pathname) => {
-    expect(isAdSenseAllowedPath(pathname)).toBe(true);
-  });
+  it.each(['/', '/clubs', '/notices', '/introduce', '/terms', '/faq'])(
+    '경로만으로 게시자 콘텐츠가 있는 공개 화면 %s 는 레이아웃이 싣는다',
+    (pathname) => {
+      expect(isAdSenseAllowedPath(pathname)).toBe(true);
+    },
+  );
+
+  // 상세는 같은 경로가 없는·숨긴·삭제된 자원의 noindex 셸이 되기도 하고, 동아리 상세는 소개 한 줄뿐인 곳도 있다 —
+  // 서버 조회 결과를 아는 page.tsx 가 콘텐츠가 있을 때만 싣는다(레이아웃은 싣지 않는다).
+  // '/clubs/(...)clubs/1' 은 인터셉트 결과 경로 — 주소로 직접 열면 데이터 없는 noindex 셸이 200 으로 열린다.
+  it.each(['/clubs/1', '/notices/14', '/clubs/999999', '/notices/10', '/clubs/(...)clubs/1'])(
+    '상세 %s 는 레이아웃이 싣지 않는다 — 페이지가 판단한다',
+    (pathname) => {
+      expect(isAdSenseAllowedPath(pathname)).toBe(false);
+    },
+  );
 
   it.each([
     '/manage/1',
@@ -49,25 +54,21 @@ describe('AdSenseLoader — 게시자 콘텐츠가 있는 공개 화면에서만
     expect(isAdSenseAllowedPath(pathname)).toBe(false);
   });
 
-  // 게시자 콘텐츠가 없는 공개 화면 — 예약 현황·캠퍼스 일정은 도구 화면이고 FAQ 는 등록된 질문이 0건이다.
-  // 애드센스는 게시자 콘텐츠가 없거나 탐색·행동 목적인 화면의 광고를 금지한다.
-  it.each(['/facilities', '/facilities/1', '/calendar', '/faq'])(
-    '콘텐츠가 없는 도구·빈 화면 %s 는 거부된다',
+  // 게시자 콘텐츠가 없는 공개 화면 — 예약 현황·캠퍼스 일정은 도구 화면이다.
+  it.each(['/facilities', '/facilities/1', '/calendar'])(
+    '게시자 콘텐츠가 없는 도구 화면 %s 는 거부된다',
     (pathname) => {
       expect(isAdSenseAllowedPath(pathname)).toBe(false);
     },
   );
 
-  // 부원 전용 공지·일정은 MemberAccessGuard 뒤 회원 전용 화면이다 — /clubs 허용 프리픽스에 묻히면 안 된다.
-  it('동아리 부원 전용 영역은 /clubs 허용 판정보다 먼저 거부된다', () => {
+  it('동아리 부원 전용 영역과 그 밖의 상세 하위 경로도 거부된다', () => {
     expect(isAdSenseAllowedPath('/clubs/1/member')).toBe(false);
     expect(isAdSenseAllowedPath('/clubs/1/member/notices')).toBe(false);
-    // 세그먼트 경계 — 'member' 로 시작만 하는 다른 하위 경로까지 막지는 않는다.
-    expect(isAdSenseAllowedPath('/clubs/1/membership-x')).toBe(true);
+    expect(isAdSenseAllowedPath('/clubs/1/membership-x')).toBe(false);
   });
 
-  it('허용 프리픽스와 글자만 겹치는 경로는 세그먼트가 달라 거부된다', () => {
-    // startsWith('/clubs') 만으로 판정하면 이런 경로까지 광고가 붙는다.
+  it('허용 경로와 글자만 겹치는 경로는 거부된다', () => {
     expect(isAdSenseAllowedPath('/clubsecret')).toBe(false);
     expect(isAdSenseAllowedPath('/terms-of-nothing')).toBe(false);
   });

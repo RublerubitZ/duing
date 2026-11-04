@@ -32,6 +32,7 @@ function HeartIcon({ filled = false, pop = false }: { filled?: boolean; pop?: bo
 type Badge = { text: string; tone: 'recruiting' | 'urgent' | 'muted' };
 
 // 모집 마감까지 D-day. OPEN+endDate 만 카운트다운, 그 외엔 상태 라벨. 일 단위라 SSR/CSR 같은 날짜 → 안전.
+// 모바일 좁은 배지 자리라 상태 라벨은 표시 상태 테이블(RECRUITMENT_DISPLAY_STATUS_LABEL) 대신 축약형을 쓴다 — 의도된 예외.
 function recruitBadge(club: Club): Badge | null {
   const recruitment = club.activeRecruitment;
   if (recruitment === null) return null;

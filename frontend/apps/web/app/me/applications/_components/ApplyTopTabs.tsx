@@ -6,7 +6,8 @@ import type { Counts, FilterKey } from '../_constants/data';
 type Props = {
   active: FilterKey[];
   onToggle: (key: FilterKey) => void;
-  counts: Counts;
+  /** null 은 불러오는 중 — 숫자를 그리지 않는다(거짓 0 방지) */
+  counts: Counts | null;
 };
 
 export function ApplyTopTabs({ active, onToggle, counts }: Props) {
@@ -33,11 +34,11 @@ export function ApplyTopTabs({ active, onToggle, counts }: Props) {
               transition: 'all .15s ease',
             }}>
               {filterTab.label}
-              <span style={{
+              {counts && <span style={{
                 fontSize: 11.5, fontWeight: 700,
                 color: isActive ? 'rgba(255,255,255,0.85)' : 'var(--charcoal-3)',
                 fontVariantNumeric: 'tabular-nums',
-              }}>{counts[filterTab.key]}</span>
+              }}>{counts[filterTab.key]}</span>}
             </button>
           );
         })}

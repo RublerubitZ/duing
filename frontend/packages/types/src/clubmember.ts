@@ -4,7 +4,7 @@ import type { College, Grade } from './user';
 export type ClubMemberRole = 'MEMBER' | 'OFFICER' | 'LEADER';
 
 // 멤버 목록·EXPORT 응답의 회비 납부 상태 요약. BE MemberFeeStatus enum 과 1:1.
-// 가장 최근 비-CANCELLED 청구 기준(PAID / 그 외 UNPAID / 청구 없음 NONE).
+// 비-CANCELLED 청구 중 덜 낸 청구(PENDING 납부대기·PARTIAL_PAID 부분납부·OVERDUE 연체)가 1건이라도 있으면 UNPAID / 전부 완납 PAID / 청구 없음 NONE.
 export type MemberFeeStatus = 'PAID' | 'UNPAID' | 'NONE';
 
 // GET /admin/clubs/{clubId}/members — 총동연 전용 동아리원 명단(학교 제출용, BE AdminClubMemberResponse 1:1).

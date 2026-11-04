@@ -1,6 +1,7 @@
 import * as Sentry from '@sentry/nextjs';
 
 import { installDeploySkewRecovery } from './app/_lib/deploySkewRecovery';
+import { fingerprintAndDedupeHydrationError } from './sentry-hydration';
 import { scrubBreadcrumb, scrubEvent, stripQuery } from './sentry-scrub';
 
 // 클라이언트(브라우저) 런타임 Sentry 초기화. NEXT_PUBLIC_SENTRY_DSN 이 비면 자동 비활성.
@@ -26,7 +27,8 @@ Sentry.init({
     'Transition was aborted because of timeout in DOM update',
   ],
   // 요청 URL·브레드크럼(fetch/xhr/navigation)의 쿼리스트링 PII 제거, 클릭·입력 브레드크럼과 이벤트 extra 에 실린 요소 셀렉터의 속성 값(접근성 이름에 담긴 사람 이름) 가림.
-  beforeSend: scrubEvent,
+  // 하이드레이션 오류는 페이지별 이슈로 나누고, 같은 탭에서는 페이지마다 한 번만 보낸다(sentry-hydration).
+  beforeSend: (event) => fingerprintAndDedupeHydrationError(scrubEvent(event)),
   beforeBreadcrumb: scrubBreadcrumb,
 });
 

@@ -246,8 +246,9 @@ export default function RecruitmentDetailPage({
         </div>
       )}
 
-      {/* 지원 현황 요약 — 통계 페이지 진입 전 핵심 지표 미리보기 */}
-      {statsSummary && (
+      {/* 지원 현황 요약 — 통계 페이지 진입 전 핵심 지표 미리보기.
+          외부 폼은 지원 데이터가 없어 0 만 나오므로 감춘다(조회는 삭제 판정에 필요해 그대로 둔다). */}
+      {!isExternal && statsSummary && (
         <div className="mb-5 flex flex-wrap items-center gap-x-6 gap-y-2 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3">
           <div className="flex items-baseline gap-1.5">
             <span className="text-xs text-slate-500">지원자</span>
@@ -327,7 +328,7 @@ export default function RecruitmentDetailPage({
               onClick={() => setShowCloseConfirm(true)}
               className="inline-flex items-center gap-2 rounded-md border border-rose-300 bg-white px-4 py-2 text-sm font-medium text-rose-600 shadow-sm transition-colors hover:border-rose-400 hover:bg-rose-50"
             >
-              마감
+              모집 마감
             </button>
           </>
         )}
@@ -348,7 +349,7 @@ export default function RecruitmentDetailPage({
 
       {stopIntakeAction.visible && !stopIntakeAction.enabled && (
         <p id="stop-intake-too-early" className="mt-2 text-xs text-slate-500">
-          모집 시작일 다음 날부터 접수를 마감할 수 있습니다. 오늘 바로 끝내야 한다면 마감을
+          모집 시작일 다음 날부터 접수를 마감할 수 있습니다. 오늘 바로 끝내야 한다면 모집 마감을
           이용해주세요.
         </p>
       )}

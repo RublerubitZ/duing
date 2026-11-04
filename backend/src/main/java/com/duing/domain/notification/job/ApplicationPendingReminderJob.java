@@ -8,7 +8,11 @@ import com.duing.domain.notification.entity.NotificationType;
 import com.duing.domain.notification.service.NotificationService;
 import com.duing.domain.notification.service.dto.command.CreateNotificationCommand;
 import com.duing.domain.notification.support.OperatorNotificationSupport;
+import com.duing.global.jobrun.JobRunOutcome;
+import com.duing.global.jobrun.JobRunRecorder;
+import com.duing.global.jobrun.MonitoredJob;
 import java.time.Clock;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -37,32 +41,43 @@ public class ApplicationPendingReminderJob {
     private final ClubMemberRepository clubMemberRepository;
     private final NotificationService notificationService;
     private final Clock clock;
+    private final JobRunRecorder jobRunRecorder;
 
     // 운영진이 활동하는 오전, 다른 알림 잡(05:00·06:00)과 떨어진 시각.
     @Scheduled(cron = "0 30 9 * * *", zone = "Asia/Seoul")
     @Transactional(readOnly = true)
     public void run() {
-        // dedup 날짜는 KST, 제출 시각 경계는 총동연 콘솔 배지와 공유하는 정책 지점에서 만든다(system regime).
-        LocalDate today = LocalDate.now(clock);
-        LocalDateTime submittedBefore = PendingApplicationPolicy.submittedBefore(clock);
-        List<PendingApplicationRow> candidates = applicationRepository.findPendingReminderCandidates(submittedBefore);
-        log.info("ApplicationPendingReminderJob start: candidates={}", candidates.size());
+        Instant startedAt = Instant.now(clock);
+        try {
+            // dedup 날짜는 KST, 제출 시각 경계는 총동연 콘솔 배지와 공유하는 정책 지점에서 만든다(system regime).
+            LocalDate today = LocalDate.now(clock);
+            LocalDateTime submittedBefore = PendingApplicationPolicy.submittedBefore(clock);
+            List<PendingApplicationRow> candidates = applicationRepository.findPendingReminderCandidates(submittedBefore);
+            log.info("ApplicationPendingReminderJob start: candidates={}", candidates.size());
 
-        int created = 0;
-        for (PendingApplicationRow row : candidates) {
-            List<Long> officerUserIds = clubMemberRepository.findOfficerUserIdsByClubIdIn(List.of(row.getClubId()));
-            for (Long officerUserId : officerUserIds) {
-                try {
-                    if (notificationService.createIfAbsent(buildReminderCommand(officerUserId, row, today))) {
-                        created++;
+            int created = 0;
+            int failedCount = 0;
+            for (PendingApplicationRow row : candidates) {
+                List<Long> officerUserIds = clubMemberRepository.findOfficerUserIdsByClubIdIn(List.of(row.getClubId()));
+                for (Long officerUserId : officerUserIds) {
+                    try {
+                        if (notificationService.createIfAbsent(buildReminderCommand(officerUserId, row, today))) {
+                            created++;
+                        }
+                    } catch (Exception failure) {
+                        failedCount++;
+                        log.warn("APPLICATION_PENDING_REMINDER 알림 실패: userId={}, recruitmentId={}",
+                                officerUserId, row.getRecruitmentId(), failure);
                     }
-                } catch (Exception failure) {
-                    log.warn("APPLICATION_PENDING_REMINDER 알림 실패: userId={}, recruitmentId={}",
-                            officerUserId, row.getRecruitmentId(), failure);
                 }
             }
+            log.info("ApplicationPendingReminderJob done: created={}, failed={}", created, failedCount);
+            jobRunRecorder.record(MonitoredJob.APPLICATION_PENDING_REMINDER, startedAt,
+                    JobRunOutcome.of(failedCount), created, failedCount);
+        } catch (RuntimeException jobFailure) {
+            jobRunRecorder.record(MonitoredJob.APPLICATION_PENDING_REMINDER, startedAt, JobRunOutcome.FAILED, 0, 0);
+            throw jobFailure;
         }
-        log.info("ApplicationPendingReminderJob done: created={}", created);
     }
 
     private CreateNotificationCommand buildReminderCommand(Long officerUserId, PendingApplicationRow row,

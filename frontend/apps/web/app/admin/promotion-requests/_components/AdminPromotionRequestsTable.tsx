@@ -39,7 +39,7 @@ export function AdminPromotionRequestsTable({ items }: Props) {
         <tbody>
           {items.map((request) => (
             <tr key={request.id} className="border-t border-line hover:bg-graysoft/50">
-              <Td>
+              <Td className="whitespace-nowrap">
                 <span
                   className={cn(
                     'inline-block px-2 py-0.5 rounded-full text-[11px] font-semibold',
@@ -49,11 +49,11 @@ export function AdminPromotionRequestsTable({ items }: Props) {
                   {PROMOTION_REQUEST_STATUS_LABEL[request.status]}
                 </span>
               </Td>
-              <Td>{request.club.name}</Td>
-              <Td>{request.requester.name}</Td>
+              <Td className="break-keep">{request.club.name}</Td>
+              <Td className="whitespace-nowrap">{request.requester.name}</Td>
               <Td className="max-w-xs truncate">{request.title}</Td>
-              <Td>{formatDateTimeKst(request.createdAt)}</Td>
-              <Td>
+              <Td className="whitespace-nowrap">{formatDateTimeKst(request.createdAt)}</Td>
+              <Td className="whitespace-nowrap">
                 <Link
                   href={toRoute(`/admin/promotion-requests/${request.id}`)}
                   className="text-[12px] text-charcoal-2 hover:text-ink hover:underline"
@@ -70,7 +70,7 @@ export function AdminPromotionRequestsTable({ items }: Props) {
 }
 
 const Th = ({ children }: { children: React.ReactNode }) => (
-  <th className="text-left px-3 py-2 font-semibold">{children}</th>
+  <th className="whitespace-nowrap text-left px-3 py-2 font-semibold">{children}</th>
 );
 
 const Td = ({

@@ -37,6 +37,8 @@ import org.hibernate.SessionFactory;
 import org.hibernate.stat.Statistics;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.security.access.AccessDeniedException;
@@ -153,8 +155,8 @@ class ClubMemberQueryServiceTest {
     }
 
     @Test
-    @DisplayName("멤버 목록의 회비 상태는 최신 비-CANCELLED 청구로 판정된다: PAID→PAID, OVERDUE→UNPAID, 청구없음/CANCELLED→NONE")
-    void feeStatusReflectsLatestNonCancelledBill() throws Exception {
+    @DisplayName("멤버 목록의 회비 상태는 덜 낸 청구 보유로 판정된다: 전부 완납→PAID, 덜 낸 청구가 있으면→UNPAID, 청구없음/전부 CANCELLED→NONE")
+    void feeStatusReflectsRemainingUnpaidBills() throws Exception {
         User leader = saveUser("회비리더");
         User paidMember = saveUser("완납회원");
         User unpaidMember = saveUser("미납회원");
@@ -167,12 +169,14 @@ class ClubMemberQueryServiceTest {
         clubMemberRepository.save(ClubMember.asMember(club, noneMember));
         Long policyId = feePolicyRepository.save(FeePolicyFixture.of(clubId, BillingType.MONTHLY, 10000L)).getId();
 
-        // ① 최신 청구가 PAID → PAID
+        // ① 비-CANCELLED 청구가 전부 PAID → PAID
+        saveBill(clubId, paidMember.getId(), policyId, "2026-05", FeeStatus.PAID);
         saveBill(clubId, paidMember.getId(), policyId, "2026-06", FeeStatus.PAID);
-        // ② 과거에 PAID 가 있어도 최신 청구가 OVERDUE → UNPAID (오래된 것부터 저장해 최신이 OVERDUE 가 되게)
+        // ② 과거에 PAID 가 있어도 덜 낸(OVERDUE) 청구가 남아 있으면 → UNPAID
         saveBill(clubId, unpaidMember.getId(), policyId, "2026-05", FeeStatus.PAID);
         saveBill(clubId, unpaidMember.getId(), policyId, "2026-06", FeeStatus.OVERDUE);
         // ③ 비-CANCELLED 청구 없음(있는 건 CANCELLED 뿐) → NONE
+        saveBill(clubId, noneMember.getId(), policyId, "2026-05", FeeStatus.CANCELLED);
         saveBill(clubId, noneMember.getId(), policyId, "2026-06", FeeStatus.CANCELLED);
 
         Map<String, ClubMemberQuery> byName = clubMemberQueryService.getMembers(clubId, leader.getId()).stream()
@@ -183,6 +187,75 @@ class ClubMemberQueryServiceTest {
         assertThat(byName.get("무청구회원").feeStatus()).isEqualTo(MemberFeeStatus.NONE);
         // 청구가 전혀 없는 리더도 NONE
         assertThat(byName.get("회비리더").feeStatus()).isEqualTo(MemberFeeStatus.NONE);
+    }
+
+    @ParameterizedTest(name = "이전 회차가 {0} 이면 최신 회차를 완납해도 UNPAID 다")
+    @EnumSource(value = FeeStatus.class, names = {"PENDING", "PARTIAL_PAID", "OVERDUE"})
+    @DisplayName("최신 청구를 완납했어도 이전 회차에 덜 낸 청구가 남아 있으면 회비 상태는 UNPAID 다")
+    void earlierRemainderMakesUnpaidEvenIfLatestBillIsPaid(FeeStatus earlierStatus) throws Exception {
+        User leader = saveUser("잔여리더");
+        User member = saveUser("잔여회원");
+        Club club = saveActiveClub("잔여동아리");
+        Long clubId = club.getId();
+        clubMemberRepository.save(ClubMember.asLeader(club, leader));
+        clubMemberRepository.save(ClubMember.asMember(club, member));
+        Long policyId = feePolicyRepository.save(FeePolicyFixture.of(clubId, BillingType.MONTHLY, 10000L)).getId();
+
+        // 잔여 청구를 먼저, 완납 청구를 나중에 저장해 최신 청구(created_at·id 기준)가 PAID 가 되게 한다.
+        saveBill(clubId, member.getId(), policyId, "2026-05", earlierStatus);
+        saveBill(clubId, member.getId(), policyId, "2026-06", FeeStatus.PAID);
+
+        Map<String, ClubMemberQuery> byName = clubMemberQueryService.getMembers(clubId, leader.getId()).stream()
+                .collect(Collectors.toMap(ClubMemberQuery::name, row -> row));
+
+        assertThat(byName.get("잔여회원").feeStatus()).isEqualTo(MemberFeeStatus.UNPAID);
+    }
+
+    @Test
+    @DisplayName("soft-delete 된 덜 낸 청구는 회비 상태 판정에서 빠져, 남은 청구가 완납뿐이면 PAID 다")
+    void softDeletedRemainderBillIsIgnored() throws Exception {
+        User leader = saveUser("삭제청구리더");
+        User member = saveUser("삭제청구회원");
+        Club club = saveActiveClub("삭제청구동아리");
+        Long clubId = club.getId();
+        clubMemberRepository.save(ClubMember.asLeader(club, leader));
+        clubMemberRepository.save(ClubMember.asMember(club, member));
+        Long policyId = feePolicyRepository.save(FeePolicyFixture.of(clubId, BillingType.MONTHLY, 10000L)).getId();
+
+        saveBill(clubId, member.getId(), policyId, "2026-05", FeeStatus.PAID);
+        FeeBill deletedOverdueBill = saveBill(clubId, member.getId(), policyId, "2026-06", FeeStatus.OVERDUE);
+        feeBillRepository.delete(deletedOverdueBill);
+
+        Map<String, ClubMemberQuery> byName = clubMemberQueryService.getMembers(clubId, leader.getId()).stream()
+                .collect(Collectors.toMap(ClubMemberQuery::name, row -> row));
+
+        assertThat(byName.get("삭제청구회원").feeStatus()).isEqualTo(MemberFeeStatus.PAID);
+    }
+
+    @Test
+    @DisplayName("탈퇴 전 덜 낸 청구가 남은 채 재가입한 회원은 재가입 뒤 청구를 완납해도 UNPAID 다")
+    void rejoinedMemberWithRemainderBeforeLeavingIsUnpaid() throws Exception {
+        User leader = saveUser("재가입리더");
+        User member = saveUser("재가입회원");
+        Club club = saveActiveClub("재가입동아리");
+        Long clubId = club.getId();
+        clubMemberRepository.save(ClubMember.asLeader(club, leader));
+        ClubMember oldMembership = clubMemberRepository.save(ClubMember.asMember(club, member));
+        Long policyId = feePolicyRepository.save(FeePolicyFixture.of(clubId, BillingType.MONTHLY, 10000L)).getId();
+        // 탈퇴 전 회차 청구는 탈퇴해도 취소되지 않고 (club, user) 로 남는다.
+        saveBill(clubId, member.getId(), policyId, "2026-05", FeeStatus.OVERDUE);
+
+        clubMemberRepository.delete(oldMembership);
+        // @SQLDelete UPDATE 가 재가입 INSERT 보다 먼저 나가야 활성 멤버십 유일 인덱스와 충돌하지 않는다.
+        clubMemberRepository.flush();
+        clubMemberRepository.save(ClubMember.asMember(club, member));
+        // 재가입 뒤 회차를 나중에 저장해 최신 청구가 PAID 가 되게 한다.
+        saveBill(clubId, member.getId(), policyId, "2026-06", FeeStatus.PAID);
+
+        Map<String, ClubMemberQuery> byName = clubMemberQueryService.getMembers(clubId, leader.getId()).stream()
+                .collect(Collectors.toMap(ClubMemberQuery::name, row -> row));
+
+        assertThat(byName.get("재가입회원").feeStatus()).isEqualTo(MemberFeeStatus.UNPAID);
     }
 
     @Test
@@ -204,7 +277,7 @@ class ClubMemberQueryServiceTest {
     }
 
     @Test
-    @DisplayName("export 목록에도 회원 기수와 최신 청구 기준 회비 상태가 실린다")
+    @DisplayName("export 목록에도 회원 기수와 덜 낸 청구 보유 기준 회비 상태가 실린다")
     void exportCarriesGenerationAndFeeStatus() throws Exception {
         User leader = saveUser("export리더");
         User paidMember = saveUser("export완납");
@@ -262,12 +335,13 @@ class ClubMemberQueryServiceTest {
     }
 
     /** period(회차) 로 청구를 만들고 PAID/OVERDUE 등 비-PENDING 상태를 실제로 반영한다(픽스처는 CANCELLED 만 전이). */
-    private void saveBill(Long clubId, Long userId, Long policyId, String period, FeeStatus status) {
+    private FeeBill saveBill(Long clubId, Long userId, Long policyId, String period, FeeStatus status) {
         FeeBill bill = feeBillRepository.save(FeeBillFixture.withStatus(clubId, userId, policyId, period, status));
         if (status != FeeStatus.PENDING && status != FeeStatus.CANCELLED) {
             bill.updateStatus(status);
             feeBillRepository.save(bill);
         }
+        return bill;
     }
 
     private User saveUser(String name) {

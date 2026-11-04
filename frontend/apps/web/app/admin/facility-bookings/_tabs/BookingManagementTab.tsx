@@ -162,7 +162,7 @@ export function BookingManagementTab({ isActive = true }: BookingManagementTabPr
       )}
 
       {/* 목업 CCard — 툴바·테이블·페이지네이션을 한 카드가 감싼다. */}
-      <ConsoleCard>
+      <ConsoleCard data-pagination-anchor="" className="scroll-mt-16 md:scroll-mt-6">
         <div className="flex flex-wrap items-center gap-2 px-[18px] py-3">
           <div className="flex flex-wrap items-center gap-1.5" role="tablist" aria-label="큐 필터">
             {(Object.keys(TAB_LABELS) as AdminQueueTab[]).map((tab) => {

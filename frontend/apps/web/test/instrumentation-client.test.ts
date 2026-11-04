@@ -316,16 +316,43 @@ describe('Sentry 초기화 개인정보 정책', () => {
   // 서버 설정의 같은 배선 테스트(test/sentry-scrub.test.ts 의 sentry.server.config)와 짝이다.
   // 브라우저의 클릭·입력 브레드크럼(접근성 이름에 담긴 사람 이름)과 요청 URL 가림은 이 배선이 있어야 동작한다 —
   // 줄이 빠지면 가림 함수를 아무리 고쳐도 무력해지므로 여기서 실패해야 한다.
-  it('클라이언트 Sentry 를 scrubEvent·scrubBreadcrumb·sendDefaultPii:false 로 초기화한다', async () => {
+  it('클라이언트 Sentry 를 scrubEvent·scrubBreadcrumb·sendDefaultPii:false 로 초기화하고 하이드레이션 오류를 페이지별로 나눈다', async () => {
     // 계측 파일을 새로 평가한다(반환되는 PostHog 옵션은 쓰지 않는다). 아래 두 import 는 같은 모듈 레지스트리에서
     // 계측 파일이 쓴 것과 같은 인스턴스를 돌려준다 — 파일 위쪽 정적 import 와 비교하면 캐시 초기화 뒤라 어긋난다.
     await captureInitOptions();
     const Sentry = await import('@sentry/nextjs');
-    const { scrubBreadcrumb, scrubEvent } = await import('@/sentry-scrub');
+    const { scrubBreadcrumb } = await import('@/sentry-scrub');
 
     // mock 의 호출 기록은 이 파일의 다른 테스트가 계측 파일을 평가한 것과 섞일 수 있다 — 방금 평가의 호출인 마지막 호출로 판정한다.
     expect(vi.mocked(Sentry.init)).toHaveBeenLastCalledWith(
-      expect.objectContaining({ beforeSend: scrubEvent, beforeBreadcrumb: scrubBreadcrumb, sendDefaultPii: false }),
+      expect.objectContaining({ beforeBreadcrumb: scrubBreadcrumb, sendDefaultPii: false }),
     );
+    // beforeSend 는 가림 뒤에 하이드레이션 오류 그룹핑을 잇는 합성 함수다 — 실제로 태워 둘 다 걸리는지 본다.
+    const beforeSend = vi.mocked(Sentry.init).mock.lastCall?.[0]?.beforeSend;
+    if (typeof beforeSend !== 'function') throw new Error('beforeSend 가 배선되어야 한다');
+    window.sessionStorage.clear();
+    const sent = await beforeSend(
+      {
+        type: undefined,
+        exception: {
+          values: [
+            {
+              type: 'Error',
+              value: 'Minified React error #418; visit https://react.dev/errors/418',
+            },
+          ],
+        },
+        request: {
+          url: 'https://duings.com/clubs/38?q=20261234',
+          cookies: { theme: 'dark' },
+          headers: { Cookie: 'test-only-jwt' },
+        },
+      },
+      {},
+    );
+    expect(sent?.request?.url).toBe('https://duings.com/clubs/38');
+    expect(sent?.request?.cookies).toBeUndefined();
+    expect(sent?.request?.headers).toEqual({ Cookie: '[Filtered]' });
+    expect(sent?.fingerprint).toEqual(['react-hydration-error', '#418', '/clubs/:id']);
   });
 });

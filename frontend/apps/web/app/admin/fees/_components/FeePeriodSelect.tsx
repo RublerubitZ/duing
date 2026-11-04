@@ -16,7 +16,7 @@ const controlCls =
   'rounded-md border border-line bg-paper px-2.5 py-2 text-[12.5px] text-charcoal focus-visible:border-ink focus-visible:outline-none';
 
 /**
- * 감사 콘솔 전역 기간 셀렉터. 목록과 상세가 같은 컴포넌트를 쓴다(기본 프리셋만 호출부가 정한다).
+ * 감사 콘솔 전역 기간 셀렉터. 목록과 상세가 같은 컴포넌트를 쓴다.
  * 직접 선택은 브라우저 기본 날짜 입력을 쓴다 — 달력 위젯을 따로 만들면 접근성·모바일 동작을 다시 짜야 한다.
  */
 export function FeePeriodSelect({ value, onChange }: Props) {

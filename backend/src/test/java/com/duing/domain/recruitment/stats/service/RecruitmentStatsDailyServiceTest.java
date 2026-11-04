@@ -9,6 +9,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.duing.domain.application.repository.ApplicationRepository;
 import com.duing.domain.club.entity.Club;
 import com.duing.domain.clubmember.service.ClubAuthService;
 import com.duing.domain.recruitment.entity.Recruitment;
@@ -49,6 +50,7 @@ class RecruitmentStatsDailyServiceTest {
                 recruitmentRepository,
                 recruitmentStatsRepository,
                 clubAuthService,
+                mock(ApplicationRepository.class),
                 FIXED_SEOUL_CLOCK
         );
     }

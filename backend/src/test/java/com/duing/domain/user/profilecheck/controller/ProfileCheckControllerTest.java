@@ -269,16 +269,31 @@ class ProfileCheckControllerTest extends IntegrationTestBase {
     }
 
     @Test
-    @DisplayName("운영진·졸업생에게는 노출되지 않고 확인도 409 다")
-    void nonTargetsAreNeverPending() {
+    @DisplayName("졸업생에게는 노출되지 않고 확인도 409 다")
+    void graduatesAreNeverPending() {
         turnOn();
         User graduated = saveStudent(Grade.GRADUATED);
 
-        status(admin).body("data.pending", equalTo(false));
         status(graduated).body("data.pending", equalTo(false));
-        confirm(admin, 2026, 1, null).statusCode(HttpStatus.CONFLICT.value());
         confirm(graduated, 2026, 1, null).statusCode(HttpStatus.CONFLICT.value());
         assertThat(confirmationRepository.count()).isZero();
+    }
+
+    @Test
+    @DisplayName("총동연(관리자) 계정도 켜진 팝업을 보고 확인할 수 있다 — 설정 저장만으로는 확인으로 기록되지 않는다")
+    void adminSeesAndConfirmsPrompt() {
+        turnOn();
+        // 설정을 저장한 관리자 본인이라도 저장만으로는 확인 기록이 생기지 않는다.
+        assertThat(confirmationRepository.count()).isZero();
+
+        // 픽스처 가입 시각이 그해 1월 이후라 학년 제안 없이 현재 정보로 확인한다.
+        status(admin)
+                .body("data.pending", equalTo(true))
+                .body("data.suggestedGrade", nullValue());
+        confirm(admin, 2026, 1, null).statusCode(HttpStatus.NO_CONTENT.value());
+
+        assertThat(isRecorded(admin, 2026, 1)).isTrue();
+        status(admin).body("data.pending", equalTo(false));
     }
 
     @Test

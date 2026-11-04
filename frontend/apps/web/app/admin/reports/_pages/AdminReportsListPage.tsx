@@ -1,10 +1,12 @@
 'use client';
 
 import { useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import type { ReportStatus, ReportTargetType } from '@duing/types';
 import { useAdminReportListQuery } from '@duing/hooks';
 import { Pagination } from '@/components/Pagination';
 import { LoadingGate } from '@/components/loading/LoadingGate';
+import { pickSearchParam } from '../../_lib/searchParamChoice';
 import { AdminReportsFilterBar } from '../_components/AdminReportsFilterBar';
 import { AdminReportsTable } from '../_components/AdminReportsTable';
 import { REPORT_STATUS_LABEL } from '../_lib/reportLabels';
@@ -14,7 +16,14 @@ const PAGE_SIZE = 20;
 const STATUS_TABS: (ReportStatus | 'ALL')[] = ['ALL', 'PENDING', 'RESOLVED', 'DISMISSED'];
 
 export function AdminReportsListPage() {
-  const [statusFilter, setStatusFilter] = useState<ReportStatus | 'ALL'>('ALL');
+  const searchParams = useSearchParams();
+  // 총동연 홈 영역 칸이 ?status= 로 첫 탭을 고른다. 주소만 바뀐 이동(사이드바로 같은 메뉴)에도 첫 값부터 다시 시작하도록 key 로 초기화한다.
+  const initialStatus = pickSearchParam(searchParams.get('status'), STATUS_TABS) ?? 'ALL';
+  return <AdminReportsList key={initialStatus} initialStatus={initialStatus} />;
+}
+
+function AdminReportsList({ initialStatus }: { initialStatus: ReportStatus | 'ALL' }) {
+  const [statusFilter, setStatusFilter] = useState<ReportStatus | 'ALL'>(initialStatus);
   const [targetTypeFilter, setTargetTypeFilter] = useState<ReportTargetType | 'ALL'>('ALL');
   const [page, setPage] = useState(0);
 

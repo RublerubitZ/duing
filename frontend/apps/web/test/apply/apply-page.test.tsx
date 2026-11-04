@@ -326,6 +326,30 @@ describe('ApplyForm — 단일 스텝 지원', () => {
     expect(draftPutCount).toBe(0);
   }, 10_000);
 
+  // 시각 표시는 기기 시간대가 아니라 한국 시간이다(TIMEZONE.md) — 뉴욕 기기는 같은 순간이 오전 11:10:05 다.
+  it('임시 저장 시각은 기기 시간대와 무관하게 한국 시간으로 보인다', async () => {
+    const originalTz = process.env.TZ;
+    process.env.TZ = 'America/New_York';
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-11-01T00:10:05+09:00'));
+    server.use(
+      http.put(`*/recruitments/${RECRUITMENT_ID}/draft`, () => HttpResponse.json({ ok: true, data: null, message: null })),
+    );
+    try {
+      const user = userEvent.setup();
+      renderForm({ useInterview: false });
+      await user.type(screen.getByLabelText(/지원 동기/), '열정');
+
+      // 자동 저장은 입력 뒤 2초 디바운스로 나간다.
+      expect(await screen.findByText('마지막 저장 00:10:05', {}, { timeout: 4000 })).toBeInTheDocument();
+    } finally {
+      vi.useRealTimers();
+      // undefined 를 대입하면 문자열 "undefined" 가 들어가 UTC 로 동작한다 — 원래 없었으면 지운다.
+      if (originalTz === undefined) delete process.env.TZ;
+      else process.env.TZ = originalTz;
+    }
+  }, 10_000);
+
   it('code 없는 제출 실패는 기존처럼 서버 메시지를 인라인 알림으로 보여준다', async () => {
     server.use(
       http.post('*/recruitments/:recruitmentId/applications', () =>

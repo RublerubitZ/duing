@@ -23,7 +23,7 @@ vi.mock('@duing/hooks', () => ({
     },
   }),
   useMyApplicationsQuery: () => ({ data: [] }),
-  useManagedClubsQuery: () => ({ data: [] }),
+  useMyClubsQuery: () => ({ data: [] }),
   useFavoriteListQuery: () => ({ data: { content: [] } }),
   useProfileCheckQuery: () => ({ data: { pending: false }, isFetching: false, isError: false }),
 }) satisfies Partial<Record<keyof typeof import('@duing/hooks'), unknown>>);

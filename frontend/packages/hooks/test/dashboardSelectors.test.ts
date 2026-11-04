@@ -7,8 +7,11 @@ import type {
 } from '@duing/types';
 import {
   CLOSING_SOON_DAYS,
-  ACTION_ITEM_PREVIEW_COUNT,
   buildActionItems,
+  buildClosedRecruitmentItems,
+  countAwaitingReview,
+  countUndecided,
+  groupDashboardTasks,
   sortActionItems,
   aggregateApplicantTotals,
   sortTodaySchedule,
@@ -224,6 +227,88 @@ describe('buildActionItems', () => {
     );
     expect(items.some((i) => i.type === 'INTERVIEW_ROUND_NEEDED')).toBe(false);
   });
+
+  it('검토 대기에 미처리가 있으면 가장 오래된 미처리부터 지난 KST 날짜 수를 싣는다', () => {
+    const items = buildActionItems(
+      [dashboardInput({ stats: stats({ submitted: 2, onHold: 1, oldestPendingSubmittedAt: '2026-06-05T03:00:00Z' }) })],
+      NOW,
+    );
+    expect(items.find((item) => item.type === 'APPLICANTS_AWAITING_REVIEW')).toMatchObject({ count: 3, pendingDays: 7 });
+  });
+
+  it('보류만 남았거나(미처리 0) 시각을 모르면 미처리 일수를 싣지 않는다', () => {
+    const onHoldOnly = buildActionItems(
+      [dashboardInput({ stats: stats({ submitted: 0, onHold: 2, oldestPendingSubmittedAt: '2026-06-01T03:00:00Z' }) })],
+      NOW,
+    );
+    const legacyBackend = buildActionItems([dashboardInput({ stats: stats({ submitted: 2 }) })], NOW);
+    const nullTime = buildActionItems([dashboardInput({ stats: stats({ submitted: 2, oldestPendingSubmittedAt: null }) })], NOW);
+    for (const items of [onHoldOnly, legacyBackend, nullTime]) {
+      expect(items.find((item) => item.type === 'APPLICANTS_AWAITING_REVIEW')).not.toHaveProperty('pendingDays');
+    }
+  });
+
+  it('미처리 일수는 KST 날짜로 센다 — 자정 직후면 1시간 전 제출도 1일', () => {
+    const items = buildActionItems(
+      [dashboardInput({ stats: stats({ submitted: 1, oldestPendingSubmittedAt: '2026-06-11T14:30:00Z' }) })], // KST 6/11 23:30
+      new Date('2026-06-11T15:30:00Z'), // KST 6/12 00:30
+    );
+    expect(items.find((item) => item.type === 'APPLICANTS_AWAITING_REVIEW')).toMatchObject({ pendingDays: 1 });
+  });
+
+  it('KST 날짜로 7일째가 되는 0시에 지금 처리로 올라가고, 칩이 읽는 일수도 같은 값이다', () => {
+    const awaitingAt = (now: Date) => {
+      const items = buildActionItems(
+        [dashboardInput({ stats: stats({ submitted: 1, oldestPendingSubmittedAt: '2026-06-05T14:30:00Z' }) })], // KST 6/5 23:30
+        now,
+      );
+      const group = groupDashboardTasks(items, []).find((candidate) =>
+        candidate.tasks.some((task) => task.source === 'RECRUITMENT' && task.item.type === 'APPLICANTS_AWAITING_REVIEW'),
+      );
+      return {
+        pendingDays: items.find((item) => item.type === 'APPLICANTS_AWAITING_REVIEW')?.pendingDays,
+        group: group?.key,
+      };
+    };
+    expect(awaitingAt(new Date('2026-06-11T14:59:00Z'))).toEqual({ pendingDays: 6, group: 'WAITING' }); // KST 6/11 23:59
+    expect(awaitingAt(new Date('2026-06-11T15:01:00Z'))).toEqual({ pendingDays: 7, group: 'NOW' }); // KST 6/12 00:01
+  });
+});
+
+describe('countAwaitingReview', () => {
+  it('검토 대기 = submitted + onHold — 면접 대상은 세지 않는다', () => {
+    expect(countAwaitingReview(stats({ submitted: 1, onHold: 2, interviewPending: 3, accepted: 4, rejected: 5 }))).toBe(3);
+  });
+});
+
+describe('countUndecided', () => {
+  it('결과(합격·불합격)가 없는 지원 = submitted + onHold + interviewPending', () => {
+    expect(countUndecided(stats({ submitted: 1, onHold: 2, interviewPending: 3, accepted: 4, rejected: 5 }))).toBe(6);
+  });
+});
+
+describe('buildClosedRecruitmentItems', () => {
+  const closedRecruitment = recruitment({ status: 'CLOSED', displayStatus: 'CLOSED', effectivelyOpen: false });
+
+  it('미결 지원이 남은 마감 모집 → 마감 모집 결과 미확정', () => {
+    const items = buildClosedRecruitmentItems([
+      { recruitment: closedRecruitment, stats: stats({ submitted: 1, onHold: 1, interviewPending: 1 }) },
+    ]);
+    expect(items).toEqual([
+      { type: 'CLOSED_RECRUITMENT_UNDECIDED', recruitmentId: 1, recruitmentTitle: '2026 봄 모집', count: 3 },
+    ]);
+  });
+
+  it('전원 확정이면 만들지 않는다', () => {
+    const items = buildClosedRecruitmentItems([
+      { recruitment: closedRecruitment, stats: stats({ accepted: 3, rejected: 2 }) },
+    ]);
+    expect(items).toEqual([]);
+  });
+
+  it('통계 미로딩(undefined)이면 만들지 않는다', () => {
+    expect(buildClosedRecruitmentItems([{ recruitment: closedRecruitment, stats: undefined }])).toEqual([]);
+  });
 });
 
 describe('sortActionItems', () => {
@@ -264,6 +349,14 @@ describe('sortActionItems', () => {
     expect(sorted[0]?.type).toBe('INTERVIEW_ROUND_NEEDED');
     expect(sorted[1]?.type).toBe('INTERVIEW_ROUND_UNCONFIRMED');
   });
+
+  it('기한 없는 마감 모집 결과 미확정은 검토 대기 지원자 뒤로 간다', () => {
+    const sorted = sortActionItems([
+      { type: 'CLOSED_RECRUITMENT_UNDECIDED', recruitmentId: 2, recruitmentTitle: '가을 모집', count: 1 },
+      { type: 'APPLICANTS_AWAITING_REVIEW', recruitmentId: 1, recruitmentTitle: '봄 모집', count: 2 },
+    ]);
+    expect(sorted.map((item) => item.type)).toEqual(['APPLICANTS_AWAITING_REVIEW', 'CLOSED_RECRUITMENT_UNDECIDED']);
+  });
 });
 
 describe('aggregateApplicantTotals', () => {
@@ -299,6 +392,5 @@ describe('sortTodaySchedule', () => {
 describe('constants', () => {
   it('상수 노출', () => {
     expect(CLOSING_SOON_DAYS).toBe(3);
-    expect(ACTION_ITEM_PREVIEW_COUNT).toBe(3);
   });
 });

@@ -1,4 +1,4 @@
-import { parseKstInstant } from '@duing/hooks';
+import { parseKstInstant, todayKstDateString } from '@duing/hooks';
 import type { SubmissionAuditEntry, SubmissionBatchSummary } from '@duing/types';
 
 export type SubmissionBatchStatus = 'REVIEWING' | 'COMPLETED' | 'CANCELLED';
@@ -42,8 +42,10 @@ export function submissionCsvFileName(submissionNo: string): string {
 
 /** 일괄 생성 메모 프리필(v2 스펙 §4) — "M월 N주차 · 동아리명". 메모는 목록 이름처럼 쓰인다(수정 가능). */
 export function defaultBatchMemo(groupName: string, today: Date = new Date()): string {
-  const weekOfMonth = Math.ceil(today.getDate() / 7);
-  return `${today.getMonth() + 1}월 ${weekOfMonth}주차 · ${groupName}`;
+  // 월·일은 한국 시간 날짜로 읽는다 — 기기 시간대 게터는 해외 기기에서 하루 어긋난다(TIMEZONE.md).
+  const [, month, day] = todayKstDateString(today).split('-').map(Number);
+  const weekOfMonth = Math.ceil((day ?? 1) / 7);
+  return `${month}월 ${weekOfMonth}주차 · ${groupName}`;
 }
 
 /** 목록 제목 승격(개편 스펙 §5·§7) — 메모가 있으면 제목, 없으면 제출번호가 제목이 된다. */

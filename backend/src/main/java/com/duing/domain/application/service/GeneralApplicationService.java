@@ -229,7 +229,9 @@ public class GeneralApplicationService implements ApplicationService {
 
     @Override
     public MyApplicationDetailQuery getMyApplicationDetail(Long applicationId, Long currentUserId) {
-        Application application = applicationRepository.findById(applicationId)
+        // 모집·동아리를 함께 읽는다 — 폐쇄된 동아리(삭제된 모집)의 지원은 조인에서 빠져, 목록에서 빠지듯 상세·철회도 404 다
+        // (지원만 읽으면 삭제된 모집 프록시를 초기화하다 EntityNotFoundException 으로 500).
+        Application application = applicationRepository.findWithRecruitmentAndClubById(applicationId)
                 .orElseThrow(ApplicationDomainException.ApplicationNotFoundException::new);
         if (!application.getUser().getId().equals(currentUserId)) {
             throw new ApplicationDomainException.ForbiddenApplicationAccessException();
@@ -258,13 +260,14 @@ public class GeneralApplicationService implements ApplicationService {
     @Override
     @Transactional
     public void withdraw(Long applicationId, Long currentUserId) {
-        Application application = applicationRepository.findById(applicationId)
+        // 상세와 같은 조회 — 폐쇄된 동아리의 지원은 404 다.
+        Application application = applicationRepository.findWithRecruitmentAndClubById(applicationId)
                 .orElseThrow(ApplicationDomainException.ApplicationNotFoundException::new);
         if (!application.getUser().getId().equals(currentUserId)) {
             throw new ApplicationDomainException.ForbiddenApplicationAccessException();
         }
         // 마감된 모집의 지원은 아카이브 데이터라 철회로 사라지지 않는다. 상태 가드보다 앞에 두어
-        // "심사 중에만 철회 가능" 대신 마감 사실을 우선 안내한다 (recruitment lazy SELECT 1회 추가 — 무해).
+        // "심사 중에만 철회 가능" 대신 마감 사실을 우선 안내한다 (모집은 위 조회에서 함께 읽어 추가 SELECT 없음).
         if (ClosedRecruitmentPolicy.isClosed(application.getRecruitment())) {
             throw new ApplicationDomainException.CannotWithdrawClosedRecruitmentException();
         }
@@ -381,13 +384,18 @@ public class GeneralApplicationService implements ApplicationService {
     @Override
     @Transactional
     public void updateStatus(UpdateApplicationStatusCommand updateApplicationStatusCommand) {
-        Application application = applicationRepository.findById(updateApplicationStatusCommand.applicationId())
+        Long applicationId = updateApplicationStatusCommand.applicationId();
+        // 인가 먼저 — getApplicantDetail 과 같은 순서(경량 clubId 조회 → 운영진 확인 → 지원서). 폐쇄된 동아리(삭제된 모집)의
+        // 지원은 clubId 조회의 조인에서 빠져 404 다(지원부터 읽으면 권한 확인 전에 삭제된 모집 프록시를 초기화하다 500).
+        Long clubId = applicationRepository.findClubIdByApplicationId(applicationId)
                 .orElseThrow(ApplicationDomainException.ApplicationNotFoundException::new);
         // 반환된 ClubMember 를 그대로 받아 아래 운영진 승급 게이트의 역할 판정에 쓴다 — 추가 조회 없음.
         ClubMember actor = clubAuthService.requireManagerOrHidden(
                 updateApplicationStatusCommand.currentUserId(),
-                application.getRecruitment().getClub().getId(),
+                clubId,
                 ApplicationDomainException.ApplicationNotFoundException::new);
+        Application application = applicationRepository.findById(applicationId)
+                .orElseThrow(ApplicationDomainException.ApplicationNotFoundException::new);
         // 마감된 모집은 아카이브라 새 활동은 막지만, 남은 지원서의 최종 결과 확정만은 허용한다 —
         // 아무도 처리할 수 없으면 지원자는 결과를 못 받고 운영진도 손댈 수 없는 교착이 된다.
         // 벌크도 건별로 이 메서드를 경유하므로 여기 한 곳이면 충분하고, 실패 사유는 failures[] 로 전파된다.
@@ -500,23 +508,42 @@ public class GeneralApplicationService implements ApplicationService {
         if (recruitmentIds.isEmpty()) {
             return;
         }
-        List<Application> applications = applicationRepository
-                .findByRecruitmentIdInAndStatusIn(recruitmentIds, ApplicationStatus.activeSet());
+        rejectAllByAdmin(applicationRepository
+                .findByRecruitmentIdInAndStatusIn(recruitmentIds, ApplicationStatus.activeSet()), actorAdminUserId);
+    }
+
+    /**
+     * 운영 중단 동아리 남은 미결 정리(스펙 §4-1) — 폐쇄와 같은 일괄 불합격 루프를 쓰고, 지원자 화면이 "최종 불합격" 대신
+     * "선발 종료"를 보이도록 표시 칸을 남긴다. 폐쇄는 남기지 않는다 — 폐쇄된 동아리의 지원은 내 지원에서 빠진다.
+     */
+    @Override
+    @Transactional
+    public int rejectActiveOnClubDeactivation(Long clubId, Long actorAdminUserId) {
+        List<Application> applications =
+                applicationRepository.findByClubIdAndStatusIn(clubId, ApplicationStatus.activeSet());
+        rejectAllByAdmin(applications, actorAdminUserId);
+        // 표시는 불합격 전이 뒤에만 남길 수 있다(markEndedByClubDeactivation 이 상태를 확인한다) — 같은 트랜잭션이라 한 번에 flush 된다.
+        applications.forEach(Application::markEndedByClubDeactivation);
+        return applications.size();
+    }
+
+    /** 폐쇄·운영 중단 정리가 공유하는 총동연 일괄 불합격 — 건마다 상태 이력이 남고 주체는 실행한 총동연이다. */
+    private void rejectAllByAdmin(List<Application> applications, Long actorAdminUserId) {
         if (applications.isEmpty()) {
             return;
         }
 
-        // 이력 주체는 전 건이 같은 폐쇄 실행자라 한 번만 조회해 재사용한다. Changer 가 주체를 Supplier 로
+        // 이력 주체는 전 건이 같은 실행자(폐쇄·정리를 실행한 총동연)라 한 번만 조회해 재사용한다. Changer 가 주체를 Supplier 로
         // 받는 것은 FSM 에 막히는 전이에서 쓸데없는 주체 조회를 피하려는 것인데, 여기서는 전이 대상이
         // 하나라도 있으면 어차피 필요한 조회이고(대상이 없으면 위에서 반환) 전이 자체가 FSM 상 항상
         // 허용되므로(active → REJECTED), 선조회가 그 지연 목적과 어긋나지 않는다.
-        User closureActor = userRepository.findById(actorAdminUserId)
+        User adminActor = userRepository.findById(actorAdminUserId)
                 .orElseThrow(UserException.UserNotFoundException::new);
         for (Application application : applications) {
             // recruitmentClosed=false — 기존 2인자 transitionTo 도 내부에서 false 를 넘겼고,
             // active → REJECTED 는 면접 사용·마감 여부와 무관하게 허용돼 전이 동작은 그대로다.
             applicationStatusChanger.change(application, ApplicationStatus.REJECTED,
-                    application.getRecruitment().isUseInterview(), false, () -> closureActor);
+                    application.getRecruitment().isUseInterview(), false, () -> adminActor);
         }
     }
 

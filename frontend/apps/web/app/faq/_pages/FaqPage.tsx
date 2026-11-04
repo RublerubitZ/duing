@@ -2,15 +2,14 @@
 
 // 총동연 FAQ 공개 페이지. 필터 상태(카테고리·검색어·페이지·딥링크 item)는 URL searchParams 가
 // 소스다 — ClubExplorePage 의 parse/serialize/updateParams 패턴(새로고침·공유·뒤로가기 유지).
-// 검색 인풋 draft 만 로컬 상태. 아코디언 항목은 pinned 뱃지·카테고리 캡션이 필요해 자체 렌더한다.
+// 검색 인풋 draft 만 로컬 상태. 아코디언 행(FaqAccordionRow)은 서버 기본 목록(FaqPageFallback)과 같이 쓴다.
 
-import { useCallback, useId, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { useGuardedRouter } from '@/app/_lib/useGuardedRouter';
 
 import { useFederationFaqCategoriesQuery, useFederationFaqListQuery } from '@duing/hooks';
-import type { FederationFaqItem } from '@duing/types';
 
 import { Pagination } from '@/components/Pagination';
 import { ListRowsSkeleton } from '@/components/loading/Skeleton';
@@ -20,85 +19,17 @@ import { InfoTabs } from '../../_components/InfoTabs';
 import { HomeFooter } from '../../_components/HomeFooter';
 import { toRoute } from '../../_lib/route';
 import { FaqDeepLinkCard } from '../_components/FaqDeepLinkCard';
-import { FaqFeedback } from '../_components/FaqFeedback';
-import { parseFaqParams, serializeFaqParams, type FaqParams } from '../_lib/faqParams';
-
-const PAGE_SIZE = 20;
-
-function FaqAccordionRow({ faq, index }: { faq: FederationFaqItem; index: number }) {
-  const [open, setOpen] = useState(false);
-  const baseId = useId();
-  const panelId = `${baseId}-panel`;
-  const buttonId = `${baseId}-button`;
-
-  return (
-    <div className="card px-5 transition hover:shadow-2 md:px-6">
-      <button
-        id={buttonId}
-        type="button"
-        aria-expanded={open}
-        aria-controls={panelId}
-        onClick={() => setOpen((prev) => !prev)}
-        className="flex w-full cursor-pointer items-center gap-3.5 py-4 text-left md:py-5"
-      >
-        <span className="shrink-0 tabular-nums text-[12px] font-semibold tracking-[0.12em] text-ink">
-          Q.{String(index + 1).padStart(2, '0')}
-        </span>
-        <span className="flex-1">
-          <span className="flex flex-wrap items-center gap-2">
-            {faq.pinned && (
-              <span className="rounded-full bg-ink px-2 py-0.5 text-[10.5px] font-bold text-paper">
-                고정
-              </span>
-            )}
-            <span className="text-[15px] font-bold text-ink-deep">{faq.question}</span>
-          </span>
-          {faq.categoryName && (
-            <span className="mt-1 block text-[12px] text-charcoal-3">{faq.categoryName}</span>
-          )}
-        </span>
-        <span
-          className={cn(
-            'relative grid h-7 w-7 shrink-0 place-items-center rounded-full text-paper transition-colors',
-            open ? 'bg-ink-deep' : 'bg-ink',
-          )}
-          aria-hidden
-        >
-          <span
-            className={cn(
-              'absolute h-[2px] w-[11px] rounded-[2px] bg-paper transition-opacity',
-              open && 'opacity-0',
-            )}
-          />
-          <span
-            className={cn(
-              'absolute h-[11px] w-[2px] rounded-[2px] bg-paper transition-transform',
-              open && 'rotate-90 opacity-0',
-            )}
-          />
-        </span>
-      </button>
-      <div
-        id={panelId}
-        aria-hidden={!open}
-        inert={!open}
-        className={cn(
-          'grid transition-[grid-template-rows] duration-200 ease-duing motion-reduce:transition-none',
-          open ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]',
-        )}
-      >
-        <div className="min-h-0 overflow-hidden">
-          <div className="pb-5 pt-3.5">
-            <p className="whitespace-pre-line text-[14px] leading-[1.65] text-charcoal-2">
-              {faq.answer}
-            </p>
-            <FaqFeedback faqId={faq.id} />
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
+import { FaqAccordionRow } from '../_components/FaqAccordionRow';
+import { parseFaqParams, serializeFaqParams, toFaqListParams, type FaqParams } from '../_lib/faqParams';
+import {
+  FAQ_CHIP_CLASS,
+  FAQ_CHIP_ROW_CLASS,
+  FAQ_LIST_CLASS,
+  FAQ_SEARCH_BAR_CLASS,
+  FAQ_SEARCH_BUTTON_CLASS,
+  FAQ_SEARCH_INPUT_CLASS,
+  FAQ_SEARCH_INPUT_STYLE,
+} from '../_lib/faqUi';
 
 export function FaqPage() {
   const router = useGuardedRouter();
@@ -121,12 +52,7 @@ export function FaqPage() {
   );
 
   const categoriesQuery = useFederationFaqCategoriesQuery();
-  const listQuery = useFederationFaqListQuery({
-    categoryId: params.categoryId !== 'ALL' ? params.categoryId : undefined,
-    keyword: params.keyword || undefined,
-    page: params.page - 1,
-    size: PAGE_SIZE,
-  });
+  const listQuery = useFederationFaqListQuery(toFaqListParams(params));
 
   const items = listQuery.data?.content ?? [];
   const totalPages = listQuery.data?.totalPages ?? 0;
@@ -155,6 +81,7 @@ export function FaqPage() {
   return (
     // 크림 캔버스(duing min-h-lvh bg-cream)와 ExploreNav 는 faq/layout.tsx 가 렌더한다 — 로딩 경계 밖에서 유지되도록.
     // 최상위는 fragment 가 아닌 정적 div — 첫 요소가 sticky(InfoTabs)면 라우터 자동 스크롤 기준에서 제외된다.
+    // 최상위 div·max-w-layout 래퍼·제목 블록·1:1 문의 CTA 는 서버 기본 목록(FaqPageFallback)과 손으로 맞춘 짝 — 고치면 저쪽도.
     <div>
       <InfoTabs />
 
@@ -167,7 +94,7 @@ export function FaqPage() {
         </div>
 
         {/* Search */}
-        <div className="mb-5 flex items-center gap-2 rounded-[14px] border border-line bg-paper px-4 py-2.5 focus-within:border-ink md:max-w-[420px]">
+        <div className={FAQ_SEARCH_BAR_CLASS}>
           <input
             value={keywordDraft}
             maxLength={SEARCH_KEYWORD_MAX_LENGTH}
@@ -177,25 +104,20 @@ export function FaqPage() {
             }}
             placeholder="질문을 검색하세요"
             aria-label="질문 검색"
-            className="min-w-0 flex-1 border-none bg-transparent text-sm outline-none"
-            style={{ fontFamily: 'inherit' }}
+            className={FAQ_SEARCH_INPUT_CLASS}
+            style={FAQ_SEARCH_INPUT_STYLE}
           />
-          <button type="button" onClick={handleSearch} className="btn btn-primary btn-sm">
+          <button type="button" onClick={handleSearch} className={FAQ_SEARCH_BUTTON_CLASS}>
             검색
           </button>
         </div>
 
         {/* Category chips — 모바일 가로 스크롤, 데스크탑 wrap */}
-        <div className="mb-6 flex gap-2 overflow-x-auto pb-1 md:flex-wrap md:overflow-visible">
+        <div className={FAQ_CHIP_ROW_CLASS}>
           <button
             type="button"
             onClick={() => handleCategoryChange('ALL')}
-            className={cn(
-              'shrink-0 whitespace-nowrap rounded-full border px-4 py-2 text-[13px] font-semibold',
-              params.categoryId === 'ALL'
-                ? 'border-ink bg-ink text-paper'
-                : 'border-line bg-paper text-charcoal-2',
-            )}
+            className={FAQ_CHIP_CLASS(params.categoryId === 'ALL')}
           >
             전체
           </button>
@@ -204,12 +126,7 @@ export function FaqPage() {
               key={category.id}
               type="button"
               onClick={() => handleCategoryChange(category.id)}
-              className={cn(
-                'shrink-0 whitespace-nowrap rounded-full border px-4 py-2 text-[13px] font-semibold',
-                params.categoryId === category.id
-                  ? 'border-ink bg-ink text-paper'
-                  : 'border-line bg-paper text-charcoal-2',
-              )}
+              className={FAQ_CHIP_CLASS(params.categoryId === category.id)}
             >
               {category.name}
             </button>
@@ -224,11 +141,31 @@ export function FaqPage() {
         {listQuery.isLoading && (
           <ListRowsSkeleton rows={6} rowClassName="h-[64px] rounded-[20px]" label="FAQ 목록 불러오는 중" />
         )}
-        {listQuery.isError && (
+        {listQuery.isError && !listQuery.data && (
           <p className="py-12 text-center text-[13px] text-coral-deep">FAQ를 불러오지 못했습니다</p>
         )}
 
-        {listQuery.isSuccess && (
+        {/* 재요청이 실패해도 이미 받은 목록은 남긴다 — TanStack Query 5 는 이때 isSuccess 를 내리지만 data 는 유지한다.
+            24시간 ISR 시드로 그린 첫 화면이 마운트 재요청 실패로 통째로 오류 문구로 바뀌지 않게 한다. */}
+        {listQuery.isError && listQuery.data && (
+          <div
+            role="alert"
+            className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-line bg-paper px-4 py-3 text-[13px] text-charcoal-2"
+          >
+            <span>최신 질문을 불러오지 못했습니다. 지금 보이는 목록은 이전 내용일 수 있습니다.</span>
+            {/* 연타가 진행 중 요청을 취소·재시작하지 않게 막는다(refetch 의 cancelRefetch 기본값이 true). */}
+            <button
+              type="button"
+              className="btn btn-secondary btn-sm"
+              disabled={listQuery.isFetching}
+              onClick={() => void listQuery.refetch()}
+            >
+              {listQuery.isFetching ? '다시 불러오는 중…' : '다시 시도'}
+            </button>
+          </div>
+        )}
+
+        {listQuery.data && (
           <>
             {items.length === 0 ? (
               <p className="py-12 text-center text-[13px] text-charcoal-3">
@@ -241,7 +178,7 @@ export function FaqPage() {
                 // keepPreviousData 전환 중(카테고리·검색·페이지 변경)에는 이전 목록을 딤 처리해 갱신 중임을 알린다.
                 aria-busy={listQuery.isPlaceholderData}
                 className={cn(
-                  'flex flex-col gap-3',
+                  FAQ_LIST_CLASS,
                   listQuery.isPlaceholderData && 'opacity-60 transition-opacity',
                 )}
               >
@@ -260,7 +197,7 @@ export function FaqPage() {
           </>
         )}
 
-        {/* 상시 CTA — FAQ 컨텍스트 전체에서 항상 노출 */}
+        {/* 상시 CTA — FAQ 컨텍스트 전체에서 항상 노출. FaqPageFallback 과 손으로 맞춘 짝 */}
         <div className="mt-10 flex flex-col items-center gap-3 rounded-[18px] border border-line bg-paper px-6 py-8 text-center">
           <p className="text-[14px] font-semibold text-ink-deep">원하는 답을 못 찾으셨나요?</p>
           <Link

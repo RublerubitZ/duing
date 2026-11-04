@@ -2,6 +2,7 @@
 
 import type { BulkUpdateApplicationStatusPayload } from '@duing/types';
 
+import { APPLICATION_STATUS_OPERATOR_LABEL } from '@/app/_constants/application-status';
 import {
   Dialog,
   DialogContent,
@@ -24,12 +25,6 @@ type Props = {
   isPending: boolean;
   onConfirm: () => void;
   onCancel: () => void;
-};
-
-const LABEL: Record<GenericTargetStatus, string> = {
-  ON_HOLD: '보류',
-  ACCEPTED: '합격',
-  REJECTED: '불합격',
 };
 
 // 합격 설명에서 "알림이 발송될 수 있습니다" 삭제 — BE 에 지원 상태 알림이 없다 (스펙 §5-3).
@@ -66,7 +61,7 @@ export function BulkConfirmDialog({
       >
         <DialogHeader>
           <DialogTitle>
-            {selectedCount}건을 일괄 {LABEL[targetStatus]} 처리할까요?
+            {selectedCount}건을 일괄 {APPLICATION_STATUS_OPERATOR_LABEL[targetStatus]} 처리할까요?
           </DialogTitle>
           <DialogDescription>
             {DESCRIPTION[targetStatus]} 현재 상태에서 전이가 불가능한 항목은 자동으로 건너뜁니다.
@@ -79,7 +74,7 @@ export function BulkConfirmDialog({
           </button>
           <button type="button" onClick={onConfirm} disabled={isPending} className={CONFIRM_BUTTON_CLASS[targetStatus]}>
             {isPending && <ButtonSpinner />}
-            {LABEL[targetStatus]}
+            {APPLICATION_STATUS_OPERATOR_LABEL[targetStatus]}
           </button>
         </DialogFooter>
         <span role="status" className="sr-only">{isPending ? '일괄 상태 변경 중' : null}</span>

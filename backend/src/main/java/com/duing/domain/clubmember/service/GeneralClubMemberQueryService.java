@@ -15,7 +15,7 @@ import com.duing.domain.clubmember.service.dto.query.ClubMemberQuery;
 import com.duing.domain.clubmember.service.dto.query.MemberFeeStatus;
 import com.duing.domain.clubmember.service.dto.query.MyClubQuery;
 import com.duing.domain.fee.repository.FeeBillRepository;
-import com.duing.domain.fee.repository.LatestBillStatusRow;
+import com.duing.domain.fee.repository.UserBillStatusRow;
 import com.duing.global.privacy.PhoneRevealRateLimiter;
 import java.time.Clock;
 import java.time.LocalDateTime;
@@ -136,11 +136,14 @@ public class GeneralClubMemberQueryService implements ClubMemberQueryService {
         return target.getUser().getPhone();
     }
 
-    // 회원별 최신 비-CANCELLED 청구 상태를 단일 배치 쿼리로 읽어 userId→MemberFeeStatus 로 매핑한다(멤버당 추가 쿼리 없음).
+    // 회원별 비-CANCELLED 청구 상태들을 단일 배치 쿼리로 읽어 userId→MemberFeeStatus 로 접는다(멤버당 추가 쿼리 없음).
+    // 회원 1명에 상태별로 여러 행이 오므로 userId 로 묶은 뒤 판정한다 — 덜 낸 청구가 1건이라도 있으면 UNPAID.
     private Map<Long, MemberFeeStatus> feeStatusByUser(Long clubId) {
-        return feeBillRepository.findLatestNonCancelledBillStatusByClubId(clubId).stream()
-                .collect(Collectors.toMap(
-                        LatestBillStatusRow::userId,
-                        row -> MemberFeeStatus.fromLatestBill(row.status())));
+        return feeBillRepository.findNonCancelledBillStatusesByClubId(clubId).stream()
+                .collect(Collectors.groupingBy(
+                        UserBillStatusRow::userId,
+                        Collectors.mapping(
+                                UserBillStatusRow::status,
+                                Collectors.collectingAndThen(Collectors.toSet(), MemberFeeStatus::fromBillStatuses))));
     }
 }

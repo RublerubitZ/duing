@@ -41,8 +41,8 @@
 		# Cloudflare 프록시가 켜져 있어도 무해하다(CF 는 헤더를 바로 보내고, 업로드는 프런트가 60초에 먼저 끊는다).
 		# 유휴 keep-alive(idle, 기본 5분)는 바꾸지 않는다 — 프록시 ON 에서는 CF 가 재사용하려던 연결을 먼저 닫는
 		# 경합만 늘릴 수 있다. 직결 뒤 유휴 연결 수가 문제로 보이면 그때 정한다.
-		# 이 전역 옵션은 Caddy 가 런타임에 따로 만드는 자동 HTTP→HTTPS 리다이렉트 서버(:80)에는 붙지 않는다(기본값
-		# 유지). 그 서버는 리다이렉트만 해 백엔드를 묶지 않는다.
+		# 주소 없는 전역 옵션이라 :443 서버와, 아래 `http://api.duings.com` 사이트가 만드는 :80 리다이렉트 서버에 함께 붙는다.
+		# 그 사이트가 없으면 Caddy 가 :80 서버를 런타임에 따로 만들어 이 옵션이 붙지 않는다(기본값 — protocols h1 h2 h3).
 		timeouts {
 			read_header 10s
 			read_body 2m
@@ -51,7 +51,16 @@
 		# HTTP/3 안내 끔 — Caddy 는 기본으로 응답에 Alt-Svc 헤더를 붙여 HTTP/3(UDP 443)를 안내하는데,
 		# docker-compose.yml 은 TCP 80/443 만 게시해 HTTP/3 로는 닿지 않는다. DNS only 면 브라우저가 이 안내를
 		# 그대로 받으므로, 닿지 않는 프로토콜은 안내하지 않는다(보안이 아니라 헛시도 제거).
-		protocols h1 h2
+		# HTTP/2 도 임시로 끈다(2026-10-24) — 고정한 2.11.4 는 go1.26.3·x/net 0.55 빌드라 HTTP/2 서버 DoS(GO-2026-6603
+		# 메모리 고갈·6611 CPU·6612 흐름 제어·6617 HPACK 경합 크래시)가 남아 있고, 직결이라 앞에서 막아 줄 곳이 없다.
+		# :80 의 평문 HTTP/2(prior knowledge)도 같은 x/net 서버라 함께 끈다. 대가는 브라우저 → API 가 HTTP/1.1(출처당
+		# 연결 최대 6개)이 되는 것이다 — 연결이 늘어 Caddy 메모리가 오를 수 있어 반영 뒤 며칠 지켜본다.
+		# 되돌릴 때: docker-compose.yml 의 고정 해제 조건을 만족하고 `caddy build-info` 가 x/net v0.60 이상·Go 1.26.x 는
+		# 1.26.9 이상(1.27.x 는 1.27.2 이상)인 릴리스로 올리면서 :443 만 `protocols h1 h2` 로 돌린다. :80 은 평문 HTTP/2 를
+		# 쓸 곳이 없으니 그때도 h1 으로 둔다 — 전역 `servers` 를 주소별(`servers :443 {…}`·`servers :80 {…}`)로 나눠 적는다.
+		# 나눌 때 timeouts 는 두 블록 모두에 넣는다(서버마다 servers 블록 하나만 적용된다). 그리고 EDGE-EMERGENCY.md 의 비상 모드
+		# 신뢰 줄 삽입(awk)이 이 `servers {` 한 줄을 찾으므로, 나누면 그 절차와 이 파일 머리의 복원 안내도 함께 고친다.
+		protocols h1
 	}
 }
 
@@ -86,5 +95,18 @@ api.duings.com {
 		# 복원하면 그 "기본 동작" 이 바로 위조 통과가 된다. 지우지 말 것 — deploy-config-ci.yml 이 세 헤더 모두 단언한다.
 		header_up X-Forwarded-Proto {scheme}
 		header_up X-Forwarded-Host {host}
+	}
+}
+
+# :80 은 리다이렉트만 한다 — Caddy 가 자동으로 만드는 리다이렉트와 같은 동작(308, 경로·쿼리 유지, Connection: close)을 사이트로 명시해 위 전역
+# `servers` 옵션(protocols h1·시간 상한)이 :80 서버에도 붙게 한다. 자동 리다이렉트 서버는 런타임에 따로 만들어져 전역 옵션이
+# 붙지 않고, 평문 HTTP/2(prior knowledge)를 받았다(2026-10-24 운영 재현: `curl --http2-prior-knowledge http://api.duings.com/`
+# → HTTP/2 308). ACME HTTP-01 은 모든 서버가 사용자 라우트보다 먼저 처리하므로 인증서 갱신은 그대로다.
+# redir 대신 respond 에 close 를 쓰는 이유: 자동 리다이렉트는 Connection: close 로 끊는데 redir 은 keep-alive 로 남긴다.
+# reload·기동 때 이 서버에 "listening only on the HTTP port, so no automatic HTTPS" WARN 이 찍히는 것은 예상된 로그다.
+http://api.duings.com {
+	header Location https://{host}{uri}
+	respond 308 {
+		close
 	}
 }

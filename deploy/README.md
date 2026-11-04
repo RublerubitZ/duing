@@ -115,6 +115,38 @@ DB 마이그레이션(Flyway)은 백엔드 부팅 시 자동 적용된다. 롤�
 없는지, #1350 이전 이미지로 되돌릴 때는 `AUTH_HINT_COOKIE_DOMAIN=.duings.com` 줄이 그대로 있는지 확인한다
 (위 `.env` 핵심값 참고).
 
+main push·`BACKEND_IMAGE` 롤백·배포 재실행은 매일 잡 시각을 피한다 — 23:55\~00:03(00:01 `AdminPendingSnapshotJob`, 놓친 날은 처리 대기
+추이에 '기록 없음'), 00:35\~00:45(00:40 `RecruitmentAutoCloseJob`), 04:35\~04:45(04:40 `FederationInquiryPurgeJob`), 09:25\~09:35(09:30
+`ApplicationPendingReminderJob`). 매일 잡이 도는 중에 컨테이너가 내려가면 그 실행이 실패로 남아 총동연 홈 '자동 작업' 카드에 하루 동안 경고가
+켜진다. 마이그레이션이 있는 릴리스는 그날 백업(`backup.yml`, cron 04:15 이지만 GitHub 지연으로 실제 시작은 최근 06:30\~08:20 KST)이 끝난 뒤
+push 한다 — `gh run list --workflow backup.yml --limit 1` 로 그날 success 를 확인한다. Flyway 에 잠금 대기 제한이 없어 백업 등 다른 세션이
+테이블을 잡고 있으면 마이그레이션이 기다리다 헬스 체크(약 100초)를 넘겨 자동 롤백된다.
+
+### 운영 중단 동아리 미결 정리 — 롤백 때 보이는 것 (V138 이후 이미지에서 이전 이미지로 되돌릴 때)
+
+총동연의 '남은 미결 정리'(백엔드 #1602, 동아리 목록 버튼 #1607)와 지원자 화면의 '선발 종료'(응답 칸 #1605, 지원자 화면 #1611)는 V138
+이후 백엔드 이미지와 그 위의 프론트가 함께 있을 때만 동작한다. 백엔드를 이전 이미지로 되돌리면 정리 버튼이 사라지고, 이미 정리된 지원자는 '최종 불합격'으로 보인다(새 프론트는
+응답에 키가 없으면 '최종 불합격'을 유지한다). 표시 칸(`application.ended_by_club_deactivation`)은 DB 에 남고 이전 이미지는 이 칸을
+모른 채 지원서를 고쳐 써도 값을 지우지 않으므로, 새 이미지를 다시 올리면 따로 할 일 없이 '선발 종료'로 돌아온다. 프론트만 되돌려도
+정리된 지원자는 '최종 불합격'으로 보인다 — 이전 프론트는 이 키를 읽지 않는다. 값은 DB 에 남아 프론트를 다시 올리면 '선발 종료'로 돌아온다.
+
+- 백엔드만 되돌리면 총동연 홈의 '운영 중단 미결' 칸과 대기열 행이 빠져 일곱 칸이 되고, 동아리 목록 '미결 정리 필요' 탭은 운영 중단 동아리
+  전부를 건수·버튼 없이 보여 준다(이전 백엔드는 이 필터를 무시한다). 1e5f9c939(2026-10-21) 이미지로 되돌리면 처리 대기 추이·자동 작업
+  카드는 API 가 없어 그 카드만 오류 안내를 보인다. 추이의 일별 기록은 롤백 동안 쌓이지 않는다 — 새 이미지는 놓친 날을 기동 때 채우지
+  않으므로 다시 올려도 그 날짜들은 '기록 없음'으로 남는다. 롤백이 26시간을 넘겼다면 다시 올린 뒤 자동 작업 카드의 매일 잡 셋이 다음
+  실행까지 '늦음'으로 보인다.
+- 총동연 홈 칸 PR(#1610)만 되돌리면 홈 합계가 칸 합보다 정리할 운영 중단 동아리 수만큼 크게 보인다 — 데이터에는 영향이 없다.
+- 지원자 화면(#1611)만 되돌리면 총동연 정리 확인 창은 "지원자에게는 '동아리 운영 중단으로 선발이 끝났어요'로 보여요"라고 안내하는데
+  지원자는 '최종 불합격'을 본다 — 다시 올릴 때까지 총동연에 정리를 보류하도록 안내한다. 되돌릴 때는 #1611 커밋 전체가 아니라
+  `frontend/` 파일만 되돌린다 — 같은 커밋에 이 런북 절이 들어 있다.
+- 이 묶음만 문제면 Vercel 즉시 롤백(직전 운영 배포로 되돌리기) 대신 되돌림 PR 로 고친다 — 직전 운영 배포로 돌아가면 그 사이에
+  들어간 보안 수정까지 함께 빠진다. 되돌림 PR 의 운영 반영은 주기 밖 develop→main 릴리스가 필요하고, 그때 develop 에 쌓인 다른
+  변경도 함께 나간다.
+- 운영에서 정리 API 를 시험 삼아 누르지 않는다 — 되돌릴 수 없고 지원자에게 알림도 가지 않는다. 배포 직후에는 지원서가 1건 이상인
+  학생 계정으로 내 지원 응답에 `endedByClubDeactivation` 키가 있는지, 읽기 전용
+  `SELECT count(*) FROM application WHERE ended_by_club_deactivation;` 가 0 인지, 총동연 홈 '운영 중단 미결' 칸이 릴리스 전 운영 DB
+  사전 조회 건수와 같은지만 본다.
+
 ### 로고 썸네일 롤백 뒤 정리 (V133 이후 이미지에서 이전 이미지로 되돌렸다가 다시 올릴 때)
 
 배포 워크플로가 헬스 실패로 직전 이미지에 자동 롤백한 경우도 같다 — 그 뒤 다시 배포하기 전에 아래를 그대로 따른다(대상이 없으면 0건으로
@@ -149,4 +181,53 @@ UPDATE uploaded_object SET status = 'RELEASED', released_at = NOW()
    AND storage_key IN (SELECT substring(logo_thumbnail_url from '[^/]+/[^/]+/[^/]+$') FROM club
                         WHERE deleted_at IS NOT NULL AND logo_thumbnail_url IS NOT NULL
                           AND logo_thumbnail_url IS DISTINCT FROM logo_url);
+```
+
+### 기간 종료 자동 마감 되돌리기 (매일 00:40 잡이 잘못 닫은 모집을 다시 열 때)
+
+`RecruitmentAutoCloseJob` 이 닫은 모집을 OPEN 으로 되돌린다. 아래 순서를 그대로 따른다 — 컨테이너를 다시 만들면(2) 의 `up -d`)
+그 전 로그가 사라지고, 플래그를 끄지 않고 되돌리면 다음 00:40 에 같은 모집이 다시 닫힌다.
+
+1) 대상 확보 — DB 에서 그날 잡이 닫은 모집을 뽑는다. `recruitment.closed_at` 은 seoul 벽시계(TIMEZONE.md)라 KST 날짜·시각을
+그대로 넣는다. 같은 1분 안에 손으로 닫은 모집이 섞일 수 있으니, 컨테이너를 다시 만들기 **전에** 잡 로그의 id 목록도 떠 두고 대조한다
+(로그 시각은 JVM `TZ=UTC` 라 KST 00:40 이 전날 15:40 으로 찍힌다).
+
+```sql
+SELECT id, club_id FROM recruitment
+ WHERE status = 'CLOSED' AND deleted_at IS NULL
+   AND closed_at >= '<날짜> 00:40' AND closed_at < '<날짜> 00:41';
+```
+
+```bash
+docker compose logs backend | grep 'closed ids'   # RecruitmentAutoCloseJob closed ids=[…]
+```
+
+운영진이 열어 두길 원하는 모집이 한두 건뿐이면 1)·3)·4) 로 되돌린 뒤 그 운영진에게 종료일을 연장하게 하는 것으로 충분하다
+(플래그는 그대로 둔다 — 종료일이 연장되면 다음 00:40 에 다시 닫히지 않는다). 다음 00:40 전에 연장되지 않으면 또 닫힌다.
+
+2) 플래그 끄기 — 잡 자체가 잘못 닫았을 때. `deploy/.env` 에 `DUING_RECRUITMENT_AUTO_CLOSE_ENABLED=false` 를 넣고
+`docker compose up -d` 로 반영한다(컨테이너를 다시 만들어 수십 초 동안 API 가 끊긴다). 원인을 고친 이미지를 배포한 뒤 줄을 지워
+다시 켠다. 되돌린 모집이 여전히 조건을 만족하면 다시 켠 다음 00:40 에 또 닫히므로, 다시 켜기 전에 운영진이 종료일을 연장하게 한다.
+플래그를 오래 끄거나 백엔드만 롤백하면 운영진 화면의 기간 종료 안내(자동 마감 문장)가 사실과 달라지므로, 그때는 프론트 안내 문구도 되돌린다.
+
+3) 되돌리기 SQL — `<id 목록>` 에 1) 의 id 를 넣는다. 동아리당 OPEN 모집은 1건만 허용되므로(V38 `uk_recruitment_club_active`)
+그 사이 같은 동아리에 새 모집이 열렸으면 건너뛰고, 그 사이 삭제된 모집은 되살리지 않는다. 바뀐 건수가 1) 보다 적으면 빠진 id 를 확인한다.
+
+```sql
+UPDATE recruitment SET status = 'OPEN', closed_at = NULL
+ WHERE id IN (<id 목록>) AND status = 'CLOSED' AND deleted_at IS NULL
+   AND NOT EXISTS (SELECT 1 FROM recruitment o
+                    WHERE o.club_id = recruitment.club_id AND o.status = 'OPEN' AND o.deleted_at IS NULL);
+```
+
+4) 공개 상세 재검증 — SQL 은 상세 재생성 트리거를 부르지 않으므로 되돌린 동아리의 상세(`/clubs/<club_id>`, 7일 캐시)를 직접 다시
+만든다(탐색 목록 `/clubs` 는 정각 재생성이 반영한다). 이 경로는 서버 고정 IP 밖에서 403 이라(위 Vercel `REVALIDATE_SECRET` 설명)
+**서버에서** `deploy/` 디렉터리에서 보낸다. `paths` 는 한 번에 10개까지이고, 200 이면 성공이다(401·502 등은 MONITORING.md
+`런북 — 프론트 재생성 트리거 연속 실패` 의 사유 표).
+
+```bash
+DUING_FRONTEND_REVALIDATE_SECRET=$(sed -n 's/^DUING_FRONTEND_REVALIDATE_SECRET=//p' .env)
+curl -s -o /dev/null -w '%{http_code}\n' -X POST https://duings.com/api/internal/revalidate \
+  -H "Authorization: Bearer $DUING_FRONTEND_REVALIDATE_SECRET" -H 'Content-Type: application/json' \
+  -d '{"paths":["/clubs/<club_id>"]}'
 ```

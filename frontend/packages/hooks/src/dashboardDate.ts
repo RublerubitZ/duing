@@ -42,3 +42,8 @@ export function daysUntilKst(targetIso: string, now: Date): number {
   const todayMs = Date.parse(`${todayKstDateString(now)}T00:00:00Z`);
   return Math.round((targetMs - todayMs) / 86_400_000);
 }
+
+/** KST 캘린더 기준 지난 일수(경과일). 미래 시각(기기 시계가 늦은 경우)은 0 */
+export function daysSinceKst(sinceIso: string, now: Date): number {
+  return Math.max(0, -daysUntilKst(sinceIso, now));
+}

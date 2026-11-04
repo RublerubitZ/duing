@@ -11,6 +11,10 @@ const clubsLayout = (children: FlightRouterState, modal: FlightRouterState): Fli
   'clubs',
   { children, modal: ['(__SLOT__)', { children: modal }] },
 ];
+const memberNotices = (clubId: string): FlightRouterState => [
+  ['clubId', clubId, 'd', null],
+  { children: ['member', { children: ['notices', { children: page }] }] },
+];
 
 describe('Next 세그먼트 표기 — clubs 레이아웃의 modal 경로(ClubsSlotFrame 판별 입력)', () => {
   it.each<[string, FlightRouterState, string[]]>([
@@ -23,5 +27,23 @@ describe('Next 세그먼트 표기 — clubs 레이아웃의 modal 경로(ClubsS
     ],
   ])('%s', (_label, clubsLayoutTree, expectedModalPath) => {
     expect(getSelectedLayoutSegmentPath(clubsLayoutTree, 'modal')).toEqual(expectedModalPath);
+  });
+});
+
+// 라우트 공지 영역의 밑 화면 키 — ClubsSlotFrame 이 useSelectedLayoutSegments()(children) 를 '/' 로 이어 넘긴다(스펙 2026-10-24 제목 연속성 §3.2).
+// page 세그먼트를 거르는 규칙이 16.3.8 startsWith('__PAGE__') → 16.4.3 === '__PAGE__' 로 바뀌었다(16.4 는 page 세그먼트에 쿼리를 붙이지 않는다).
+describe('Next 세그먼트 표기 — clubs 레이아웃의 children 경로(공지 영역의 밑 화면 키)', () => {
+  it.each<[string, FlightRouterState, string[]]>([
+    ['목록 /clubs', clubsLayout(page, page), []],
+    ['하드 로드 상세 /clubs/5', clubsLayout(clubIdSegment('5'), ['(passthrough)', { children: clubIdSegment('5') }]), ['5']],
+    [
+      '회원 화면 /clubs/5/member/notices',
+      clubsLayout(memberNotices('5'), ['(passthrough)', { children: memberNotices('5') }]),
+      ['5', 'member', 'notices'],
+    ],
+    ['목록 위 인터셉트 /clubs/6', clubsLayout(page, ['(...)clubs', { children: clubIdSegment('6') }]), []],
+    ['회원 화면 위 인터셉트 /clubs/6', clubsLayout(memberNotices('5'), ['(...)clubs', { children: clubIdSegment('6') }]), ['5', 'member', 'notices']],
+  ])('%s', (_label, clubsLayoutTree, expectedChildrenPath) => {
+    expect(getSelectedLayoutSegmentPath(clubsLayoutTree, 'children')).toEqual(expectedChildrenPath);
   });
 });

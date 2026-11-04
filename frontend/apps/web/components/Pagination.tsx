@@ -1,5 +1,7 @@
 'use client';
 
+import { scrollToPaginatedListStart } from '@/app/_lib/paginationScroll';
+
 type Props = {
   page: number;
   totalPages: number;
@@ -30,6 +32,11 @@ export function Pagination({
   for (let i = start; i < end; i++) visible.push(i);
 
   const showRange = totalElements !== undefined && pageSize !== undefined && totalElements > 0;
+  // 다른 페이지로 갈 때만 새 페이지의 첫머리로 옮긴다 — 현재 번호를 다시 누른 것은 이동이 아니다(onChange 는 그대로 부른다).
+  const changePage = (event: React.MouseEvent<HTMLButtonElement>, next: number) => {
+    onChange(next);
+    if (next !== page) scrollToPaginatedListStart(event.currentTarget);
+  };
 
   return (
     <nav aria-label={ariaLabel} className={`flex items-center justify-center gap-1.5 ${className}`}>
@@ -40,7 +47,7 @@ export function Pagination({
       )}
       <button
         type="button"
-        onClick={() => onChange(page - 1)}
+        onClick={(event) => changePage(event, page - 1)}
         disabled={page === 0}
         className="px-3 py-1.5 rounded-md text-[13px] font-semibold text-charcoal-2 disabled:text-charcoal-3 disabled:cursor-not-allowed hover:bg-graysoft"
       >이전</button>
@@ -48,7 +55,7 @@ export function Pagination({
         <button
           key={p}
           type="button"
-          onClick={() => onChange(p)}
+          onClick={(event) => changePage(event, p)}
           aria-current={p === page ? 'page' : undefined}
           className={`min-w-[34px] px-2 py-1.5 rounded-md text-[13px] font-semibold ${
             p === page ? 'bg-ink text-paper' : 'text-charcoal-2 hover:bg-graysoft'
@@ -57,7 +64,7 @@ export function Pagination({
       ))}
       <button
         type="button"
-        onClick={() => onChange(page + 1)}
+        onClick={(event) => changePage(event, page + 1)}
         disabled={page >= totalPages - 1}
         className="px-3 py-1.5 rounded-md text-[13px] font-semibold text-charcoal-2 disabled:text-charcoal-3 disabled:cursor-not-allowed hover:bg-graysoft"
       >다음</button>

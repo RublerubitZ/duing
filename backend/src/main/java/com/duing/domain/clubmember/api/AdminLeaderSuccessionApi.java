@@ -42,7 +42,8 @@ public interface AdminLeaderSuccessionApi {
             @PathVariable Long requestId
     );
 
-    @Operation(summary = "승계 요청 처리")
+    @Operation(summary = "승계 요청 처리",
+            description = "처리 메모(actionNote)는 요청자에게 그대로 보인다.")
     @PatchMapping("/admin/leader-succession-requests/{requestId}")
     ResponseEntity<ApiResponse<Void>> processRequest(
             @PathVariable Long requestId,

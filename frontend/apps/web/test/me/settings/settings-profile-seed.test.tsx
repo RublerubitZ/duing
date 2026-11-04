@@ -18,7 +18,7 @@ vi.mock('next/navigation', () => ({
 vi.mock('@duing/hooks', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@duing/hooks')>()),
   useMyApplicationsQuery: () => ({ data: [] }),
-  useManagedClubsQuery: () => ({ data: [] }),
+  useMyClubsQuery: () => ({ data: [] }),
   useFavoriteListQuery: () => ({ data: { content: [] } }),
   useLogout: () => vi.fn(),
 }));

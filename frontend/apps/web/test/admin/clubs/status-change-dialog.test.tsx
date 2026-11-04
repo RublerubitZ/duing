@@ -1,7 +1,7 @@
 import { render, screen, fireEvent } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import type { AdminClubSummary } from '@duing/types';
-import type { StatusAction } from '../../../app/admin/clubs/_lib/clubStatus';
+import { PENDING_CLEANUP_ACTION_LABEL, STATUS_ACTIONS, type StatusAction } from '../../../app/admin/clubs/_lib/clubStatus';
 import { AdminClubStatusChangeDialog } from '../../../app/admin/clubs/_components/AdminClubStatusChangeDialog';
 
 /* ── 테스트 데이터 헬퍼 ───────────────────────────────────────── */
@@ -124,5 +124,54 @@ describe('AdminClubStatusChangeDialog', () => {
 
     rerender(<AdminClubStatusChangeDialog {...props} isPending={false} />);
     expect(screen.getByRole('status')).toBeEmptyDOMElement();
+  });
+
+  it('운영 중단 확인창은 결과 없는 지원이 학생에게 "결과 미발표"로 남고 재활성하면 확정할 수 있다고 안내한다', () => {
+    const deactivate = STATUS_ACTIONS.ACTIVE.find((action) => action.nextStatus === 'INACTIVE');
+    if (!deactivate) throw new Error('운영 중단 액션이 없습니다.');
+    render(
+      <AdminClubStatusChangeDialog
+        club={makeClub({ status: 'ACTIVE' })}
+        action={deactivate}
+        isPending={false}
+        errorMessage={null}
+        onConfirm={vi.fn()}
+        onCancel={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText(/'결과 미발표'로 남고/)).toBeInTheDocument();
+    expect(screen.getByText(/재활성하면 운영진이 결과를 확정할 수 있습니다/)).toBeInTheDocument();
+  });
+});
+
+describe('동아리 운영 중단·재활성 안내', () => {
+  it('진행 중인 모집이 마감된다는 사실과 되돌릴 수 없음을 함께 알린다', () => {
+    // 실제로는 운영 중단이 OPEN 모집을 일괄 마감하는데, 안내가 "그대로 유지된다"고만 말하고 있었다.
+    const deactivate = STATUS_ACTIONS.ACTIVE.find((action) => action.nextStatus === 'INACTIVE');
+
+    expect(deactivate?.description).toContain('마감');
+    expect(deactivate?.description).toContain('되돌릴 수 없');
+  });
+
+  it('재활성 안내는 마감된 모집이 되살아나는 것처럼 말하지 않는다', () => {
+    const reactivate = STATUS_ACTIONS.INACTIVE.find((action) => action.nextStatus === 'ACTIVE');
+
+    expect(reactivate?.description).toContain('복구되지 않');
+  });
+
+  it('재활성 안내는 운영 중단 안내와 짝을 맞춰 결과 없는 지원을 운영진이 이어서 확정할 수 있다고 알린다', () => {
+    const reactivate = STATUS_ACTIONS.INACTIVE.find((action) => action.nextStatus === 'ACTIVE');
+
+    expect(reactivate?.description).toContain('이어서');
+    expect(reactivate?.description).toContain('확정할 수 있');
+  });
+
+  it('운영 중단·재활성 안내 모두 남은 미결 정리로 정리할 수도 있다고 알린다', () => {
+    const deactivate = STATUS_ACTIONS.ACTIVE.find((action) => action.nextStatus === 'INACTIVE');
+    const reactivate = STATUS_ACTIONS.INACTIVE.find((action) => action.nextStatus === 'ACTIVE');
+
+    expect(deactivate?.description).toContain(`'${PENDING_CLEANUP_ACTION_LABEL}'로 정리할 수도 있습니다`);
+    expect(reactivate?.description).toContain(`'${PENDING_CLEANUP_ACTION_LABEL}'로 정리할 수도 있습니다`);
   });
 });

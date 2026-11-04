@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useMyInterviewQuery } from '@duing/hooks';
+import { parseKstInstant, useMyInterviewQuery } from '@duing/hooks';
 import type { ApplicantInterviewPhase } from '@duing/types';
 import { formatSlotRange } from '@/components/interview/_utils/localDateTime';
 import { RespondAvailabilityModal } from './RespondAvailabilityModal';
@@ -48,8 +48,9 @@ export function ApplicantInterviewCard({ applicationId }: Props) {
   if (!shouldRender) return null;
 
   // 재응답 버튼 노출 판정 (핵심 결정 5) — 클라이언트 비교는 버튼 노출용, 서버 409 가 최종 가드.
+  // 마감은 오프셋 없는 한국 시간이라 KST 로 읽는다 — new Date(문자열)은 기기 시간대로 읽어 해외 기기에서 어긋난다.
   const isBeforeDeadline =
-    availabilityDeadline !== null && new Date() < new Date(availabilityDeadline);
+    availabilityDeadline !== null && Date.now() < parseKstInstant(availabilityDeadline).getTime();
 
   return (
     <section

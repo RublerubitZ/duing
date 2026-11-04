@@ -55,7 +55,7 @@ export function FeePaymentsTable({
   const payments = paymentsQuery.data?.content ?? [];
 
   return (
-    <div className="flex flex-col gap-3">
+    <div data-pagination-anchor="" className="flex flex-col gap-3 scroll-mt-16 md:scroll-mt-6">
       <FeeFilterChips
         ariaLabel="납부 상태 필터"
         options={STATUS_OPTIONS}

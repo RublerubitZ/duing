@@ -1,10 +1,12 @@
 'use client';
 
 import { useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import type { SuccessionStatus } from '@duing/types';
 import { useAdminSuccessionListQuery } from '@duing/hooks';
 import { Pagination } from '@/components/Pagination';
 import { LoadingGate } from '@/components/loading/LoadingGate';
+import { pickSearchParam } from '../../_lib/searchParamChoice';
 import { AdminSuccessionFilterBar } from '../_components/AdminSuccessionFilterBar';
 import { AdminSuccessionTable } from '../_components/AdminSuccessionTable';
 import { SUCCESSION_STATUS_LABEL } from '../_lib/successionLabels';
@@ -14,7 +16,14 @@ const PAGE_SIZE = 20;
 const STATUS_TABS: (SuccessionStatus | 'ALL')[] = ['ALL', 'PENDING', 'APPROVED', 'REJECTED'];
 
 export function AdminSuccessionListPage() {
-  const [statusFilter, setStatusFilter] = useState<SuccessionStatus | 'ALL'>('ALL');
+  const searchParams = useSearchParams();
+  // 총동연 홈 영역 칸이 ?status= 로 첫 탭을 고른다. 주소만 바뀐 이동(사이드바로 같은 메뉴)에도 첫 값부터 다시 시작하도록 key 로 초기화한다.
+  const initialStatus = pickSearchParam(searchParams.get('status'), STATUS_TABS) ?? 'ALL';
+  return <AdminSuccessionList key={initialStatus} initialStatus={initialStatus} />;
+}
+
+function AdminSuccessionList({ initialStatus }: { initialStatus: SuccessionStatus | 'ALL' }) {
+  const [statusFilter, setStatusFilter] = useState<SuccessionStatus | 'ALL'>(initialStatus);
   const [clubIdInput, setClubIdInput] = useState('');
   const [page, setPage] = useState(0);
 

@@ -37,7 +37,12 @@ import com.duing.domain.user.entity.Grade;
 import com.duing.domain.user.entity.User;
 import com.duing.domain.user.entity.UserRole;
 import com.duing.domain.user.repository.UserRepository;
+import com.duing.global.jobrun.JobRunOutcome;
+import com.duing.global.jobrun.MonitoredJob;
+import com.duing.global.jobrun.entity.ScheduledJobRun;
+import com.duing.global.jobrun.repository.ScheduledJobRunRepository;
 import java.lang.reflect.Field;
+import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -82,6 +87,8 @@ class FacilityBookingMatchingSchedulerIntegrationTest extends IntegrationTestBas
     @Autowired ClubRepository clubRepository;
     @Autowired ClubMemberRepository clubMemberRepository;
     @Autowired UserRepository userRepository;
+    @Autowired ScheduledJobRunRepository scheduledJobRunRepository;
+    @Autowired Clock clock;
 
     private final AtomicLong sequence = new AtomicLong(System.nanoTime());
 
@@ -607,5 +614,31 @@ class FacilityBookingMatchingSchedulerIntegrationTest extends IntegrationTestBas
         }
         assertThat(historyRepository.findByBookingIdOrderByCreatedAtDesc(approved).get(0).getNewStatus())
                 .as("마지막 이력은 최종 상태와 일치한다").isEqualTo(finalState.getStatus());
+    }
+
+    @Test
+    @DisplayName("두 달 모두 신뢰할 스냅샷이 없어 건너뛰면 일부 실패와 건너뛴 달 수를 실패 건수로 기록한다")
+    void recordsPartialWhenBothMonthsSkippedForUntrustedSnapshot() {
+        scheduler.runScheduled();
+
+        ScheduledJobRun run = scheduledJobRunRepository.findById(MonitoredJob.FACILITY_BOOKING_MATCHING.name()).orElseThrow();
+        assertThat(run.getLastOutcome()).isEqualTo(JobRunOutcome.PARTIAL);
+        assertThat(run.getLastResultCount()).isZero();
+        assertThat(run.getLastFailedCount()).isEqualTo(2);
+    }
+
+    @Test
+    @DisplayName("두 달 모두 확인했고 확정할 예약이 없으면 성공·0건을 기록한다")
+    void recordsSuccessWhenBothMonthsCheckedWithoutBookings() {
+        YearMonth currentMonth = YearMonth.now(clock);
+        recordSuccessSnapshot(currentMonth);
+        recordSuccessSnapshot(currentMonth.plusMonths(1));
+
+        scheduler.runScheduled();
+
+        ScheduledJobRun run = scheduledJobRunRepository.findById(MonitoredJob.FACILITY_BOOKING_MATCHING.name()).orElseThrow();
+        assertThat(run.getLastOutcome()).isEqualTo(JobRunOutcome.SUCCESS);
+        assertThat(run.getLastResultCount()).isZero();
+        assertThat(run.getLastFailedCount()).isZero();
     }
 }

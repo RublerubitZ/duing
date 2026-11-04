@@ -1,5 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 
+// 루트 메타데이터의 기본 제목(레이아웃과 같은 상수) — Next 16.4 는 인터셉트 진입 때 모달 페이지 head(제목 없음)를 이 제목으로 그린다.
+import { SITE_TITLE } from '../app/_lib/site';
 import {
   LIST_TITLE,
   ROUTE_TIMEOUT_MS,
@@ -11,6 +13,7 @@ import {
   delayClubDetailApi,
   describeScrollRestoration,
   detailHeading,
+  expectCleanTitles,
   firstClubWithHeroActivities,
   firstListedCategory,
   gotoList,
@@ -23,6 +26,7 @@ import {
   recordRouteAnnouncements,
   replacesTo,
   softNavigate,
+  tabTitlesBetween,
   visibleCard,
   visibleCards,
   visibleClubIds,
@@ -52,6 +56,10 @@ test.describe.configure({ timeout: 180_000 });
 
 test.beforeEach(async ({ page }) => {
   await blockViewBeacons(page);
+});
+
+test.afterEach(async ({ page }) => {
+  await expectCleanTitles(page);
 });
 
 async function loginAsMember(page: Page): Promise<void> {
@@ -218,6 +226,7 @@ test.describe('회원 체인 — 목록 → 인터셉트 상세 → 회원 화�
     await expect(page.getByLabel('동아리 검색')).not.toHaveCount(0);
     await expect(page).toHaveURL(/\/clubs\?sort=ALPHABETICAL$/);
     await expect(page.locator('select:visible').first()).toHaveValue('ALPHABETICAL');
+    await expect(page).toHaveTitle(LIST_TITLE);
   });
 });
 
@@ -246,6 +255,52 @@ test.describe('라우트 공지 — 전환마다 한 곳에서 한 번(Next 공�
     console.log(`[공지] 늦은 진입 앞으로=${JSON.stringify(forward)} 뒤로=${JSON.stringify(back)}`);
     expect(forward.map(announcedText)).toEqual([clubTitle]);
     expect(back.map(announcedText)).toEqual([LIST_TITLE]);
+    // Next 16.4 가 진입 때 head 를 기본 제목으로 다시 그려도 탭에는 목록 제목이 이어지다가 동아리 제목이 된다(스펙 2026-10-24 §2).
+    expect(await tabTitlesBetween(page, forwardAt, backAt)).toEqual([LIST_TITLE, clubTitle]);
+    expect(await tabTitlesBetween(page, backAt, endAt)).toEqual([clubTitle, LIST_TITLE]);
+  });
+
+  test('소프트 도착 → 늦은 진입 → 뒤로 — 영역은 동아리 제목·목록 제목을 한 번씩, 목록 h1·사이트 기본 제목은 어디서도 알리지 않는다', async ({ page }) => {
+    await recordRouteAnnouncements(page);
+    await warmUpInterceptRoute(page);
+    await page.goto('/notices');
+    // 창에 표식을 둔다 — 헤더 링크가 하드 이동이 되면 창 값부터 사라진다. 소프트 도착이 아닌 경로를 보고 통과하지 않게 한다.
+    await page.evaluate(() => Reflect.set(window, '__clubsSoftArrivalMark', true));
+    await page.locator('header a[href="/clubs"]:visible').click();
+    await waitForList(page);
+    expect(
+      await page.evaluate(() => Reflect.get(window, '__clubsSoftArrivalMark')),
+      '헤더 동아리 링크는 소프트 이동(같은 문서)이어야 한다',
+    ).toBe(true);
+    // 목록 head 가 들어오기 전 진입은 수용한 경합이라(스펙 2026-10-24 §7) 목록 제목을 기다린 뒤 들어간다.
+    // 기록기는 프레임마다 적으므로, 목록 제목이 그려져 기록된 뒤에 구간을 연다.
+    await expect(page).toHaveTitle(LIST_TITLE);
+    await page.waitForTimeout(ANNOUNCEMENT_SETTLE_MS);
+    const card = visibleCards(page).first();
+    const clubTitle = `${await readCardClubName(card)} | 두잉`;
+    await delayClubDetailApi(page, await readCardClubId(card), LATE_DETAIL_DELAY_MS);
+
+    const forwardAt = await markTime(page);
+    await card.click();
+    await expect(page).toHaveTitle(clubTitle, { timeout: ROUTE_TIMEOUT_MS });
+    await page.waitForTimeout(ANNOUNCEMENT_SETTLE_MS);
+    const backAt = await markTime(page);
+    await page.goBack();
+    await waitForList(page);
+    await expect(page).toHaveTitle(LIST_TITLE);
+    await page.waitForTimeout(ANNOUNCEMENT_SETTLE_MS);
+    const endAt = await markTime(page);
+
+    const forward = await announcementsBetween(page, forwardAt, backAt);
+    const back = await announcementsBetween(page, backAt, endAt);
+    console.log(`[공지] 소프트 도착 늦은 진입 앞으로=${JSON.stringify(forward)} 뒤로=${JSON.stringify(back)}`);
+    // 진입 때 Next 가 목록 제목을 늦게 알리는 것은 기존 동작이라(#1565) 단언하지 않는다 — 영역 공지만 본다.
+    expect(forward.filter((entry) => entry.startsWith('own:')).map(announcedText)).toEqual([clubTitle]);
+    expect(back.map(announcedText)).toEqual([LIST_TITLE]);
+    expect(
+      [...forward, ...back].map(announcedText).filter((text) => text === SITE_TITLE || text.endsWith('동아리를 둘러보세요')),
+    ).toEqual([]);
+    expect(await tabTitlesBetween(page, forwardAt, endAt)).toEqual([LIST_TITLE, clubTitle, LIST_TITLE]);
   });
 
   test('커밋 전 진입 — 선조회 진입 → 소프트 뒤로 → 같은 카드 재진입(라우터 캐시 적중 = 커밋 전 진입): 재진입은 Next 공지기가 앞으로·뒤로 한 번씩 읽는다', async ({ page }) => {
@@ -341,6 +396,7 @@ test.describe('라우트 공지 — 전환마다 한 곳에서 한 번(Next 공�
     const back = await announcementsBetween(page, backAt, endAt);
     console.log(`[공지] 라이트박스 앞으로=${JSON.stringify(forward)} 라이트박스=${JSON.stringify(lightbox)} 뒤로=${JSON.stringify(back)}`);
     expect(forward.map(announcedText)).toEqual([clubTitle]);
+    expect(await tabTitlesBetween(page, forwardAt, lightboxAt)).toEqual([LIST_TITLE, clubTitle]);
     // 라이트박스 닫기는 같은 주소 popstate — Next 가 트리를 복원하며 처음 동아리 제목을 읽어 한 번 더 알릴 수 있다(수용, 스펙 §3.6).
     // 라이브 영역은 침묵하고, Next 재공지는 동아리 제목 최대 한 번이다.
     expect(lightbox.filter((entry) => entry !== `next:${clubTitle}`)).toEqual([]);
@@ -369,14 +425,17 @@ test.describe('인터셉트 상세에서 로그아웃(router.refresh)', () => {
     // 로그아웃이 상세를 다시 받는다 — 지연을 풀어 다시 받은 응답이 늦지 않게 한다.
     await releaseDetailDelay();
     await page.waitForTimeout(ANNOUNCEMENT_SETTLE_MS);
-    // refresh 는 지금 주소의 RSC 를 다시 받는다 — 그 응답이 끝나면 곧 커밋돼 head 가 다시 그려진다(목록 제목).
-    const refreshFinished = page.waitForEvent('requestfinished', {
-      predicate: (finishedRequest) =>
-        finishedRequest.headers()['rsc'] === '1' &&
-        finishedRequest.headers()['next-router-prefetch'] === undefined &&
-        new URL(finishedRequest.url()).pathname === `/clubs/${clubId}`,
-      timeout: ROUTE_TIMEOUT_MS,
-    });
+    // refresh 는 인터셉트 상세에서 RSC 를 둘 다시 받는다 — 지금 주소(/clubs/<id>)와 밑 화면(/clubs). 앞의 것만 기다리면 밑 화면 응답이
+    // 남은 채 다음 단계로 넘어가 뒤로 공지 단언이 가끔 어긋났다(dev 6회 중 1회). 둘 다 끝난 뒤에 진행한다.
+    const refreshRscFinished = (pathname: string) =>
+      page.waitForEvent('requestfinished', {
+        predicate: (finishedRequest) =>
+          finishedRequest.headers()['rsc'] === '1' &&
+          finishedRequest.headers()['next-router-prefetch'] === undefined &&
+          new URL(finishedRequest.url()).pathname === pathname,
+        timeout: ROUTE_TIMEOUT_MS,
+      });
+    const refreshFinished = Promise.all([refreshRscFinished(`/clubs/${clubId}`), refreshRscFinished('/clubs')]);
 
     const logoutAt = await markTime(page);
     await page.locator('header').getByRole('button', { name: /님$/ }).click();
@@ -387,6 +446,8 @@ test.describe('인터셉트 상세에서 로그아웃(router.refresh)', () => {
     await page.waitForTimeout(ANNOUNCEMENT_SETTLE_MS);
     const backAt = await markTime(page);
     const logout = await announcementsBetween(page, logoutAt, backAt);
+    // refresh 커밋이 head 를 다시 그려도 탭 제목은 동아리 제목 그대로다.
+    expect(await tabTitlesBetween(page, logoutAt, backAt)).toEqual([clubTitle]);
 
     await expect(page).toHaveURL(new RegExp(`/clubs/${clubId}$`));
     await expect(page).toHaveTitle(clubTitle);

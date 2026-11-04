@@ -1,22 +1,28 @@
 'use client';
 
 import { useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 
 import { useAdminRecruitmentsQuery } from '@duing/hooks';
 import type { AdminRecruitmentSort, ApplicationMode, RecruitmentStatus } from '@duing/types';
 
+import { APPLICATION_STATUS_OPERATOR_LABEL } from '@/app/_constants/application-status';
 import { toRoute } from '@/app/_lib/route';
 import { useGuardedRouter } from '@/app/_lib/useGuardedRouter';
 import { ListRowsSkeleton } from '@/components/loading/Skeleton';
 import { ConsoleCard } from '../../_components/ConsoleCard';
 import { ErrorState } from '../../_components/ErrorState';
 import { useDebouncedValue } from '../../_hooks/useDebouncedValue';
-import { AdminRecruitmentsTable } from '../_components/AdminRecruitmentsTable';
+import { pickSearchParam } from '../../_lib/searchParamChoice';
+import {
+  AdminRecruitmentsTable,
+  PENDING_ATTENTION_DAYS,
+} from '../_components/AdminRecruitmentsTable';
 
 const STATUS_OPTIONS: { label: string; value?: RecruitmentStatus }[] = [
   { label: '전체 상태', value: undefined },
-  { label: '모집중', value: 'OPEN' },
-  { label: '마감', value: 'CLOSED' },
+  { label: '마감 전', value: 'OPEN' },
+  { label: '마감됨', value: 'CLOSED' },
 ];
 
 const MODE_OPTIONS: { label: string; value?: ApplicationMode }[] = [
@@ -32,15 +38,38 @@ const SORT_OPTIONS: { label: string; value: AdminRecruitmentSort }[] = [
   { label: '오래 방치된 순', value: 'STALE' },
 ];
 
+const STATUS_VALUES = STATUS_OPTIONS.flatMap((option) => (option.value ? [option.value] : []));
+const SORT_VALUES = SORT_OPTIONS.map((option) => option.value);
+
 const inputCls =
   'w-full rounded-md border border-line bg-paper px-3 py-2 text-sm text-charcoal transition-colors placeholder:text-charcoal-3 focus-visible:border-ink focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring';
 
 export function AdminRecruitmentsPage() {
-  // 검색어·필터는 전부 컴포넌트 상태다 — 동아리명이 주소에 실리면 방문 기록·referrer 로 새어나간다.
+  const searchParams = useSearchParams();
+  // 상태·정렬 첫 값만 주소에서 읽는다(총동연 홈 "미처리 지원 모집" 칸). 주소만 바뀐 이동에도 첫 값부터 다시 시작하도록 key 로 초기화한다.
+  const initialStatus = pickSearchParam(searchParams.get('status'), STATUS_VALUES);
+  const initialSort = pickSearchParam(searchParams.get('sort'), SORT_VALUES) ?? 'LATEST';
+  return (
+    <AdminRecruitmentsList
+      key={`${initialStatus ?? 'ALL'}:${initialSort}`}
+      initialStatus={initialStatus}
+      initialSort={initialSort}
+    />
+  );
+}
+
+function AdminRecruitmentsList({
+  initialStatus,
+  initialSort,
+}: {
+  initialStatus: RecruitmentStatus | undefined;
+  initialSort: AdminRecruitmentSort;
+}) {
+  // 검색어는 컴포넌트 상태다 — 동아리명이 주소에 실리면 방문 기록·referrer 로 새어나간다. 상태·정렬은 첫 값만 주소에서 받는다.
   const [input, setInput] = useState('');
-  const [statusFilter, setStatusFilter] = useState<RecruitmentStatus | undefined>(undefined);
+  const [statusFilter, setStatusFilter] = useState<RecruitmentStatus | undefined>(initialStatus);
   const [modeFilter, setModeFilter] = useState<ApplicationMode | undefined>(undefined);
-  const [sort, setSort] = useState<AdminRecruitmentSort>('LATEST');
+  const [sort, setSort] = useState<AdminRecruitmentSort>(initialSort);
   const router = useGuardedRouter();
 
   const debouncedQuery = useDebouncedValue(input.trim(), 300);
@@ -59,6 +88,12 @@ export function AdminRecruitmentsPage() {
         <h1 className="text-[22px] font-bold text-ink">모집 관리</h1>
         <p className="mt-1 text-[13.5px] text-charcoal-2">
           전 동아리의 모집 현황을 한 자리에서 보고, 방치된 모집을 강제로 마감합니다.
+        </p>
+        {/* 툴팁은 터치 기기에서 열 수 없어 보이는 한 줄로 둔다 — 운영진 대시보드 "검토 대기"(보류 포함)와 정의가 다르다. */}
+        <p className="mt-1 text-[12.5px] text-charcoal-3">
+          미처리는 아직 &apos;{APPLICATION_STATUS_OPERATOR_LABEL.SUBMITTED}&apos; 그대로인 지원서
+          수입니다. &apos;{APPLICATION_STATUS_OPERATOR_LABEL.ON_HOLD}&apos;로 옮긴 지원서는 처리한
+          것으로 보며, 가장 오래 기다린 지원서가 {PENDING_ATTENTION_DAYS}일째가 되면 강조합니다.
         </p>
       </header>
 

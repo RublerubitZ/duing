@@ -135,7 +135,7 @@ public class InterviewRound extends BaseEntity {
      * 표시를 처리한다. 활성 schedule 정리(§16-2)는 서비스 담당.
      */
     public void cancel() {
-        if (this.status == RoundStatus.SCHEDULED || this.status == RoundStatus.CANCELLED) {
+        if (this.status.isTerminal()) {
             throw new InterviewException.RoundTransitionNotAllowed();
         }
         this.status = RoundStatus.CANCELLED;
@@ -146,7 +146,7 @@ public class InterviewRound extends BaseEntity {
      * confirm 이 주 시나리오다. SCHEDULED·CANCELLED 는 불변 (§14 확정 후 변경 없음).
      */
     public void updateInfo(String title, String location) {
-        if (this.status == RoundStatus.SCHEDULED || this.status == RoundStatus.CANCELLED) {
+        if (this.status.isTerminal()) {
             throw new InterviewException.RoundTransitionNotAllowed();
         }
         if (title != null) {

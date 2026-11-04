@@ -21,6 +21,8 @@ public interface ApplicationRepository extends JpaRepository<Application, Long>,
 
     long countByRecruitmentId(Long recruitmentId);
 
+    boolean existsByRecruitmentIdAndStatusIn(Long recruitmentId, Collection<ApplicationStatus> statuses);
+
     @Query("SELECT a FROM Application a "
             + "JOIN FETCH a.recruitment r "
             + "JOIN FETCH r.club "
@@ -98,6 +100,20 @@ public interface ApplicationRepository extends JpaRepository<Application, Long>,
             @Param("statuses") Collection<ApplicationStatus> statuses);
 
     /**
+     * 운영 중단 동아리 남은 미결 정리(스펙 §3-1) — 그 동아리의 삭제되지 않은 모집(마감 포함)에 달린 결과 미정 지원서.
+     * 판정은 ClubRepositoryImpl#undecidedApplicationRow(목록 필터·행 건수·홈 집계)와 같아야 한다 — 엔티티를 바꿔야 해서
+     * JPQL 로 다시 쓴 두 번째 벌이라, 바꿀 때 함께 바꾸고 AdminClubPendingCleanupControllerTest 의 동치 테스트가 묶는다.
+     * 변경기가 recruitment.isUseInterview() 를 읽어 페치 조인한다. 지원서 삭제 제외는 루트 엔티티의 @SQLRestriction 이 붙인다
+     * (모집 삭제 제외는 조인이라 명시).
+     * 지원자(users)는 조인하지 않는다 — 탈퇴한 사람의 지원서도 정리 대상이다.
+     */
+    @Query("SELECT a FROM Application a JOIN FETCH a.recruitment r "
+            + "WHERE r.club.id = :clubId AND r.deletedAt IS NULL AND a.status IN :statuses")
+    List<Application> findByClubIdAndStatusIn(
+            @Param("clubId") Long clubId,
+            @Param("statuses") Collection<ApplicationStatus> statuses);
+
+    /**
      * 미처리 지원서 리마인더 후보 — 제출 뒤 기준 시각이 지나도록 SUBMITTED 로 남은 지원서를 모집별로 센다.
      * 모집은 raw status OPEN(마감일이 지난 심사 기간 포함), 동아리는 ACTIVE 만 — DeadlineNotificationJob 후보와 같은 동아리 규칙.
      * created_at 은 system regime 이라 {@code submittedBefore} 도 TimeMapper.systemNow 기준으로 넘긴다.
@@ -117,6 +133,8 @@ public interface ApplicationRepository extends JpaRepository<Application, Long>,
     /**
      * 총동연 모집 목록의 미처리 열 — 모집별 SUBMITTED 지원서 수와 가장 오래된 제출 시각(created_at, system regime).
      * 미처리 정의는 리마인더 후보와 같다(보류·합격·불합격은 처리, 철회는 소프트 삭제라 제외).
+     * 운영진 통계 요약(GeneralRecruitmentStatsService#getSummary)도 이 쿼리를 단건({@code List.of(recruitmentId)})으로 쓴다 —
+     * 미처리 정의를 바꾸면 두 화면이 같이 바뀐다.
      * 미처리가 없는 모집은 행이 없다. 빈 컬렉션으로 부르지 않는다({@code IN ()} 은 SQL 오류).
      */
     @Query(value = """

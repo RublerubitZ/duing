@@ -6,7 +6,8 @@ import type { Counts, FilterKey } from '../_constants/data';
 type Props = {
   checked: FilterKey[];
   onToggle: (key: FilterKey) => void;
-  counts: Counts;
+  /** null 은 불러오는 중 — 숫자를 그리지 않는다(거짓 0 방지) */
+  counts: Counts | null;
 };
 
 export function StageFilterCard({ checked, onToggle, counts }: Props) {
@@ -55,11 +56,11 @@ export function StageFilterCard({ checked, onToggle, counts }: Props) {
                   {filterItem.label}
                 </span>
               </span>
-              <span style={{
+              {counts && <span style={{
                 fontSize: 11.5, fontWeight: 600,
                 color: 'var(--charcoal-3)',
                 fontVariantNumeric: 'tabular-nums',
-              }}>{counts[filterItem.key]}</span>
+              }}>{counts[filterItem.key]}</span>}
             </label>
           );
         })}

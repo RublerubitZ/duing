@@ -8,7 +8,7 @@ import java.time.LocalDateTime;
 /**
  * 서비스 내부 DTO. {@code phone} 은 원본이며, 직렬화는 항상 {@code ClubMemberResponse} 를 거쳐
  * 마스킹된 값으로만 나간다(원본 phone 은 응답에 포함되지 않음).
- * {@code generation} 은 회원 기수(미사용 시 null), {@code feeStatus} 는 최신 청구 기준 회비 상태다.
+ * {@code generation} 은 회원 기수(미사용 시 null), {@code feeStatus} 는 덜 낸 청구 보유 기준 회비 상태다.
  */
 public record ClubMemberQuery(
         Long memberId,

@@ -56,6 +56,9 @@ export function ClubsSlotFrame({ children, modal }: Props) {
   const intercepted =
     !modalPath.includes(PASSTHROUGH_SEGMENT) && modalLeaf !== undefined && parsePositiveIdParam(modalLeaf) !== null;
   const childSegment = useSelectedLayoutSegment();
+  // 밑 화면(children) 세그먼트 경로 — 공지 영역이 들어오는 커밋에서 직전 제목을 이을지 가른다. 첫 세그먼트만으로는 상세(5)와
+  // 회원 화면(5/member/notices)이 같다.
+  const underlyingKey = useSelectedLayoutSegments().join('/');
   const childIsList = childSegment === null;
   // 직전 커밋에 목록이 마운트돼 있었는지 — 렌더에서 읽고 커밋 뒤에 갱신한다.
   const listMountedRef = useRef(false);
@@ -80,7 +83,7 @@ export function ClubsSlotFrame({ children, modal }: Props) {
       )}
       {modal}
       {/* 라우트 공지 영역은 마지막 자식 — 같은 커밋에서 상세의 제목 effect 뒤, Next 공지기 앞에 돈다(스펙 P1 §3.6). */}
-      <ClubsRouteAnnouncer intercepted={intercepted} />
+      <ClubsRouteAnnouncer intercepted={intercepted} underlyingKey={underlyingKey} />
     </div>
   );
 }

@@ -141,7 +141,7 @@ export function SubmissionBatchesTab({ statusFilter }: { statusFilter?: Submissi
   return (
     <div className="space-y-4">
       {/* 목업 CCard — 테이블·빈 상태·페이지네이션을 한 카드가 감싼다. */}
-      <ConsoleCard>
+      <ConsoleCard data-pagination-anchor="" className="scroll-mt-16 md:scroll-mt-6">
       <div className="flex flex-wrap items-center gap-2 border-b border-line px-[18px] py-3">
         <input
           type="search"

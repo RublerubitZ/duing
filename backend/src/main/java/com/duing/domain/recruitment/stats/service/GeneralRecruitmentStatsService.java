@@ -1,6 +1,8 @@
 package com.duing.domain.recruitment.stats.service;
 
 import com.duing.domain.application.entity.ApplicationStatus;
+import com.duing.domain.application.repository.ApplicationRepository;
+import com.duing.domain.application.repository.PendingApplicationStatsRow;
 import com.duing.domain.clubmember.service.ClubAuthService;
 import com.duing.domain.recruitment.entity.Recruitment;
 import com.duing.domain.recruitment.exception.RecruitmentException;
@@ -33,6 +35,7 @@ public class GeneralRecruitmentStatsService implements RecruitmentStatsService {
     private final RecruitmentRepository recruitmentRepository;
     private final RecruitmentStatsRepositoryCustom recruitmentStatsRepository;
     private final ClubAuthService clubAuthService;
+    private final ApplicationRepository applicationRepository;
     private final Clock clock;
 
     @Override
@@ -52,7 +55,16 @@ public class GeneralRecruitmentStatsService implements RecruitmentStatsService {
         long accepted = statusCountMap.getOrDefault(ApplicationStatus.ACCEPTED, 0L);
         long rejected = statusCountMap.getOrDefault(ApplicationStatus.REJECTED, 0L);
 
-        return StatsSummaryQuery.of(submitted, onHold, interviewPending, accepted, rejected, recruitment.getCapacity());
+        // 총동연 모집 목록과 같은 미처리 정의(SUBMITTED·미삭제)를 단건으로 재사용한다 — 권한 검사 뒤에만 부른다.
+        LocalDateTime oldestPendingSubmittedAt = applicationRepository
+                .findPendingStatsByRecruitmentIds(List.of(recruitmentId))
+                .stream()
+                .findFirst()
+                .map(PendingApplicationStatsRow::getOldestSubmittedAt)
+                .orElse(null);
+
+        return StatsSummaryQuery.of(submitted, onHold, interviewPending, accepted, rejected, recruitment.getCapacity(),
+                oldestPendingSubmittedAt);
     }
 
     @Override

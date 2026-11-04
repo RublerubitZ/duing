@@ -15,8 +15,10 @@ vi.mock('@duing/hooks', () => ({
 // 검색어는 의도적으로 주소에 싣지 않는다 — replace 호출 여부로 그 약속을 지킨다.
 const mockPush = vi.fn();
 const mockReplace = vi.fn();
+const mockSearchParams = vi.fn(() => new URLSearchParams());
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: mockPush, replace: mockReplace }),
+  useSearchParams: () => mockSearchParams(),
 }));
 
 vi.mock('next/link', () => ({
@@ -86,6 +88,7 @@ function rowByTitle(title: string): HTMLElement {
 }
 
 beforeEach(() => {
+  mockSearchParams.mockReturnValue(new URLSearchParams());
   vi.clearAllMocks();
   mockRecruitmentsQuery.mockReturnValue(listSuccess([makeRecruitment()]));
 });
@@ -105,6 +108,17 @@ describe('관리자 모집 목록', () => {
     expect(screen.getByText('2026 신입 부원 모집')).toBeInTheDocument();
     expect(screen.getByText('두잉밴드')).toBeInTheDocument();
     expect(screen.getByText('보컬 추가 모집')).toBeInTheDocument();
+  });
+
+  it('미처리 열이 무엇을 세는지 보이는 한 줄로 안내한다', () => {
+    // 툴팁은 터치 기기에서 열 수 없다 — 운영진 대시보드 "검토 대기"(보류 포함)와 정의가 달라 화면에 적어 둔다.
+    render(<AdminRecruitmentsPage />);
+
+    expect(
+      screen.getByText(
+        "미처리는 아직 '지원 완료' 그대로인 지원서 수입니다. '보류'로 옮긴 지원서는 처리한 것으로 보며, 가장 오래 기다린 지원서가 7일째가 되면 강조합니다.",
+      ),
+    ).toBeInTheDocument();
   });
 
   it('외부 폼 모집의 지원자 수는 0 이 아니라 해당 없음(—)으로 읽힌다', () => {
@@ -322,7 +336,7 @@ describe('관리자 모집 목록', () => {
     const user = userEvent.setup();
     render(<AdminRecruitmentsPage />);
 
-    await user.click(screen.getByRole('button', { name: '모집중' }));
+    await user.click(screen.getByRole('button', { name: '마감 전' }));
     await user.click(screen.getByRole('button', { name: '외부 폼' }));
     await user.selectOptions(screen.getByLabelText('정렬'), 'DEADLINE');
 
@@ -353,5 +367,31 @@ describe('관리자 모집 목록', () => {
     render(<AdminRecruitmentsPage />);
 
     expect(screen.getByRole('alert')).toHaveTextContent('모집을 불러오지 못했어요.');
+  });
+});
+
+describe('주소 초기 필터', () => {
+  it('총동연 홈 칸에서 온 ?status=OPEN&sort=STALE 를 첫 상태·정렬로 쓴다', () => {
+    mockSearchParams.mockReturnValue(new URLSearchParams('status=OPEN&sort=STALE'));
+    render(<AdminRecruitmentsPage />);
+    expect(mockRecruitmentsQuery).toHaveBeenCalledWith(expect.objectContaining({ status: 'OPEN', sort: 'STALE' }));
+  });
+
+  it('모르는 값이면 전체 상태·최신순으로 연다', () => {
+    mockSearchParams.mockReturnValue(new URLSearchParams('status=DRAFT&sort=RANDOM'));
+    render(<AdminRecruitmentsPage />);
+    expect(mockRecruitmentsQuery).toHaveBeenCalledWith(expect.objectContaining({ status: undefined, sort: 'LATEST' }));
+  });
+
+  it('주소 쿼리만 바뀌어도 첫 상태·정렬부터 다시 시작한다', () => {
+    mockSearchParams.mockReturnValue(new URLSearchParams('status=OPEN&sort=STALE'));
+    const { rerender } = render(<AdminRecruitmentsPage />);
+    mockRecruitmentsQuery.mockClear();
+
+    mockSearchParams.mockReturnValue(new URLSearchParams());
+    rerender(<AdminRecruitmentsPage />);
+
+    expect(mockRecruitmentsQuery).toHaveBeenCalledWith(expect.objectContaining({ status: undefined, sort: 'LATEST' }));
+    expect(mockRecruitmentsQuery).not.toHaveBeenCalledWith(expect.objectContaining({ status: 'OPEN', sort: 'STALE' }));
   });
 });

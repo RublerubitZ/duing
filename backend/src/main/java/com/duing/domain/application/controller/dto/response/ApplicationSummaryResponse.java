@@ -19,7 +19,9 @@ public record ApplicationSummaryResponse(
         String logoUrl,
         ApplicationStatus status,
         AssignedInterviewResponse interview,
-        Instant submittedAt
+        Instant submittedAt,
+        /** 운영 중단 정리로 끝난 지원서 — 지원자 화면이 "최종 불합격" 대신 "선발 종료"를 보이는 근거다. */
+        boolean endedByClubDeactivation
 ) {
 
     public static ApplicationSummaryResponse from(ApplicationSummaryQuery summaryQuery) {
@@ -35,7 +37,8 @@ public record ApplicationSummaryResponse(
                 summaryQuery.logoUrl(),
                 summaryQuery.status().asApplicantVisible(),
                 interview,
-                TimeMapper.systemWallClockToInstant(summaryQuery.submittedAt())
+                TimeMapper.systemWallClockToInstant(summaryQuery.submittedAt()),
+                summaryQuery.endedByClubDeactivation()
         );
     }
 }

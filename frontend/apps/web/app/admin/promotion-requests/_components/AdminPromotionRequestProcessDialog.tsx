@@ -87,19 +87,26 @@ export function AdminPromotionRequestProcessDialog({
           </div>
         </fieldset>
 
-        <label className="block space-y-1">
-          <span className="text-xs font-medium text-charcoal-2">처리 메모 (선택)</span>
-          <textarea
-            value={actionNote}
-            onChange={(event) => setActionNote(event.target.value.slice(0, ACTION_NOTE_MAX))}
-            rows={4}
-            placeholder="처리 메모를 입력하세요"
-            className={noteCls}
-          />
-          <p className="text-right text-[11px] text-charcoal-3">
-            {actionNote.length} / {ACTION_NOTE_MAX}
+        <div className="space-y-1">
+          <label className="block space-y-1">
+            <span className="text-xs font-medium text-charcoal-2">처리 메모 (선택)</span>
+            <textarea
+              value={actionNote}
+              aria-describedby="promotion-request-action-note-hint"
+              onChange={(event) => setActionNote(event.target.value.slice(0, ACTION_NOTE_MAX))}
+              rows={4}
+              placeholder="처리 메모를 입력하세요"
+              className={noteCls}
+            />
+            <p className="text-right text-[11px] text-charcoal-3">
+              {actionNote.length} / {ACTION_NOTE_MAX}
+            </p>
+          </label>
+          {/* 안내는 라벨 밖에 두고 설명으로 잇는다 — 라벨 안 요소는 입력란 이름에 섞인다(글자 수 카운터는 기존 구조 그대로). */}
+          <p id="promotion-request-action-note-hint" className="break-keep text-[11px] text-charcoal-3">
+            요청한 동아리 운영진에게 그대로 보여요. 거절이면 사유를 적어 주세요.
           </p>
-        </label>
+        </div>
 
         {errorMessage && <p role="alert" className="rounded-md bg-coral/5 px-3 py-2 text-sm text-coral-deep">{errorMessage}</p>}
 

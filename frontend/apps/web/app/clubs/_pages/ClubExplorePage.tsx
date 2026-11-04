@@ -6,6 +6,7 @@ import { useSearchParams } from 'next/navigation';
 import { useQueryClient } from '@tanstack/react-query';
 import { useGuardedRouter } from '@/app/_lib/useGuardedRouter';
 import { useRoutePathname } from '@/app/_lib/useRoutePathname';
+import { scrollToPaginatedListStart } from '@/app/_lib/paginationScroll';
 
 import {
   clubDetailQueryOptions,
@@ -1122,12 +1123,18 @@ type PaginationProps = {
 
 function Pagination({ page, totalPages, onPage }: PaginationProps) {
   const pages = buildPageList(page, totalPages);
+  // 다른 페이지로 갈 때만 새 페이지의 첫머리(이 화면은 맨 위)로 옮긴다 — 현재 번호를 다시 누른 것은 이동이 아니다.
+  const changePage = (event: React.MouseEvent<HTMLButtonElement>, next: number) => {
+    onPage(next);
+    if (next !== page) scrollToPaginatedListStart(event.currentTarget);
+  };
   return (
-    <div className="flex justify-center items-center gap-1 mt-12">
+    <nav aria-label="페이지" className="flex justify-center items-center gap-1 mt-12">
       <button
         type="button"
-        onClick={() => onPage(page - 1)}
+        onClick={(event) => changePage(event, page - 1)}
         disabled={page <= 1}
+        aria-label="이전 페이지"
         className="btn btn-ghost btn-sm disabled:opacity-40 disabled:cursor-not-allowed"
       >
         <Icon.arrowLeft />
@@ -1141,7 +1148,8 @@ function Pagination({ page, totalPages, onPage }: PaginationProps) {
           <button
             key={entry}
             type="button"
-            onClick={() => onPage(entry)}
+            onClick={(event) => changePage(event, entry)}
+            aria-current={entry === page ? 'page' : undefined}
             className={`w-9 h-9 rounded-[10px] text-[13.5px] font-semibold ${entry === page ? 'bg-ink text-white' : 'bg-transparent text-charcoal-2 hover:bg-graysoft'}`}
           >
             {entry}
@@ -1150,13 +1158,14 @@ function Pagination({ page, totalPages, onPage }: PaginationProps) {
       )}
       <button
         type="button"
-        onClick={() => onPage(page + 1)}
+        onClick={(event) => changePage(event, page + 1)}
         disabled={page >= totalPages}
+        aria-label="다음 페이지"
         className="btn btn-ghost btn-sm disabled:opacity-40 disabled:cursor-not-allowed"
       >
         <Icon.arrowRight />
       </button>
-    </div>
+    </nav>
   );
 }
 

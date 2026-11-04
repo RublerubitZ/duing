@@ -29,12 +29,13 @@ describe('ClubSwitcher', () => {
     expect(trigger).toHaveTextContent('모집중');
   });
 
-  it('모집이 없는 클럽은 모집종료 칩이 항상 표시된다', () => {
+  it('접수 중인 모집이 없는 클럽은 모집 칩 없이 역할만 표시된다', () => {
     render(<ClubSwitcher managedClubs={CLUBS} currentClubId={2} />);
 
     const trigger = screen.getByRole('button', { name: /동아리 전환/ });
     expect(trigger).toHaveTextContent('임원');
-    expect(trigger).toHaveTextContent('모집종료');
+    expect(trigger).not.toHaveTextContent('모집중');
+    expect(trigger).not.toHaveTextContent('모집종료');
   });
 
   it('드롭다운에 내 동아리 목록이 역할·모집 상태와 함께 뜨고, 현재 클럽에 체크가 표시된다', async () => {
@@ -48,7 +49,10 @@ describe('ClubSwitcher', () => {
     expect(menuItems[0]).toHaveTextContent('AI 동아리');
     expect(menuItems[0]).toHaveTextContent('회장 · 모집중');
     expect(menuItems[1]).toHaveTextContent('컴공 동아리');
-    expect(menuItems[1]).toHaveTextContent('임원 · 모집종료');
+    // 접수 중인 모집이 없으면 칩과 앞의 구분자를 함께 뺀다.
+    expect(menuItems[1]).toHaveTextContent('임원');
+    expect(menuItems[1]).not.toHaveTextContent('·');
+    expect(menuItems[1]).not.toHaveTextContent('모집종료');
     expect(within(menuItems[0]!).getByText('현재 선택됨')).toBeInTheDocument();
     expect(within(menuItems[1]!).queryByText('현재 선택됨')).not.toBeInTheDocument();
   });

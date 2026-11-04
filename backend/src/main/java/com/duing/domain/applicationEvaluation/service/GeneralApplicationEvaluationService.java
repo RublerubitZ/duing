@@ -28,10 +28,13 @@ public class GeneralApplicationEvaluationService implements ApplicationEvaluatio
     @Override
     @Transactional
     public void upsert(UpsertApplicationEvaluationCommand command) {
+        // 인가 먼저 — 지원자 상세와 같은 순서(경량 clubId 조회 → 운영진 확인 → 지원서). 폐쇄된 동아리(삭제된 모집)의 지원은
+        // clubId 조회의 조인에서 빠져 404 다(지원부터 읽으면 권한 확인 전에 삭제된 모집 프록시를 초기화하다 500).
+        Long clubId = applicationRepository.findClubIdByApplicationId(command.applicationId())
+                .orElseThrow(ApplicationDomainException.ApplicationNotFoundException::new);
+        clubAuthService.requireManagerOrHidden(command.evaluatorId(), clubId, ApplicationDomainException.ApplicationNotFoundException::new);
         Application application = applicationRepository.findById(command.applicationId())
                 .orElseThrow(ApplicationDomainException.ApplicationNotFoundException::new);
-        Long clubId = application.getRecruitment().getClub().getId();
-        clubAuthService.requireManagerOrHidden(command.evaluatorId(), clubId, ApplicationDomainException.ApplicationNotFoundException::new);
         requireNotClosed(application);
 
         evaluationRepository.findByApplicationIdAndEvaluatorId(command.applicationId(), command.evaluatorId())
@@ -48,10 +51,12 @@ public class GeneralApplicationEvaluationService implements ApplicationEvaluatio
     @Override
     @Transactional
     public void deleteMine(Long applicationId, Long evaluatorId) {
+        // upsert 와 같은 인가 순서.
+        Long clubId = applicationRepository.findClubIdByApplicationId(applicationId)
+                .orElseThrow(ApplicationDomainException.ApplicationNotFoundException::new);
+        clubAuthService.requireManagerOrHidden(evaluatorId, clubId, ApplicationDomainException.ApplicationNotFoundException::new);
         Application application = applicationRepository.findById(applicationId)
                 .orElseThrow(ApplicationDomainException.ApplicationNotFoundException::new);
-        clubAuthService.requireManagerOrHidden(evaluatorId, application.getRecruitment().getClub().getId(),
-                ApplicationDomainException.ApplicationNotFoundException::new);
         requireNotClosed(application);
 
         evaluationRepository.findByApplicationIdAndEvaluatorId(applicationId, evaluatorId)

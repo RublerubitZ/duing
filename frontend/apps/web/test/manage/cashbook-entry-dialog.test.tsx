@@ -1,6 +1,6 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 const mockCreateMutate = vi.fn();
 const mockUpdateMutate = vi.fn();
@@ -113,5 +113,25 @@ describe('금전출납부 등록 다이얼로그', () => {
     mockCreatePending = true;
     render(<CashbookEntryDialog clubId={1} entryType="EXPENSE" onClose={vi.fn()} />);
     expect(screen.getByRole('status')).toHaveTextContent('장부 항목 저장 중');
+  });
+});
+
+// 기본 날짜(오늘)는 기기 시간대가 아니라 한국 시간이다 — 백엔드 판정(seoulClock)과 같은 기준(TIMEZONE.md).
+describe('금전출납부 등록 다이얼로그 — 기본 거래일은 한국 오늘', () => {
+  const originalTz = process.env.TZ;
+  afterEach(() => {
+    vi.useRealTimers();
+    // undefined 를 대입하면 문자열 "undefined" 가 들어가 UTC 로 동작한다 — 원래 없었으면 지운다.
+    if (originalTz === undefined) delete process.env.TZ;
+    else process.env.TZ = originalTz;
+  });
+
+  it('뉴욕 기기(아직 10/31)에서 한국 11/01 00:10 이면 거래일 기본값은 2026-11-01', () => {
+    process.env.TZ = 'America/New_York';
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-11-01T00:10:00+09:00'));
+    render(<CashbookEntryDialog clubId={1} entryType="EXPENSE" onClose={vi.fn()} />);
+
+    expect(screen.getByLabelText(/거래일/)).toHaveValue('2026-11-01');
   });
 });

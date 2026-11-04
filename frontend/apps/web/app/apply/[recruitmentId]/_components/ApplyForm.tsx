@@ -45,6 +45,14 @@ const DRAFT_SAVED_AT_FORMATTER = kstDateTimeFormatter({
   hourCycle: 'h23',
 });
 
+// 자동 저장 시각 "HH:mm:ss" — 기기 시간대가 아니라 한국 시간으로 읽는다(TIMEZONE.md).
+const AUTOSAVE_TIME_FORMATTER = kstDateTimeFormatter({
+  hour: '2-digit',
+  minute: '2-digit',
+  second: '2-digit',
+  hourCycle: 'h23',
+});
+
 function draftSavedAtLabelOf(updatedAt: string | null): string | null {
   if (updatedAt === null) return null;
   const parsed = parseKstInstant(updatedAt);
@@ -101,15 +109,6 @@ export function ApplyForm({ recruitment, recruitmentId, questionItems, initialAn
 
   const isClosed = autosaveStatus.kind === 'closed' || blockedBySubmit !== null;
   const isNotStarted = blockedBySubmit === 'notStarted';
-
-  function formatTime(date: Date): string {
-    return date.toLocaleTimeString('ko-KR', {
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-      hour12: false,
-    });
-  }
 
   function handleAnswersChange(next: DraftAnswer[]) {
     // 답변이 바뀐 질문의 안내만 걷어낸다 — 아직 손대지 않은 다른 위반은 그대로 남긴다.
@@ -224,7 +223,7 @@ export function ApplyForm({ recruitment, recruitmentId, questionItems, initialAn
               {autosaveStatus.kind === 'saved' && (
                 <>
                   <span className="h-1.5 w-1.5 rounded-full bg-ink-soft shadow-[0_0_0_3px_rgba(46,97,73,0.18)]" />
-                  마지막 저장 {formatTime(autosaveStatus.at)}
+                  마지막 저장 {AUTOSAVE_TIME_FORMATTER.format(autosaveStatus.at)}
                 </>
               )}
               {autosaveStatus.kind === 'saving' && (

@@ -37,7 +37,8 @@ public interface AdminPromotionRequestApi {
     @GetMapping("/admin/promotion-requests/{requestId}")
     ResponseEntity<ApiResponse<PromotionRequestDetailResponse>> getRequest(@PathVariable Long requestId);
 
-    @Operation(summary = "홍보 요청 처리")
+    @Operation(summary = "홍보 요청 처리",
+            description = "처리 메모(actionNote)는 해당 동아리 운영진에게 그대로 보인다.")
     @PatchMapping("/admin/promotion-requests/{requestId}")
     ResponseEntity<ApiResponse<Void>> processRequest(
             @PathVariable Long requestId,

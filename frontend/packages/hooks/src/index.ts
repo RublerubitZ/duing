@@ -146,6 +146,9 @@ export { federationInquiryQueryKeys } from './federationInquiryQueryKeys';
 export { useFileUploadMutation } from './files';
 export {
   useAdminPendingCountsQuery,
+  useAdminPendingTrendQuery,
+  useAdminJobStatusesQuery,
+  ADMIN_JOB_STATUSES_REFETCH_INTERVAL_MS,
   useAdminClubMembersQuery,
   useAdminClubsQuery,
   useAdminClubDetailQuery,
@@ -159,6 +162,7 @@ export {
   useCreateClubMutation,
   useUpdateClubStatusMutation,
   useCloseClubMutation,
+  useCleanupClubPendingMutation,
   useUpdateClubCentralClubMutation,
   useUpdateClubFacilitySecuredTimeTargetMutation,
   useAdminUpdateClubMutation,
@@ -204,12 +208,14 @@ export {
   useSubmitSuccessionRequestMutation,
   useAdminSuccessionListQuery,
   useAdminSuccessionDetailQuery,
+  useMyLatestLeaderSuccessionRequestQuery,
   useProcessSuccessionMutation,
   useAssignAdminLeaderMutation,
   useAdminClubMemberHistoryQuery,
 } from './leaderSuccession';
 export { useAdminClubActivityEventsQuery } from './adminClubActivity';
 export {
+  useLatestPromotionRequestQuery,
   useSubmitPromotionRequestMutation,
   useAdminPromotionRequestListQuery,
   useAdminPromotionRequestDetailQuery,
@@ -296,7 +302,7 @@ export {
   useMyInterviewQuery,
   useRespondAvailabilityMutation,
 } from './applicantInterview';
-export { parseKstInstant, daysUntilKst, todayKstDateString } from './dashboardDate';
+export { parseKstInstant, daysUntilKst, daysSinceKst, todayKstDateString } from './dashboardDate';
 export {
   formatDateTimeKst,
   formatDateKst,
@@ -304,15 +310,20 @@ export {
   formatRelativeTime,
   kstDateTimeFormatter,
 } from './datetime';
-export { CLOSING_SOON_DAYS } from './dashboardSelectors';
+export { CLOSING_SOON_DAYS, STALE_WAITING_DAYS, countAwaitingReview, countUndecided } from './dashboardSelectors';
 export {
   DASHBOARD_QUERY_OPTIONS,
   useActiveRecruitments,
   useApplicantSummary,
   useClubActionItems,
+  useClubOperationItems,
+  useDashboardTaskQueue,
   useTodaySchedule,
   useClubFeedCounts,
 } from './dashboard';
+export { useAdminTriageQueue } from './adminTriage';
+export { buildPendingTrendBars, pendingTrendComparison, recordedDayCount } from './adminPendingTrend';
+export type { PendingTrendBar, PendingTrendComparison } from './adminPendingTrend';
 export {
   useClubFeePoliciesQuery,
   useCreateFeePolicyMutation,

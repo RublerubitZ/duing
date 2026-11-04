@@ -35,6 +35,15 @@ export const APPLICATION_STATUS_APPLICANT_LABEL: Record<ApplicationStatus, strin
   REJECTED: '최종 불합격',
 };
 
+/** 검토 대기 = 지원 완료 + 보류(면접 대상 제외). 합산 타일·할 일 라벨 — 계산은 hooks `countAwaitingReview`. */
+export const APPLICATION_AWAITING_REVIEW_LABEL = '검토 대기';
+
+/**
+ * 미확정 = 결과(합격·불합격)가 아직 없는 지원 — hooks `countUndecided` 집합 전용.
+ * "면접 결과 미확정"·"면접 일정 미확정"처럼 다른 집합을 가리키는 표기에는 쓰지 말 것.
+ */
+export const APPLICATION_UNDECIDED_LABEL = '미확정';
+
 // 기존 호출자(모두 운영진 UI) backward compat alias.
 // 신규 코드는 audience 가 명시적인 OPERATOR / APPLICANT 상수를 직접 import 한다.
 export const APPLICATION_STATUS_LABEL = APPLICATION_STATUS_OPERATOR_LABEL;
@@ -112,4 +121,28 @@ export function applicantStatusLabel(
   return isClosedWithoutResult(status, recruitmentStatus)
     ? APPLICATION_CLOSED_WITHOUT_RESULT_LABEL
     : APPLICATION_STATUS_APPLICANT_LABEL[status];
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 운영 중단 정리 축
+//
+// 총동연이 운영 중단 동아리의 남은 미결을 정리하면 지원서는 REJECTED 가 되지만, 운영진이 내린 결과가 아니라
+// "선발이 끝남"이다. 서버가 지원서에 남긴 표시 칸(endedByClubDeactivation)으로 가른다.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** 운영 중단 정리로 끝난 지원의 안내 문장 — 지원자 상세와 총동연 정리 확인 창이 같은 문장을 쓴다. */
+export const APPLICATION_ENDED_BY_CLUB_DEACTIVATION_DESCRIPTION = '동아리 운영 중단으로 선발이 끝났어요';
+
+/** 운영 중단 정리로 끝난 지원의 지원자 표기 — 목록 알약·상세 마지막 마디·지난 지원 알약. */
+export const APPLICATION_ENDED_BY_CLUB_DEACTIVATION_LABEL = '선발 종료';
+
+/**
+ * 총동연의 운영 중단 정리로 끝난 지원인지 — 불합격이면서 서버 표시 칸이 참일 때만.
+ * 칸이 없는 이전 백엔드는 false(지금처럼 "최종 불합격") — fail-open.
+ */
+export function isEndedByClubDeactivation(
+  status: ApplicationStatus,
+  endedByClubDeactivation: boolean | undefined,
+): boolean {
+  return status === 'REJECTED' && endedByClubDeactivation === true;
 }

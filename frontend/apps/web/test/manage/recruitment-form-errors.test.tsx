@@ -1,5 +1,5 @@
 import { act, render, screen, fireEvent, waitFor, within } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { RecruitmentForm } from '@/app/manage/clubs/[clubId]/recruitments/_components/RecruitmentForm';
 import {
   loadRecruitmentDraft,
@@ -15,11 +15,10 @@ vi.mock('@/app/_lib/useGuardedRouter', () => ({
   useGuardedRouter: () => ({ push: vi.fn(), replace: vi.fn(), refresh: vi.fn() }),
 }));
 
-/** 절대 미래 날짜는 언젠가 과거가 되는 시한폭탄이라 오늘 기준으로 만든다(en-CA = YYYY-MM-DD). */
-function localIsoDate(daysFromToday: number): string {
-  const date = new Date();
-  date.setDate(date.getDate() + daysFromToday);
-  return date.toLocaleDateString('en-CA');
+/** 절대 미래 날짜는 언젠가 과거가 되는 시한폭탄이라 오늘(폼과 같은 한국 시간) 기준으로 만든다(en-CA = YYYY-MM-DD). */
+const KST_DATE = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Seoul' });
+function kstIsoDate(daysFromToday: number): string {
+  return KST_DATE.format(new Date(Date.now() + daysFromToday * 86_400_000));
 }
 
 describe('RecruitmentForm 오류 표시', () => {
@@ -48,7 +47,7 @@ describe('RecruitmentForm 오류 표시', () => {
     const onSubmit = vi.fn().mockResolvedValue(undefined);
     render(<RecruitmentForm mode="create" submitLabel="공개하기" onSubmit={onSubmit} isPending={false} />);
     fireEvent.change(screen.getByPlaceholderText('모집 공고 제목을 입력하세요'), { target: { value: '가을 모집' } });
-    fireEvent.change(screen.getByLabelText(/^시작일/), { target: { value: localIsoDate(0) } });
+    fireEvent.change(screen.getByLabelText(/^시작일/), { target: { value: kstIsoDate(0) } });
     fireEvent.click(screen.getByLabelText(/^상시모집/));
     fireEvent.click(screen.getByRole('radio', { name: '외부 폼' }));
     fireEvent.click(screen.getByRole('button', { name: '확인하고 전환' }));
@@ -181,7 +180,7 @@ describe('RecruitmentForm 오류 표시', () => {
   // 시작일이 미래면 지금 공개되는 게 아니다 — "지금부터" 라고 하면 거짓말이 된다.
   it('시작일이 미래면 공개 확인 모달이 실제 공개일을 말한다', async () => {
     render(<RecruitmentForm mode="create" submitLabel="공개하기" onSubmit={vi.fn()} isPending={false} />);
-    const startDate = localIsoDate(5);
+    const startDate = kstIsoDate(5);
     fireEvent.change(screen.getByPlaceholderText('모집 공고 제목을 입력하세요'), { target: { value: '가을 모집' } });
     fireEvent.change(screen.getByLabelText(/^시작일/), { target: { value: startDate } });
     fireEvent.click(screen.getByLabelText(/^상시모집/));
@@ -196,6 +195,43 @@ describe('RecruitmentForm 오류 표시', () => {
     expect(
       await screen.findByRole('dialog', { name: `${month}월 ${day}일부터 학생에게 공개돼요` }),
     ).toBeInTheDocument();
+  });
+
+  // 오늘은 기기 시간대가 아니라 한국 시간이다 — 스키마·백엔드(seoulClock)와 같은 기준(TIMEZONE.md).
+  describe('오늘은 한국 시간 날짜 — 뉴욕 기기(아직 10/31)에서 한국 11/01 00:10', () => {
+    const originalTz = process.env.TZ;
+    beforeEach(() => {
+      process.env.TZ = 'America/New_York';
+      vi.useFakeTimers({ toFake: ['Date'] });
+      vi.setSystemTime(new Date('2026-11-01T00:10:00+09:00'));
+    });
+    afterEach(() => {
+      vi.useRealTimers();
+      // undefined 를 대입하면 문자열 "undefined" 가 들어가 UTC 로 동작한다 — 원래 없었으면 지운다.
+      if (originalTz === undefined) delete process.env.TZ;
+      else process.env.TZ = originalTz;
+    });
+
+    it('종료일 입력의 최솟값은 한국 오늘(11/01)이다', () => {
+      render(<RecruitmentForm mode="create" submitLabel="공개하기" onSubmit={vi.fn()} isPending={false} />);
+
+      expect(screen.getByLabelText(/^종료일/)).toHaveAttribute('min', '2026-11-01');
+    });
+
+    it('시작일이 한국 오늘(11/01)이면 공개 확인 모달은 "지금부터" 다', async () => {
+      render(<RecruitmentForm mode="create" submitLabel="공개하기" onSubmit={vi.fn()} isPending={false} />);
+      fireEvent.change(screen.getByPlaceholderText('모집 공고 제목을 입력하세요'), { target: { value: '가을 모집' } });
+      fireEvent.change(screen.getByLabelText(/^시작일/), { target: { value: '2026-11-01' } });
+      fireEvent.click(screen.getByLabelText(/^상시모집/));
+      fireEvent.click(screen.getByRole('radio', { name: '외부 폼' }));
+      fireEvent.click(screen.getByRole('button', { name: '확인하고 전환' }));
+      fireEvent.change(screen.getByPlaceholderText('https://docs.google.com/forms/...'), {
+        target: { value: 'https://forms.gle/abc' },
+      });
+      fireEvent.submit(screen.getByRole('button', { name: '공개하기' }).closest('form')!);
+
+      expect(await screen.findByRole('dialog', { name: '지금부터 학생에게 공개돼요' })).toBeInTheDocument();
+    });
   });
 
   // 시트에 설명이 없으면 Radix 가 콘솔 경고를 내고, 스크린리더는 무엇이 열렸는지 알 수 없다.

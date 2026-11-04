@@ -55,12 +55,12 @@ function resolveTab(raw: string | null): FeeDetailTab {
  * 총동연은 무슨 일이 있었는지만 본다(§2).
  *
  * <p>기간 셀렉터는 헤더에 하나뿐이다 — KPI·정책 납부율·청구·납부가 전부 같은 구간을 봐야
- * 탭을 옮겨 가며 대조한 숫자가 어긋나지 않는다. 기본값은 최근 30일.
+ * 탭을 옮겨 가며 대조한 숫자가 어긋나지 않는다. 기본값은 전체 기간.
  */
 export function AdminFeeClubDetailPage({ clubId }: { clubId: number }) {
   const router = useGuardedRouter();
   const searchParams = useSearchParams();
-  const period = readPeriodValue(searchParams, 'LAST_30D');
+  const period = readPeriodValue(searchParams);
   const activeTab = resolveTab(searchParams.get('tab'));
   const periodParams = resolvePeriodParams(period);
 
@@ -75,7 +75,7 @@ export function AdminFeeClubDetailPage({ clubId }: { clubId: number }) {
   // 기간·탭만 주소에 남긴다 — 청구 탭의 회원 검색어는 방문 기록·referrer 로 새어나가므로 싣지 않는다.
   const syncUrl = (next: { period?: FeePeriodValue; tab?: FeeDetailTab }) => {
     const params = new URLSearchParams();
-    writePeriodParams(params, next.period ?? period, 'LAST_30D');
+    writePeriodParams(params, next.period ?? period);
     const nextTab = next.tab ?? activeTab;
     if (nextTab !== DEFAULT_TAB) params.set('tab', nextTab);
     const query = params.toString();

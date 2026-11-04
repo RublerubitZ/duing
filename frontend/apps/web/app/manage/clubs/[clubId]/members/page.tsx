@@ -1,6 +1,6 @@
 'use client';
 
-import { use, useState } from 'react';
+import { use, useId, useState } from 'react';
 import Link from 'next/link';
 import type { ClubMember } from '@duing/types';
 import {
@@ -9,6 +9,7 @@ import {
   useJoinRequestsQuery,
   useManagedClubsQuery,
   useMeQuery,
+  useMyLatestLeaderSuccessionRequestQuery,
   useTransferLeaderMutation,
 } from '@duing/hooks';
 import { MemberKpis } from './_components/MemberKpis';
@@ -28,6 +29,7 @@ import {
   type MemberFilters,
 } from './_lib/memberFilters';
 import { memberPermissions } from './_lib/memberPermissions';
+import { successionRequestBadgeText, successionRequestStatusChip } from './_lib/successionRequestStatus';
 import { cn } from '@/app/_lib/cn';
 import { toRoute } from '@/app/_lib/route';
 import { LoadingGate } from '@/components/loading/LoadingGate';
@@ -56,6 +58,11 @@ export default function ClubMembersPage({
     isValidId ? currentClubId : undefined,
     'PENDING',
   );
+  // 내 최근 승계 요청 — 로딩·오류(404 포함)면 undefined 라 배지 없이 버튼을 지금처럼 둔다(fail-open, 로딩 게이트에 넣지 않는다).
+  const { data: myLatestSuccessionRequest } = useMyLatestLeaderSuccessionRequestQuery(
+    isValidId ? currentClubId : undefined,
+  );
+  const successionBadgeId = useId();
 
   const [query, setQuery] = useState('');
   const [filters, setFilters] = useState<MemberFilters>(EMPTY_MEMBER_FILTERS);
@@ -87,6 +94,11 @@ export default function ClubMembersPage({
   const permissions = memberPermissions(viewerRole, { useGeneration });
   const memberList = members ?? [];
   const pendingCount = pendingJoinRequests?.length ?? 0;
+  const successionBadgeText = myLatestSuccessionRequest
+    ? successionRequestBadgeText(myLatestSuccessionRequest, new Date(), permissions.canRequestSuccession)
+    : null;
+  const isSuccessionPending =
+    permissions.canRequestSuccession && myLatestSuccessionRequest?.status === 'PENDING';
   const generations = availableGenerations(memberList);
   // 사라진 기수를 가리키는 필터는 렌더 시점에 무효화 — 상태를 되돌리지 않아도 화면과 목록이 어긋나지 않는다.
   const effectiveFilters = normalizeMemberFilters(filters, generations);
@@ -176,36 +188,55 @@ export default function ClubMembersPage({
               : '부원을 검색·필터할 수 있어요. 역할 변경·탈퇴·회장 인계는 회장 전용이에요.'}
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-2 lg:shrink-0">
-          {/* 가입 요청 처리·부원 초대는 운영진(LEADER/OFFICER) 공통 권한이다. 모집과 무관한
-              부원 초대 링크가 실기능으로 추가돼 초대 진입점을 복원했다(스펙 2026-08-08 §7). */}
-          <ClubInviteDialog clubId={currentClubId} useGeneration={useGeneration} />
-          <Link
-            href={toRoute(`/manage/clubs/${currentClubId}/members/requests`)}
-            className="inline-flex shrink-0 items-center gap-1.5 rounded-xl border border-line px-4 py-2 text-sm font-semibold text-charcoal-2 hover:border-ink hover:text-ink"
-          >
-            가입 요청
-            {pendingCount > 0 && (
-              <span className="rounded-full bg-coral px-1.5 py-0.5 text-xs font-semibold text-paper">
-                {pendingCount}
-              </span>
-            )}
-          </Link>
-          {/* 명단 다운로드는 운영진(LEADER/OFFICER) 공통 — 운영 권한 자체는 레이아웃 가드가 이미 보장한다. */}
-          <MemberCsvDownloadPopover
-            clubId={currentClubId}
-            clubName={clubName}
-            memberIds={filteredIds}
-            useGeneration={useGeneration}
-          />
-          {permissions.canRequestSuccession && (
-            <button
-              type="button"
-              onClick={() => setSuccessionOpen(true)}
-              className="shrink-0 rounded-xl border border-line px-4 py-2 text-sm font-semibold text-charcoal-2 hover:border-ink hover:text-ink"
+        {/* 승계 요청 배지는 액션 묶음 밖 둘째 줄(버튼 아래) — 묶음 안에 두면 lg 에서 묶음이 배지만큼 넓어져 제목 칸이 눌린다. */}
+        <div className="flex flex-col items-start gap-2 lg:shrink-0 lg:items-end">
+          <div className="flex flex-wrap items-center gap-2">
+            {/* 가입 요청 처리·부원 초대는 운영진(LEADER/OFFICER) 공통 권한이다. 모집과 무관한
+                부원 초대 링크가 실기능으로 추가돼 초대 진입점을 복원했다(스펙 2026-08-08 §7). */}
+            <ClubInviteDialog clubId={currentClubId} useGeneration={useGeneration} />
+            <Link
+              href={toRoute(`/manage/clubs/${currentClubId}/members/requests`)}
+              className="inline-flex shrink-0 items-center gap-1.5 rounded-xl border border-line px-4 py-2 text-sm font-semibold text-charcoal-2 hover:border-ink hover:text-ink"
             >
-              회장 승계 요청
-            </button>
+              가입 요청
+              {pendingCount > 0 && (
+                <span className="rounded-full bg-coral px-1.5 py-0.5 text-xs font-semibold text-paper">
+                  {pendingCount}
+                </span>
+              )}
+            </Link>
+            {/* 명단 다운로드는 운영진(LEADER/OFFICER) 공통 — 운영 권한 자체는 레이아웃 가드가 이미 보장한다. */}
+            <MemberCsvDownloadPopover
+              clubId={currentClubId}
+              clubName={clubName}
+              memberIds={filteredIds}
+              useGeneration={useGeneration}
+            />
+            {/* 대기 중이면 disabled 대신 aria-disabled — 제출 직후 재조회로 잠겨도 포커스가 body 로 빠지지 않고, Tab 으로 닿아 배지 설명이 읽힌다. */}
+            {permissions.canRequestSuccession && (
+              <button
+                type="button"
+                onClick={() => {
+                  if (!isSuccessionPending) setSuccessionOpen(true);
+                }}
+                aria-disabled={isSuccessionPending || undefined}
+                aria-describedby={isSuccessionPending ? successionBadgeId : undefined}
+                className="shrink-0 rounded-xl border border-line px-4 py-2 text-sm font-semibold text-charcoal-2 hover:border-ink hover:text-ink aria-disabled:cursor-not-allowed aria-disabled:opacity-50 aria-disabled:hover:border-line aria-disabled:hover:text-charcoal-2"
+              >
+                회장 승계 요청
+              </button>
+            )}
+          </div>
+          {myLatestSuccessionRequest && successionBadgeText !== null && (
+            <span
+              id={successionBadgeId}
+              className={cn(
+                'inline-flex rounded-full px-2.5 py-1 text-xs font-semibold',
+                successionRequestStatusChip(myLatestSuccessionRequest.status).badgeClass,
+              )}
+            >
+              {successionBadgeText}
+            </span>
           )}
         </div>
       </header>
@@ -290,6 +321,7 @@ export default function ClubMembersPage({
         <SuccessionRequestModal
           clubId={currentClubId}
           clubName={clubName}
+          latestRequest={myLatestSuccessionRequest ?? null}
           onClose={() => setSuccessionOpen(false)}
         />
       )}
