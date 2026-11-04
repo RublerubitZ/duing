@@ -52,7 +52,7 @@ export function CreatePolicyDialog({ clubId, policy, onClose }: CreatePolicyDial
     watch,
     setValue,
     formState: { errors, isSubmitting },
-  } = useForm<CreateFeePolicyInput>({
+  } = useForm({
     resolver: zodResolver(createFeePolicySchema),
     defaultValues: policy
       ? {
