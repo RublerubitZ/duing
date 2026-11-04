@@ -141,7 +141,7 @@ public class RecruitmentException extends ApplicationException {
     }
 
     public static class ApplicationsExistException extends RecruitmentException {
-        private static final String MESSAGE = "이미 지원자가 있는 모집 공고는 삭제할 수 없습니다. 마감을 사용하세요.";
+        private static final String MESSAGE = "이미 지원자가 있는 모집 공고는 삭제할 수 없습니다.";
 
         public ApplicationsExistException() {
             super(MESSAGE, HttpStatus.CONFLICT);

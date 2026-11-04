@@ -192,6 +192,22 @@ public class GeneralInterviewAssignmentService implements InterviewAssignmentSer
         removeActiveSchedule(roundId, member.getApplicationId());
     }
 
+    @Override
+    @Transactional
+    public void releaseAllOnWithdrawal(Long userId) {
+        // 멤버 행만 id 순으로 잠근다 — 라운드 writer 는 round → (slots →) members 순이고 이 경로는 round·slot 을
+        // 잡지 않는다. 순서가 엇갈리는 곳은 둘이다: 지원자 본인의 가능 시간 응답(availability → member), 그리고 동아리
+        // 폐쇄(schedule → club_member — 탈퇴는 club_member 를 먼저 잡고 schedule 은 그 뒤 flush 때 쓴다). 둘 다 같은 사람·
+        // 같은 동아리에서 동시에 일어나야만 맞물리고, 그때도 PostgreSQL 이 한쪽을 교착으로 끊어 남는 데이터는 없다.
+        for (InterviewRoundMember member
+                : interviewRoundMemberRepository.findAllOfUserInUncancelledRoundsForUpdate(userId)) {
+            interviewAvailabilityRepository.softDeleteByRoundIdAndApplicationIdKeepingContext(
+                    member.getRoundId(), member.getApplicationId());
+            removeActiveSchedule(member.getRoundId(), member.getApplicationId());
+            member.excludeOnWithdrawal();
+        }
+    }
+
     private InterviewRoundMember getLockedMemberOfRound(Long roundId, Long memberId) {
         return interviewRoundMemberRepository.findByIdAndRoundIdForUpdate(memberId, roundId)
                 .orElseThrow(InterviewException.MemberNotFound::new);

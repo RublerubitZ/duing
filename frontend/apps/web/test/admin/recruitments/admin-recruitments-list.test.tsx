@@ -222,6 +222,7 @@ describe('관리자 모집 목록', () => {
       mockRecruitmentsQuery.mockReturnValue(
         listSuccess([
           makeRecruitment({ recruitmentId: 1, title: '오늘 접속 모집', operatorsLastActiveAt: daysAgoIso(0) }),
+          makeRecruitment({ recruitmentId: 5, title: '어제 접속 모집', operatorsLastActiveAt: daysAgoIso(1) }),
           makeRecruitment({ recruitmentId: 2, title: '한 달째 모집', operatorsLastActiveAt: daysAgoIso(30) }),
           makeRecruitment({ recruitmentId: 3, title: '한 달 넘은 모집', operatorsLastActiveAt: daysAgoIso(31) }),
           makeRecruitment({ recruitmentId: 4, title: '기록 없는 모집', operatorsLastActiveAt: null }),
@@ -232,6 +233,7 @@ describe('관리자 모집 목록', () => {
 
       expect(screen.getByRole('columnheader', { name: '운영진 접속' })).toBeInTheDocument();
       expect(within(rowByTitle('오늘 접속 모집')).getByText('오늘')).not.toHaveClass('text-coral-deep');
+      expect(within(rowByTitle('어제 접속 모집')).getByText('1일 전')).not.toHaveClass('text-coral-deep');
       expect(within(rowByTitle('한 달째 모집')).getByText('30일 전')).not.toHaveClass('text-coral-deep');
       expect(within(rowByTitle('한 달 넘은 모집')).getByText('31일 전')).toHaveClass('text-coral-deep');
       // 세션·로그인 기록이 모두 없으면 가장 오래 방치된 경우다 — 정보 없음이 아니라 주의 대상이다.

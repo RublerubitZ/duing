@@ -52,6 +52,29 @@ public interface FeeBillRepository extends JpaRepository<FeeBill, Long>, FeeBill
                         @Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate,
                         @Param("dueDate") LocalDate dueDate);
 
+    // 자동 월발행 전용: bulkInsertBills 에 '같은 정책·회원·회차 청구가 취소건을 포함해 하나라도 있으면 건너뜀'을 더한다.
+    // 운영진이 취소한 회원을 다음 실행·월초 캐치업이 되살리지 않게 한다. 손 발행은 bulkInsertBills 로 취소 뒤 재발행을 허용한다.
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query(value = """
+            INSERT INTO fee_bill (club_id, user_id, fee_policy_id, amount, billing_period,
+                                  billing_start_date, billing_end_date, due_date, status)
+            SELECT :clubId, cm.user_id, :policyId, :amount, :billingPeriod,
+                   :startDate, :endDate, :dueDate, 'PENDING'
+            FROM club_member cm
+            WHERE cm.club_id = :clubId AND cm.deleted_at IS NULL
+              AND NOT EXISTS (SELECT 1 FROM fee_bill fb
+                              WHERE fb.fee_policy_id = :policyId AND fb.user_id = cm.user_id
+                                AND fb.billing_start_date = :startDate AND fb.deleted_at IS NULL)
+            ORDER BY cm.user_id
+            ON CONFLICT (fee_policy_id, user_id, billing_start_date)
+              WHERE deleted_at IS NULL AND status <> 'CANCELLED'
+            DO NOTHING
+            """, nativeQuery = true)
+    int bulkInsertAutoIssueBills(@Param("clubId") Long clubId, @Param("policyId") Long policyId,
+                                 @Param("amount") Long amount, @Param("billingPeriod") String billingPeriod,
+                                 @Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate,
+                                 @Param("dueDate") LocalDate dueDate);
+
     // SELECTED_MEMBERS 발행: 활성 회원 중 지정된 user_id 만 대상으로 단일 원자 INSERT 한다.
     // RETURNING user_id 로 '실제로 새로 INSERT 된' user_id 만 받는다(ON CONFLICT 로 스킵된 행은 RETURNING 에 잡히지 않음).
     // @Modifying 을 붙이지 않는다 — getResultList 로 반환행을 받아야 하며, 네이티브 쿼리라 Hibernate 가 실행 전 세션을 flush 한다.

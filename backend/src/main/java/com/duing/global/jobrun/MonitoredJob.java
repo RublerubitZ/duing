@@ -3,6 +3,7 @@ package com.duing.global.jobrun;
 import java.time.Duration;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
+import org.springframework.core.env.PropertyResolver;
 
 /**
  * 총동연 홈 "자동 작업" 카드가 보여 주는 스케줄 잡 — 선언 순서가 화면 순서다.
@@ -30,4 +31,13 @@ public enum MonitoredJob {
     private final String enabledProperty;
     private final Duration maxGap;
     private final int warnAfterRuns;
+
+    /**
+     * 이 잡이 켜져 있는가 — 잡 등록({@code @ConditionalOnProperty(havingValue = "true")})과 같은 기준(대소문자를 가리지 않는
+     * "true" 만 켜짐)이다. {@code getProperty(name, Boolean.class)} 는 "on"·"yes" 도 참으로 읽어, 잡은 등록되지 않았는데
+     * 켜진 것으로 보는 어긋남이 생긴다. 자동 작업 카드와 자동 마감 전망이 이 판정 하나를 쓴다.
+     */
+    public boolean isEnabledIn(PropertyResolver propertyResolver) {
+        return "true".equalsIgnoreCase(propertyResolver.getProperty(enabledProperty));
+    }
 }
