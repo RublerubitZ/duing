@@ -76,14 +76,12 @@ export function buildActionItems(inputs: RecruitmentDashboardInput[], now: Date)
       }
     }
 
-    // 면접 라운드 생성 필요: 대기열 인원 존재 + 진행 중 라운드(DRAFT·COLLECTING·ASSIGNING) 없음.
-    // 초안은 새 라운드 생성을 막아(DraftRoundAlreadyExists) 아래에서 내는 그 초안의 미확정 줄이 운영진을 데려간다.
-    // 알려진 빈틈: COLLECTING·ASSIGNING 라운드가 있으면 대기열에 몇 명이 있든(라운드에 넣지 않고 남긴 지원자·제외된 지원자·새로 면접 대상이 된 지원자) 그 라운드가 확정·취소될 때까지 이 줄을 내지 않는다.
-    // rounds === undefined(라운드 쿼리 미로딩·실패)면 '진행 중 라운드 없음'으로 단정할 수 없어 생성하지 않는다.
-    const hasInProgressRound = (rounds ?? []).some(
-      (round) => round.status === 'DRAFT' || round.status === 'COLLECTING' || round.status === 'ASSIGNING',
-    );
-    if (rounds !== undefined && candidateCount !== undefined && candidateCount > 0 && !hasInProgressRound) {
+    // 면접 라운드 생성 필요: 대기열 인원 존재 + 발송 전 초안(DRAFT) 없음.
+    // 대기열 = 취소되지 않은 라운드에 제외되지 않은 멤버로 들어 있지 않은 면접 대상(제외·라운드 취소면 돌아온다). 기존 라운드에 사람을 더하는 API 가 없어 새 라운드로만 잡는다.
+    // 새 라운드 생성을 막는 것은 초안뿐이라(DraftRoundAlreadyExists) 초안이 있으면 아래에서 내는 그 초안의 미확정 줄이 운영진을 데려간다.
+    // rounds === undefined(라운드 쿼리 미로딩·실패)면 '초안 없음'으로 단정할 수 없어 생성하지 않는다.
+    const hasDraftRound = (rounds ?? []).some((round) => round.status === 'DRAFT');
+    if (rounds !== undefined && candidateCount !== undefined && candidateCount > 0 && !hasDraftRound) {
       items.push({ type: 'INTERVIEW_ROUND_NEEDED', ...base, count: candidateCount });
     }
 

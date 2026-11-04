@@ -51,11 +51,11 @@ describe('useClubActionItems', () => {
   it('총 건수 + 정렬된 목록 반환', async () => {
     const { result } = renderHook(() => useClubActionItems(10), { wrapper: makeWrapper(newQueryClient()) });
     await waitFor(() => expect(result.current.isLoading).toBe(false));
-    // 검토 대기(5) + 미확정 라운드(7) = 2건
-    expect(result.current.totalCount).toBe(2);
-    expect(result.current.items).toHaveLength(2);
-    // 기한 없음 → 타입 우선순위로 미확정 라운드가 먼저
-    expect(result.current.items[0]?.type).toBe('INTERVIEW_ROUND_UNCONFIRMED');
+    // 라운드 생성 필요(대기열 2) + 미확정 라운드(7) + 검토 대기(5) = 3건 — 배정 검토 라운드는 새 라운드 생성을 막지 않는다
+    expect(result.current.totalCount).toBe(3);
+    expect(result.current.items).toHaveLength(3);
+    // 모두 기한 없음 → 타입 우선순위로 생성 필요 → 미확정 라운드 → 검토 대기
+    expect(result.current.items[0]?.type).toBe('INTERVIEW_ROUND_NEEDED');
   });
 
   it('useInterview=false 모집은 interview-rounds를 호출하지 않고 통계 기반 액션만 반환', async () => {
@@ -63,8 +63,8 @@ describe('useClubActionItems', () => {
     // 게이팅 검증 방식: afterEach(resetHandlers)로 복원된 기본 interview-rounds 핸들러가 여전히
     // 응답 가능하므로, 훅이 잘못 호출해도 서버 에러로는 잡히지 않는다. 대신 출력값으로 검증한다.
     // 비면접 모집은 통계 기반 APPLICANTS_AWAITING_REVIEW 1건만 생성해야 하므로 totalCount === 1.
-    // 훅이 interview-rounds를 잘못 호출하면 INTERVIEW_ROUND_UNCONFIRMED 항목이 추가되어
-    // totalCount === 2가 되고 아래 waitFor 단언이 실패한다.
+    // 훅이 interview-rounds를 잘못 호출하면 INTERVIEW_* 항목이 추가되어
+    // totalCount 가 1을 넘고 아래 waitFor 단언이 실패한다.
     server.use(
       http.get('*/clubs/10/recruitments', () =>
         HttpResponse.json({ ok: true, message: null, data: [
@@ -86,7 +86,7 @@ describe('useClubActionItems', () => {
 
   it('대기열 인원 존재 + SCHEDULED 라운드만 있으면 면접 라운드 생성 필요 항목 생성', async () => {
     // 기본 candidates 핸들러(2명) 유지, 라운드만 SCHEDULED 단독으로 덮어쓴다.
-    // SCHEDULED는 확정 라운드라 신규 인원을 받을 수 없으므로 INTERVIEW_ROUND_NEEDED가 떠야 한다.
+    // 발송 전 초안(DRAFT)이 없으므로 INTERVIEW_ROUND_NEEDED가 떠야 한다.
     server.use(
       http.get('*/leader/recruitments/1/interview-rounds', () =>
         HttpResponse.json({ ok: true, message: null, data: [
