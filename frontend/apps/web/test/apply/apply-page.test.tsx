@@ -1236,7 +1236,7 @@ describe('자동저장 — 보내는 때와 재전송', () => {
     fireEvent.change(textarea, { target: { value: `${fullText}b` } });
     await new Promise((resolve) => setTimeout(resolve, 3000));
     expect(draftBodies).toHaveLength(1);
-    expect(screen.getByText(OVERFLOW_TEXT)).toBeInTheDocument();
+    expect(await screen.findByText(OVERFLOW_TEXT, {}, { timeout: 4000 })).toBeInTheDocument();
     expect(screen.getByText('2001/2000')).toBeInTheDocument();
 
     // 직전 저장값과 같은 2000자로 돌아와도 다시 저장해야 안내가 사라진다.
@@ -1281,11 +1281,19 @@ describe('자동저장 — 보내는 때와 재전송', () => {
     await user.click(screen.getByRole('radio', { name: '월요일' }));
     await new Promise((resolve) => setTimeout(resolve, 3000));
     expect(draftBodies).toHaveLength(0);
-    expect(screen.getByText(OVERFLOW_TEXT)).toBeInTheDocument();
+    expect(await screen.findByText(OVERFLOW_TEXT, {}, { timeout: 4000 })).toBeInTheDocument();
     expect(screen.getByText('2300/2000')).toBeInTheDocument();
 
-    fireEvent.change(textarea, { target: { value: 'a'.repeat(2000) } });
+    const fullText = 'a'.repeat(2000);
+    fireEvent.change(textarea, { target: { value: fullText } });
     await waitFor(() => expect(draftBodies).toHaveLength(1), { timeout: 4000 });
+    expect(draftBodies[0]).toEqual({
+      answers: [
+        { questionId: TEXT_QUESTION_ID, values: [fullText] },
+        { questionId: SINGLE_QUESTION_ID, values: [SINGLE_CHOICE_MONDAY_ID] },
+        { questionId: MULTI_QUESTION_ID, values: [] },
+      ],
+    });
     expect(await screen.findByText(/^마지막 저장 /, {}, { timeout: 4000 })).toBeInTheDocument();
     expect(screen.queryByText(OVERFLOW_TEXT)).not.toBeInTheDocument();
   }, 20_000);

@@ -43,7 +43,7 @@ export function useAutosaveDraft(
       if (answers.some((answer) => answer.values.some((value) => value.length > TEXT_ANSWER_MAX_LENGTH))) {
         setAutosaveStatus({
           kind: 'error',
-          message: '2000자를 넘은 답변이 있어 임시저장하지 않았어요. 2000자 이내로 줄여 주세요.',
+          message: `${TEXT_ANSWER_MAX_LENGTH}자를 넘은 답변이 있어 임시저장하지 않았어요. ${TEXT_ANSWER_MAX_LENGTH}자 이내로 줄여 주세요.`,
         });
         lastSerializedRef.current = serialized;
         return;

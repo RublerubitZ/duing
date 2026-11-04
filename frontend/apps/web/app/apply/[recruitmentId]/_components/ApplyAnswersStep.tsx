@@ -20,7 +20,7 @@ const CHOICE_LABEL_CLASS =
 // (개별 radio/checkbox 로 보내면 스크린리더가 그룹 안내와 에러 메시지를 건너뛴다).
 const CHOICE_GROUP_CLASS = 'space-y-2 focus:outline-none';
 
-// 서버 UpsertDraftRequest·SubmitApplicationRequest 의 @Size(max = 2000) 과 같은 값 — 넘으면 자동저장·제출이 400 이다.
+// 서버 UpsertDraftRequest·SubmitApplicationRequest 의 @Size(max = 2000) 과 같은 값 — 넘치면 제출은 400, 자동저장은 보내지 않고 화면에 안내한다.
 export const TEXT_ANSWER_MAX_LENGTH = 2000;
 
 function questionControlId(questionId: string): string {
