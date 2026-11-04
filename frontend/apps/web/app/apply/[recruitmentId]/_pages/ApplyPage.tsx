@@ -171,7 +171,7 @@ export function ApplyPage() {
       choices: [],
     }));
 
-  // draft 가 settle 된 뒤 mount 하므로 자식은 initialAnswers 만 받아 useState 초기값으로 쓴다.
+  // draft 가 settle 된 뒤 mount 하므로 자식은 initialAnswers·restoredDraft·draftUpdatedAt 을 마운트 때만 읽는다(useState 초기값).
   const draft = draftQuery.data;
   const initialAnswers: DraftAnswer[] = questionItems.map((question) => {
     const saved = draft?.exists

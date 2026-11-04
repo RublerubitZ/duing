@@ -26,9 +26,9 @@ type Props = {
   recruitmentId: number;
   questionItems: RecruitmentQuestionItem[];
   initialAnswers: DraftAnswer[];
-  /** 임시저장을 되살려 시드했는지 — 안내 배너 노출 조건(ApplyPage 가 판정). */
+  /** 임시저장을 되살려 시드했는지 — 안내 배너 노출 조건(ApplyPage 가 판정). 마운트 때만 읽는다. */
   restoredDraft?: boolean;
-  /** 임시저장 시각(오프셋 없는 KST 벽시계). 있으면 배너에 "· M월 D일 HH:mm 저장" 을 병기한다. */
+  /** 임시저장 시각(오프셋 없는 KST 벽시계). 있으면 배너에 "· M월 D일 HH:mm 저장" 을 병기한다. 마운트 때만 읽는다. */
   draftUpdatedAt?: string | null;
 };
 
@@ -95,9 +95,9 @@ export function ApplyForm({ recruitment, recruitmentId, questionItems, initialAn
   // 제출 시점에 마감(409 RECRUITMENT_CLOSED)·시작 전(409 RECRUITMENT_NOT_STARTED)이면 자동저장 410 과 같은
   // 지원 불가 UI 로 수렴시킨다 — 문구만 사유별로 다르다. 시작 전은 폼을 연 뒤 운영진이 시작일을 미룬 경우다.
   const [blockedBySubmit, setBlockedBySubmit] = useState<'closed' | 'notStarted' | null>(null);
-  // 복원 안내는 세션 안에서만 닫힌다(새로고침하면 다시 뜬다 — 다시 시드되기 때문).
-  const [restoredNoticeDismissed, setRestoredNoticeDismissed] = useState(false);
-  const draftSavedAtLabel = draftSavedAtLabelOf(draftUpdatedAt);
+  // 복원 안내는 폼을 열 때의 저장본으로 한 번 정한다 — 자동저장·재조회가 캐시를 바꿔도 다시 계산하지 않는다(닫기는 세션 안에서만).
+  const [restoredNoticeVisible, setRestoredNoticeVisible] = useState(restoredDraft);
+  const [draftSavedAtLabel] = useState(() => draftSavedAtLabelOf(draftUpdatedAt));
   // 제출 확인 — 제출 후 수정 API 가 없어 되돌릴 수 없는 행동이라 검증 통과 후 한 번 묻는다.
   const [confirmOpen, setConfirmOpen] = useState(false);
 
@@ -252,7 +252,7 @@ export function ApplyForm({ recruitment, recruitmentId, questionItems, initialAn
         )}
 
         {/* 임시저장 복원 안내 — 답변이 미리 채워진 이유를 알린다. 닫기는 세션 내 useState. */}
-        {restoredDraft && !restoredNoticeDismissed && (
+        {restoredNoticeVisible && (
           <div
             role="status"
             className="mb-6 flex items-center justify-between gap-3 rounded-[12px] border border-sage/30 bg-sage-tint px-4 py-3"
@@ -263,7 +263,7 @@ export function ApplyForm({ recruitment, recruitmentId, questionItems, initialAn
             </p>
             <button
               type="button"
-              onClick={() => setRestoredNoticeDismissed(true)}
+              onClick={() => setRestoredNoticeVisible(false)}
               aria-label="임시저장 안내 닫기"
               className="btn btn-ghost btn-sm -my-2 min-h-11 shrink-0"
             >
