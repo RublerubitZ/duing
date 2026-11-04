@@ -930,6 +930,10 @@ describe('ApplyPage — 제출 후 임시저장 캐시', () => {
   });
 
   it('제출 응답이 화면을 떠난 뒤 오면 저장본 캐시를 새로 만들지 않는다', async () => {
+    let releaseSubmit: () => void = () => {};
+    const submitGate = new Promise<void>((resolve) => {
+      releaseSubmit = resolve;
+    });
     server.use(
       http.get(`*/recruitments/${RECRUITMENT_ID}/draft`, () =>
         HttpResponse.json({
@@ -943,7 +947,7 @@ describe('ApplyPage — 제출 후 임시저장 캐시', () => {
         }),
       ),
       http.post(`*/recruitments/${RECRUITMENT_ID}/applications`, async () => {
-        await delay(50);
+        await submitGate;
         return HttpResponse.json({ ok: true, data: 888, message: null });
       }),
     );
@@ -959,6 +963,7 @@ describe('ApplyPage — 제출 후 임시저장 캐시', () => {
     await act(() => new Promise((resolve) => setTimeout(resolve, 0)));
     expect(queryClient.getQueryState(draftQueryKeys.byRecruitment(RECRUITMENT_ID))).toBeUndefined();
 
+    releaseSubmit();
     // 이동 직전에 캐시를 쓴다 — 여기서 쿼리가 새로 생기면 기본 gcTime 5분으로 남아, 다시 들어올 때 빈 폼이 열린다.
     await waitFor(() => expect(mockRouterPush).toHaveBeenCalled());
     expect(queryClient.getQueryData(draftQueryKeys.byRecruitment(RECRUITMENT_ID))).toBeUndefined();

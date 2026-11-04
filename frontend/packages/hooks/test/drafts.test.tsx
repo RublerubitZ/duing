@@ -3,7 +3,7 @@ import { describe, it, expect, beforeAll, afterEach, afterAll } from 'vitest';
 import { renderHook, act, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { setupServer } from 'msw/node';
-import { delay, http, HttpResponse } from 'msw';
+import { http, HttpResponse } from 'msw';
 import type { ApplicationDraft, DraftAnswer } from '@duing/types';
 import { createApiClient } from '@duing/api';
 import { ApiClientProvider } from '../src/api-context';
@@ -232,9 +232,13 @@ describe('임시저장 훅 — 저장 후 재조회 없음', () => {
 
 describe('임시저장 훅 — 화면을 떠난 뒤 끝난 저장', () => {
   it('저장 응답이 화면을 떠난 뒤 오면 저장본 캐시를 새로 만들지 않는다', async () => {
+    let releaseSave: () => void = () => {};
+    const saveGate = new Promise<void>((resolve) => {
+      releaseSave = resolve;
+    });
     server.use(
       http.put(`*/recruitments/${RECRUITMENT_ID}/draft`, async () => {
-        await delay(50);
+        await saveGate;
         return new HttpResponse(null, { status: 204 });
       }),
     );
@@ -250,9 +254,10 @@ describe('임시저장 훅 — 화면을 떠난 뒤 끝난 저장', () => {
     });
     unmount();
     await act(() => new Promise((resolve) => setTimeout(resolve, 0)));
-    // GC 가 저장 응답보다 먼저 돌았다 — 순서가 바뀌면 가드가 없어도 마지막 단언이 통과한다.
+    // 응답을 풀기 전에 GC 가 돌았다 — 순서가 바뀌면 가드가 없어도 마지막 단언이 통과한다.
     expect(queryClient.getQueryState(draftQueryKeys.byRecruitment(RECRUITMENT_ID))).toBeUndefined();
 
+    releaseSave();
     await act(() => savePromise);
     // 여기서 쿼리가 새로 생기면 기본 gcTime 5분으로 남아, 다시 들어올 때 이 답으로 폼이 열린다.
     expect(queryClient.getQueryData(draftQueryKeys.byRecruitment(RECRUITMENT_ID))).toBeUndefined();
