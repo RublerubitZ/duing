@@ -39,6 +39,15 @@ const ACTION_ITEM_ACTION_LABEL: Record<ActionItemType, string> = {
   CLOSED_RECRUITMENT_UNDECIDED: '결과 확정',
 };
 
+/** 면접 일정 미확정은 라운드 상태마다 다음 단계가 다르다 — 상태 없는 옛 줄은 표 그대로. */
+function recruitmentActionLabel(item: ActionItem): string {
+  if (item.type === 'INTERVIEW_ROUND_UNCONFIRMED') {
+    if (item.roundStatus === 'DRAFT') return '이어서 작성';
+    if (item.roundStatus === 'COLLECTING') return '자동 배정';
+  }
+  return ACTION_ITEM_ACTION_LABEL[item.type];
+}
+
 function recruitmentHref(clubId: number, item: ActionItem): `/${string}` {
   switch (item.type) {
     case 'INTERVIEW_ROUND_NEEDED':
@@ -46,6 +55,10 @@ function recruitmentHref(clubId: number, item: ActionItem): `/${string}` {
       return `/manage/clubs/${clubId}/recruitments/${item.recruitmentId}/interview`;
     case 'INTERVIEW_ROUND_UNCONFIRMED':
     case 'INTERVIEW_RESPONSE_UNCOLLECTED':
+      // 면접 랜딩·라운드 화면의 '이어서 작성'과 같은 곳 — 마법사가 이어하기·폐기를 묻는다.
+      if (item.roundStatus === 'DRAFT') {
+        return `/manage/clubs/${clubId}/recruitments/${item.recruitmentId}/interview/rounds/new`;
+      }
       if (item.roundId === undefined) {
         return `/manage/clubs/${clubId}/recruitments/${item.recruitmentId}/interview`;
       }
@@ -114,13 +127,14 @@ function presentRecruitment(clubId: number, item: ActionItem, variant: TaskRowVa
     key: `${item.type}-${item.recruitmentId}-${item.roundId ?? ''}`,
     label: variant === 'recruitment' ? recruitmentDetailLabel(item) : ACTION_ITEM_TYPE_LABEL[item.type],
     context: variant === 'recruitment' ? recruitmentDetailContext(item) : recruitmentContext(item),
+    // 미확정 줄의 daysLeft 는 응답이 다 모인 응답 수집 라운드에만 실린다 — 묶음·순서를 정한 그 기한을 칩으로 보인다.
     chip:
-      item.type === 'INTERVIEW_RESPONSE_UNCOLLECTED' && item.daysLeft !== undefined
+      (item.type === 'INTERVIEW_RESPONSE_UNCOLLECTED' || item.type === 'INTERVIEW_ROUND_UNCONFIRMED') && item.daysLeft !== undefined
         ? responseDeadlineChip(item.daysLeft)
         : item.type === 'APPLICANTS_AWAITING_REVIEW' && item.pendingDays !== undefined
           ? pendingDaysChip(item.pendingDays)
           : null,
-    actionLabel: ACTION_ITEM_ACTION_LABEL[item.type],
+    actionLabel: recruitmentActionLabel(item),
     href: recruitmentHref(clubId, item),
   };
 }

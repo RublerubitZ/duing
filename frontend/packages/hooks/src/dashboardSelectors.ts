@@ -287,7 +287,12 @@ export function dashboardTaskGroupOf(task: DashboardTask): DashboardTaskGroupKey
   switch (task.item.type) {
     case 'CLOSED_RECRUITMENT_UNDECIDED':
     case 'INTERVIEW_RESULT_PENDING':
+      return 'NOW';
     case 'INTERVIEW_ROUND_UNCONFIRMED':
+      // 초안은 운영진이 아직 쓰는 중일 수 있다 — 지원자가 기다리는 일이 아니다.
+      if (task.item.roundStatus === 'DRAFT') return 'WAITING';
+      // 응답 마감 전에는 재응답이 열려 있다 — 응답 미수집과 같은 판정.
+      if (task.item.roundStatus === 'COLLECTING') return task.item.daysLeft !== undefined && task.item.daysLeft < 0 ? 'NOW' : 'WAITING';
       return 'NOW';
     case 'INTERVIEW_RESPONSE_UNCOLLECTED':
       return task.item.daysLeft !== undefined && task.item.daysLeft < 0 ? 'NOW' : 'WAITING';
