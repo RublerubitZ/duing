@@ -109,6 +109,8 @@ const statsHandler = http.get(`*/leader/recruitments/${RECRUITMENT_ID}/stats/sum
     rejected: 0,
     capacity: 10,
     ratio: 0,
+    // 삭제 버튼은 서버 판정으로만 열린다(#1635) — 지원서·대기 가입 요청이 없는 마감 모집이면 서버가 true 를 준다.
+    deletable: true,
   }),
 );
 
@@ -218,6 +220,9 @@ describe('모집 상세 — 모드별 회원 등록 영역', () => {
     expect(screen.queryByRole('heading', { name: '회원 등록' })).not.toBeInTheDocument();
     expect(screen.queryByText('외부 폼 모집')).not.toBeInTheDocument();
     expect(screen.queryByText(DEDUCTION_NOTICE)).not.toBeInTheDocument();
+    // 통계가 화면에 반영된 뒤에 본다 — 그 전엔 마감 + 로딩이라 카드가 원래 없다. 요약 줄은 카드 훅과 같은 통계 쿼리 키라 같은 렌더에 반영된다.
+    await screen.findByText('모집 인원 10명');
+    expect(screen.queryByRole('region', { name: '이 모집에서 할 일' })).not.toBeInTheDocument();
   });
 
   it('외부 폼 모집이 종료(CLOSED)돼도 회원 등록 영역을 보여준다', async () => {
@@ -236,6 +241,7 @@ describe('모집 상세 — 모드별 회원 등록 영역', () => {
     await screen.findByRole('heading', { name: '회원 등록' });
     expect(screen.queryByRole('link', { name: /지원자 관리/ })).not.toBeInTheDocument();
     expect(screen.queryByRole('link', { name: '통계' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: '이 모집에서 할 일' })).not.toBeInTheDocument();
   });
 
   it('외부 폼 모집 상세에는 지원 현황 요약 줄을 두지 않고 삭제 버튼은 통계 도착 뒤 그대로 열린다', async () => {
