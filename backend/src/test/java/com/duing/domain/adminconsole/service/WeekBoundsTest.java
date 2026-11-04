@@ -102,6 +102,14 @@ class WeekBoundsTest {
         assertStartedRejected(LocalDate.of(2026, 11, 3), "WEEK_NOT_MONDAY");
     }
 
+    @Test
+    @DisplayName("서버가 정한 이번 주는 KST 날짜가 든 주다 — UTC 날짜가 아직 일요일이어도 KST 월요일이면 그 월요일 주")
+    void currentWeekFollowsKstDate() {
+        assertThat(WeekBounds.currentWeek(MONDAY_JUST_AFTER_MIDNIGHT).firstDay()).isEqualTo(LocalDate.of(2026, 11, 2));
+        assertThat(WeekBounds.currentWeek(MONDAY_JUST_AFTER_MIDNIGHT).lastDay()).isEqualTo(LocalDate.of(2026, 11, 8));
+        assertThat(WeekBounds.currentWeek(SUNDAY_JUST_BEFORE_MIDNIGHT).firstDay()).isEqualTo(LocalDate.of(2026, 10, 26));
+    }
+
     private static void assertRejected(LocalDate weekStart, Clock clock, String expectedCode) {
         assertThatThrownBy(() -> WeekBounds.endedWeek(weekStart, clock))
                 .isInstanceOfSatisfying(AdminConsoleException.class,

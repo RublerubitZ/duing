@@ -3,6 +3,7 @@ package com.duing.domain.recruitment.repository;
 import com.duing.domain.recruitment.entity.Recruitment;
 import com.duing.domain.recruitment.service.dto.query.AdminRecruitmentRow;
 import com.duing.domain.recruitment.service.dto.query.AdminRecruitmentSearchCondition;
+import com.duing.domain.recruitment.service.dto.query.ClosingRecruitmentRow;
 import com.duing.domain.recruitment.service.dto.query.RecruitmentSummaryRow;
 import com.duing.domain.recruitment.service.dto.query.RepresentativeRecruitmentRow;
 import java.time.LocalDate;
@@ -75,4 +76,12 @@ public interface RecruitmentRepositoryCustom {
      * 삭제된 모집은 {@code @SQLRestriction} 으로 자동 제외된다.
      */
     List<AdminRecruitmentRow> searchForAdmin(AdminRecruitmentSearchCondition searchCondition);
+
+    /**
+     * 총동연 주간 브리핑 '이번 주 모집 기간이 끝나는 모집' — status=OPEN ∧ firstDay ≤ end_date ≤ lastDay(KST 날짜).
+     * 이미 기간이 지난 진행 중 모집도 든다(자동 마감 전). 모집·동아리만 읽는다 — 결과 안 정한 지원 수는 서비스가 자동 마감
+     * 전망과 같은 집계 쿼리(ApplicationRepository#countByRecruitmentIdsAndStatusInExcludingWithdrawnApplicants)로 센다.
+     * 종료일 오름차순, 같으면 id 오름차순.
+     */
+    List<ClosingRecruitmentRow> findOpenEndingBetween(LocalDate firstDay, LocalDate lastDay);
 }

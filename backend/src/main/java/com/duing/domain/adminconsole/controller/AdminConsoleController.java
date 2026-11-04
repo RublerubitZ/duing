@@ -1,12 +1,14 @@
 package com.duing.domain.adminconsole.controller;
 
 import com.duing.domain.adminconsole.api.AdminConsoleApi;
+import com.duing.domain.adminconsole.controller.dto.response.AdminClosingRecruitmentsResponse;
 import com.duing.domain.adminconsole.controller.dto.response.AdminClubSignalsResponse;
 import com.duing.domain.adminconsole.controller.dto.response.AdminJobStatusesResponse;
 import com.duing.domain.adminconsole.controller.dto.response.AdminPendingCountsResponse;
 import com.duing.domain.adminconsole.controller.dto.response.AdminPendingTrendResponse;
 import com.duing.domain.adminconsole.controller.dto.response.AdminWeeklyBriefingResponse;
 import com.duing.domain.adminconsole.controller.dto.response.AdminWeeklyFacilityHeatmapResponse;
+import com.duing.domain.adminconsole.service.AdminClosingRecruitmentsQueryService;
 import com.duing.domain.adminconsole.service.AdminClubSignalsQueryService;
 import com.duing.domain.adminconsole.service.AdminJobStatusQueryService;
 import com.duing.domain.adminconsole.service.AdminPendingCountsQueryService;
@@ -33,6 +35,7 @@ public class AdminConsoleController implements AdminConsoleApi {
     private final AdminClubSignalsQueryService adminClubSignalsQueryService;
     private final AdminWeeklyBriefingQueryService adminWeeklyBriefingQueryService;
     private final AdminWeeklyFacilityHeatmapQueryService adminWeeklyFacilityHeatmapQueryService;
+    private final AdminClosingRecruitmentsQueryService adminClosingRecruitmentsQueryService;
 
     @Override
     public ResponseEntity<ApiResponse<AdminPendingCountsResponse>> getPendingCounts() {
@@ -68,5 +71,11 @@ public class AdminConsoleController implements AdminConsoleApi {
     public ResponseEntity<ApiResponse<AdminWeeklyFacilityHeatmapResponse>> getWeeklyFacilityHeatmap(LocalDate weekStart) {
         return ResponseEntity.ok(ApiResponse.success(
                 AdminWeeklyFacilityHeatmapResponse.from(adminWeeklyFacilityHeatmapQueryService.getHeatmap(weekStart))));
+    }
+
+    @Override
+    public ResponseEntity<ApiResponse<AdminClosingRecruitmentsResponse>> getClosingRecruitments() {
+        return ResponseEntity.ok(ApiResponse.success(
+                AdminClosingRecruitmentsResponse.from(adminClosingRecruitmentsQueryService.getClosingRecruitments())));
     }
 }

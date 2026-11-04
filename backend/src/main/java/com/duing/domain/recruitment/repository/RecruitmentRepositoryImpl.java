@@ -12,6 +12,7 @@ import com.duing.domain.recruitment.entity.RecruitmentStatus;
 import com.duing.domain.recruitment.service.dto.query.AdminRecruitmentRow;
 import com.duing.domain.recruitment.service.dto.query.AdminRecruitmentSearchCondition;
 import com.duing.domain.recruitment.service.dto.query.AdminRecruitmentSort;
+import com.duing.domain.recruitment.service.dto.query.ClosingRecruitmentRow;
 import com.duing.domain.recruitment.service.dto.query.RecruitmentSummaryRow;
 import com.duing.domain.recruitment.service.dto.query.RepresentativeRecruitmentRow;
 import com.querydsl.core.Tuple;
@@ -280,6 +281,29 @@ public class RecruitmentRepositoryImpl implements RecruitmentRepositoryCustom {
                         row.get(user.id.count()),
                         today))
                 .toList();
+    }
+
+    @Override
+    public List<ClosingRecruitmentRow> findOpenEndingBetween(LocalDate firstDay, LocalDate lastDay) {
+        return queryFactory
+                .select(Projections.constructor(ClosingRecruitmentRow.class,
+                        recruitment.id,
+                        recruitment.title,
+                        club.id,
+                        club.name,
+                        recruitment.status,
+                        recruitment.startDate,
+                        recruitment.endDate,
+                        recruitment.applicationMode))
+                .from(recruitment)
+                .join(recruitment.club, club)
+                .where(
+                        recruitment.status.eq(RecruitmentStatus.OPEN),
+                        recruitment.endDate.goe(firstDay),
+                        recruitment.endDate.loe(lastDay)
+                )
+                .orderBy(recruitment.endDate.asc(), recruitment.id.asc())
+                .fetch();
     }
 
     private OrderSpecifier<?>[] orderSpecifiers(AdminRecruitmentSort sort) {

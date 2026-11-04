@@ -63,6 +63,11 @@ public record WeekBounds(
         return of(weekStart);
     }
 
+    /** 서버가 정한 이번 주(seoulClock 의 KST 날짜가 든 주) — 프론트는 이 주를 '이번 주 챙길 것'의 기준으로 쓴다(기기 시계 대신). */
+    public static WeekBounds currentWeek(Clock clock) {
+        return of(currentMonday(clock));
+    }
+
     static WeekBounds of(LocalDate weekStart) {
         LocalDate nextMonday = weekStart.plusDays(DAYS_IN_WEEK);
         LocalDateTime seoulFrom = weekStart.atStartOfDay();
