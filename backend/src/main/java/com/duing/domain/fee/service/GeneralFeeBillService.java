@@ -162,14 +162,14 @@ public class GeneralFeeBillService implements FeeBillService {
         // 마감일은 정책 dueDay 로 산출(말일 아님). 과거 검증 없음 — 캐치업 발행 시 과거여도 정상(연체 크론이 처리).
         LocalDate dueDate = LocalDate.of(today.getYear(), today.getMonth(), lockedPolicy.getDueDay());
 
-        int created = feeBillRepository.bulkInsertBills(
+        int created = feeBillRepository.bulkInsertAutoIssueBills(
                 lockedPolicy.getClubId(), lockedPolicy.getId(), lockedPolicy.getAmount(), resolved.billingPeriod(),
                 resolved.startDate(), resolved.endDate(), dueDate);
 
         log.info("auto-issue monthly bills: clubId={}, policyId={}, period={}, created={}",
                 lockedPolicy.getClubId(), lockedPolicy.getId(), resolved.billingPeriod(), created);
 
-        // 새 청구가 생성된 경우에만 발행 알림(이미 그 달 발행이면 created=0 → 재알림 없음, 캐치업 안전).
+        // 새 청구가 생성된 경우에만 발행 알림(그 회원·회차 청구가 취소건 포함 이미 있으면 created=0 → 재알림 없음, 캐치업 안전).
         if (created > 0) {
             String clubName = clubRepository.findById(lockedPolicy.getClubId())
                     .map(Club::getName).orElse("동아리");

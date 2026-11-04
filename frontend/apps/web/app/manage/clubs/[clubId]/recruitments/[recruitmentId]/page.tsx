@@ -24,6 +24,7 @@ import { expiredOpenNoticeText } from '../_lib/expiredOpenNotice';
 import { externalFormPlatformLabel } from '../_lib/externalFormPlatform';
 import { stopIntakeGate } from '../_lib/stopIntakeGate';
 import { InterviewStageChip } from './_components/InterviewStageChip';
+import { RecruitmentTodoCard } from './_components/RecruitmentTodoCard';
 import { MemberEnrollmentSection } from '../_components/MemberEnrollmentSection';
 import { CloseRecruitmentConfirmDescription } from '../_components/CloseRecruitmentConfirmDescription';
 import { StopIntakeConfirmDescription } from '../_components/StopIntakeConfirmDescription';
@@ -189,6 +190,9 @@ export default function RecruitmentDetailPage({
           </span>
         </span>
       </div>
+
+      {/* 이 모집에서 할 일 — 자체 폼만(외부 폼은 지원서·면접이 없어 훅도 돌지 않는다) */}
+      {!isExternal && <RecruitmentTodoCard clubId={clubId} recruitment={recruitment} />}
 
       {/* 상세 정보 */}
       <dl className="mb-8 space-y-3 rounded-lg border border-slate-200 p-4">

@@ -136,6 +136,30 @@ export function ApplyPage() {
     );
   }
 
+  // 조회 실패를 "초안 없음"으로 보고 빈 폼을 그리면 첫 자동저장이 서버 초안을 빈 답으로 통째로 덮는다.
+  // 초안 없음은 200 + exists:false 라 여기 오지 않는다. 데이터가 있는 재조회 실패는 폼을 그대로 둔다 —
+  // isError 만 보면 재연결 재조회가 실패할 때 쓰던 폼이 언마운트돼 저장 전 입력을 잃는다.
+  if (draftQuery.isError && draftQuery.data === undefined) {
+    return (
+      <div
+        className="flex min-h-dvh flex-col items-center justify-center gap-5 px-6"
+        style={{ background: 'linear-gradient(180deg, #ece6d3 0%, #f3efe4 8%, #f3efe4 92%, #ece6d3 100%)' }}
+      >
+        <p role="alert" className="rounded-[10px] bg-coral/5 px-4 py-3 text-center text-sm text-coral-deep">
+          임시저장한 답변을 불러오지 못했습니다. 잠시 후 다시 시도해주세요.
+        </p>
+        <div className="flex flex-wrap justify-center gap-2">
+          <button type="button" onClick={() => void draftQuery.refetch()} className="btn btn-primary">
+            다시 시도
+          </button>
+          <Link href={toRoute(`/clubs/${recruitment.clubId}`)} className="btn btn-secondary">
+            동아리 페이지로 돌아가기
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
   const questionItems: RecruitmentQuestionItem[] =
     recruitment.questionItems ??
     recruitment.questions.map((text, index) => ({

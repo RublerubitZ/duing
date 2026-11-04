@@ -3,6 +3,7 @@ package com.duing.domain.interview.repository;
 import com.duing.domain.interview.entity.InterviewRoundMember;
 import com.duing.domain.interview.entity.RoundMemberStatus;
 import jakarta.persistence.LockModeType;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -38,4 +39,24 @@ public interface InterviewRoundMemberRepository
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT m FROM InterviewRoundMember m WHERE m.roundId = :roundId ORDER BY m.id ASC")
     List<InterviewRoundMember> findAllByRoundIdForUpdate(@Param("roundId") Long roundId);
+
+    /**
+     * 회원 탈퇴 정리 대상(#1637) — 이 회원의 지원서가 든, 취소되지 않은 라운드의 멤버 행.
+     * 지원서·라운드 조건은 서브쿼리로 둬 FROM 에 멤버만 남긴다 — FOR UPDATE 가 지원서·라운드 행까지 잠그지 않는다.
+     */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT m FROM InterviewRoundMember m "
+            + "WHERE m.applicationId IN (SELECT a.id FROM Application a WHERE a.user.id = :userId) "
+            + "AND m.roundId IN (SELECT r.id FROM InterviewRound r "
+            + "WHERE r.status <> com.duing.domain.interview.entity.RoundStatus.CANCELLED) "
+            + "ORDER BY m.id ASC")
+    List<InterviewRoundMember> findAllOfUserInUncancelledRoundsForUpdate(@Param("userId") Long userId);
+
+    /**
+     * 라운드 생성 가드(#1637) — 넘어온 지원서 중 지원자가 탈퇴한 것. JPQL 의 지원자 조인은 @SQLRestriction 이 탈퇴자를
+     * 걸러 버려 탈퇴자를 찾을 수 없으므로 네이티브로 둔다.
+     */
+    @Query(value = "SELECT a.id FROM application a JOIN users u ON u.id = a.user_id "
+            + "WHERE a.id IN (:applicationIds) AND u.deleted_at IS NOT NULL", nativeQuery = true)
+    List<Long> findApplicationIdsOfWithdrawnApplicants(@Param("applicationIds") Collection<Long> applicationIds);
 }

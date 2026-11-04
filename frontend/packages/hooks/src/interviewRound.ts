@@ -8,6 +8,7 @@ import type {
 } from '@duing/types';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useApiClient } from './api-context';
+import { applicationQueryKeys } from './applicationQueryKeys';
 import { interviewRoundKeys } from './interviewRoundQueryKeys';
 import { statsQueryKeys } from './statsQueryKeys';
 
@@ -61,8 +62,8 @@ export function useInterviewRoundDetailQuery(
 
 /**
  * 면접 라운드 생성 (BE#3)
- * 성공 → list(recruitmentId) + candidates(recruitmentId) invalidate
- * (생성 시 멤버 대기열 변동 + 목록 갱신)
+ * 성공 → list(recruitmentId) + candidates(recruitmentId) invalidate (생성 시 멤버 대기열 변동 + 목록 갱신)
+ * + 통계·지원자 목록·이웃 순서 — 생성이 고른 지원을 SUBMITTED·ON_HOLD → INTERVIEW_PENDING 으로 바꾼다
  */
 export function useCreateInterviewRoundMutation(recruitmentId: number) {
   const client = useApiClient();
@@ -76,6 +77,15 @@ export function useCreateInterviewRoundMutation(recruitmentId: number) {
       });
       queryClient.invalidateQueries({
         queryKey: interviewRoundKeys.candidates(recruitmentId),
+      });
+      queryClient.invalidateQueries({
+        queryKey: statsQueryKeys.byRecruitment(recruitmentId),
+      });
+      queryClient.invalidateQueries({
+        queryKey: applicationQueryKeys.applicants(recruitmentId),
+      });
+      queryClient.invalidateQueries({
+        queryKey: applicationQueryKeys.applicantNeighborsAll(),
       });
     },
   });

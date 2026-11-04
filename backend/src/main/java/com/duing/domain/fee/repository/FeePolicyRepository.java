@@ -18,7 +18,7 @@ public interface FeePolicyRepository extends JpaRepository<FeePolicy, Long> {
     @Query("SELECT p FROM FeePolicy p WHERE p.id = :id AND p.clubId = :clubId")
     Optional<FeePolicy> findByIdAndClubIdForUpdate(@Param("id") Long id, @Param("clubId") Long clubId);
 
-    // 자동 월발행 대상: 활성 + MONTHLY + auto_issue=true + 발행일이 오늘 일자 이하(today.day >= issue_day, 캐치업).
+    // 자동 월발행 대상: 활성 + MONTHLY + auto_issue=true + 발행일이 오늘 일자 이하(today.day >= issue_day, 캐치업) + 운영 중(ACTIVE) 동아리 — 다른 잡 후보와 같은 동아리 규칙.
     // @SQLRestriction(deleted_at IS NULL)이 JPQL 에 자동 적용된다.
     @Query("""
             SELECT p FROM FeePolicy p
@@ -26,6 +26,10 @@ public interface FeePolicyRepository extends JpaRepository<FeePolicy, Long> {
               AND p.billingType = com.duing.domain.fee.entity.BillingType.MONTHLY
               AND p.autoIssue = true
               AND p.issueDay <= :dayOfMonth
+              AND EXISTS (SELECT 1 FROM Club c
+                          WHERE c.id = p.clubId
+                            AND c.status = com.duing.domain.club.entity.ClubStatus.ACTIVE
+                            AND c.deletedAt IS NULL)
             """)
     List<FeePolicy> findAutoIssueDue(@Param("dayOfMonth") int dayOfMonth);
 }
