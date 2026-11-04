@@ -30,8 +30,6 @@ public interface ApplicationRepository extends JpaRepository<Application, Long>,
             + "WHERE a.recruitment.id = :recruitmentId AND a.deletedAt IS NULL AND u.deletedAt IS NULL")
     long countByRecruitmentIdExcludingWithdrawnApplicants(@Param("recruitmentId") Long recruitmentId);
 
-    boolean existsByRecruitmentIdAndStatusIn(Long recruitmentId, Collection<ApplicationStatus> statuses);
-
     @Query("SELECT a FROM Application a "
             + "JOIN FETCH a.recruitment r "
             + "JOIN FETCH r.club "
