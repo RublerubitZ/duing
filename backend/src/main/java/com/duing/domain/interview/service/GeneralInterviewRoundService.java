@@ -139,6 +139,11 @@ public class GeneralInterviewRoundService implements InterviewRoundService {
                 throw new InterviewException.CandidateNotEligible();
             }
         }
+        // 후보 목록은 탈퇴한 지원자를 빼지만 오래된 화면이나 직접 호출로 넘어올 수 있다. 탈퇴자는 운영진 인원 목록에 없어
+        // 라운드에 넣으면 아무도 치울 수 없다(#1637). 이 확인과 동시에 커밋되는 탈퇴는 남을 수 있다 — 확정 강행·라운드 취소로 치운다.
+        if (!interviewRoundMemberRepository.findApplicationIdsOfWithdrawnApplicants(applicationIds).isEmpty()) {
+            throw new InterviewException.CandidateNotEligible();
+        }
 
         // placement-active 멤버십 최대 1개 불변식 (스펙 §5.4·§16) 의 생성 측 강제.
         List<Long> alreadyPlacedIds = interviewRoundMemberRepository

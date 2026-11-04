@@ -2,6 +2,7 @@ package com.duing.domain.recruitment.stats.repository;
 
 import static com.duing.domain.application.entity.QApplication.application;
 import static com.duing.domain.application.entity.QApplicationStatusHistory.applicationStatusHistory;
+import static com.duing.domain.user.entity.QUser.user;
 
 import com.duing.domain.application.entity.ApplicationStatus;
 import com.querydsl.core.Tuple;
@@ -15,6 +16,10 @@ import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Repository;
 
+/**
+ * 모집 통계는 운영진 지원자 목록과 같은 지원서를 센다 — 목록이 지원자(users)를 조인해 탈퇴한 지원자의 지원서를 빼므로
+ * 집계도 뺀다(#1594). 조인 ON 절에 붙는 @SQLRestriction 에 기대지 않고 deleted_at 조건을 직접 쓴다.
+ */
 @Repository
 @RequiredArgsConstructor
 public class RecruitmentStatsRepositoryImpl implements RecruitmentStatsRepositoryCustom {
@@ -27,9 +32,11 @@ public class RecruitmentStatsRepositoryImpl implements RecruitmentStatsRepositor
         List<Tuple> tuples = queryFactory
                 .select(application.status, application.count())
                 .from(application)
+                .join(application.user, user)
                 .where(
                         application.recruitment.id.eq(recruitmentId),
-                        application.deletedAt.isNull()
+                        application.deletedAt.isNull(),
+                        user.deletedAt.isNull()
                 )
                 .groupBy(application.status)
                 .fetch();
@@ -56,12 +63,14 @@ public class RecruitmentStatsRepositoryImpl implements RecruitmentStatsRepositor
     @SuppressWarnings("unchecked")
     public Map<LocalDate, Long> findDailySubmissionCounts(Long recruitmentId, LocalDate startDate, LocalDate endDate) {
         String nativeQuery =
-                "SELECT DATE((created_at AT TIME ZONE 'UTC') AT TIME ZONE 'Asia/Seoul') AS submission_date, COUNT(*) AS submission_count "
-                + "FROM application "
-                + "WHERE recruitment_id = :recruitmentId "
-                + "  AND deleted_at IS NULL "
-                + "  AND DATE((created_at AT TIME ZONE 'UTC') AT TIME ZONE 'Asia/Seoul') BETWEEN :startDate AND :endDate "
-                + "GROUP BY DATE((created_at AT TIME ZONE 'UTC') AT TIME ZONE 'Asia/Seoul') "
+                "SELECT DATE((a.created_at AT TIME ZONE 'UTC') AT TIME ZONE 'Asia/Seoul') AS submission_date, COUNT(*) AS submission_count "
+                + "FROM application a "
+                + "JOIN users u ON u.id = a.user_id "
+                + "WHERE a.recruitment_id = :recruitmentId "
+                + "  AND a.deleted_at IS NULL "
+                + "  AND u.deleted_at IS NULL "
+                + "  AND DATE((a.created_at AT TIME ZONE 'UTC') AT TIME ZONE 'Asia/Seoul') BETWEEN :startDate AND :endDate "
+                + "GROUP BY DATE((a.created_at AT TIME ZONE 'UTC') AT TIME ZONE 'Asia/Seoul') "
                 + "ORDER BY submission_date";
 
         List<Object[]> rows = entityManager.createNativeQuery(nativeQuery)
@@ -92,12 +101,14 @@ public class RecruitmentStatsRepositoryImpl implements RecruitmentStatsRepositor
         Long interviewEnteredCount = queryFactory
                 .select(application.id.countDistinct())
                 .from(application)
+                .join(application.user, user)
                 .leftJoin(applicationStatusHistory)
                 .on(applicationStatusHistory.application.id.eq(application.id),
                         applicationStatusHistory.newStatus.eq(ApplicationStatus.INTERVIEW_PENDING))
                 .where(
                         application.recruitment.id.eq(recruitmentId),
                         application.deletedAt.isNull(),
+                        user.deletedAt.isNull(),
                         application.status.in(ApplicationStatus.INTERVIEW_PENDING, ApplicationStatus.ACCEPTED)
                                 .or(applicationStatusHistory.id.isNotNull())
                 )

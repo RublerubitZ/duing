@@ -11,7 +11,8 @@ public record StatsSummaryQuery(
         long rejected,
         int capacity,
         double ratio,
-        LocalDateTime oldestPendingSubmittedAt
+        LocalDateTime oldestPendingSubmittedAt,
+        boolean deletable
 ) {
 
     public static StatsSummaryQuery of(
@@ -21,11 +22,12 @@ public record StatsSummaryQuery(
             long accepted,
             long rejected,
             int capacity,
-            LocalDateTime oldestPendingSubmittedAt
+            LocalDateTime oldestPendingSubmittedAt,
+            boolean deletable
     ) {
         long total = submitted + onHold + interviewPending + accepted + rejected;
         double ratio = capacity == 0 ? 0.0 : (double) accepted / capacity;
         return new StatsSummaryQuery(total, submitted, onHold, interviewPending, accepted, rejected, capacity, ratio,
-                oldestPendingSubmittedAt);
+                oldestPendingSubmittedAt, deletable);
     }
 }

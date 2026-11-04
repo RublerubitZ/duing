@@ -76,6 +76,7 @@ function AdminClubsList({
   const [page, setPage] = useState(0);
   // 신호 조건 해제 뒤 포커스를 옮길 곳 — 신호가 걸린 동안 선택된 탭은 늘 '운영 중'이다.
   const selectedTabRef = useRef<HTMLButtonElement | null>(null);
+  const searchInputRef = useRef<HTMLInputElement | null>(null);
   const [dialog, setDialog] = useState<DialogState | null>(null);
   const [dialogError, setDialogError] = useState<string | null>(null);
   const [centralClubDialog, setCentralClubDialog] = useState<AdminClubSummary | null>(null);
@@ -126,6 +127,8 @@ function AdminClubsList({
     setKeyword('');
     setKeywordDraft('');
     setPage(0);
+    // 검색 칸 옆 '초기화'와 0건 문구의 '검색 초기화' 모두 검색어와 함께 사라진다 — 포커스를 검색 칸으로 옮긴다.
+    searchInputRef.current?.focus();
   }
 
   function handleKeywordSubmit(event: React.FormEvent) {
@@ -327,6 +330,7 @@ function AdminClubsList({
 
       <form onSubmit={handleKeywordSubmit} className="mb-4 flex gap-2">
         <input
+          ref={searchInputRef}
           type="search"
           value={keywordDraft}
           onChange={(event) => setKeywordDraft(event.target.value)}

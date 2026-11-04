@@ -134,7 +134,7 @@ public class GeneralAdminRecruitmentQueryService implements AdminRecruitmentQuer
         AdminRecruitmentRow recruitmentRow = new AdminRecruitmentRow(
                 recruitment,
                 recruitment.getClub().getName(),
-                applicationRepository.countByRecruitmentId(recruitmentId),
+                applicationRepository.countByRecruitmentIdExcludingWithdrawnApplicants(recruitmentId),
                 LocalDate.now(clock));
 
         JoinCodeQuery activeJoinCode = findActiveJoinCode(recruitment);

@@ -319,6 +319,7 @@ export {
   useClubActionItems,
   useClubOperationItems,
   useDashboardTaskQueue,
+  useRecruitmentActionItems,
   useTodaySchedule,
   useClubFeedCounts,
 } from './dashboard';
