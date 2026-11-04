@@ -359,6 +359,29 @@ class BankTransactionSyncMatchTest extends IntegrationTestBase {
     }
 
     @Test
+    @DisplayName("직전 마지막 거래와 시각이 같은 새 입금은 잔액 일치 미납 청구가 1건이어도 자동매칭하지 않고 검토 대기로 남긴다")
+    void syncSkipsAutoMatchForNewDepositAtLatestStoredTime() {
+        Club club = saveEnabledClub("같은시각입금동아리");
+        Long clubId = club.getId();
+        FeePolicy policy = savePolicy(clubId);
+        User leader = joinAs(club, ClubMemberRole.LEADER);
+        User member = joinAs(club, ClubMemberRole.MEMBER);
+        FeeBill bill = saveBill(clubId, policy.getId(), member.getId(), 10000L, "2026-07");
+        // 경계 — 마지막 거래(insertStoredTransaction 의 10:00)와 새 입금이 둘 다 3일 전 10:00(KST)이다.
+        LocalDate todayKst = LocalDate.now(ZoneId.of("Asia/Seoul"));
+        insertStoredTransaction(clubId, "NH", todayKst.minusDays(3));
+        stubBankApiClient.transactionsToReturn = List.of(deposit(todayKst.minusDays(3).atTime(10, 0), 10000L, "홍길동"));
+
+        syncAs(tokenOf(leader), clubId)
+                .then().statusCode(HttpStatus.OK.value())
+                .body("data.newlyStored", equalTo(1))
+                .body("data.autoMatched", equalTo(0))
+                .body("data.pendingReview", equalTo(1));
+
+        assertThat(feeBillRepository.findById(bill.getId()).orElseThrow().getStatus()).isEqualTo(FeeStatus.PENDING);
+    }
+
+    @Test
     @DisplayName("직전 마지막 거래 뒤의 새 입금은 잔액 일치 미납 청구 1건과 만나면 그대로 자동매칭한다")
     void syncAutoMatchesNewDepositAfterLatestStored() {
         Club club = saveEnabledClub("이어받기동아리");
