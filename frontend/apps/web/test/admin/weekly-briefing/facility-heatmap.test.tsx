@@ -84,7 +84,7 @@ describe('FacilityHeatmap', () => {
     expect(document.activeElement).toBe(screen.getByRole('region', { name: LAST_WEEK.caption }));
   });
 
-  it('모든 시설이 그 주 내내 0 이면(방학 주 등) 날짜 머리만 있는 빈 표 대신 한 줄과 모두 보기만 쓰고, 누르면 표를 펼쳐 포커스를 옮긴다', async () => {
+  it('모든 시설이 그 주 내내 0 이면(방학 주 등) 날짜 머리만 있는 빈 표 자리에 한 줄과 모두 보기를 쓰고(출처·지난달 안내는 남긴다), 누르면 표를 펼쳐 포커스를 옮긴다', async () => {
     server.use(
       http.get('*/admin/weekly-briefing/facility-heatmap', () =>
         HttpResponse.json({
@@ -101,6 +101,9 @@ describe('FacilityHeatmap', () => {
     expect(screen.getByRole('heading', { level: 3, name: LAST_WEEK.caption })).toBeInTheDocument();
     expect(screen.queryByRole('table')).toBeNull();
     expect(screen.queryByText(/예약 없는 시설/)).toBeNull();
+    // 표 자리만 한 줄로 바꾼다 — 숫자가 왜 0 인지와 한계(출처·지난달 안내)는 화면·인쇄에 평소처럼 남는다.
+    expect(screen.getByText('두잉에서 승인·확정한 예약 + 학교 시설 일정(같은 시간은 한 번만). 검토 중인 신청은 빼요.')).toBeInTheDocument();
+    expect(screen.getByText('지난달 학교 일정은 그 뒤 바뀐 내용이 반영되지 않았을 수 있어요. 보관한 시설은 빠져요.')).toBeInTheDocument();
     const showAll = screen.getByRole('button', { name: '모두 보기' });
     expect(showAll).toHaveClass('no-print');
     await user.click(showAll);
@@ -108,6 +111,22 @@ describe('FacilityHeatmap', () => {
     expect(screen.getByRole('rowheader', { name: '동아리방 A' })).toBeInTheDocument();
     // 표는 펼친 뒤에야 생긴다 — 사라진 버튼 대신 새로 그린 스크롤 영역이 포커스를 받는다.
     expect(document.activeElement).toBe(screen.getByRole('region', { name: LAST_WEEK.caption }));
+  });
+
+  it('이번 주의 모든 시설이 0 이어도 이번 달 수집 시각을 쓴다', async () => {
+    server.use(
+      http.get('*/admin/weekly-briefing/facility-heatmap', () =>
+        HttpResponse.json({
+          ok: true,
+          message: null,
+          data: { ...HEATMAP, facilities: HEATMAP.facilities.filter((row) => row.occupiedSlotCounts.every((count) => count === 0)) },
+        }),
+      ),
+    );
+    renderHeatmap(THIS_WEEK);
+
+    expect(await screen.findByText(/이 주에는 예약이 없어요/)).toBeInTheDocument();
+    expect(screen.getByText('학교 일정 11월 5일 오전 9:00 기준')).toBeInTheDocument();
   });
 
   it('시설이 하나도 없으면(보관 제외 뒤) 머리만 있는 빈 표 대신 "등록된 시설이 없어요" 를 쓴다', async () => {

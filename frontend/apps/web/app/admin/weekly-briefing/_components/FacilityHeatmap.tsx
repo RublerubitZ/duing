@@ -90,18 +90,8 @@ function FacilityHeatmapTable({
       모두 보기
     </button>
   );
-  if (visibleRows.length === 0 && !showAll) {
-    // 모든 시설이 그 주 내내 0 이면(방학 주 등) 날짜 머리만 있는 빈 표 대신 한 줄로 쓴다.
-    return (
-      <>
-        <h3 className="text-sm font-semibold !leading-5 text-charcoal">{caption}</h3>
-        <p className="mt-2 text-sm text-charcoal-2">
-          {`이 주에는 예약이 없어요(시설 ${heatmap.facilities.length}곳)`}{' '}
-          {showAllButton}
-        </p>
-      </>
-    );
-  }
+  // 모든 시설이 그 주 내내 0 이면(방학 주 등) 날짜 머리만 있는 빈 표 대신 한 줄로 쓴다 — 표·범례 자리만 바꾸고 출처·지난달 안내·수집 시각은 남긴다.
+  const showEmptyWeekLine = visibleRows.length === 0 && !showAll;
   const days = heatmapDays(weekStart);
   const rows = showAll ? heatmap.facilities : visibleRows;
   // 이번 주 표의 지난 날 흐림은 대비 차로 — 오늘·남은 날 머리만 charcoal(12.65:1)로 올리고 지난 날은 머리 행 기본색(charcoal-3 6.10:1). 둘 다 AA.
@@ -110,64 +100,73 @@ function FacilityHeatmapTable({
     <>
       <h3 className="text-sm font-semibold !leading-5 text-charcoal">{caption}</h3>
       <p className="mt-1 break-keep text-xs text-charcoal-2">{HEATMAP_SOURCE_NOTE}</p>
-      {/* 좁은 폭은 카드 안 가로 스크롤 — 키보드로도 스크롤하게 포커스를 받고, 인쇄에서는 펼쳐 A4 한 폭에 8열을 넣는다.
-          relative: 열 머리의 sr-only(절대 위치)가 이 상자를 기준으로 잡혀야 상자 안에서 잘린다 — 없으면 문서가 가로로 넘친다. */}
-      <div
-        ref={scrollRegionRef}
-        role="region"
-        aria-label={caption}
-        tabIndex={0}
-        className="relative mt-2 overflow-x-auto rounded-md border border-line focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink print:overflow-visible print:border-0"
-      >
-        <table className="w-full min-w-[36rem] border-collapse text-sm print:min-w-0 print:text-[10px]">
-          <caption className="sr-only">{caption}</caption>
-          <thead>
-            <tr className="text-xs text-charcoal-3">
-              <th scope="col" className={FIRST_COLUMN_CLASS}>시설</th>
-              {days.map((day) => {
-                const isToday = isThisWeek && day.isoDate === todayIso;
-                return (
-                  <th key={day.isoDate} scope="col" className={cn('px-2 py-2 text-center font-medium', isTodayOrLater(day.isoDate) && 'text-charcoal')}>
-                    <span aria-hidden className="block">{day.dayLabel}</span>
-                    <span aria-hidden className={cn('block', isToday && 'font-semibold text-ink')}>{isToday ? '오늘' : day.weekdayLabel}</span>
-                    <span className="sr-only">{isToday ? `${day.spokenLabel} 오늘` : day.spokenLabel}</span>
-                  </th>
-                );
-              })}
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((row) => (
-              <tr key={row.facilityId} className="border-t border-line">
-                <th scope="row" className={cn(FIRST_COLUMN_CLASS, 'break-keep text-charcoal')}>
-                  {row.roomName}
-                </th>
-                {row.occupiedSlotCounts.map((occupiedSlotCount, index) => {
-                  const isoDate = days[index]?.isoDate ?? '';
-                  return (
-                    <td
-                      key={isoDate || String(index)}
-                      className={cn(
-                        'px-2 py-2 text-center tabular-nums [-webkit-print-color-adjust:exact] [print-color-adjust:exact]',
-                        heatmapCellClass(occupiedSlotCount),
-                      )}
-                    >
-                      {occupiedSlotCount}
-                    </td>
-                  );
-                })}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-      <p className="mt-2 break-keep text-xs text-charcoal-3">{HEATMAP_LEGEND}</p>
-      {hiddenCount > 0 && !showAll ? (
-        <p className="mt-1 text-xs text-charcoal-2">
-          {`예약 없는 시설 ${hiddenCount}곳은 뺐어요`}{' '}
+      {showEmptyWeekLine ? (
+        <p className="mt-2 text-sm text-charcoal-2">
+          {`이 주에는 예약이 없어요(시설 ${heatmap.facilities.length}곳)`}{' '}
           {showAllButton}
         </p>
-      ) : null}
+      ) : (
+        <>
+          {/* 좁은 폭은 카드 안 가로 스크롤 — 키보드로도 스크롤하게 포커스를 받고, 인쇄에서는 펼쳐 A4 한 폭에 8열을 넣는다.
+              relative: 열 머리의 sr-only(절대 위치)가 이 상자를 기준으로 잡혀야 상자 안에서 잘린다 — 없으면 문서가 가로로 넘친다. */}
+          <div
+            ref={scrollRegionRef}
+            role="region"
+            aria-label={caption}
+            tabIndex={0}
+            className="relative mt-2 overflow-x-auto rounded-md border border-line focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink print:overflow-visible print:border-0"
+          >
+            <table className="w-full min-w-[36rem] border-collapse text-sm print:min-w-0 print:text-[10px]">
+              <caption className="sr-only">{caption}</caption>
+              <thead>
+                <tr className="text-xs text-charcoal-3">
+                  <th scope="col" className={FIRST_COLUMN_CLASS}>시설</th>
+                  {days.map((day) => {
+                    const isToday = isThisWeek && day.isoDate === todayIso;
+                    return (
+                      <th key={day.isoDate} scope="col" className={cn('px-2 py-2 text-center font-medium', isTodayOrLater(day.isoDate) && 'text-charcoal')}>
+                        <span aria-hidden className="block">{day.dayLabel}</span>
+                        <span aria-hidden className={cn('block', isToday && 'font-semibold text-ink')}>{isToday ? '오늘' : day.weekdayLabel}</span>
+                        <span className="sr-only">{isToday ? `${day.spokenLabel} 오늘` : day.spokenLabel}</span>
+                      </th>
+                    );
+                  })}
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((row) => (
+                  <tr key={row.facilityId} className="border-t border-line">
+                    <th scope="row" className={cn(FIRST_COLUMN_CLASS, 'break-keep text-charcoal')}>
+                      {row.roomName}
+                    </th>
+                    {row.occupiedSlotCounts.map((occupiedSlotCount, index) => {
+                      const isoDate = days[index]?.isoDate ?? '';
+                      return (
+                        <td
+                          key={isoDate || String(index)}
+                          className={cn(
+                            'px-2 py-2 text-center tabular-nums [-webkit-print-color-adjust:exact] [print-color-adjust:exact]',
+                            heatmapCellClass(occupiedSlotCount),
+                          )}
+                        >
+                          {occupiedSlotCount}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <p className="mt-2 break-keep text-xs text-charcoal-3">{HEATMAP_LEGEND}</p>
+          {hiddenCount > 0 && !showAll ? (
+            <p className="mt-1 text-xs text-charcoal-2">
+              {`예약 없는 시설 ${hiddenCount}곳은 뺐어요`}{' '}
+              {showAllButton}
+            </p>
+          ) : null}
+        </>
+      )}
       {touchesPastMonth(weekStart, todayIso) ? <p className="mt-1 break-keep text-xs text-charcoal-3">{PAST_MONTH_NOTE}</p> : null}
       {isThisWeek && heatmap.currentMonthCrawledAt ? (
         <p className="mt-1 text-xs text-charcoal-3">{crawledAtText(heatmap.currentMonthCrawledAt)}</p>
