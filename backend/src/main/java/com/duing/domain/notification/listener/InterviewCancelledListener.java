@@ -21,7 +21,8 @@ import org.springframework.transaction.event.TransactionalEventListener;
  * <p>현재 프로덕션 코드에 {@link InterviewCancelledEvent} 발행처가 없다 — 죽은 코드가 아니라 정책의
  * 결과다. 라운드 취소는 일정이 통보되지 않은 라운드에만 허용되고(SCHEDULED 라운드는 도메인이 취소를
  * 거부한다) 그래서 알릴 학생이 없다. 이 리스너가 받는 것은 개별 면접 취소이며, 그 기능이 생기면
- * 그대로 자리를 받는다. 지우려면 NotificationType.INTERVIEW_CANCELLED 와 그 저장 계약까지 함께
+ * 그대로 자리를 받는다. 다만 그때 다른 면접 알림 셋처럼 INTERVIEW_PENDING 이 아닌 지원은 생략하는
+ * 가드를 함께 넣는다. 지우려면 NotificationType.INTERVIEW_CANCELLED 와 그 저장 계약까지 함께
  * 정리해야 하므로 존치가 더 싸다.
  */
 @Slf4j

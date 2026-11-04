@@ -238,7 +238,7 @@ class LeaderInterviewRoundRequestControllerTest extends InterviewControllerTestS
                 .when().patch("/api/v1/leader/applications/{applicationId}/status", acceptedApplication.getId())
                 .then().statusCode(HttpStatus.NO_CONTENT.value());
 
-        // 인원은 실제 알림 수가 아닌 대상 멤버 수다 — 스펙이 받아들인 어긋남이라, 맞추기로 하면 이 단언이 바뀐다.
+        // 인원은 실제 알림 수가 아닌 대상 멤버 수다 — 결과가 정해진 멤버가 라운드에 남는 드문 경우라 맞추지 않았다.
         RestAssured.given()
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
                 .when().post(REMIND_PATH, round.getId())
