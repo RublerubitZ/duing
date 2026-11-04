@@ -155,6 +155,20 @@ class AdminClubsSignalFilterControllerTest extends IntegrationTestBase {
     }
 
     @Test
+    @DisplayName("탈퇴한 지원자의 결과 없는 지원서만 남은 동아리는 결과 대기에서 빼고, 살아 있는 지원자의 지원서가 함께 남았으면 넣는다")
+    void resultWaitingIgnoresWithdrawnApplicants() {
+        Club withdrawnOnlyClub = ClubSignalFixture.saveClub(clubRepository, ClubStatus.ACTIVE);
+        saveWithdrawnApplication(longEndedRecruitment(withdrawnOnlyClub), ApplicationStatus.SUBMITTED);
+
+        Club mixedClub = ClubSignalFixture.saveClub(clubRepository, ClubStatus.ACTIVE);
+        Recruitment mixedRecruitment = longEndedRecruitment(mixedClub);
+        saveWithdrawnApplication(mixedRecruitment, ApplicationStatus.SUBMITTED);
+        saveApplication(mixedRecruitment, ApplicationStatus.ON_HOLD);
+
+        assertSignalClubs(AdminClubSignal.RESULT_WAITING, mixedClub);
+    }
+
+    @Test
     @DisplayName("가입 대기는 신청일 오늘 − 7 은 빼고 오늘 − 8 은 넣으며, 7일 안 신청만 있거나 처리·삭제된 오래된 신청만 있는 동아리는 뺀다")
     void joinRequestWaitingBoundaryAndExclusions() {
         clubWithPendingRequestAt(today.minusDays(7).atTime(12, 0));
@@ -305,6 +319,13 @@ class AdminClubsSignalFilterControllerTest extends IntegrationTestBase {
     private Application saveApplication(Recruitment recruitment, ApplicationStatus status) {
         return PendingItemsFixture.saveApplication(applicationRepository, recruitment,
                 userRepository.save(UserFixture.unique()), status);
+    }
+
+    /** 회원 탈퇴 모양 — 지원서는 남기고 지원자만 소프트 삭제한다. */
+    private void saveWithdrawnApplication(Recruitment recruitment, ApplicationStatus status) {
+        User applicant = userRepository.save(UserFixture.unique());
+        PendingItemsFixture.saveApplication(applicationRepository, recruitment, applicant, status);
+        ClubSignalFixture.withdraw(jdbcTemplate, applicant);
     }
 
     private ClubJoinCode inviteCode(Club club) {

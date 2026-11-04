@@ -122,6 +122,28 @@ class AdminClubsSignalDetailControllerTest extends IntegrationTestBase {
     }
 
     @Test
+    @DisplayName("탈퇴한 지원자의 지원서는 결과 대기 재료에서 빠진다 — 결과 미확정 지원 합에 세지 않고, 탈퇴자 지원서만 남은 모집은 신호 모집이 아니다")
+    void resultWaitingMaterialExcludesWithdrawnApplicants() {
+        Club club = ClubSignalFixture.saveClub(clubRepository, ClubStatus.ACTIVE);
+        // 더 일찍 끝난 모집이지만 탈퇴자 지원서만 남았다 — 가장 오래된 모집·신호 모집 수에서 빠져야 한다
+        Recruitment withdrawnOnly = ClubSignalFixture.saveClosedRecruitment(recruitmentRepository, club,
+                today.minusDays(50), today.minusDays(40), today.minusDays(40).atTime(12, 0));
+        saveWithdrawnApplication(withdrawnOnly, ApplicationStatus.SUBMITTED);
+        Recruitment signalRecruitment = longEndedRecruitment(club);
+        saveApplication(signalRecruitment, ApplicationStatus.SUBMITTED);
+        saveApplication(signalRecruitment, ApplicationStatus.ON_HOLD);
+        saveWithdrawnApplication(signalRecruitment, ApplicationStatus.SUBMITTED);
+
+        admin().queryParam("signal", "RESULT_WAITING").when().get(ADMIN_CLUBS_PATH)
+                .then().statusCode(HttpStatus.OK.value())
+                .body("data.totalElements", equalTo(1))
+                .body("data.content[0].signalDetail.resultWaiting.oldestRecruitmentId",
+                        equalTo(signalRecruitment.getId().intValue()))
+                .body("data.content[0].signalDetail.resultWaiting.recruitmentCount", equalTo(1))
+                .body("data.content[0].signalDetail.resultWaiting.applicationCount", equalTo(2));
+    }
+
+    @Test
     @DisplayName("끝난 날이 같은 신호 모집이 둘이면 모집 id 가 작은 쪽이 가장 오래된 모집이다")
     void resultWaitingTieBreaksBySmallerRecruitmentId() {
         Club club = ClubSignalFixture.saveClub(clubRepository, ClubStatus.ACTIVE);
@@ -290,6 +312,13 @@ class AdminClubsSignalDetailControllerTest extends IntegrationTestBase {
 
     private void saveApplication(Recruitment recruitment, ApplicationStatus status) {
         PendingItemsFixture.saveApplication(applicationRepository, recruitment, userRepository.save(UserFixture.unique()), status);
+    }
+
+    /** 회원 탈퇴 모양 — 지원서는 남기고 지원자만 소프트 삭제한다. */
+    private void saveWithdrawnApplication(Recruitment recruitment, ApplicationStatus status) {
+        User applicant = userRepository.save(UserFixture.unique());
+        PendingItemsFixture.saveApplication(applicationRepository, recruitment, applicant, status);
+        ClubSignalFixture.withdraw(jdbcTemplate, applicant);
     }
 
     private ClubJoinCode inviteCode(Club club) {
