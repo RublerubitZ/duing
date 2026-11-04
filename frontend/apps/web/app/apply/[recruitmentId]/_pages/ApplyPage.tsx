@@ -18,7 +18,7 @@ import { captureEvent } from '../../../_lib/analytics';
 import { ApplyForm } from '../_components/ApplyForm';
 import type { DraftAnswer, RecruitmentQuestionItem } from '@duing/types';
 
-// 서버 자격 검증이 내는 확정 거절(외부 폼·회원 자격·없음·마감·이미 지원) — 그 밖은 일시 실패로 본다(401 은 토큰 갱신이 잠깐 안 될 때도 온다).
+// 서버 자격 검증이 내는 확정 거절(외부 폼·회원 자격·없음·마감·시작 전·이미 지원·이미 회원) — 그 밖은 일시 실패로 본다(401 은 토큰 갱신이 잠깐 안 될 때도 온다).
 const ELIGIBILITY_REJECTION_STATUSES = [400, 403, 404, 409];
 
 export function ApplyPage() {

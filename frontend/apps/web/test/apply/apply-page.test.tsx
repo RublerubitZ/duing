@@ -728,6 +728,15 @@ describe('ApplyPage — 지원 가능 여부 딥링크 가드', () => {
     expect(backLink).toHaveAttribute('href', '/clubs/1');
   });
 
+  // 확정 거절 목록 밖의 실패라 '데이터 없음' 조건만 막는다 — 그 조건이 빠지면 자격을 확인하지 못한 폼이 열린다.
+  it('첫 진입 자격 확인이 일시 실패(500)면 폼을 열지 않고 막힘 화면을 띄운다', async () => {
+    server.use(mockEligibilityHandler(500, '일시적인 오류가 발생했습니다.'));
+    renderApplyPage();
+
+    expect(await screen.findByText('일시적인 오류가 발생했습니다.')).toBeInTheDocument();
+    expect(screen.queryByRole('textbox', { name: /지원 동기/ })).not.toBeInTheDocument();
+  });
+
   it('재진입 시 직전 판정 캐시로 지원 폼을 먼저 그리지 않는다', async () => {
     // 루트 QueryClient 는 SPA 네비게이션 내내 살아 있으므로, 캐시가 남아 있으면
     // 재마운트 시 status 가 'success' 라 isLoading=false → 로딩 게이트가 백그라운드
