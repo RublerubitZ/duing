@@ -50,7 +50,17 @@ function statsSummaryHandler(summary: Partial<StatsSummary> = {}) {
   );
 }
 
-const server = setupServer(statsSummaryHandler());
+// 할 일 카드 — 면접 사용 진행 중이면 면접 대기열, 지원 완료 > 0 이면 지원 완료 목록을 부른다.
+const emptyCandidatesHandler = http.get(`*/leader/recruitments/${RECRUITMENT_ID}/interview-round-candidates`, () =>
+  HttpResponse.json({ ok: true, data: [], message: null }),
+);
+function submittedApplicantsHandler(applicants: unknown[] = []) {
+  return http.get(`*/leader/recruitments/${RECRUITMENT_ID}/applications`, () =>
+    HttpResponse.json({ ok: true, data: applicants, message: null }),
+  );
+}
+
+const server = setupServer(statsSummaryHandler(), emptyCandidatesHandler, submittedApplicantsHandler());
 const apiClient = createApiClient({ baseUrl: 'http://localhost:8080/api/v1' });
 
 type RecruitmentDetailMockOpts = {
@@ -473,6 +483,28 @@ describe('RecruitmentDetailPage — 상태 칩 house pill', () => {
     expect(chip).toHaveClass(...badge);
     expect(chip).not.toHaveClass(absent);
     expect(chip.className).not.toMatch(/bg-(emerald|slate|amber)-/);
+  });
+});
+
+describe('RecruitmentDetailPage — 이 모집에서 할 일 카드', () => {
+  it('진행 중 자체 폼이면 헤더 아래 카드가 할 일과 먼저 볼 지원서를 실제 응답으로 그린다', async () => {
+    server.use(
+      mockRecruitmentDetail(false),
+      statsSummaryHandler({ total: 3, submitted: 2, onHold: 1, oldestPendingSubmittedAt: '2026-10-20T01:00:00Z' }),
+      submittedApplicantsHandler([
+        { applicationId: 21, userId: 1, userName: '박지후', studentId: '20260021', college: 'GLOBAL_BUSINESS', major: '경영학과', grade: 'FRESHMAN',
+          answers: [], status: 'SUBMITTED', submittedAt: '2026-10-25T01:00:00Z', interviewStartAt: null, myScore: null },
+        { applicationId: 20, userId: 2, userName: '김서연', studentId: '20260020', college: 'GLOBAL_BUSINESS', major: '경영학과', grade: 'FRESHMAN',
+          answers: [], status: 'SUBMITTED', submittedAt: '2026-10-20T01:00:00Z', interviewStartAt: null, myScore: null },
+      ]),
+    );
+    renderPage();
+    const card = await screen.findByRole('region', { name: '이 모집에서 할 일' });
+    expect(await within(card).findByText('검토 대기 지원자 3명')).toBeInTheDocument();
+    const preview = await within(card).findByRole('region', { name: '먼저 볼 지원서' });
+    const names = within(preview).getAllByRole('listitem').map((row) => row.textContent ?? '');
+    expect(names[0]).toContain('김서연');
+    expect(names[1]).toContain('박지후');
   });
 });
 
