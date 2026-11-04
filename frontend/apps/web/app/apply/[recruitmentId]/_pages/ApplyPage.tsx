@@ -18,6 +18,9 @@ import { captureEvent } from '../../../_lib/analytics';
 import { ApplyForm } from '../_components/ApplyForm';
 import type { DraftAnswer, RecruitmentQuestionItem } from '@duing/types';
 
+// 서버 자격 검증이 내는 확정 거절(외부 폼·회원 자격·없음·마감·이미 지원) — 그 밖은 일시 실패로 본다(401 은 토큰 갱신이 잠깐 안 될 때도 온다).
+const ELIGIBILITY_REJECTION_STATUSES = [400, 403, 404, 409];
+
 export function ApplyPage() {
   const params = useParams<{ recruitmentId: string }>();
   const recruitmentId = Number(params.recruitmentId);
@@ -69,7 +72,8 @@ export function ApplyPage() {
 
   // 상세 조회 실패 시 isLoading=false·data=undefined 라 아래 로딩 분기가 영구 표류한다 — 먼저 탈출.
   // clubId 를 모르는 상태라 안전한 복귀처는 탐색 목록뿐이다.
-  if (detail.isError) {
+  // 데이터가 있는 재조회 실패는 폼을 그대로 둔다 — 내리면 저장 전 입력을 잃는다(저장본 게이트와 같은 규칙).
+  if (detail.isError && detail.data === undefined) {
     const detailErrorMessage =
       detail.error instanceof ApiError
         ? detail.error.message
@@ -116,7 +120,13 @@ export function ApplyPage() {
     );
   }
 
-  if (eligibility.isError) {
+  // 데이터가 있는 재조회 실패는 확정 거절일 때만 막는다 — 일시 실패에 폼을 내리면 저장 전 입력을 잃는다(제출 때 서버가 다시 검증한다).
+  if (
+    eligibility.isError &&
+    (eligibility.data === undefined ||
+      (eligibility.error instanceof ApiError &&
+        ELIGIBILITY_REJECTION_STATUSES.includes(eligibility.error.status)))
+  ) {
     const blockedMessage =
       eligibility.error instanceof ApiError
         ? eligibility.error.message
