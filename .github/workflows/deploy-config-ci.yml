@@ -113,15 +113,18 @@ jobs:
             || { echo "::error::설정에 :80 을 듣는 서버가 없습니다 — Caddy 가 런타임에 만드는 자동 리다이렉트 서버에는 전역 옵션이 붙지 않아 평문 HTTP/2 를 받습니다(deploy/Caddyfile 의 http://api.duings.com 사이트)"; exit 1; }
           echo "Caddy HTTP/1.1 전용 확인 완료"
 
-      - name: Assert DB workflows grant no token permissions and pin the CLI hash
+      - name: Assert DB workflows use the backup environment, grant no token permissions and pin the CLI hash
         # backup 은 운영 DB·백업 R2 자격을, restore-rehearsal 은 백업 R2 자격을 쥐고 GITHUB_TOKEN 을 쓰지 않는다 — 최상위 permissions: {} 가
         # 정확히 있고 잡 단위로 다시 주지 않는지, CLI 해시가 워크플로에 인라인 고정돼 있는지 본다(#1302).
+        # 두 잡의 자격은 develop 만 허용하는 backup 환경에만 있다 — environment 줄이 빠지면 빈 자격으로 돌아 그날 백업이 빠진다.
         run: |
           for workflow in .github/workflows/backup.yml .github/workflows/restore-rehearsal.yml; do
             grep -qE '^permissions:[[:space:]]*\{\}[[:space:]]*(#.*)?$' "$workflow" \
               || { echo "::error::${workflow} 최상위에 permissions: {} 가 없습니다(#1302)"; exit 1; }
             ! grep -qE '^[[:space:]]+permissions:' "$workflow" \
               || { echo "::error::${workflow} 에 잡 단위 permissions 가 있습니다 — 최상위 {} 를 덮어씁니다"; exit 1; }
+            grep -qE '^[[:space:]]+environment:[[:space:]]+backup[[:space:]]*(#.*)?$' "$workflow" \
+              || { echo "::error::${workflow} 잡이 backup 환경을 쓰지 않습니다 — 운영 DB·백업 R2 자격은 develop 만 허용하는 backup 환경에만 있습니다. 잡 아래 environment: backup 한 줄로 적습니다(따옴표나 name: 형식은 이 검사가 받지 않습니다)"; exit 1; }
           done
           grep -qE '^[[:space:]]+SUPABASE_CLI_SHA256:[[:space:]]+[0-9a-f]{64}([[:space:]]|$)' .github/workflows/backup.yml \
             || { echo "::error::backup.yml 의 Supabase CLI sha256 인라인 고정(SUPABASE_CLI_SHA256)이 없습니다(#1302)"; exit 1; }
@@ -130,4 +133,4 @@ jobs:
             || { echo "::error::backup.yml 이 고정 해시(SUPABASE_CLI_SHA256)로 sha256sum -c 하지 않습니다(#1302)"; exit 1; }
           ! grep -qE '^[^#]*checksums\.txt' .github/workflows/backup.yml \
             || { echo "::error::backup.yml 이 checksums.txt 대조로 되돌아갔습니다(#1302)"; exit 1; }
-          echo "DB 워크플로 권한·CLI 해시 고정 확인 완료"
+          echo "DB 워크플로 환경·권한·CLI 해시 고정 확인 완료"
