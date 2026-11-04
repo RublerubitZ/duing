@@ -78,7 +78,7 @@ export function buildActionItems(inputs: RecruitmentDashboardInput[], now: Date)
 
     // 면접 라운드 생성 필요: 대기열 인원 존재 + 진행 중 라운드(DRAFT·COLLECTING·ASSIGNING) 없음.
     // 초안은 새 라운드 생성을 막아(DraftRoundAlreadyExists) 아래에서 내는 그 초안의 미확정 줄이 운영진을 데려간다.
-    // 알려진 빈틈: 진행 중 라운드(COLLECTING·ASSIGNING)가 있는 동안 대기열에 들어온 지원자(라운드에서 제외되거나 새로 면접 대상으로 선정됨)는 그 라운드가 확정·취소될 때까지 이 줄에 잡히지 않는다.
+    // 알려진 빈틈: COLLECTING·ASSIGNING 라운드가 있으면 대기열에 몇 명이 있든(라운드에 넣지 않고 남긴 지원자·제외된 지원자·새로 면접 대상이 된 지원자) 그 라운드가 확정·취소될 때까지 이 줄을 내지 않는다.
     // rounds === undefined(라운드 쿼리 미로딩·실패)면 '진행 중 라운드 없음'으로 단정할 수 없어 생성하지 않는다.
     const hasInProgressRound = (rounds ?? []).some(
       (round) => round.status === 'DRAFT' || round.status === 'COLLECTING' || round.status === 'ASSIGNING',
@@ -98,7 +98,8 @@ export function buildActionItems(inputs: RecruitmentDashboardInput[], now: Date)
           daysLeft,
         });
       } else if (round.status === 'COLLECTING') {
-        // 응답 수는 인원 수를 넘지 않아 이 갈래는 응답이 다 모인 라운드(인원 0 포함)다 — 다음 단계인 자동 배정은 운영진이 눌러야 하고 대신 하는 잡이 없다.
+        // 응답 수는 인원 수를 넘지 않아 이 갈래는 응답이 다 모인 라운드다 — 다음 단계인 자동 배정은 운영진이 눌러야 하고 대신 하는 잡이 없다.
+        // shortcut: 인원 0(전원 제외·탈퇴)도 이 줄로 낸다 — 자동 배정 뒤 확정이 막혀 실제 다음 단계는 라운드 취소다. 문의가 오면 인원 수를 실어 인원 0 줄의 버튼을 나눈다.
         items.push({ type: 'INTERVIEW_ROUND_UNCONFIRMED', ...roundBase, roundStatus: round.status, daysLeft });
       } else if (round.status === 'DRAFT' || round.status === 'ASSIGNING') {
         items.push({ type: 'INTERVIEW_ROUND_UNCONFIRMED', ...roundBase, roundStatus: round.status });
@@ -289,9 +290,9 @@ export function dashboardTaskGroupOf(task: DashboardTask): DashboardTaskGroupKey
     case 'INTERVIEW_RESULT_PENDING':
       return 'NOW';
     case 'INTERVIEW_ROUND_UNCONFIRMED':
-      // 초안은 운영진이 아직 쓰는 중일 수 있다 — 지원자가 기다리는 일이 아니다.
+      // 초안은 운영진이 아직 쓰는 중일 수 있고, 대기열의 '라운드 생성 필요'와 같은 단계라 처리 대기.
       if (task.item.roundStatus === 'DRAFT') return 'WAITING';
-      // 응답 마감 전에는 재응답이 열려 있다 — 응답 미수집과 같은 판정.
+      // 응답 마감 날짜(KST)까지는 재응답이 열려 있을 수 있어 기다린다 — 당일은 마감 시각이 지나도 처리 대기(응답 미수집 줄과 같은 날짜 기준).
       if (task.item.roundStatus === 'COLLECTING') return task.item.daysLeft !== undefined && task.item.daysLeft < 0 ? 'NOW' : 'WAITING';
       return 'NOW';
     case 'INTERVIEW_RESPONSE_UNCOLLECTED':
