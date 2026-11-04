@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { ApiError } from '@duing/api';
 import { useApplicationDraftMutation } from '@duing/hooks';
 import type { DraftAnswer } from '@duing/types';
+import { TEXT_ANSWER_MAX_LENGTH } from '../_components/ApplyAnswersStep';
 
 export type AutosaveStatus =
   | { kind: 'idle' }
@@ -21,7 +22,7 @@ export function useAutosaveDraft(
   const mutation = useApplicationDraftMutation(recruitmentId);
   const { mutate } = mutation;
   const [autosaveStatus, setAutosaveStatus] = useState<AutosaveStatus>({ kind: 'idle' });
-  // 서버에 이미 있거나(마운트 시드·저장 성공) 다시 보내도 결과가 같은(400·404) 답변 직렬화 — 같으면 보내지 않는다.
+  // 서버에 이미 있거나(마운트 시드·저장 성공) 다시 보내도 결과가 같은(400·404·2000자 넘침) 답변 직렬화 — 같으면 보내지 않는다.
   const lastSerializedRef = useRef<string | null>(null);
 
   useEffect(() => {
@@ -38,6 +39,15 @@ export function useAutosaveDraft(
     if (serialized === lastSerializedRef.current) return;
 
     const timer = setTimeout(() => {
+      // 넘친 값(한글 조합 중·옛 초안)은 보내도 400 이다 — 보내지 않고 알린 뒤, 다른 값으로 바뀌면 그 값을 저장한다.
+      if (answers.some((answer) => answer.values.some((value) => value.length > TEXT_ANSWER_MAX_LENGTH))) {
+        setAutosaveStatus({
+          kind: 'error',
+          message: '2000자를 넘은 답변이 있어 임시저장하지 않았어요. 2000자 이내로 줄여 주세요.',
+        });
+        lastSerializedRef.current = serialized;
+        return;
+      }
       setAutosaveStatus({ kind: 'saving' });
       mutate(
         { answers },

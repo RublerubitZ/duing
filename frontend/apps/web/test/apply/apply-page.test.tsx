@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll, afterEach, vi } from 'vitest';
 import { Suspense } from 'react';
 import type { ReactNode } from 'react';
-import { act, render, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { setupServer } from 'msw/node';
@@ -1212,6 +1212,83 @@ describe('자동저장 — 보내는 때와 재전송', () => {
       { answers: [{ questionId: TEXT_QUESTION_ID, values: ['열정'] }] },
     ]);
   }, 15_000);
+
+  const OVERFLOW_TEXT = /^2000자를 넘은 답변이 있어 임시저장하지 않았어요/;
+
+  // 한글 조합 중엔 textarea 값이 maxLength 를 잠깐 넘는다 — fireEvent.change 로 그 값을 흉내 낸다(user.type 은 maxLength 를 지킨다).
+  it('주관식이 2000자를 넘으면 PUT 대신 안내를 띄우고, 2000자 이내로 돌아오면 다시 저장한다', async () => {
+    const draftBodies: unknown[] = [];
+    server.use(
+      http.put(`*/recruitments/${RECRUITMENT_ID}/draft`, async ({ request }) => {
+        draftBodies.push(await request.json());
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+    renderForm();
+    const textarea = screen.getByRole('textbox', { name: /지원 동기/ });
+    const fullText = 'a'.repeat(2000);
+
+    fireEvent.change(textarea, { target: { value: fullText } });
+    await waitFor(() => expect(draftBodies).toHaveLength(1), { timeout: 4000 });
+    expect(draftBodies[0]).toEqual({ answers: [{ questionId: TEXT_QUESTION_ID, values: [fullText] }] });
+    expect(await screen.findByText(/^마지막 저장 /, {}, { timeout: 4000 })).toBeInTheDocument();
+
+    fireEvent.change(textarea, { target: { value: `${fullText}b` } });
+    await new Promise((resolve) => setTimeout(resolve, 3000));
+    expect(draftBodies).toHaveLength(1);
+    expect(screen.getByText(OVERFLOW_TEXT)).toBeInTheDocument();
+    expect(screen.getByText('2001/2000')).toBeInTheDocument();
+
+    // 직전 저장값과 같은 2000자로 돌아와도 다시 저장해야 안내가 사라진다.
+    fireEvent.change(textarea, { target: { value: fullText } });
+    await waitFor(() => expect(draftBodies).toHaveLength(2), { timeout: 4000 });
+    expect(draftBodies[1]).toEqual({ answers: [{ questionId: TEXT_QUESTION_ID, values: [fullText] }] });
+    expect(await screen.findByText(/^마지막 저장 /, {}, { timeout: 4000 })).toBeInTheDocument();
+    expect(screen.queryByText(OVERFLOW_TEXT)).not.toBeInTheDocument();
+
+    const otherFullText = `${'a'.repeat(1999)}b`;
+    fireEvent.change(textarea, { target: { value: otherFullText } });
+    await waitFor(() => expect(draftBodies).toHaveLength(3), { timeout: 4000 });
+    expect(draftBodies.at(-1)).toEqual({ answers: [{ questionId: TEXT_QUESTION_ID, values: [otherFullText] }] });
+  }, 20_000);
+
+  it('불러온 임시저장이 2000자를 넘으면 다른 답을 고쳐도 PUT 대신 안내를 띄우고, 줄이면 저장한다', async () => {
+    const draftBodies: unknown[] = [];
+    const overflowText = 'a'.repeat(2300);
+    server.use(
+      mockRecruitmentDetailHandler(makeRecruitment({ questionItems: MIXED_QUESTION_ITEMS })),
+      http.get(`*/recruitments/${RECRUITMENT_ID}/draft`, () =>
+        HttpResponse.json({
+          ok: true,
+          data: {
+            exists: true,
+            answers: [{ questionId: TEXT_QUESTION_ID, values: [overflowText] }],
+            updatedAt: '2026-07-01T09:00:00',
+          },
+          message: null,
+        }),
+      ),
+      http.put(`*/recruitments/${RECRUITMENT_ID}/draft`, async ({ request }) => {
+        draftBodies.push(await request.json());
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+    const user = userEvent.setup();
+    renderApplyPage();
+
+    const textarea = await screen.findByRole('textbox', { name: /지원 동기/ });
+    expect(textarea).toHaveValue(overflowText);
+    await user.click(screen.getByRole('radio', { name: '월요일' }));
+    await new Promise((resolve) => setTimeout(resolve, 3000));
+    expect(draftBodies).toHaveLength(0);
+    expect(screen.getByText(OVERFLOW_TEXT)).toBeInTheDocument();
+    expect(screen.getByText('2300/2000')).toBeInTheDocument();
+
+    fireEvent.change(textarea, { target: { value: 'a'.repeat(2000) } });
+    await waitFor(() => expect(draftBodies).toHaveLength(1), { timeout: 4000 });
+    expect(await screen.findByText(/^마지막 저장 /, {}, { timeout: 4000 })).toBeInTheDocument();
+    expect(screen.queryByText(OVERFLOW_TEXT)).not.toBeInTheDocument();
+  }, 20_000);
 });
 
 describe('ApplyForm — 주관식 글자 수', () => {

@@ -21,7 +21,7 @@ const CHOICE_LABEL_CLASS =
 const CHOICE_GROUP_CLASS = 'space-y-2 focus:outline-none';
 
 // 서버 UpsertDraftRequest·SubmitApplicationRequest 의 @Size(max = 2000) 과 같은 값 — 넘으면 자동저장·제출이 400 이다.
-const TEXT_ANSWER_MAX_LENGTH = 2000;
+export const TEXT_ANSWER_MAX_LENGTH = 2000;
 
 function questionControlId(questionId: string): string {
   return `q-${questionId}`;
