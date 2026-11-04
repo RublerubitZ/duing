@@ -9,7 +9,7 @@ import java.util.List;
  *
  * <p>마감 조건(전부 만족): 저장 상태 OPEN·삭제 안 됨, 종료일이 있고 종료일 다음 날부터
  * {@link RecruitmentAutoClosePolicy#GRACE_DAYS}일이 지났다({@link RecruitmentAutoClosePolicy#endedBefore}),
- * 결과 없는 지원({@link ApplicationStatus#activeSet()})이 0건, 진행 중 면접 라운드({@link RoundStatus#inProgressSet()})가
+ * 결과 없는 지원({@link ApplicationStatus#activeSet()} — 지원자 목록처럼 탈퇴한 지원자의 지원서는 빼고)이 0건, 진행 중 면접 라운드({@link RoundStatus#inProgressSet()})가
  * 0개. 남은 심사·면접이 없는 모집이라 마감해도 운영진이 잃는 작업이 없다 — 마감 뒤에는 모집 수정(종료일 연장 포함)·
  * 평가 입력·라운드 운영이 막히므로({@link ClosedRecruitmentPolicy}) 그런 일은 유예 기간 안에 끝낸다.
  */

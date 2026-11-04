@@ -31,6 +31,16 @@ public interface ApplicationRepository extends JpaRepository<Application, Long>,
 
     boolean existsByRecruitmentIdAndStatusIn(Long recruitmentId, Collection<ApplicationStatus> statuses);
 
+    /**
+     * 기간 종료 자동 마감의 "결과 없는 지원" 확인 — 운영진 지원자 목록처럼 탈퇴한 지원자의 지원서는 보지 않는다(#1635).
+     * 탈퇴자의 지원서는 운영진도 지원자도 처리할 수 없어, 세면 그 모집은 수동 마감 말고는 영영 닫히지 않는다.
+     */
+    @Query("SELECT COUNT(a) > 0 FROM Application a JOIN a.user u "
+            + "WHERE a.recruitment.id = :recruitmentId AND a.status IN :statuses "
+            + "AND a.deletedAt IS NULL AND u.deletedAt IS NULL")
+    boolean existsByRecruitmentIdAndStatusInExcludingWithdrawnApplicants(
+            @Param("recruitmentId") Long recruitmentId, @Param("statuses") Collection<ApplicationStatus> statuses);
+
     @Query("SELECT a FROM Application a "
             + "JOIN FETCH a.recruitment r "
             + "JOIN FETCH r.club "
