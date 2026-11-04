@@ -8,6 +8,7 @@ import { createApiClient } from '@duing/api';
 import { ApiClientProvider } from '../src/api-context';
 import { clubQueryKeys } from '../src/clubQueryKeys';
 import { useCloseRecruitmentMutation } from '../src/recruitments';
+import { statsQueryKeys } from '../src/statsQueryKeys';
 import {
   useActiveJoinCodeQuery,
   useBulkApproveJoinRequestsMutation,
@@ -83,6 +84,19 @@ const pendingRequest = {
   status: 'PENDING',
   requestedAt: '2026-08-01T02:00:00Z',
   autoApproved: false,
+};
+
+// 지원서는 없지만 대기 가입 요청이 남아 서버가 삭제를 막는 마감 모집의 통계 요약.
+const deleteBlockedStatsSummary = {
+  total: 0,
+  submitted: 0,
+  onHold: 0,
+  interviewPending: 0,
+  accepted: 0,
+  rejected: 0,
+  capacity: 10,
+  ratio: 0,
+  deletable: false,
 };
 
 let lastRequestsQuery: string | null = null;
@@ -376,12 +390,13 @@ describe('가입 요청 훅', () => {
     expect(result.current.fetchStatus).toBe('idle');
   });
 
-  it('단건 처리는 결과를 그대로 반환하고 요청·멤버·코드 키를 무효화한다', async () => {
+  it('단건 처리는 결과를 그대로 반환하고 요청·멤버·코드·통계 키를 무효화한다', async () => {
     const queryClient = newQueryClient();
     queryClient.setQueryData(clubQueryKeys.joinRequests(10, 'PENDING'), [pendingRequest]);
     queryClient.setQueryData(clubQueryKeys.members(10), []);
     queryClient.setQueryData(clubQueryKeys.joinCode(10, 55), activeJoinCode);
     queryClient.setQueryData(clubQueryKeys.clubInviteCode(10), activeInviteCode);
+    queryClient.setQueryData(statsQueryKeys.summary(55), deleteBlockedStatsSummary);
 
     const { result } = renderHook(() => useDecideJoinRequestMutation(10), {
       wrapper: makeWrapper(queryClient),
@@ -404,6 +419,8 @@ describe('가입 요청 훅', () => {
     expect(queryClient.getQueryState(clubQueryKeys.joinCode(10, 55))?.isInvalidated).toBe(true);
     // 승인 한 건은 초대 링크의 usedCount·대기 수도 바꾼다 — 클럽 프리픽스 무효화가 초대 링크 키까지 덮어야 한다.
     expect(queryClient.getQueryState(clubQueryKeys.clubInviteCode(10))?.isInvalidated).toBe(true);
+    // 대기 가입 요청은 모집 삭제를 막는다(#1635) — 마지막 한 건을 처리하면 통계 요약의 삭제 가능 여부가 바뀐다.
+    expect(queryClient.getQueryState(statsQueryKeys.summary(55))?.isInvalidated).toBe(true);
   });
 
   it('일괄 승인은 승인 수와 실패 사유를 반환하고 관련 키를 무효화한다', async () => {
@@ -411,6 +428,7 @@ describe('가입 요청 훅', () => {
     queryClient.setQueryData(clubQueryKeys.joinRequests(10, 'PENDING'), [pendingRequest]);
     queryClient.setQueryData(clubQueryKeys.members(10), []);
     queryClient.setQueryData(clubQueryKeys.joinCode(10, 55), activeJoinCode);
+    queryClient.setQueryData(statsQueryKeys.summary(55), deleteBlockedStatsSummary);
 
     const { result } = renderHook(() => useBulkApproveJoinRequestsMutation(10), {
       wrapper: makeWrapper(queryClient),
@@ -427,6 +445,7 @@ describe('가입 요청 훅', () => {
       queryClient.getQueryState(clubQueryKeys.joinRequests(10, 'PENDING'))?.isInvalidated,
     ).toBe(true);
     expect(queryClient.getQueryState(clubQueryKeys.members(10))?.isInvalidated).toBe(true);
+    expect(queryClient.getQueryState(statsQueryKeys.summary(55))?.isInvalidated).toBe(true);
   });
 
   it('학생 가입 요청이 409 로 실패해도 코드 확인을 무효화한다', async () => {
