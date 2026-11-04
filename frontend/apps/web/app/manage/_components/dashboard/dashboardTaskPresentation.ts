@@ -1,5 +1,6 @@
 import { CLOSING_SOON_DAYS, formatRelativeTime } from '@duing/hooks';
 
+import { APPLICATION_STATUS_OPERATOR_LABEL } from '@/app/_constants/application-status';
 import { BOOKING_STATUS_META, bookingDateLabel, bookingTimeLabel } from '@/app/_lib/bookingDisplay';
 import { waitingDaysTone } from '@/components/dashboard/dashboardChipTone';
 
@@ -8,11 +9,17 @@ import { ACTION_ITEM_TYPE_LABEL, OPERATION_ITEM_TYPE_LABEL } from './dashboard-l
 import type { ActionItem, ActionItemType, DashboardTask, DashboardTaskGroupKey, OperationItem } from '@duing/types';
 import type { DashboardChipTone } from '@/components/dashboard/dashboardChipTone';
 
+export type TaskChip = { text: string; tone: DashboardChipTone };
+
+/** home = 운영진 홈(맥락에 모집명), recruitment = 모집 상세(모집명 없이 인원을 첫째 줄로, 둘째 줄은 라운드 이름·지원 완료/보류 인원·마감 안내). */
+export type TaskRowVariant = 'home' | 'recruitment';
+
 export type TaskRowModel = {
   key: string;
   label: string;
-  context: string;
-  chip: { text: string; tone: DashboardChipTone } | null;
+  /** null 이면 줄 컴포넌트가 둘째 줄을 그리지 않는다 — 홈은 항상 문자열 */
+  context: string | null;
+  chip: TaskChip | null;
   actionLabel: string;
   href: `/${string}`;
 };
@@ -65,21 +72,48 @@ function recruitmentContext(item: ActionItem): string {
   return parts.join(' · ');
 }
 
-function responseDeadlineChip(daysLeft: number): TaskRowModel['chip'] {
+/** 모집 상세 변형 첫째 줄 — 모집 제목은 화면 맨 위에 있어 쓰지 않고, 인원을 라벨 뒤로 올린다. */
+function recruitmentDetailLabel(item: ActionItem): string {
+  const label = ACTION_ITEM_TYPE_LABEL[item.type];
+  return item.count === undefined ? label : `${label} ${item.count}명`;
+}
+
+/** 모집 상세 변형 둘째 줄 — 없으면 null. */
+function recruitmentDetailContext(item: ActionItem): string | null {
+  switch (item.type) {
+    case 'INTERVIEW_ROUND_NEEDED':
+      return null;
+    case 'INTERVIEW_ROUND_UNCONFIRMED':
+    case 'INTERVIEW_RESPONSE_UNCOLLECTED':
+    case 'INTERVIEW_RESULT_PENDING':
+      // 결과 미확정은 확정 라운드가 여럿이면 라운드를 정하지 않는다(roundTitle 없음)
+      return item.roundTitle ?? null;
+    case 'APPLICANTS_AWAITING_REVIEW': {
+      const parts: string[] = [];
+      if (item.submitted) parts.push(`${APPLICATION_STATUS_OPERATOR_LABEL.SUBMITTED} ${item.submitted}명`);
+      if (item.onHold) parts.push(`${APPLICATION_STATUS_OPERATOR_LABEL.ON_HOLD} ${item.onHold}명`);
+      return parts.length > 0 ? parts.join(' · ') : null;
+    }
+    case 'CLOSED_RECRUITMENT_UNDECIDED':
+      return '마감 뒤에도 최종 결과를 확정할 수 있어요';
+  }
+}
+
+function responseDeadlineChip(daysLeft: number): TaskChip {
   if (daysLeft < 0) return { text: `응답 마감 ${-daysLeft}일 지남`, tone: 'late' };
   const text = daysLeft === 0 ? '응답 마감 D-day' : `응답 마감 D-${daysLeft}`;
   return { text, tone: daysLeft <= CLOSING_SOON_DAYS ? 'soon' : 'info' };
 }
 
-function pendingDaysChip(pendingDays: number): TaskRowModel['chip'] {
+export function pendingDaysChip(pendingDays: number): TaskChip {
   return { text: pendingDays === 0 ? '미처리 오늘' : `미처리 ${pendingDays}일`, tone: waitingDaysTone(pendingDays) };
 }
 
-function presentRecruitment(clubId: number, item: ActionItem): TaskRowModel {
+function presentRecruitment(clubId: number, item: ActionItem, variant: TaskRowVariant): TaskRowModel {
   return {
     key: `${item.type}-${item.recruitmentId}-${item.roundId ?? ''}`,
-    label: ACTION_ITEM_TYPE_LABEL[item.type],
-    context: recruitmentContext(item),
+    label: variant === 'recruitment' ? recruitmentDetailLabel(item) : ACTION_ITEM_TYPE_LABEL[item.type],
+    context: variant === 'recruitment' ? recruitmentDetailContext(item) : recruitmentContext(item),
     chip:
       item.type === 'INTERVIEW_RESPONSE_UNCOLLECTED' && item.daysLeft !== undefined
         ? responseDeadlineChip(item.daysLeft)
@@ -138,6 +172,13 @@ function presentOperation(clubId: number, item: OperationItem, now: Date): TaskR
   }
 }
 
-export function presentDashboardTask(clubId: number, task: DashboardTask, now: Date): TaskRowModel {
-  return task.source === 'RECRUITMENT' ? presentRecruitment(clubId, task.item) : presentOperation(clubId, task.item, now);
+export function presentDashboardTask(
+  clubId: number,
+  task: DashboardTask,
+  now: Date,
+  options: { variant?: TaskRowVariant } = {},
+): TaskRowModel {
+  return task.source === 'RECRUITMENT'
+    ? presentRecruitment(clubId, task.item, options.variant ?? 'home')
+    : presentOperation(clubId, task.item, now);
 }
