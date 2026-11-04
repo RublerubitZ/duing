@@ -7,6 +7,7 @@ import { http, HttpResponse } from 'msw';
 import { createApiClient } from '@duing/api';
 import { ApiClientProvider } from '../src/api-context';
 import { interviewRoundKeys } from '../src/interviewRoundQueryKeys';
+import { statsQueryKeys } from '../src/statsQueryKeys';
 import {
   useCreateInterviewRoundMutation,
   useCancelInterviewRoundMutation,
@@ -101,6 +102,8 @@ describe('useCancelInterviewRoundMutation (스펙 §10.1 — 재큐잉)', () => 
     queryClient.setQueryData(interviewRoundKeys.candidates(10), []);
     // 취소된 라운드 dashboard 가 stale 상태로 남지 않도록 detail 도 invalidate 대상
     queryClient.setQueryData(interviewRoundKeys.detail(42), null);
+    // 진행 중 라운드가 없어지면 모집의 자동 마감 전망(통계 요약)이 바뀐다(#1572).
+    queryClient.setQueryData(statsQueryKeys.summary(10), null);
 
     const { result } = renderHook(() => useCancelInterviewRoundMutation(10, 42), {
       wrapper: makeWrapper(queryClient),
@@ -111,6 +114,7 @@ describe('useCancelInterviewRoundMutation (스펙 §10.1 — 재큐잉)', () => 
     expect(queryClient.getQueryState(interviewRoundKeys.list(10))?.isInvalidated).toBe(true);
     expect(queryClient.getQueryState(interviewRoundKeys.candidates(10))?.isInvalidated).toBe(true);
     expect(queryClient.getQueryState(interviewRoundKeys.detail(42))?.isInvalidated).toBe(true);
+    expect(queryClient.getQueryState(statsQueryKeys.summary(10))?.isInvalidated).toBe(true);
   });
 });
 
@@ -130,6 +134,7 @@ describe('useConfirmRoundMutation (스펙 §10.1 — 확정 시 재큐잉 포함
     queryClient.setQueryData(interviewRoundKeys.detail(42), null);
     queryClient.setQueryData(interviewRoundKeys.list(10), []);
     queryClient.setQueryData(interviewRoundKeys.candidates(10), []);
+    queryClient.setQueryData(statsQueryKeys.summary(10), null);
 
     const { result } = renderHook(() => useConfirmRoundMutation(10, 42), {
       wrapper: makeWrapper(queryClient),
@@ -140,6 +145,7 @@ describe('useConfirmRoundMutation (스펙 §10.1 — 확정 시 재큐잉 포함
     expect(queryClient.getQueryState(interviewRoundKeys.detail(42))?.isInvalidated).toBe(true);
     expect(queryClient.getQueryState(interviewRoundKeys.list(10))?.isInvalidated).toBe(true);
     expect(queryClient.getQueryState(interviewRoundKeys.candidates(10))?.isInvalidated).toBe(true);
+    expect(queryClient.getQueryState(statsQueryKeys.summary(10))?.isInvalidated).toBe(true);
   });
 });
 

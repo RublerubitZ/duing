@@ -55,6 +55,8 @@ export function useUpdateRecruitmentMutation(recruitmentId: number) {
       client.recruitments.update(recruitmentId, payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: recruitmentQueryKeys.detail(recruitmentId) });
+      // 종료일이 바뀌면 통계 요약의 자동 마감 전망(만료 여부·자동 마감 날짜)도 바뀐다(#1572).
+      queryClient.invalidateQueries({ queryKey: statsQueryKeys.byRecruitment(recruitmentId) });
     },
   });
 }
@@ -92,6 +94,8 @@ export function useStopRecruitmentIntakeMutation(recruitmentId: number, clubId: 
       queryClient.invalidateQueries({ queryKey: clubQueryKeys.recruitments(clubId) });
       // effectivelyOpen 이 닫히면서 가입 링크 신규 발급 게이트도 바뀐다.
       queryClient.invalidateQueries({ queryKey: clubQueryKeys.joinCode(clubId, recruitmentId) });
+      // 종료일이 생기면 통계 요약의 자동 마감 전망도 생긴다(#1572).
+      queryClient.invalidateQueries({ queryKey: statsQueryKeys.byRecruitment(recruitmentId) });
     },
   });
 }
