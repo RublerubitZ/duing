@@ -171,11 +171,12 @@ export function ApplyForm({ recruitment, recruitmentId, questionItems, initialAn
         application_id: applicationId,
       });
       // 서버가 제출 시 draft 를 삭제하므로 재조회 대신 캐시를 직접 비운다 — GET 1회 제거(#985).
-      queryClient.setQueryData<ApplicationDraft>(draftQueryKeys.byRecruitment(recruitmentId), {
-        exists: false,
-        answers: [],
-        updatedAt: null,
-      });
+      // 응답이 화면을 떠난 뒤 오면 쿼리를 새로 만들지 않는다 — 기본 gcTime 5분으로 남아 다시 들어올 때 빈 폼이 열린다.
+      queryClient.setQueryData<ApplicationDraft>(
+        draftQueryKeys.byRecruitment(recruitmentId),
+        (cached) =>
+          cached === undefined ? undefined : { exists: false, answers: [], updatedAt: null },
+      );
       setConfirmOpen(false);
       router.push(toRoute(`/me/applications/${applicationId}`));
     } catch (submitError) {
