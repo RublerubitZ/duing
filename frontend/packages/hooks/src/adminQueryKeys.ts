@@ -48,6 +48,9 @@ export const adminQueryKeys = {
     [...adminQueryKeys.clubsAll, 'detail', clubId] as const,
   clubMembers: (clubId: number) =>
     [...adminQueryKeys.clubsAll, 'members', clubId] as const,
+  // 총동연 홈 동아리 현황 — clubsAll 아래라 동아리 상태 변경·폐쇄·생성 등의 clubsAll 무효화가 카드도 다시 부른다
+  // (정보 수정처럼 신호와 무관한 무효화도 덮지만 165행 규모라 받아들인다 — 동아리 신호 스펙 §8-1).
+  clubSignals: () => [...adminQueryKeys.clubsAll, 'signals'] as const,
   // 캘린더용 전 동아리 일정. 'admin' 접두사가 있어 동아리별 키(clubEventKeys)와 겹치지 않는다.
   clubEventsAll: ['admin', 'club-events'] as const,
   clubEventsList: (params: ClubEventListParams) =>

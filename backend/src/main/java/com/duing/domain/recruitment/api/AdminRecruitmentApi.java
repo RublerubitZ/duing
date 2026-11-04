@@ -33,11 +33,14 @@ public interface AdminRecruitmentApi {
                     + "status·mode 를 생략하면 각각 상태·방식을 가리지 않는다. "
                     + "status 는 기간 경과 여부가 아니라 저장 상태(OPEN/CLOSED)다. 화면 표기는 서버가 함께 내려주는 displayStatus(UPCOMING/OPEN/ALWAYS_OPEN/CLOSED)를 쓴다 — 기간이 끝났지만 아직 마감 처리 전인 모집은 status=OPEN 이면서 displayStatus=CLOSED 다. closedAt 은 실제 마감 시각이며 마감 전이면 null. "
                     + "지원자 수는 외부 폼 모집이면 비어 있다 — 두잉에 지원 데이터가 없으므로 0 이 아니라 해당 없음이다. "
-                    + "pendingApplicationCount·oldestPendingSubmittedAt 은 처리되지 않은(SUBMITTED — 보류·합격·불합격은 처리, 철회는 제외) 지원서의 수와 가장 오래된 제출 시각이다. "
+                    + "지원자 수와 미처리 수는 지원자 목록과 같은 기준이라 탈퇴한 지원자의 지원서를 세지 않는다. "
+                    + "pendingApplicationCount·oldestPendingSubmittedAt 은 처리되지 않은(SUBMITTED — 보류·면접대기·합격·불합격은 처리, 철회는 제외) 지원서의 수와 가장 오래된 제출 시각이다. "
                     + "외부 폼 모집이면 둘 다 비어 있고, 자체 폼 모집에 미처리가 없으면 0 과 빈 시각이다. "
                     + "operatorsLastActiveAt 은 그 동아리 회장·임원의 세션 사용(로그아웃·만료 세션 포함)과 로그인 중 가장 늦은 시각이며, "
                     + "운영진이 없거나 기록이 없으면 비어 있다 — 세션은 미사용 약 60일 뒤 정리되지만 비밀번호 로그인 시각은 남으므로, 비어 있는 경우는 운영진이 없거나 세션도 비밀번호 로그인 이력도 없는 경우다. "
-                    + "페이지네이션은 제공하지 않는다.")
+                    + "페이지네이션은 제공하지 않는다. "
+                    + "autoClose 는 기간이 끝났지만 아직 OPEN 인 모집의 자동 마감 전망(자동 마감 첫날 closesOn·유예가 끝났는지·막는 결과 없는 지원 수·진행 중 면접 라운드 수)이며, "
+                    + "그 밖의 모집이거나 자동 마감이 꺼져 있으면 null 이다. 유예가 끝났는지는 서버의 오늘로 판정한 값이라 화면은 날짜를 비교하지 않는다.")
     @GetMapping("/admin/recruitments")
     ResponseEntity<ApiResponse<List<AdminRecruitmentSummaryResponse>>> searchRecruitments(
             @Parameter(description = "검색어 (동아리명 또는 모집 제목 부분 일치). 생략 가능")

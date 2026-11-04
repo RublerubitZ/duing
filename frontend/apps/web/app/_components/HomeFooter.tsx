@@ -5,6 +5,13 @@ import { FooterClubApplyCta } from './FooterClubApplyCta';
 
 const linkClass = 'hover:text-ink';
 
+/**
+ * 이용 가이드 첫 글("두잉 처음 시작하기") — '이용 가이드' 태그 소식(23~27) 중 첫 편이다.
+ * 그 소식을 지우거나 첫 글이 바뀌면 이 주소도 바꾼다(지우면 링크가 "볼 수 없음" 셸로 간다).
+ * 운영 DB 기준 id 다 — 개발 DB 를 보는 환경(로컬)에서는 다른 글이거나 없는 글일 수 있다.
+ */
+const GUIDE_START_HREF = '/notices/23';
+
 export function HomeFooter() {
   return (
     <>
@@ -19,6 +26,11 @@ export function HomeFooter() {
             <Link href="/introduce" className="hover:text-ink">
               서비스 소개
             </Link>
+            <div className="mt-1.5">
+              <Link href={GUIDE_START_HREF} className="hover:text-ink">
+                이용 가이드
+              </Link>
+            </div>
             <div className="mt-1.5">
               <Link href="/terms" className="hover:text-ink">
                 이용약관 및 개인정보 처리방침
@@ -70,7 +82,7 @@ export function HomeFooter() {
           </p>
         </div>
 
-        {/* 상단바·하단 탭(동아리·시설·일정·소식)과 같은 목록으로 맞춘다 — 홈은 로고가 맡는다. */}
+        {/* 상단바·하단 탭(동아리·시설·일정·소식)과 같은 목록에 서비스 소개·이용 가이드를 더한다 — 홈은 로고가 맡는다. */}
         <FooterColumn title="서비스">
           <li>
             <Link href="/clubs" className={linkClass}>
@@ -95,6 +107,11 @@ export function HomeFooter() {
           <li>
             <Link href="/introduce" className={linkClass}>
               서비스 소개
+            </Link>
+          </li>
+          <li>
+            <Link href={GUIDE_START_HREF} className={linkClass}>
+              이용 가이드
             </Link>
           </li>
         </FooterColumn>

@@ -7,11 +7,12 @@ import type { AdminRecruitmentListItem, AdminRecruitmentSummary } from '@duing/t
 
 import { cn } from '@/app/_lib/cn';
 import {
-  isRecruitmentExpiredOpen,
+  adminAutoCloseBadge,
   recruitmentPeriodLabel,
   recruitmentStatusChip,
 } from '@/app/_lib/recruitmentDisplay';
 import { toRoute } from '@/app/_lib/route';
+import { OPERATOR_INACTIVE_DAYS, daysAgoText, operatorInactiveDays } from '@/app/admin/_lib/operatorActivity';
 import { EmptyState } from '../../_components/EmptyState';
 import { applicationModeLabel } from '../_lib/recruitmentLabels';
 
@@ -20,8 +21,6 @@ import { applicationModeLabel } from '../_lib/recruitmentLabels';
  * 사이드바 뱃지·운영진 리마인더와는 경계에서 하루 미만 어긋날 수 있다(스펙이 허용).
  */
 export const PENDING_ATTENTION_DAYS = 7;
-/** 운영진 마지막 접속이 이 일수를 넘으면 강조한다. */
-const OPERATOR_INACTIVE_DAYS = 30;
 const ATTENTION_TEXT_CLASS = 'font-semibold text-coral-deep';
 
 type Props = {
@@ -74,68 +73,82 @@ export function AdminRecruitmentsTable({ items, onOpenDetail }: Props) {
           </tr>
         </thead>
         <tbody>
-          {items.map((recruitment) => (
-            <tr
-              key={recruitment.recruitmentId}
-              onClick={() => onOpenDetail(recruitment)}
-              className="cursor-pointer border-t border-line hover:bg-graysoft/50"
-            >
-              <Td>
-                <span className="block truncate text-[13.5px] font-semibold text-charcoal">
-                  {recruitment.clubName}
-                </span>
-              </Td>
-              <Td>
-                <div className="flex min-w-0 items-center gap-2">
-                  {/* 행 전체가 클릭 대상이지만 키보드·새 탭으로도 들어갈 수 있어야 해서 제목은 링크로 둔다.
-                      링크 자체가 이동을 처리하므로 행 핸들러까지 타지 않게 전파를 끊는다.
-                      auto 표에서는 truncate 만으로 열이 줄지 않아, 폭 상한을 줘야 긴 제목이 말줄임된다. */}
-                  <Link
-                    href={toRoute(`/admin/recruitments/${recruitment.recruitmentId}`)}
-                    onClick={(event) => event.stopPropagation()}
-                    title={recruitment.title}
-                    className="max-w-[240px] truncate text-charcoal hover:underline"
-                  >
-                    {recruitment.title}
-                  </Link>
-                  {isRecruitmentExpiredOpen(recruitment) && (
-                    <span className="pill-warm shrink-0 whitespace-nowrap rounded-full px-2 py-0.5 text-[11.5px] font-semibold">
-                      운영 개입 필요
+          {items.map((recruitment) => {
+            // 만료-OPEN 배지(#1583) — 서버 자동 마감 전망으로 '운영 개입 필요'와 '자동 마감 예정'을 나눈다.
+            const autoCloseBadge = adminAutoCloseBadge(recruitment);
+            return (
+              <tr
+                key={recruitment.recruitmentId}
+                onClick={() => onOpenDetail(recruitment)}
+                className="cursor-pointer border-t border-line hover:bg-graysoft/50"
+              >
+                <Td>
+                  <span className="block truncate text-[13.5px] font-semibold text-charcoal">
+                    {recruitment.clubName}
+                  </span>
+                </Td>
+                <Td>
+                  <div className="flex min-w-0 items-center gap-2">
+                    {/* 행 전체가 클릭 대상이지만 키보드·새 탭으로도 들어갈 수 있어야 해서 제목은 링크로 둔다.
+                        링크 자체가 이동을 처리하므로 행 핸들러까지 타지 않게 전파를 끊는다.
+                        auto 표에서는 truncate 만으로 열이 줄지 않아, 폭 상한을 줘야 긴 제목이 말줄임된다. */}
+                    <Link
+                      href={toRoute(`/admin/recruitments/${recruitment.recruitmentId}`)}
+                      onClick={(event) => event.stopPropagation()}
+                      title={recruitment.title}
+                      className="max-w-[240px] truncate text-charcoal hover:underline"
+                    >
+                      {recruitment.title}
+                    </Link>
+                    {autoCloseBadge?.tone === 'warm' && (
+                      <span className="pill-warm shrink-0 whitespace-nowrap rounded-full px-2 py-0.5 text-[11.5px] font-semibold">
+                        {autoCloseBadge.label}
+                      </span>
+                    )}
+                  </div>
+                  {/* 막는 이유·자동 마감 시점은 툴팁이 아니라 보이는 글자로 둔다(터치에서 툴팁을 열 수 없다). 제목 줄을 넓히지
+                      않게 아래 줄에 둔다 — 고정 열이 표 최소 폭 대부분을 차지한다. '자동 마감 예정'은 할 일이 없는 상태라 칩 없이
+                      흐린 글자로만 쓴다(중립 칩은 상태 열의 '모집마감' 칩과 모양이 같아 헷갈린다). */}
+                  {autoCloseBadge?.detail && (
+                    <span className="mt-0.5 block whitespace-nowrap text-[11.5px] text-charcoal-3">
+                      {autoCloseBadge.tone === 'neutral'
+                        ? `${autoCloseBadge.label} · ${autoCloseBadge.detail}`
+                        : autoCloseBadge.detail}
                     </span>
                   )}
-                </div>
-              </Td>
-              {/* 목록 응답에는 외부 폼 URL 이 없다 — 플랫폼명은 상세에서만 붙는다. */}
-              <Td>{applicationModeLabel(recruitment.applicationMode, null)}</Td>
-              <Td>
-                <StatusChip recruitment={recruitment} />
-              </Td>
-              {/* 외부 폼 모집은 두잉에 지원 데이터가 없다 — 0 으로 적으면 "아무도 안 냈다"로 읽힌다. */}
-              <Td align="right">
-                {recruitment.applicantCount === null ? '—' : `${recruitment.applicantCount}명`}
-              </Td>
-              <Td>
-                <PendingApplicationsCell
-                  pendingApplicationCount={recruitment.pendingApplicationCount}
-                  oldestPendingSubmittedAt={recruitment.oldestPendingSubmittedAt}
-                  now={now}
-                />
-              </Td>
-              <Td>
-                <OperatorsLastActiveCell lastActiveAt={recruitment.operatorsLastActiveAt} now={now} />
-              </Td>
-              <Td>
-                <span className="whitespace-nowrap text-charcoal-2">
-                  {recruitmentPeriodLabel(recruitment.startDate, recruitment.endDate)}
-                </span>
-              </Td>
-              <Td>
-                <span className="whitespace-nowrap text-charcoal-3">
-                  {formatDateTimeKst(recruitment.updatedAt)}
-                </span>
-              </Td>
-            </tr>
-          ))}
+                </Td>
+                {/* 목록 응답에는 외부 폼 URL 이 없다 — 플랫폼명은 상세에서만 붙는다. */}
+                <Td>{applicationModeLabel(recruitment.applicationMode, null)}</Td>
+                <Td>
+                  <StatusChip recruitment={recruitment} />
+                </Td>
+                {/* 외부 폼 모집은 두잉에 지원 데이터가 없다 — 0 으로 적으면 "아무도 안 냈다"로 읽힌다. */}
+                <Td align="right">
+                  {recruitment.applicantCount === null ? '—' : `${recruitment.applicantCount}명`}
+                </Td>
+                <Td>
+                  <PendingApplicationsCell
+                    pendingApplicationCount={recruitment.pendingApplicationCount}
+                    oldestPendingSubmittedAt={recruitment.oldestPendingSubmittedAt}
+                    now={now}
+                  />
+                </Td>
+                <Td>
+                  <OperatorsLastActiveCell lastActiveAt={recruitment.operatorsLastActiveAt} now={now} />
+                </Td>
+                <Td>
+                  <span className="whitespace-nowrap text-charcoal-2">
+                    {recruitmentPeriodLabel(recruitment.startDate, recruitment.endDate)}
+                  </span>
+                </Td>
+                <Td>
+                  <span className="whitespace-nowrap text-charcoal-3">
+                    {formatDateTimeKst(recruitment.updatedAt)}
+                  </span>
+                </Td>
+              </tr>
+            );
+          })}
         </tbody>
       </table>
     </div>
@@ -180,7 +193,7 @@ const OperatorsLastActiveCell = ({
   if (!lastActiveAt) {
     return <span className={cn('whitespace-nowrap', ATTENTION_TEXT_CLASS)}>기록 없음</span>;
   }
-  const inactiveDays = -daysUntilKst(lastActiveAt, now);
+  const inactiveDays = operatorInactiveDays(lastActiveAt, now);
   return (
     <span
       className={cn(
@@ -188,7 +201,7 @@ const OperatorsLastActiveCell = ({
         inactiveDays > OPERATOR_INACTIVE_DAYS ? ATTENTION_TEXT_CLASS : 'text-charcoal-2',
       )}
     >
-      {inactiveDays <= 0 ? '오늘' : `${inactiveDays}일 전`}
+      {daysAgoText(inactiveDays)}
     </span>
   );
 };

@@ -58,7 +58,7 @@ export function CashbookEntryDialog({ clubId, entryType, entry, onClose }: Cashb
     handleSubmit,
     watch,
     formState: { errors, isSubmitting },
-  } = useForm<CreateCashbookEntryInput>({
+  } = useForm({
     resolver: zodResolver(createCashbookEntrySchema),
     defaultValues: entry
       ? {

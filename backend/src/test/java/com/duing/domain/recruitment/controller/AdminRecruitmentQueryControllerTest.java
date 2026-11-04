@@ -33,6 +33,7 @@ import com.duing.domain.user.entity.SessionRevokeReason;
 import com.duing.domain.user.entity.User;
 import com.duing.domain.user.repository.AuthSessionRepository;
 import com.duing.domain.user.repository.UserRepository;
+import com.duing.domain.user.service.UserService;
 import com.duing.global.auth.JwtTokenProvider;
 import com.duing.global.time.TimeMapper;
 import io.restassured.RestAssured;
@@ -70,11 +71,13 @@ class AdminRecruitmentQueryControllerTest extends IntegrationTestBase {
 
     private static final String LIST_PATH = "/api/v1/admin/recruitments";
     private static final String DETAIL_PATH = "/api/v1/admin/recruitments/{recruitmentId}";
+    private static final String APPLICANTS_PATH = "/api/v1/admin/recruitments/{recruitmentId}/applications";
     private static final String EXTERNAL_FORM_URL = "https://forms.example.com/duing";
 
     @LocalServerPort int port;
 
     @Autowired UserRepository userRepository;
+    @Autowired UserService userService;
     @Autowired ClubRepository clubRepository;
     @Autowired ClubMemberRepository clubMemberRepository;
     @Autowired RecruitmentRepository recruitmentRepository;
@@ -156,6 +159,8 @@ class AdminRecruitmentQueryControllerTest extends IntegrationTestBase {
         assertThat(expiredRow.get("status")).as("액션 게이트는 저장 상태를 본다").isEqualTo("OPEN");
         assertThat(expiredRow.get("displayStatus")).as("표기는 학생 화면과 같은 값을 쓴다").isEqualTo("CLOSED");
         assertThat(expiredRow.get("closedAt")).as("아직 마감되지 않았으므로 마감 시각은 없다").isNull();
+        // 자동 마감이 꺼져 있으면(테스트 기본값) 전망을 싣지 않는다 — '자동 마감 예정'이 거짓이 되지 않게(#1572).
+        assertThat(expiredRow).as("자동 마감 전망 자리는 있되 비어 있다").containsEntry("autoClose", null);
 
         Map<String, Object> closedRow = findRow(getList(adminToken, Map.of()), closedRecruitment.getId());
         assertThat(closedRow.get("displayStatus")).isEqualTo("CLOSED");
@@ -295,6 +300,38 @@ class AdminRecruitmentQueryControllerTest extends IntegrationTestBase {
         Map<String, Object> closedRow = findRow(listed, closedRecruitment.getId());
         assertThat(closedRow.get("pendingApplicationCount")).as("자체 폼 모집은 미처리가 없으면 0 이다").isEqualTo(0);
         assertThat(closedRow.get("oldestPendingSubmittedAt")).isNull();
+    }
+
+    @Test
+    @DisplayName("탈퇴한 지원자의 지원서는 목록·상세의 지원자 수와 지원자순 정렬, 미처리 수에서 빠져 지원자 조회 패널의 총 지원자와 같다")
+    void applicantCountsExcludeWithdrawnApplicants() {
+        // 상시 모집: 남은 지원자 1명(setUp) + 탈퇴한 지원자 2명 — 탈퇴자를 세면 3명이 돼 자체 폼 모집(2명)보다 앞선다.
+        for (int i = 0; i < 2; i++) {
+            userService.withdraw(saveApplication(alwaysOpenRecruitment).getUser().getId());
+        }
+
+        Response listed = getList(adminToken, Map.of());
+        Map<String, Object> alwaysOpenRow = findRow(listed, alwaysOpenRecruitment.getId());
+        assertThat(alwaysOpenRow.get("applicantCount")).isEqualTo(1);
+        assertThat(alwaysOpenRow.get("pendingApplicationCount")).isEqualTo(1);
+        assertThat(getList(adminToken, Map.of("sort", "APPLICANTS"))
+                .jsonPath().getList("data.recruitmentId", Long.class))
+                .containsExactly(selfRecruitment.getId(), alwaysOpenRecruitment.getId(),
+                        externalRecruitment.getId(), closedRecruitment.getId());
+
+        assertThat(getDetail(adminToken, alwaysOpenRecruitment.getId()).jsonPath().getInt("data.applicantCount"))
+                .as("상세 머리말의 지원자 수")
+                .isEqualTo(1);
+        RestAssured
+                .given()
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                .when()
+                    .get(APPLICANTS_PATH, alwaysOpenRecruitment.getId())
+                .then()
+                    .statusCode(HttpStatus.OK.value())
+                    .body("data.total", equalTo(1))
+                    // 총동연 지원자 목록이 탈퇴자를 빼는 동작(조인에 붙는 soft-delete 제한)도 함께 고정한다.
+                    .body("data.applicants", hasSize(1));
     }
 
     /**

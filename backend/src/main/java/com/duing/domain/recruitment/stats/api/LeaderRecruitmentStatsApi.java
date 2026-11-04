@@ -23,7 +23,10 @@ public interface LeaderRecruitmentStatsApi {
             description = "모집 공고의 지원 현황을 상태별로 집계하여 반환합니다. "
                     + "전체/제출됨/보류/면접대기/합격/불합격 수와 capacity 대비 합격 비율을 포함합니다. "
                     + "total 은 나머지 상태 수의 합과 항상 일치합니다. "
-                    + "oldestPendingSubmittedAt 은 처리되지 않은(SUBMITTED — 보류·면접대기·합격·불합격은 처리, 철회는 제외) 지원서 중 가장 오래된 제출 시각이며, 없으면 null 입니다."
+                    + "건수는 지원자 목록과 같은 기준이라 탈퇴한 지원자의 지원서는 세지 않습니다. "
+                    + "oldestPendingSubmittedAt 은 처리되지 않은(SUBMITTED — 보류·면접대기·합격·불합격은 처리, 철회·탈퇴한 지원자의 지원서는 제외) 지원서 중 가장 오래된 제출 시각이며, 없으면 null 입니다. "
+                    + "autoClose 는 기간이 끝났지만 아직 OPEN 인 모집의 자동 마감 전망(자동 마감 첫날 closesOn·유예가 끝났는지·막는 결과 없는 지원 수·진행 중 면접 라운드 수)이며, "
+                    + "그 밖의 모집이거나 자동 마감이 꺼져 있으면 null 입니다."
     )
     @GetMapping("/leader/recruitments/{recruitmentId}/stats/summary")
     ResponseEntity<ApiResponse<StatsSummaryResponse>> getSummary(
@@ -37,7 +40,8 @@ public interface LeaderRecruitmentStatsApi {
                     + "기간이 366일을 넘으면 최대 366일만 반환합니다 — 지난 기간은 마지막 날까지의 최근 366일, "
                     + "시작한 지 1년이 지난 진행 중 기간은 오늘까지의 최근 366일, "
                     + "시작 전이거나 시작한 지 1년이 안 된 기간은 시작일부터 366일입니다. "
-                    + "지원이 없는 날짜는 submittedCount=0 으로 padding 되어 프론트 차트에서 빈 날도 점으로 렌더됩니다."
+                    + "지원이 없는 날짜는 submittedCount=0 으로 padding 되어 프론트 차트에서 빈 날도 점으로 렌더됩니다. "
+                    + "탈퇴한 지원자의 지원서는 지원자 목록처럼 세지 않습니다."
     )
     @GetMapping("/leader/recruitments/{recruitmentId}/stats/daily")
     ResponseEntity<ApiResponse<List<StatsDailyPointResponse>>> getDaily(
@@ -48,7 +52,8 @@ public interface LeaderRecruitmentStatsApi {
     @Operation(
             summary = "모집 단계별 Funnel 조회",
             description = "제출 → 면접 진입 → 합격의 3단계 카운트를 반환합니다. "
-                    + "useInterview=false 인 모집의 경우 interviewEntered 는 null 로 응답되어 프론트가 2단계 funnel 로 표시할 수 있습니다."
+                    + "useInterview=false 인 모집의 경우 interviewEntered 는 null 로 응답되어 프론트가 2단계 funnel 로 표시할 수 있습니다. "
+                    + "탈퇴한 지원자의 지원서는 지원자 목록처럼 세지 않습니다."
     )
     @GetMapping("/leader/recruitments/{recruitmentId}/stats/funnel")
     ResponseEntity<ApiResponse<StatsFunnelResponse>> getFunnel(

@@ -1,6 +1,7 @@
 package com.duing.domain.recruitment.stats.repository;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.entry;
 
 import com.duing.domain.application.entity.Application;
 import com.duing.domain.application.entity.ApplicationAnswer;
@@ -91,6 +92,41 @@ class RecruitmentStatsRepositoryDailyTest {
                 .executeUpdate();
         entityManager.flush();
         return application;
+    }
+
+    /**
+     * 탈퇴(GeneralUserService#withdraw)는 users 행을 soft-delete 한다. 이 테스트 트랜잭션에서 delete() 로 지우면 관리 중인
+     * 지원서가 삭제된 사용자를 가리켜 flush 가 실패하므로 SQL 로 같은 표시만 남긴다.
+     */
+    private void withdraw(User user) {
+        entityManager.createNativeQuery("UPDATE users SET deleted_at = NOW() WHERE id = :userId")
+                .setParameter("userId", user.getId())
+                .executeUpdate();
+    }
+
+    @Test
+    @DisplayName("탈퇴한 지원자의 지원서는 일자별 제출 건수에서 빠진다 — 탈퇴자 제출만 있는 날은 키가 없다")
+    void dailyCountsExcludeWithdrawnApplicants() throws Exception {
+        Club club = saveActiveClub();
+        LocalDate startDate = LocalDate.of(2025, 5, 1);
+        LocalDate endDate = LocalDate.of(2025, 5, 10);
+        Recruitment recruitment = saveRecruitment(club, startDate, endDate);
+
+        // 2025-05-01 KST: 남은 지원자 1건 + 탈퇴자 1건, 2025-05-03 KST: 탈퇴자 1건뿐
+        LocalDateTime kstMay1AsUtc = LocalDateTime.of(2025, 4, 30, 15, 0, 0);
+        LocalDateTime kstMay3AsUtc = LocalDateTime.of(2025, 5, 2, 15, 0, 0);
+        saveApplicationWithCreatedAt(recruitment, saveUser(), kstMay1AsUtc);
+        User withdrawnOnMay1 = saveUser();
+        saveApplicationWithCreatedAt(recruitment, withdrawnOnMay1, kstMay1AsUtc);
+        User withdrawnOnMay3 = saveUser();
+        saveApplicationWithCreatedAt(recruitment, withdrawnOnMay3, kstMay3AsUtc);
+        withdraw(withdrawnOnMay1);
+        withdraw(withdrawnOnMay3);
+
+        Map<LocalDate, Long> result = statsRepository.findDailySubmissionCounts(
+                recruitment.getId(), startDate, endDate);
+
+        assertThat(result).containsOnly(entry(LocalDate.of(2025, 5, 1), 1L));
     }
 
     @Test

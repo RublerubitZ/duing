@@ -9,9 +9,11 @@ import {
   CLOSING_SOON_DAYS,
   buildActionItems,
   buildClosedRecruitmentItems,
+  buildRecruitmentActionItems,
   countAwaitingReview,
   countUndecided,
   groupDashboardTasks,
+  isActiveRecruitment,
   sortActionItems,
   aggregateApplicantTotals,
   sortTodaySchedule,
@@ -392,5 +394,67 @@ describe('sortTodaySchedule', () => {
 describe('constants', () => {
   it('상수 노출', () => {
     expect(CLOSING_SOON_DAYS).toBe(3);
+  });
+});
+
+describe('buildActionItems — 검토 대기의 지원 완료·보류 인원', () => {
+  it('검토 대기 항목에 지원 완료·보류 인원을 따로 싣는다', () => {
+    const items = buildActionItems([dashboardInput({ stats: stats({ submitted: 9, onHold: 3 }) })], NOW);
+    expect(items.find((item) => item.type === 'APPLICANTS_AWAITING_REVIEW')).toMatchObject({ count: 12, submitted: 9, onHold: 3 });
+  });
+
+  it('다른 종류 항목에는 싣지 않는다', () => {
+    const items = buildActionItems(
+      [dashboardInput({ stats: stats({ submitted: 1 }), rounds: [round({ roundId: 7, status: 'ASSIGNING' })] })],
+      NOW,
+    );
+    const unconfirmed = items.find((item) => item.type === 'INTERVIEW_ROUND_UNCONFIRMED');
+    expect(unconfirmed).toBeDefined();
+    expect(unconfirmed).not.toHaveProperty('submitted');
+    expect(unconfirmed).not.toHaveProperty('onHold');
+  });
+});
+
+describe('buildRecruitmentActionItems — 운영진 홈·모집 상세 단일 입구', () => {
+  const closed = { status: 'CLOSED', displayStatus: 'CLOSED', effectivelyOpen: false } as const;
+
+  it.each(['SELF', 'EXTERNAL'] as const)('진행 중 모집(%s)은 buildActionItems 와 같다', (applicationMode) => {
+    const input = dashboardInput({
+      recruitment: recruitment({ applicationMode }),
+      stats: stats({ submitted: 2, onHold: 1 }),
+      rounds: [round({ roundId: 7, status: 'ASSIGNING' })],
+      candidateCount: 1,
+    });
+    const items = buildRecruitmentActionItems(input, NOW);
+    expect(items).toHaveLength(2);
+    expect(items).toEqual(buildActionItems([input], NOW));
+  });
+
+  it('기간이 지난 접수 중(raw OPEN + 표시 CLOSED)도 진행 중 규칙을 따른다', () => {
+    const input = dashboardInput({
+      recruitment: recruitment({ status: 'OPEN', displayStatus: 'CLOSED', effectivelyOpen: false }),
+      stats: stats({ submitted: 2 }),
+      rounds: [round({ roundId: 7, status: 'ASSIGNING' })],
+    });
+    expect(isActiveRecruitment(input.recruitment)).toBe(true);
+    expect(buildRecruitmentActionItems(input, NOW).map((item) => item.type)).toEqual(['APPLICANTS_AWAITING_REVIEW', 'INTERVIEW_ROUND_UNCONFIRMED']);
+  });
+
+  it('마감 자체 폼 모집은 결과 미확정만 — 라운드·대기열이 있어도 면접 항목을 만들지 않는다', () => {
+    const input = dashboardInput({
+      recruitment: recruitment(closed),
+      stats: stats({ submitted: 1, onHold: 1, interviewPending: 2 }),
+      rounds: [round({ roundId: 7, status: 'ASSIGNING' })],
+      candidateCount: 2,
+    });
+    expect(isActiveRecruitment(input.recruitment)).toBe(false);
+    expect(buildRecruitmentActionItems(input, NOW)).toEqual([
+      { type: 'CLOSED_RECRUITMENT_UNDECIDED', recruitmentId: 1, recruitmentTitle: '2026 봄 모집', count: 4 },
+    ]);
+  });
+
+  it('마감 외부 폼 모집은 항목이 없다', () => {
+    const input = dashboardInput({ recruitment: recruitment({ ...closed, applicationMode: 'EXTERNAL' }), stats: stats({ submitted: 3 }) });
+    expect(buildRecruitmentActionItems(input, NOW)).toEqual([]);
   });
 });

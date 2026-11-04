@@ -37,6 +37,11 @@ export type AdminClubSummary = {
   undecidedApplicationCount?: number | null;
   /** 운영 중단 동아리의 남은 대기 가입 신청 수(0 포함). 운영 중단이 아니면 null, 필드가 없으면 옛 백엔드. */
   pendingJoinRequestCount?: number | null;
+  /**
+   * 신호 목록(signal 을 보낸 요청)의 행 재료. signal 을 보냈으면 객체, 아니면 null.
+   * 키가 없으면 신호를 모르는 옛 백엔드다 — 목록 화면은 롤백 가드로 물러선다(null 과 구분한다).
+   */
+  signalDetail?: AdminClubSignalDetail | null;
 };
 
 // === 시설 예약 오픈일(총동연) — 시설별 booking_open_date ===
@@ -103,6 +108,8 @@ export type AdminClubSearchParams = {
   status?: ClubStatus;
   /** true 면 운영 중단 동아리 중 남은 미결이 있는 곳만(status 와 함께 걸린다). 옛 백엔드는 모르는 파라미터라 무시한다. */
   needsPendingCleanup?: boolean;
+  /** 신호 필터 — 운영 중 조건을 품고 다른 조건과 모두 건다. 옛 백엔드는 모르는 파라미터라 무시한다(목록의 롤백 가드가 받는다). */
+  signal?: AdminClubSignal;
   category?: ClubCategory;
   division?: string;
   keyword?: string;
@@ -115,6 +122,33 @@ export type AdminClubSearchParams = {
 export type AdminClubPendingCleanupResult = {
   rejectedApplicationCount: number;
   rejectedJoinRequestCount: number;
+};
+
+/** 총동연 동아리 목록 신호(요청 전용 — 서버는 저장하지 않는다). 신호 이름·묶음은 apps/web clubs/_lib/clubSignals.ts 한 곳에서 정한다. */
+export type AdminClubSignal = 'RESULT_WAITING' | 'JOIN_REQUEST_WAITING' | 'NO_RECORD' | 'OPERATOR_INACTIVE';
+
+/**
+ * 신호 목록 행의 재료. 신호와 무관한 하위 레코드는 null 이고(NO_RECORD·OPERATOR_INACTIVE 는 둘 다 null),
+ * 행 조회와 재료 조회 사이에 처리돼 재료가 없으면 그 하위 레코드도 null 이다 — 화면은 경과일이 8일 이상이라고 가정하지 않는다.
+ */
+export type AdminClubSignalDetail = {
+  /** 운영진(회장·임원) 세션 사용·로그인 중 늦은 시각(ISO Instant). 기록이 없으면 null. */
+  operatorsLastActiveAt: IsoInstantString | null;
+  resultWaiting: {
+    oldestRecruitmentId: number;
+    oldestRecruitmentTitle: string;
+    /** 그 동아리 신호 모집 중 가장 이른 끝난 날 — KST 날짜 'YYYY-MM-DD' */
+    oldestEndedOn: string;
+    /** 그 동아리 신호 모집 수 */
+    recruitmentCount: number;
+    /** 그 동아리 신호 모집들의 결과 미확정 지원 합(지원서 단위) */
+    applicationCount: number;
+  } | null;
+  joinRequestWaiting: {
+    /** 그 동아리 대기 신청 전부(7일 안 신청 포함) */
+    requestCount: number;
+    oldestRequestedAt: IsoInstantString;
+  } | null;
 };
 
 /** 계정 상태. SUSPENDED 는 로그인·API 접근이 차단된 이용 정지이며 탈퇴와 별개다. */
@@ -665,6 +699,30 @@ export type AdminJobStatus = {
 /** GET /admin/job-statuses 응답 — 작업 5개, 서버 순서. */
 export type AdminJobStatuses = {
   jobs: AdminJobStatus[];
+};
+
+/**
+ * GET /admin/club-signals 응답 — 총동연 홈 동아리 현황. 각 수는 목록 ?status=ACTIVE&signal=… 의 totalElements 와 같은 식이다(같은 순간 기준).
+ * oldest* 는 그 묶음의 clubCount 가 0 일 때만, 그리고 그때 반드시 null 이다. 묶음 사이는 별도 문장이라 스냅숏이 다를 수 있다 —
+ * 화면은 묶음 사이 불변식을 가정하지 않는다(뺄셈은 0 아래로 자른다). 404 면 이 API 를 모르는 옛 백엔드다.
+ */
+export type AdminClubSignals = {
+  activeClubCount: number;
+  resultWaiting: {
+    clubCount: number;
+    /** 신호 모집들의 결과 미확정 지원 합(지원서 단위) */
+    applicationCount: number;
+    /** 신호 모집 중 가장 이른 끝난 날 — KST 날짜 'YYYY-MM-DD' */
+    oldestEndedOn: string | null;
+  };
+  joinRequestWaiting: {
+    clubCount: number;
+    /** 신호 동아리의 대기 신청 전부(7일 안 신청 포함) */
+    requestCount: number;
+    oldestRequestedAt: IsoInstantString | null;
+  };
+  noRecordClubCount: number;
+  operatorInactiveClubCount: number;
 };
 
 /**

@@ -16,6 +16,8 @@ import { SITE_URL } from '@/app/_lib/site';
  */
 export const revalidate = 86400;
 
+// 캠퍼스 일정(/calendar)은 넣지 않는다 — 클라이언트 조회 화면이라 크롤러 HTML 에 일정이 없다(빈 셸 제출 금지, 위 주석).
+// 메뉴·푸터 링크로는 계속 닿는다.
 const STATIC_ROUTES: ReadonlyArray<{
   path: string;
   changeFrequency: MetadataRoute.Sitemap[number]['changeFrequency'];
@@ -25,7 +27,6 @@ const STATIC_ROUTES: ReadonlyArray<{
   { path: '/clubs', changeFrequency: 'daily', priority: 0.9 },
   { path: '/notices', changeFrequency: 'weekly', priority: 0.7 },
   { path: '/faq', changeFrequency: 'monthly', priority: 0.5 },
-  { path: '/calendar', changeFrequency: 'weekly', priority: 0.6 },
   { path: '/introduce', changeFrequency: 'monthly', priority: 0.6 },
   { path: '/terms', changeFrequency: 'yearly', priority: 0.3 },
 ];

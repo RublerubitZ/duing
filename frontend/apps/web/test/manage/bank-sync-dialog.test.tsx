@@ -87,10 +87,42 @@ describe('BankSyncDialog', () => {
         '동기화 완료 — 4건 적재 · 2건 자동매칭 · 1건 검토 필요',
       ),
     );
+    // 옛 백엔드 응답(missedFrom·missedTo 없음)이면 경고 토스트를 띄우지 않는다.
+    expect(mockAddToast).toHaveBeenCalledTimes(1);
     expect(onClose).toHaveBeenCalled();
 
     // SECURITY: 성공 후 폼(특히 비밀번호)이 비워진다 — 자격증명을 상태에 남기지 않는다.
     expect(passwordInput).toHaveValue('');
+  });
+
+  it('조회 상한에 잘린 기간이 있으면 그 기간을 닫을 때까지 남는 경고 토스트로 알린다', async () => {
+    const user = userEvent.setup();
+    mockSyncMutate.mockImplementation(
+      (_payload: unknown, options: { onSuccess: (result: unknown) => void }) =>
+        options.onSuccess({
+          fetched: 10,
+          newlyStored: 4,
+          autoMatched: 2,
+          pendingReview: 1,
+          missedFrom: '2026-09-01',
+          missedTo: '2026-09-13',
+        }),
+    );
+    render(<BankSyncDialog clubId={1} bankLabel="신한" onClose={() => {}} />);
+
+    await user.type(screen.getByLabelText(/계좌 비밀번호/), 'secret-pw');
+    await user.type(screen.getByLabelText(/주민등록번호 앞 6자리/), '900101');
+    await user.click(screen.getByRole('button', { name: '동기화' }));
+
+    await waitFor(() =>
+      expect(mockAddToast).toHaveBeenCalledWith(
+        '2026-09-01 ~ 2026-09-13 구간은 한 번에 조회할 수 있는 기간을 넘어 이번 동기화에서 확인하지 못했습니다. 그 사이 입금이 있었다면 통장 내역과 대조해 직접 처리해 주세요.',
+        { variant: 'error', durationMs: 0 },
+      ),
+    );
+    // 성공 토스트도 그대로 뜬다.
+    expect(mockAddToast).toHaveBeenCalledWith('동기화 완료 — 4건 적재 · 2건 자동매칭 · 1건 검토 필요');
+    expect(mockAddToast).toHaveBeenCalledTimes(2);
   });
 
   it('429(요청 한도) ApiError 면 한도 안내 메시지를 노출한다', () => {
