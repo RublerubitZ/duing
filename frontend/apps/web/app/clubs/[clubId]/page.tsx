@@ -3,11 +3,13 @@ import type { Metadata } from 'next';
 import type { ClubDetail } from '@duing/types';
 import { clubQueryKeys } from '@duing/hooks/query-keys';
 
+import { AdSenseScript } from '@/app/_components/AdSenseScript';
 import { parsePositiveIdParam } from '@/app/_lib/idParam';
 import { toMetaDescription } from '@/app/_lib/metaDescription';
 import { fetchPublicClubDetail, fetchPublicClubHeroActivities, type PublicContent } from '@/app/_lib/public-content';
 import { SeededQuery } from '@/app/_lib/SeededQuery';
 
+import { isAdEligibleClub } from './_lib/adEligibility';
 import { descriptionToPlainText } from './_lib/descriptionText';
 import { ClubDetailPage } from './_pages/ClubDetailPage';
 
@@ -24,6 +26,7 @@ type Props = {
 // 브라우저는 시드(updatedAt 0) 덕에 마운트 때 지금처럼 최신 데이터를 다시 받는다(SeededQuery). 대표 활동도 함께
 // 시드하고(실패하면 그 시드만 빠진다), 이미지는 마운트 재요청이 끝난 뒤 받는다(ClubDetailHeroActivities).
 // ⚠️ cookies()·headers()·searchParams 를 읽으면 동적 라우트가 돼 요청마다 함수가 돈다 — 쓰지 말 것.
+// 광고 스크립트(AdSenseScript)도 head 대신 body 로 밀려 크롤러 초기 HTML 의 head 요건(#1126)이 깨진다.
 // 요청별 값이 HTML 에 굳는 문제는 그대로다 — sentry-trace·baggage meta 가 경로별로 고정되므로 트레이싱
 // (tracesSampleRate)을 켤 때 이 라우트의 캐시 전략을 함께 재검토할 것.
 export const revalidate = 604800;
@@ -80,9 +83,13 @@ export default async function Page({ params }: Props) {
     );
   // 연락처(회장 휴대전화)는 시드에서 뺀다 — ISR HTML·RSC 페이로드에 박히면 회장이 공개 범위를 줄여도 재생성 주기(최대 7일)
   // 동안 캐시에 남고 원문 HTML 을 읽는 수집기가 번호를 가져간다. 마운트 때 재요청(updatedAt 0)이 뷰어 권한대로 채운다.
+  // 광고 스크립트는 기본 탭 글이 충분한 공개 상세에만 싣는다 — 레이아웃 로더는 상세를 싣지 않는다(AdSenseLoader 주석).
   return (
-    <SeededQuery queryKey={clubQueryKeys.detail(clubId)} data={{ ...content.data, contactPhone: null }}>
-      {seededPage}
-    </SeededQuery>
+    <>
+      {isAdEligibleClub(content.data) && <AdSenseScript />}
+      <SeededQuery queryKey={clubQueryKeys.detail(clubId)} data={{ ...content.data, contactPhone: null }}>
+        {seededPage}
+      </SeededQuery>
+    </>
   );
 }

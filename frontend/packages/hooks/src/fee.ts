@@ -69,8 +69,12 @@ export function useGenerateBillsMutation(clubId: number) {
     mutationFn: ({ policyId, payload }: { policyId: number; payload: GenerateBillsPayload }) =>
       client.leader.fees.generateBills(clubId, policyId, payload),
     // 동시 발행으로 created=0 이어도 청구가 존재할 수 있으므로 동아리 청구 목록 전체를 무효화한다(§9).
+    // 수납 요약도 함께 — 운영진 홈의 연체·수납률이 발행 직후에도 맞게.
     onSuccess: () =>
-      queryClient.invalidateQueries({ queryKey: feeQueryKeys.billsByClub(clubId) }),
+      Promise.all([
+        queryClient.invalidateQueries({ queryKey: feeQueryKeys.billsByClub(clubId) }),
+        queryClient.invalidateQueries({ queryKey: feeQueryKeys.summaryByClub(clubId) }),
+      ]),
   });
 }
 
@@ -79,8 +83,12 @@ export function useCancelBillMutation(clubId: number) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (billId: number) => client.leader.fees.cancelBill(clubId, billId),
+    // 취소로 연체를 정리하고 돌아온 운영진 홈에 연체 행이 남지 않게 수납 요약도 무효화한다.
     onSuccess: () =>
-      queryClient.invalidateQueries({ queryKey: feeQueryKeys.billsByClub(clubId) }),
+      Promise.all([
+        queryClient.invalidateQueries({ queryKey: feeQueryKeys.billsByClub(clubId) }),
+        queryClient.invalidateQueries({ queryKey: feeQueryKeys.summaryByClub(clubId) }),
+      ]),
   });
 }
 

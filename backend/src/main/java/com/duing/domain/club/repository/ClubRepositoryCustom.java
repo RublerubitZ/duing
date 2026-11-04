@@ -17,4 +17,10 @@ public interface ClubRepositoryCustom {
 
     /** 홈 공개 통계 — 총 수·모집중 수·카테고리별 수를 한 번에 센다. */
     ClubStatsQuery countStats();
+
+    /**
+     * 정리할 남은 미결(결과 미정 지원서·대기 가입 신청)이 있는 운영 중단 동아리 수 — 총동연 홈 처리 대기 집계용.
+     * 목록 필터(needsPendingCleanup=true)의 totalElements 와 같은 식을 쓴다(스펙 §3-1).
+     */
+    long countInactiveClubsWithPendingItems();
 }

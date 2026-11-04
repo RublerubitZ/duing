@@ -22,7 +22,12 @@ public record ApplicationSummaryQuery(
         String logoUrl,
         ApplicationStatus status,
         AssignedInterviewQuery interview,
-        LocalDateTime submittedAt
+        LocalDateTime submittedAt,
+        /**
+         * 운영 중단 동아리 남은 미결 정리로 불합격된 지원서인지(스펙 §3-2) — 지원자 화면이 "최종 불합격" 대신 "선발 종료"를 보인다.
+         * 지원서 칸을 그대로 옮긴다(추가 조회 없음).
+         */
+        boolean endedByClubDeactivation
 ) {
     /**
      * 면접 배정 정보 없이 위임한다.
@@ -49,7 +54,8 @@ public record ApplicationSummaryQuery(
                 application.getRecruitment().getClub().getLogoUrl(),
                 application.getStatus(),
                 interview,
-                application.getCreatedAt()
+                application.getCreatedAt(),
+                application.isEndedByClubDeactivation()
         );
     }
 }

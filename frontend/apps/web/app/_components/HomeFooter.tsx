@@ -1,10 +1,16 @@
 import Link from 'next/link';
+import { DUING_CONTACT_EMAIL, DUING_KAKAO_CHAT_URL } from '@/app/_constants/duingContact';
 import { BrandMark } from '@/components/duing/BrandMark';
 import { FooterClubApplyCta } from './FooterClubApplyCta';
 
 const linkClass = 'hover:text-ink';
-/** 두잉팀 오픈채팅 — 모바일 간소 푸터와 데스크탑 풀 푸터가 같은 주소를 쓴다. */
-const KAKAO_OPEN_CHAT_URL = 'https://open.kakao.com/o/s6JruOzi';
+
+/**
+ * 이용 가이드 첫 글("두잉 처음 시작하기") — '이용 가이드' 태그 소식(23~27) 중 첫 편이다.
+ * 그 소식을 지우거나 첫 글이 바뀌면 이 주소도 바꾼다(지우면 링크가 "볼 수 없음" 셸로 간다).
+ * 운영 DB 기준 id 다 — 개발 DB 를 보는 환경(로컬)에서는 다른 글이거나 없는 글일 수 있다.
+ */
+const GUIDE_START_HREF = '/notices/23';
 
 export function HomeFooter() {
   return (
@@ -20,6 +26,11 @@ export function HomeFooter() {
             <Link href="/introduce" className="hover:text-ink">
               서비스 소개
             </Link>
+            <div className="mt-1.5">
+              <Link href={GUIDE_START_HREF} className="hover:text-ink">
+                이용 가이드
+              </Link>
+            </div>
             <div className="mt-1.5">
               <Link href="/terms" className="hover:text-ink">
                 이용약관 및 개인정보 처리방침
@@ -37,7 +48,7 @@ export function HomeFooter() {
             </div>
             <div className="mt-1.5">
               <a
-                href={KAKAO_OPEN_CHAT_URL}
+                href={DUING_KAKAO_CHAT_URL}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="hover:text-ink"
@@ -47,8 +58,8 @@ export function HomeFooter() {
             </div>
             <div className="mt-1.5">
               문의사항 :{' '}
-              <a href="mailto:duing.official@gmail.com" className="hover:text-ink">
-                duing.official@gmail.com
+              <a href={`mailto:${DUING_CONTACT_EMAIL}`} className="hover:text-ink">
+                {DUING_CONTACT_EMAIL}
               </a>
             </div>
             <div className="mt-3 text-charcoal-3/80">© DUING · All Rights Reserved</div>
@@ -71,7 +82,7 @@ export function HomeFooter() {
           </p>
         </div>
 
-        {/* 상단바·하단 탭(동아리·시설·일정·소식)과 같은 목록으로 맞춘다 — 홈은 로고가 맡는다. */}
+        {/* 상단바·하단 탭(동아리·시설·일정·소식)과 같은 목록에 서비스 소개·이용 가이드를 더한다 — 홈은 로고가 맡는다. */}
         <FooterColumn title="서비스">
           <li>
             <Link href="/clubs" className={linkClass}>
@@ -96,6 +107,11 @@ export function HomeFooter() {
           <li>
             <Link href="/introduce" className={linkClass}>
               서비스 소개
+            </Link>
+          </li>
+          <li>
+            <Link href={GUIDE_START_HREF} className={linkClass}>
+              이용 가이드
             </Link>
           </li>
         </FooterColumn>
@@ -126,7 +142,7 @@ export function HomeFooter() {
           <ul className="mt-4 flex flex-col gap-2.5 text-sm text-charcoal-2">
             <li>
               <a
-                href={KAKAO_OPEN_CHAT_URL}
+                href={DUING_KAKAO_CHAT_URL}
                 target="_blank"
                 rel="noopener noreferrer"
                 className={linkClass}
@@ -135,8 +151,8 @@ export function HomeFooter() {
               </a>
             </li>
             <li>
-              <a href="mailto:duing.official@gmail.com" className={linkClass}>
-                duing.official@gmail.com
+              <a href={`mailto:${DUING_CONTACT_EMAIL}`} className={linkClass}>
+                {DUING_CONTACT_EMAIL}
               </a>
             </li>
           </ul>

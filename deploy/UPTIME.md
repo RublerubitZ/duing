@@ -101,10 +101,10 @@
    - 1·2번 동시 다운 → VM/Caddy/네트워크: Lightsail 콘솔에서 인스턴스 상태 확인 → SSH → `docker compose -f deploy/docker-compose.yml ps` / `docker compose logs --tail 100 caddy backend`.
    - 2번만 다운(1번 UP) → 앱/DB 쿼리 경로: backend 로그와 Sentry(backend 프로젝트) 확인, Supabase 대시보드 상태 확인.
    - 서버 부하·연결 수가 치솟거나 여러 IP 의 429 가 쏟아진다 → 공격·트래픽 폭증 의심: [`EDGE-EMERGENCY.md`](./EDGE-EMERGENCY.md) 로 Cloudflare 비상 모드 전환.
-   - 3번만 다운 → Vercel 상태(https://www.vercel-status.com) 및 배포 히스토리 확인, 필요 시 Vercel 대시보드에서 직전 배포로 Instant Rollback.
+   - 3번만 다운 → Vercel 상태(https://www.vercel-status.com) 및 배포 히스토리 확인, 필요 시 Vercel 대시보드에서 직전 배포로 Instant Rollback. 2026-11-04 릴리스 뒤 직전 운영 배포는 10/21 빌드(next 16.3.8)다 — 사이트 전체가 다운됐을 때만 쓰고, 복구한 뒤에는 되돌림 PR 로 다시 앞으로 낸다. 화면 문제는 `deploy/README.md` 의 운영 중단 미결 정리 절처럼 되돌림 PR 로 고친다.
 3. **복구 시도(백엔드)**: `docker compose restart backend` → 헬스 재확인. 컨테이너 자체가 기동 불가면 직전 이미지로 롤백 — `deploy/README.md` 의 롤백 절차(서버 `.env` 의 `BACKEND_IMAGE` 를 직전 태그로 되돌리고 `docker compose up -d`) 또는 GitHub Actions Deploy Backend 워크플로의 직전 성공 실행 re-run → 헬스 재확인.
    - 단, **비상 모드(Cloudflare 프록시 ON) 중에는 re-run 으로 롤백하지 않는다** — re-run 은 그 커밋의 Caddyfile 을 다시 올려 서버에 복원한 신뢰 블록을 지울 수 있다. 서버 `.env` 의 `BACKEND_IMAGE` 만 되돌린다([`EDGE-EMERGENCY.md`](./EDGE-EMERGENCY.md) 1-1) → 헬스 재확인.
-   - **#1563(Caddy HTTP/2 끄기) 이전 커밋의 실행도 re-run 하지 않는다** — 그 커밋의 Caddyfile(`protocols h1 h2`, :80 사이트 없음)로 서버를 덮어, 배포는 성공으로 끝나도 :443 HTTP/2 와 :80 평문 HTTP/2 가 경보 없이 돌아온다. 서버 `.env` 의 `BACKEND_IMAGE` 만 되돌린다 → 헬스 재확인.
+   - **#1563(Caddy HTTP/2 끄기) 이전 커밋의 실행도 re-run 하지 않는다** — 그 커밋의 Caddyfile(`protocols h1 h2`, :80 사이트 없음)로 서버를 덮어, 배포는 성공으로 끝나도 :443 HTTP/2 와 :80 평문 HTTP/2 가 경보 없이 돌아온다. 서버 `.env` 의 `BACKEND_IMAGE` 만 되돌린다 → 헬스 재확인. 11/4 릴리스 직후에는 직전 성공 실행(1e5f9c939, 10/21)이 여기에 든다 — 이 릴리스를 되돌릴 때 re-run 은 쓰지 않는다.
 4. **DB 의심 시**: Supabase 대시보드 → Database health. 복구 불가 수준이면 [`DB-RESTORE.md`](./DB-RESTORE.md) 백업/복원 런북(R2 일일 백업, 04:15 KST) 절차로 이관.
 5. **사후**: Sentry 이슈 링크와 함께 타임라인 기록(감지→분류→복구), 원인이 배포였다면 해당 커밋 명시.
 

@@ -508,23 +508,42 @@ public class GeneralApplicationService implements ApplicationService {
         if (recruitmentIds.isEmpty()) {
             return;
         }
-        List<Application> applications = applicationRepository
-                .findByRecruitmentIdInAndStatusIn(recruitmentIds, ApplicationStatus.activeSet());
+        rejectAllByAdmin(applicationRepository
+                .findByRecruitmentIdInAndStatusIn(recruitmentIds, ApplicationStatus.activeSet()), actorAdminUserId);
+    }
+
+    /**
+     * 운영 중단 동아리 남은 미결 정리(스펙 §4-1) — 폐쇄와 같은 일괄 불합격 루프를 쓰고, 지원자 화면이 "최종 불합격" 대신
+     * "선발 종료"를 보이도록 표시 칸을 남긴다. 폐쇄는 남기지 않는다 — 폐쇄된 동아리의 지원은 내 지원에서 빠진다.
+     */
+    @Override
+    @Transactional
+    public int rejectActiveOnClubDeactivation(Long clubId, Long actorAdminUserId) {
+        List<Application> applications =
+                applicationRepository.findByClubIdAndStatusIn(clubId, ApplicationStatus.activeSet());
+        rejectAllByAdmin(applications, actorAdminUserId);
+        // 표시는 불합격 전이 뒤에만 남길 수 있다(markEndedByClubDeactivation 이 상태를 확인한다) — 같은 트랜잭션이라 한 번에 flush 된다.
+        applications.forEach(Application::markEndedByClubDeactivation);
+        return applications.size();
+    }
+
+    /** 폐쇄·운영 중단 정리가 공유하는 총동연 일괄 불합격 — 건마다 상태 이력이 남고 주체는 실행한 총동연이다. */
+    private void rejectAllByAdmin(List<Application> applications, Long actorAdminUserId) {
         if (applications.isEmpty()) {
             return;
         }
 
-        // 이력 주체는 전 건이 같은 폐쇄 실행자라 한 번만 조회해 재사용한다. Changer 가 주체를 Supplier 로
+        // 이력 주체는 전 건이 같은 실행자(폐쇄·정리를 실행한 총동연)라 한 번만 조회해 재사용한다. Changer 가 주체를 Supplier 로
         // 받는 것은 FSM 에 막히는 전이에서 쓸데없는 주체 조회를 피하려는 것인데, 여기서는 전이 대상이
         // 하나라도 있으면 어차피 필요한 조회이고(대상이 없으면 위에서 반환) 전이 자체가 FSM 상 항상
         // 허용되므로(active → REJECTED), 선조회가 그 지연 목적과 어긋나지 않는다.
-        User closureActor = userRepository.findById(actorAdminUserId)
+        User adminActor = userRepository.findById(actorAdminUserId)
                 .orElseThrow(UserException.UserNotFoundException::new);
         for (Application application : applications) {
             // recruitmentClosed=false — 기존 2인자 transitionTo 도 내부에서 false 를 넘겼고,
             // active → REJECTED 는 면접 사용·마감 여부와 무관하게 허용돼 전이 동작은 그대로다.
             applicationStatusChanger.change(application, ApplicationStatus.REJECTED,
-                    application.getRecruitment().isUseInterview(), false, () -> closureActor);
+                    application.getRecruitment().isUseInterview(), false, () -> adminActor);
         }
     }
 

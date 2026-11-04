@@ -24,10 +24,14 @@ public record AdminPendingCountsResponse(
         long leaderSuccession,
 
         @Schema(description = "제출 후 7일 이상 처리되지 않은(SUBMITTED) 지원서가 있는 진행 중 모집 수"
-                + "(운영 중 동아리만 — 운영진 미처리 리마인더 대상과 같은 집합)", example = "4")
+                + "(운영 중 동아리만, 탈퇴한 지원자의 지원서는 세지 않음 — 운영진 미처리 리마인더 대상과 같은 집합)", example = "4")
         long stalePendingRecruitment,
 
-        @Schema(description = "위 항목의 총합", example = "34")
+        @Schema(description = "정리할 남은 미결(결과 미정 지원서·대기 가입 신청)이 있는 운영 중단 동아리 수"
+                + "(총동연 동아리 목록 needsPendingCleanup=true 와 같은 집합)", example = "1")
+        long inactiveClubPending,
+
+        @Schema(description = "위 항목의 총합", example = "35")
         long totalPendingCount
 ) {
 
@@ -40,6 +44,7 @@ public record AdminPendingCountsResponse(
                 query.reportUnresolved(),
                 query.leaderSuccession(),
                 query.stalePendingRecruitment(),
+                query.inactiveClubPending(),
                 query.totalPendingCount()
         );
     }

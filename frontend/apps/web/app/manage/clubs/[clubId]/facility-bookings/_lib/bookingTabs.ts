@@ -19,3 +19,8 @@ export function manageTabOf(
   if (booking.status === 'CONFIRMED') return booking.date >= todayIso ? 'ACTIVE' : 'PAST';
   return 'PAST';
 }
+
+/** `?tab=past` → 지난 예약 탭(운영진 홈의 거절 예약 행). 그 외는 진행중. 탭을 바꿔도 주소는 고치지 않는다. */
+export function parseManageTab(value: string | string[] | undefined): ManageTabKey {
+  return value === 'past' ? 'PAST' : 'ACTIVE';
+}

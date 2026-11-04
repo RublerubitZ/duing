@@ -35,7 +35,7 @@ export function AdminSuccessionTable({ items }: Props) {
         <tbody>
           {items.map((item) => (
             <tr key={item.id} className="border-t border-line hover:bg-graysoft/50">
-              <Td>
+              <Td className="whitespace-nowrap">
                 <span
                   className={cn(
                     'inline-block px-2 py-0.5 rounded-full text-[11px] font-semibold',
@@ -45,10 +45,10 @@ export function AdminSuccessionTable({ items }: Props) {
                   {SUCCESSION_STATUS_LABEL[item.status]}
                 </span>
               </Td>
-              <Td>{item.clubName}</Td>
-              <Td>{item.requester.name}</Td>
-              <Td>{formatDateTimeKst(item.createdAt)}</Td>
-              <Td>
+              <Td className="break-keep">{item.clubName}</Td>
+              <Td className="whitespace-nowrap">{item.requester.name}</Td>
+              <Td className="whitespace-nowrap">{formatDateTimeKst(item.createdAt)}</Td>
+              <Td className="whitespace-nowrap">
                 <Link
                   href={toRoute(`/admin/leader-succession/${item.id}`)}
                   className="text-[12px] text-charcoal-2 hover:text-ink hover:underline"
@@ -65,8 +65,8 @@ export function AdminSuccessionTable({ items }: Props) {
 }
 
 const Th = ({ children }: { children: React.ReactNode }) => (
-  <th className="text-left px-3 py-2 font-semibold">{children}</th>
+  <th className="whitespace-nowrap text-left px-3 py-2 font-semibold">{children}</th>
 );
-const Td = ({ children }: { children: React.ReactNode }) => (
-  <td className="px-3 py-2 align-middle">{children}</td>
+const Td = ({ children, className }: { children: React.ReactNode; className?: string }) => (
+  <td className={cn('px-3 py-2 align-middle', className)}>{children}</td>
 );

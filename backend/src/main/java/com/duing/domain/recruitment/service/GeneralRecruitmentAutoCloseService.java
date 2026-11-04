@@ -60,7 +60,7 @@ public class GeneralRecruitmentAutoCloseService implements RecruitmentAutoCloseS
         return recruitment.getStatus() == RecruitmentStatus.OPEN
                 && recruitment.getEndDate() != null
                 && recruitment.getEndDate().isBefore(endedBefore)
-                && !applicationRepository.existsByRecruitmentIdAndStatusIn(
+                && !applicationRepository.existsByRecruitmentIdAndStatusInExcludingWithdrawnApplicants(
                         recruitment.getId(), ApplicationStatus.activeSet())
                 && !interviewRoundRepository.existsByRecruitmentIdAndStatusIn(
                         recruitment.getId(), RoundStatus.inProgressSet());

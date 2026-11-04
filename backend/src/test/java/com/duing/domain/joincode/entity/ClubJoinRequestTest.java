@@ -73,6 +73,22 @@ class ClubJoinRequestTest {
         assertThat(joinRequest.getReviewedAt()).isEqualTo(NOW);
     }
 
+    @Test
+    @DisplayName("운영 중단 정리는 '동아리 운영 중단' 사유와 처리자로 대기 요청을 거절하고, 이미 처리된 요청은 다시 거절하지 않는다")
+    void rejectOnClubDeactivationRecordsReason() {
+        User reviewer = UserFixture.admin();
+        ClubJoinRequest joinRequest = pendingRequest(12);
+
+        joinRequest.rejectOnClubDeactivation(reviewer, NOW);
+
+        assertThat(joinRequest.getStatus()).isEqualTo(JoinRequestStatus.REJECTED);
+        assertThat(joinRequest.getRejectReason()).isEqualTo("동아리 운영 중단");
+        assertThat(joinRequest.getReviewedBy()).isSameAs(reviewer);
+        assertThat(joinRequest.getReviewedAt()).isEqualTo(NOW);
+        assertThatThrownBy(() -> joinRequest.rejectOnClubDeactivation(reviewer, NOW.plusMinutes(1)))
+                .isInstanceOf(JoinRequestException.AlreadyProcessedException.class);
+    }
+
     private ClubJoinRequest pendingRequest(Integer generation) {
         Club club = club();
         ClubJoinCode joinCode = ClubJoinCode.issue(

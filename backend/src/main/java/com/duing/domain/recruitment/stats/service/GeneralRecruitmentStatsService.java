@@ -1,8 +1,12 @@
 package com.duing.domain.recruitment.stats.service;
 
 import com.duing.domain.application.entity.ApplicationStatus;
+import com.duing.domain.application.repository.ApplicationRepository;
+import com.duing.domain.application.repository.PendingApplicationStatsRow;
 import com.duing.domain.clubmember.service.ClubAuthService;
+import com.duing.domain.joincode.repository.ClubJoinRequestRepository;
 import com.duing.domain.recruitment.entity.Recruitment;
+import com.duing.domain.recruitment.entity.RecruitmentStatus;
 import com.duing.domain.recruitment.exception.RecruitmentException;
 import com.duing.domain.recruitment.repository.RecruitmentRepository;
 import com.duing.domain.recruitment.stats.repository.RecruitmentStatsRepositoryCustom;
@@ -33,6 +37,8 @@ public class GeneralRecruitmentStatsService implements RecruitmentStatsService {
     private final RecruitmentRepository recruitmentRepository;
     private final RecruitmentStatsRepositoryCustom recruitmentStatsRepository;
     private final ClubAuthService clubAuthService;
+    private final ApplicationRepository applicationRepository;
+    private final ClubJoinRequestRepository clubJoinRequestRepository;
     private final Clock clock;
 
     @Override
@@ -52,7 +58,27 @@ public class GeneralRecruitmentStatsService implements RecruitmentStatsService {
         long accepted = statusCountMap.getOrDefault(ApplicationStatus.ACCEPTED, 0L);
         long rejected = statusCountMap.getOrDefault(ApplicationStatus.REJECTED, 0L);
 
-        return StatsSummaryQuery.of(submitted, onHold, interviewPending, accepted, rejected, recruitment.getCapacity());
+        // 총동연 모집 목록과 같은 미처리 정의(SUBMITTED·미삭제·탈퇴자 제외)를 단건으로 재사용한다 — 권한 검사 뒤에만 부른다.
+        LocalDateTime oldestPendingSubmittedAt = applicationRepository
+                .findPendingStatsByRecruitmentIds(List.of(recruitmentId))
+                .stream()
+                .findFirst()
+                .map(PendingApplicationStatsRow::getOldestSubmittedAt)
+                .orElse(null);
+
+        return StatsSummaryQuery.of(submitted, onHold, interviewPending, accepted, rejected, recruitment.getCapacity(),
+                oldestPendingSubmittedAt, isDeletable(recruitment));
+    }
+
+    /**
+     * 운영진 모집 상세의 삭제 버튼 게이트(#1635) — GeneralRecruitmentService#delete 의 가드(마감됨·지원서 0건·처리되지
+     * 않은 가입 요청 없음)와 같은 판정이어야 한다. 가드를 바꾸면 여기도 바꾸고, LeaderRecruitmentDeletableControllerTest 가
+     * 둘을 묶는다. 지원서는 탈퇴한 지원자 것도 이력이라 세므로 요약 건수(지원자 목록 기준)가 0 이어도 false 일 수 있다.
+     */
+    private boolean isDeletable(Recruitment recruitment) {
+        return recruitment.getStatus() == RecruitmentStatus.CLOSED
+                && applicationRepository.countByRecruitmentId(recruitment.getId()) == 0
+                && !clubJoinRequestRepository.existsPendingByRecruitmentId(recruitment.getId());
     }
 
     @Override

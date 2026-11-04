@@ -3,10 +3,12 @@
 import { useState, type ReactNode } from 'react';
 
 import { useClubBankMatchingStatusQuery, useClubFeeAccountQuery } from '@duing/hooks';
+import type { FeeStatus } from '@duing/types';
 
 import { cn } from '@/app/_lib/cn';
 import { bankLabel } from '@/app/_lib/feeLabels';
 
+import { FEE_TABS, type FeeTab } from '../_lib/feeTabs';
 import { BankReviewQueue } from '../_components/BankReviewQueue';
 import { BankSyncDialog } from '../_components/BankSyncDialog';
 import { BillList } from '../_components/BillList';
@@ -20,20 +22,14 @@ import { LoadingGate } from '@/components/loading/LoadingGate';
 
 type ClubFeesPageProps = {
   clubId: number;
+  /** 주소 `?tab=` 로 고른 처음 탭(fees/page.tsx). 없으면 정책 탭. */
+  initialTab?: FeeTab;
+  /** 청구 탭 목록의 처음 상태 필터(`?status=`). 없으면 전체. */
+  initialBillStatus?: FeeStatus | '';
 };
 
-type FeeTab = 'policy' | 'bill' | 'account' | 'bank' | 'cashbook';
-
-const TABS: { id: FeeTab; label: string }[] = [
-  { id: 'policy', label: '정책' },
-  { id: 'bill', label: '청구' },
-  { id: 'account', label: '계좌' },
-  { id: 'bank', label: '거래' },
-  { id: 'cashbook', label: '장부' },
-];
-
-export function ClubFeesPage({ clubId }: ClubFeesPageProps) {
-  const [activeTab, setActiveTab] = useState<FeeTab>('policy');
+export function ClubFeesPage({ clubId, initialTab = 'policy', initialBillStatus = '' }: ClubFeesPageProps) {
+  const [activeTab, setActiveTab] = useState<FeeTab>(initialTab);
   const [isCreateOpen, setCreateOpen] = useState(false);
   const [isGenerateOpen, setGenerateOpen] = useState(false);
 
@@ -47,7 +43,7 @@ export function ClubFeesPage({ clubId }: ClubFeesPageProps) {
       </header>
 
       <div role="tablist" aria-label="회비 관리 탭" className="flex gap-1">
-        {TABS.map((tab) => (
+        {FEE_TABS.map((tab) => (
           <button
             key={tab.id}
             type="button"
@@ -112,7 +108,7 @@ export function ClubFeesPage({ clubId }: ClubFeesPageProps) {
             </button>
           </div>
 
-          <BillList clubId={clubId} />
+          <BillList clubId={clubId} initialStatusFilter={initialBillStatus} />
 
           {isGenerateOpen && (
             <GenerateBillsDialog clubId={clubId} onClose={() => setGenerateOpen(false)} />

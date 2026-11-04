@@ -1,6 +1,7 @@
 package com.duing.domain.recruitment.stats.repository;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.entry;
 
 import com.duing.domain.application.entity.Application;
 import com.duing.domain.application.entity.ApplicationAnswer;
@@ -19,6 +20,7 @@ import com.duing.domain.user.entity.College;
 import com.duing.domain.user.entity.Grade;
 import com.duing.domain.user.entity.UserRole;
 import com.duing.domain.user.repository.UserRepository;
+import jakarta.persistence.EntityManager;
 import java.lang.reflect.Field;
 import java.time.LocalDate;
 import java.util.List;
@@ -43,6 +45,7 @@ class RecruitmentStatsRepositoryTest {
     @Autowired RecruitmentRepository recruitmentRepository;
     @Autowired ClubRepository clubRepository;
     @Autowired UserRepository userRepository;
+    @Autowired EntityManager entityManager;
 
     private final AtomicLong sequence = new AtomicLong(System.nanoTime());
 
@@ -93,6 +96,16 @@ class RecruitmentStatsRepositoryTest {
                                    ApplicationStatus newStatus, User changedBy) {
         applicationStatusHistoryRepository.save(
                 ApplicationStatusHistory.record(application, previousStatus, newStatus, changedBy));
+    }
+
+    /**
+     * 탈퇴(GeneralUserService#withdraw)는 users 행을 soft-delete 한다. 이 테스트 트랜잭션에서 delete() 로 지우면 관리 중인
+     * 지원서가 삭제된 사용자를 가리켜 flush 가 실패하므로 SQL 로 같은 표시만 남긴다.
+     */
+    private void withdraw(User user) {
+        entityManager.createNativeQuery("UPDATE users SET deleted_at = NOW() WHERE id = :userId")
+                .setParameter("userId", user.getId())
+                .executeUpdate();
     }
 
     @Test
@@ -194,5 +207,32 @@ class RecruitmentStatsRepositoryTest {
         applicationRepository.flush();
 
         assertThat(statsRepository.countInterviewEntered(recruitment.getId())).isEqualTo(3L);
+    }
+
+    @Test
+    @DisplayName("탈퇴한 지원자의 지원서는 상태별 집계와 면접 진입에서 빠진다 — 운영진 지원자 목록과 같은 기준이다")
+    void withdrawnApplicantsAreExcludedFromSummaryAndInterviewEntered() throws Exception {
+        Club club = saveActiveClub();
+        Recruitment recruitment = saveRecruitment(club);
+        User manager = saveUser();
+
+        saveApplicationWithStatus(recruitment, saveUser(), ApplicationStatus.SUBMITTED);
+        Application remainingInterview =
+                saveApplicationWithStatus(recruitment, saveUser(), ApplicationStatus.INTERVIEW_PENDING);
+        saveStatusHistory(remainingInterview, ApplicationStatus.SUBMITTED, ApplicationStatus.INTERVIEW_PENDING, manager);
+
+        User withdrawnSubmitter = saveUser();
+        saveApplicationWithStatus(recruitment, withdrawnSubmitter, ApplicationStatus.SUBMITTED);
+        User withdrawnInterviewee = saveUser();
+        Application withdrawnInterview =
+                saveApplicationWithStatus(recruitment, withdrawnInterviewee, ApplicationStatus.INTERVIEW_PENDING);
+        saveStatusHistory(withdrawnInterview, ApplicationStatus.SUBMITTED, ApplicationStatus.INTERVIEW_PENDING, manager);
+        applicationRepository.flush();
+        withdraw(withdrawnSubmitter);
+        withdraw(withdrawnInterviewee);
+
+        assertThat(statsRepository.findSummaryByRecruitmentId(recruitment.getId()))
+                .containsOnly(entry(ApplicationStatus.SUBMITTED, 1L), entry(ApplicationStatus.INTERVIEW_PENDING, 1L));
+        assertThat(statsRepository.countInterviewEntered(recruitment.getId())).isEqualTo(1L);
     }
 }

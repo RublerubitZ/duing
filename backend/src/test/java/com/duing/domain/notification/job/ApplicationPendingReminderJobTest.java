@@ -1,6 +1,11 @@
 package com.duing.domain.notification.job;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.tuple;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import com.duing.common.IntegrationTestBase;
 import com.duing.common.TestcontainersConfiguration;
@@ -10,6 +15,7 @@ import com.duing.common.fixture.UserFixture;
 import com.duing.domain.application.entity.Application;
 import com.duing.domain.application.entity.ApplicationStatus;
 import com.duing.domain.application.repository.ApplicationRepository;
+import com.duing.domain.application.repository.PendingApplicationRow;
 import com.duing.domain.application.service.PendingApplicationPolicy;
 import com.duing.domain.club.entity.Club;
 import com.duing.domain.club.repository.ClubRepository;
@@ -17,10 +23,17 @@ import com.duing.domain.clubmember.repository.ClubMemberRepository;
 import com.duing.domain.notification.entity.Notification;
 import com.duing.domain.notification.entity.NotificationType;
 import com.duing.domain.notification.repository.NotificationRepository;
+import com.duing.domain.notification.service.NotificationService;
 import com.duing.domain.recruitment.entity.Recruitment;
 import com.duing.domain.recruitment.repository.RecruitmentRepository;
 import com.duing.domain.user.entity.User;
 import com.duing.domain.user.repository.UserRepository;
+import com.duing.domain.user.service.UserService;
+import com.duing.global.jobrun.JobRunOutcome;
+import com.duing.global.jobrun.JobRunRecorder;
+import com.duing.global.jobrun.MonitoredJob;
+import com.duing.global.jobrun.entity.ScheduledJobRun;
+import com.duing.global.jobrun.repository.ScheduledJobRunRepository;
 import com.duing.global.time.TimeMapper;
 import java.sql.Timestamp;
 import java.time.Clock;
@@ -50,9 +63,13 @@ class ApplicationPendingReminderJobTest extends IntegrationTestBase {
     @Autowired private ClubRepository clubRepository;
     @Autowired private ClubMemberRepository clubMemberRepository;
     @Autowired private UserRepository userRepository;
+    @Autowired private UserService userService;
     @Autowired private NotificationRepository notificationRepository;
     @Autowired private JdbcTemplate jdbcTemplate;
     @Autowired private Clock clock;
+    @Autowired private JobRunRecorder jobRunRecorder;
+    @Autowired private ScheduledJobRunRepository scheduledJobRunRepository;
+    @Autowired private NotificationService notificationService;
 
     private final AtomicLong sequence = new AtomicLong(System.nanoTime());
 
@@ -195,6 +212,34 @@ class ApplicationPendingReminderJobTest extends IntegrationTestBase {
     }
 
     @Test
+    @DisplayName("탈퇴한 지원자의 미처리 지원서는 세지 않는다 — 운영진 목록에 없어 치울 수 없으니 그런 지원서만 남은 모집은 리마인더 대상이 아니다")
+    void excludesSubmittedApplicationsOfWithdrawnApplicants() {
+        Staff mixedStaff = saveClubWithStaff();
+        Recruitment mixedRecruitment = saveOngoingRecruitment(mixedStaff.club());
+        saveSubmittedApplicationDaysAgo(mixedRecruitment, 10);
+        Application withdrawnInMixed = saveApplication(mixedRecruitment, ApplicationStatus.SUBMITTED);
+        submittedAgo(withdrawnInMixed, Duration.ofDays(10));
+        userService.withdraw(withdrawnInMixed.getUser().getId());
+
+        Staff withdrawnOnlyStaff = saveClubWithStaff();
+        Recruitment withdrawnOnlyRecruitment = saveOngoingRecruitment(withdrawnOnlyStaff.club());
+        Application withdrawnOnly = saveApplication(withdrawnOnlyRecruitment, ApplicationStatus.SUBMITTED);
+        submittedAgo(withdrawnOnly, Duration.ofDays(10));
+        userService.withdraw(withdrawnOnly.getUser().getId());
+
+        // 총동연 홈의 오래 방치된 모집 칸도 이 후보 목록의 개수를 쓴다(AdminPendingCountsQueryService).
+        assertThat(applicationRepository.findPendingReminderCandidates(PendingApplicationPolicy.submittedBefore(clock)))
+                .extracting(PendingApplicationRow::getRecruitmentId, PendingApplicationRow::getPendingCount)
+                .containsExactly(tuple(mixedRecruitment.getId(), 1L));
+        job.run();
+
+        assertThat(remindersOf(mixedStaff.leader())).extracting(Notification::getTitle)
+                .containsExactly("지원서 1건이 7일 넘게 대기 중이에요");
+        assertThat(remindersOf(withdrawnOnlyStaff.leader())).isEmpty();
+        assertThat(remindersOf(withdrawnOnlyStaff.officer())).isEmpty();
+    }
+
+    @Test
     @DisplayName("마감일이 지났지만 아직 OPEN 인 모집(심사 기간)의 미처리 지원서는 리마인더 대상이다")
     void includesExpiredOpenRecruitmentInReviewPeriod() {
         Staff staff = saveClubWithStaff();
@@ -221,5 +266,57 @@ class ApplicationPendingReminderJobTest extends IntegrationTestBase {
         assertThat(remindersOf(staff.leader())).hasSize(1);
         assertThat(remindersOf(staff.officer())).hasSize(1);
         assertThat(allReminders()).hasSize(2);
+    }
+
+    private ScheduledJobRun reminderRun() {
+        return scheduledJobRunRepository.findById(MonitoredJob.APPLICATION_PENDING_REMINDER.name()).orElseThrow();
+    }
+
+    @Test
+    @DisplayName("실제 잡(읽기 전용 트랜잭션 프록시)이 끝나면 성공과 새로 만든 알림 수를 기록한다 — 바깥 트랜잭션에 합류하지 않는다")
+    void recordsSuccessWithCreatedCountThroughReadOnlyProxy() {
+        Staff staff = saveClubWithStaff();
+        Recruitment recruitment = saveOngoingRecruitment(staff.club());
+        saveSubmittedApplicationDaysAgo(recruitment, 10);
+
+        job.run();
+
+        ScheduledJobRun run = reminderRun();
+        assertThat(run.getLastOutcome()).isEqualTo(JobRunOutcome.SUCCESS);
+        assertThat(run.getLastResultCount()).isEqualTo(allReminders().size()).isPositive();
+        assertThat(run.getLastFailedCount()).isZero();
+    }
+
+    @Test
+    @DisplayName("알림 생성이 실패하면 일부 실패와 실패 수를 기록한다")
+    void recordsPartialWhenNotificationCreationFails() {
+        Staff staff = saveClubWithStaff();
+        Recruitment recruitment = saveOngoingRecruitment(staff.club());
+        saveSubmittedApplicationDaysAgo(recruitment, 10);
+        NotificationService failingNotificationService = mock(NotificationService.class);
+        when(failingNotificationService.createIfAbsent(any())).thenThrow(new IllegalStateException("주입된 알림 실패"));
+        ApplicationPendingReminderJob failingJob = new ApplicationPendingReminderJob(
+                applicationRepository, clubMemberRepository, failingNotificationService, clock, jobRunRecorder);
+
+        failingJob.run();
+
+        ScheduledJobRun run = reminderRun();
+        assertThat(run.getLastOutcome()).isEqualTo(JobRunOutcome.PARTIAL);
+        assertThat(run.getLastResultCount()).isZero();
+        assertThat(run.getLastFailedCount()).isPositive();
+    }
+
+    @Test
+    @DisplayName("후보 조회가 실패하면 실패를 기록하고 같은 예외를 그대로 내보낸다")
+    void recordsFailureAndRethrowsSameException() {
+        IllegalStateException candidateFailure = new IllegalStateException("주입된 후보 조회 실패");
+        ApplicationRepository failingApplicationRepository = mock(ApplicationRepository.class);
+        when(failingApplicationRepository.findPendingReminderCandidates(any())).thenThrow(candidateFailure);
+        ApplicationPendingReminderJob failingJob = new ApplicationPendingReminderJob(
+                failingApplicationRepository, clubMemberRepository, notificationService, clock, jobRunRecorder);
+
+        assertThatThrownBy(failingJob::run).isSameAs(candidateFailure);
+
+        assertThat(reminderRun().getLastOutcome()).isEqualTo(JobRunOutcome.FAILED);
     }
 }

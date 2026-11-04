@@ -20,6 +20,7 @@ export * from './interview';
 export * from './interviewRound';
 export * from './applicantInterview';
 export * from './dashboard';
+export * from './adminTriage';
 export * from './fee';
 export * from './adminFee';
 export * from './adminClubActivity';

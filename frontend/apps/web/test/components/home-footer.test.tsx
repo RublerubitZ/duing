@@ -67,6 +67,14 @@ describe('HomeFooter — 모바일 간소 푸터', () => {
       'target',
       '_blank',
     );
+    expect(within(mobileFooter).getByRole('link', { name: '두잉팀 카카오 문의' })).toHaveAttribute(
+      'href',
+      'https://open.kakao.com/o/s6JruOzi',
+    );
+    expect(within(mobileFooter).getByRole('link', { name: 'duing.official@gmail.com' })).toHaveAttribute(
+      'href',
+      'mailto:duing.official@gmail.com',
+    );
   });
 });
 
@@ -109,5 +117,26 @@ describe('HomeFooter — 데스크탑 풀 푸터', () => {
     // 토스트 액션은 총동연 1:1 문의로 이어진다.
     await user.click(screen.getByRole('button', { name: '1:1 문의' }));
     expect(routerPushMock).toHaveBeenCalledWith('/me/inquiries/new');
+  });
+});
+
+describe('HomeFooter — 이용 가이드', () => {
+  it('모바일·데스크탑 푸터 모두 이용 가이드 첫 글로 가는 링크가 있다', () => {
+    render(
+      <ToastProvider>
+        <HomeFooter />
+      </ToastProvider>,
+    );
+
+    const footers = screen.getAllByRole('contentinfo');
+    expect(footers).toHaveLength(2);
+    footers.forEach((footer) => {
+      expect(within(footer).getByRole('link', { name: '이용 가이드' })).toHaveAttribute('href', '/notices/23');
+      // 자리: '서비스 소개' 바로 다음 링크다.
+      const linkNames = within(footer)
+        .getAllByRole('link')
+        .map((link) => link.textContent?.trim() ?? '');
+      expect(linkNames[linkNames.indexOf('서비스 소개') + 1]).toBe('이용 가이드');
+    });
   });
 });

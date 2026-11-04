@@ -1,7 +1,7 @@
 import { render, screen, fireEvent } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import type { AdminClubSummary } from '@duing/types';
-import { STATUS_ACTIONS, type StatusAction } from '../../../app/admin/clubs/_lib/clubStatus';
+import { PENDING_CLEANUP_ACTION_LABEL, STATUS_ACTIONS, type StatusAction } from '../../../app/admin/clubs/_lib/clubStatus';
 import { AdminClubStatusChangeDialog } from '../../../app/admin/clubs/_components/AdminClubStatusChangeDialog';
 
 /* ── 테스트 데이터 헬퍼 ───────────────────────────────────────── */
@@ -165,5 +165,13 @@ describe('동아리 운영 중단·재활성 안내', () => {
 
     expect(reactivate?.description).toContain('이어서');
     expect(reactivate?.description).toContain('확정할 수 있');
+  });
+
+  it('운영 중단·재활성 안내 모두 남은 미결 정리로 정리할 수도 있다고 알린다', () => {
+    const deactivate = STATUS_ACTIONS.ACTIVE.find((action) => action.nextStatus === 'INACTIVE');
+    const reactivate = STATUS_ACTIONS.INACTIVE.find((action) => action.nextStatus === 'ACTIVE');
+
+    expect(deactivate?.description).toContain(`'${PENDING_CLEANUP_ACTION_LABEL}'로 정리할 수도 있습니다`);
+    expect(reactivate?.description).toContain(`'${PENDING_CLEANUP_ACTION_LABEL}'로 정리할 수도 있습니다`);
   });
 });

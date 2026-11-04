@@ -72,6 +72,8 @@ export function useForceCloseRecruitmentMutation() {
     }) => client.admin.recruitments.forceClose(recruitmentId, payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: adminQueryKeys.recruitmentsAll });
+      // 마감한 모집은 미처리 모집 집계에서 빠진다 — 사이드바 배지·총동연 홈 칸 건수도 바로 줄인다.
+      queryClient.invalidateQueries({ queryKey: adminQueryKeys.pendingCounts() });
     },
   });
 }

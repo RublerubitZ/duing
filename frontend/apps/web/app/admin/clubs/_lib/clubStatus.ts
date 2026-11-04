@@ -1,4 +1,4 @@
-import type { ClubStatus } from '@duing/types';
+import type { AdminClubSearchParams, ClubStatus } from '@duing/types';
 import { APPLICATION_CLOSED_WITHOUT_RESULT_LABEL } from '@/app/_constants/application-status';
 
 export const STATUS_LABEL: Record<ClubStatus, string> = {
@@ -15,7 +15,11 @@ export const STATUS_BADGE_CLASS: Record<ClubStatus, string> = {
   REJECTED: 'bg-rose-100 text-rose-800',
 };
 
-export type StatusFilter = 'ALL' | ClubStatus;
+/** 운영 중단 동아리의 결과 미정 지원서·대기 가입 신청을 한 번에 끝내는 동작 이름 — 표 버튼과 상태 변경 안내가 같이 쓴다. */
+export const PENDING_CLEANUP_ACTION_LABEL = '남은 미결 정리';
+
+/** 'INACTIVE_PENDING' 은 상태가 아니라 "운영 중단 + 남은 미결 있음" 조회 조건이다(총동연 홈 '운영 중단 미결' 칸의 도착 탭). */
+export type StatusFilter = 'ALL' | ClubStatus | 'INACTIVE_PENDING';
 
 export const STATUS_FILTER_ORDER: ReadonlyArray<StatusFilter> = [
   'ALL',
@@ -23,6 +27,7 @@ export const STATUS_FILTER_ORDER: ReadonlyArray<StatusFilter> = [
   'ACTIVE',
   'INACTIVE',
   'REJECTED',
+  'INACTIVE_PENDING',
 ];
 
 export const STATUS_FILTER_LABEL: Record<StatusFilter, string> = {
@@ -31,6 +36,16 @@ export const STATUS_FILTER_LABEL: Record<StatusFilter, string> = {
   ACTIVE: '운영 중',
   INACTIVE: '운영 중단',
   REJECTED: '거절',
+  INACTIVE_PENDING: '미결 정리 필요',
+};
+
+/** 탭 → 목록 조회 조건. 서버 status 는 ClubStatus 만 받는다 — 'INACTIVE_PENDING' 을 그대로 보내면 400 이다. */
+export const statusFilterParams = (
+  filter: StatusFilter,
+): Pick<AdminClubSearchParams, 'status' | 'needsPendingCleanup'> => {
+  if (filter === 'ALL') return {};
+  if (filter === 'INACTIVE_PENDING') return { status: 'INACTIVE', needsPendingCleanup: true };
+  return { status: filter };
 };
 
 /**
@@ -66,7 +81,7 @@ export const STATUS_ACTIONS: Record<ClubStatus, ReadonlyArray<StatusAction>> = {
       label: '운영 중단',
       nextStatus: 'INACTIVE',
       tone: 'danger',
-      description: `학생 탐색 페이지에서 동아리가 즉시 숨겨지고, 진행 중인 모집은 모두 마감됩니다. 마감은 되돌릴 수 없습니다. 기존 멤버십·지원 이력은 그대로 유지됩니다. 결과가 정해지지 않은 지원은 학생에게 '${APPLICATION_CLOSED_WITHOUT_RESULT_LABEL}'로 남고, 재활성하면 운영진이 결과를 확정할 수 있습니다.`,
+      description: `학생 탐색 페이지에서 동아리가 즉시 숨겨지고, 진행 중인 모집은 모두 마감됩니다. 마감은 되돌릴 수 없습니다. 기존 멤버십·지원 이력은 그대로 유지됩니다. 결과가 정해지지 않은 지원은 학생에게 '${APPLICATION_CLOSED_WITHOUT_RESULT_LABEL}'로 남고, 재활성하면 운영진이 결과를 확정할 수 있습니다. 운영 중단 상태에서 '${PENDING_CLEANUP_ACTION_LABEL}'로 정리할 수도 있습니다.`,
     },
   ],
   INACTIVE: [
@@ -74,8 +89,7 @@ export const STATUS_ACTIONS: Record<ClubStatus, ReadonlyArray<StatusAction>> = {
       label: '재활성',
       nextStatus: 'ACTIVE',
       tone: 'primary',
-      description:
-        '운영 중단을 해제하고 학생 탐색 페이지에 다시 노출시킵니다. 중단 시 마감된 모집은 복구되지 않으므로 새로 등록해야 합니다. 결과가 정해지지 않은 지원은 운영진이 이어서 확정할 수 있습니다.',
+      description: `운영 중단을 해제하고 학생 탐색 페이지에 다시 노출시킵니다. 중단 시 마감된 모집은 복구되지 않으므로 새로 등록해야 합니다. 결과가 정해지지 않은 지원은 운영진이 이어서 확정할 수 있습니다. 재활성하지 않고 '${PENDING_CLEANUP_ACTION_LABEL}'로 정리할 수도 있습니다.`,
     },
   ],
   REJECTED: [

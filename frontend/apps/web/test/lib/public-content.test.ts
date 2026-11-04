@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { ClubSummary, NoticeCardItem, PageResponse } from '@duing/types';
+import type { ClubSummary, FederationFaqCategory, FederationFaqItem, NoticeCardItem, PageResponse } from '@duing/types';
 
 // createApiClient 만 모킹하고 ApiError 는 실제 클래스를 쓴다 — 실패 정책이 instanceof 로 상태를 가른다.
 const {
@@ -9,6 +9,8 @@ const {
   clubsHeroActivitiesMock,
   noticesDetailMock,
   noticesListMock,
+  federationFaqsListMock,
+  federationFaqCategoriesListMock,
 } = vi.hoisted(() => ({
   createApiClientMock: vi.fn(),
   clubsDetailMock: vi.fn(),
@@ -16,6 +18,8 @@ const {
   clubsHeroActivitiesMock: vi.fn(),
   noticesDetailMock: vi.fn(),
   noticesListMock: vi.fn(),
+  federationFaqsListMock: vi.fn(),
+  federationFaqCategoriesListMock: vi.fn(),
 }));
 
 vi.mock('@duing/api', async (importOriginal) => {
@@ -30,6 +34,8 @@ import {
   fetchPublicClubDetail,
   fetchPublicClubHeroActivities,
   fetchPublicClubList,
+  fetchPublicFaqCategories,
+  fetchPublicFaqList,
   fetchPublicNoticeDetail,
   fetchPublicNoticeIds,
   fetchPublicNoticeList,
@@ -63,6 +69,24 @@ function noticePage(ids: number[], hasNext: boolean, page: number): PageResponse
   };
 }
 
+function faqPage(questions: string[]): PageResponse<FederationFaqItem> {
+  return {
+    content: questions.map((question, index) => ({
+      id: index + 1,
+      categoryId: 1,
+      categoryName: '두잉 이용',
+      question,
+      answer: `${question} — 답변`,
+      pinned: false,
+    })),
+    page: 0,
+    size: 20,
+    totalElements: questions.length,
+    totalPages: 1,
+    hasNext: false,
+  };
+}
+
 beforeEach(() => {
   createApiClientMock.mockReset();
   clubsDetailMock.mockReset();
@@ -70,9 +94,13 @@ beforeEach(() => {
   clubsHeroActivitiesMock.mockReset();
   noticesDetailMock.mockReset();
   noticesListMock.mockReset();
+  federationFaqsListMock.mockReset();
+  federationFaqCategoriesListMock.mockReset();
   createApiClientMock.mockReturnValue({
     clubs: { detail: clubsDetailMock, list: clubsListMock, heroActivities: clubsHeroActivitiesMock },
     notices: { detail: noticesDetailMock, list: noticesListMock },
+    federationFaqs: { list: federationFaqsListMock },
+    federationFaqCategories: { list: federationFaqCategoriesListMock },
   });
 });
 
@@ -336,5 +364,73 @@ describe('fetchPublicClubList', () => {
 
     stubPhase('production');
     await expect(fetchPublicClubList({ page: 0, size: 20 })).rejects.toBe(error);
+  });
+});
+
+describe('fetchPublicFaqList', () => {
+  it('받은 조건 그대로 한 페이지를 조회해 found 로 돌려준다', async () => {
+    const page = faqPage(['동아리는 어떻게 가입하나요?', '회비는 어디서 확인하나요?']);
+    federationFaqsListMock.mockResolvedValue(page);
+
+    const params = { categoryId: 3, keyword: '회비', page: 1, size: 20 };
+    await expect(fetchPublicFaqList(params)).resolves.toEqual({ status: 'found', data: page });
+    expect(federationFaqsListMock).toHaveBeenCalledWith(params);
+  });
+
+  it('빌드 국면 장애면 unavailable(셸), 런타임 장애면 throw(직전 캐시본 유지)', async () => {
+    const error = new ApiError(503, '점검');
+    federationFaqsListMock.mockRejectedValue(error);
+
+    stubPhase('production', 'phase-production-build');
+    await expect(fetchPublicFaqList({ page: 0, size: 20 })).resolves.toEqual({ status: 'unavailable' });
+
+    stubPhase('production');
+    await expect(fetchPublicFaqList({ page: 0, size: 20 })).rejects.toBe(error);
+  });
+
+  it('목록에는 "없음"이 없다 — 404 도 빌드 국면이면 unavailable, 런타임이면 throw(직전 캐시본 유지)', async () => {
+    const error = new ApiError(404, 'Not Found');
+    federationFaqsListMock.mockRejectedValue(error);
+
+    stubPhase('production', 'phase-production-build');
+    await expect(fetchPublicFaqList({ page: 0, size: 20 })).resolves.toEqual({ status: 'unavailable' });
+
+    stubPhase('production');
+    await expect(fetchPublicFaqList({ page: 0, size: 20 })).rejects.toBe(error);
+  });
+});
+
+describe('fetchPublicFaqCategories', () => {
+  it('공개 카테고리 목록을 found 로 돌려준다', async () => {
+    const categories: FederationFaqCategory[] = [
+      { id: 1, name: '두잉 이용', sortOrder: 1 },
+      { id: 2, name: '동아리 등록', sortOrder: 2 },
+    ];
+    federationFaqCategoriesListMock.mockResolvedValue(categories);
+
+    await expect(fetchPublicFaqCategories()).resolves.toEqual({ status: 'found', data: categories });
+    expect(federationFaqCategoriesListMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('빌드 국면 장애면 unavailable, 런타임 장애면 throw(직전 캐시본 유지)', async () => {
+    const error = new ApiError(503, '점검');
+    federationFaqCategoriesListMock.mockRejectedValue(error);
+
+    stubPhase('production', 'phase-production-build');
+    await expect(fetchPublicFaqCategories()).resolves.toEqual({ status: 'unavailable' });
+
+    stubPhase('production');
+    await expect(fetchPublicFaqCategories()).rejects.toBe(error);
+  });
+
+  it('목록에는 "없음"이 없다 — 404 도 빌드 국면이면 unavailable, 런타임이면 throw(직전 캐시본 유지)', async () => {
+    const error = new ApiError(404, 'Not Found');
+    federationFaqCategoriesListMock.mockRejectedValue(error);
+
+    stubPhase('production', 'phase-production-build');
+    await expect(fetchPublicFaqCategories()).resolves.toEqual({ status: 'unavailable' });
+
+    stubPhase('production');
+    await expect(fetchPublicFaqCategories()).rejects.toBe(error);
   });
 });

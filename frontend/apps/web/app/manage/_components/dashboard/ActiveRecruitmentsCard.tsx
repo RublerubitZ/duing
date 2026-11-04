@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useActiveRecruitments } from '@duing/hooks';
 import { toRoute } from '@/app/_lib/route';
-import { DashboardCard } from './DashboardCard';
+import { DashboardCard } from '@/components/dashboard/DashboardCard';
 import { DDayBadge } from '@/app/manage/_components/DDayBadge';
 import { recruitmentStatusChip } from '@/app/_lib/recruitmentDisplay';
 

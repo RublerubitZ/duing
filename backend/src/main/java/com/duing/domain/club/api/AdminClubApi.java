@@ -6,10 +6,12 @@ import com.duing.domain.club.controller.dto.request.CreateClubRequest;
 import com.duing.domain.club.controller.dto.request.UpdateClubCentralClubRequest;
 import com.duing.domain.club.controller.dto.request.UpdateClubFacilitySecuredTimeTargetRequest;
 import com.duing.domain.club.controller.dto.request.UpdateClubStatusRequest;
+import com.duing.domain.club.controller.dto.response.AdminClubPendingCleanupResponse;
 import com.duing.domain.club.controller.dto.response.AdminClubSummaryResponse;
 import com.duing.domain.club.controller.dto.response.ClubDetailResponse;
 import com.duing.domain.club.entity.ClubCategory;
 import com.duing.domain.club.entity.ClubStatus;
+import com.duing.domain.club.service.dto.query.AdminClubSignal;
 import com.duing.global.auth.UserPrincipal;
 import com.duing.global.response.ApiResponse;
 import com.duing.global.response.PageResponse;
@@ -33,13 +35,28 @@ import org.springframework.web.bind.annotation.RequestParam;
 public interface AdminClubApi {
 
     @Operation(summary = "동아리 목록 조회 (ADMIN)",
-            description = "모든 상태(PENDING_APPROVAL/ACTIVE/INACTIVE) 동아리를 조회한다. status 미지정 시 전체 반환. 응답에 leader 정보 포함.")
+            description = "모든 상태(PENDING_APPROVAL/ACTIVE/INACTIVE) 동아리를 조회한다. status 미지정 시 전체 반환. 응답에 leader 정보 포함. "
+                    + "운영 중단(INACTIVE) 행에는 남은 미결 건수(undecidedApplicationCount — 제출·보류·면접 대기 지원서, "
+                    + "pendingJoinRequestCount — 대기 가입 신청)를 싣고, 다른 상태 행은 두 값이 null 이다. "
+                    + "signal 을 보내면 모든 행의 signalDetail 이 객체다 — operatorsLastActiveAt(운영진 세션·로그인 중 늦은 시각, 기록 없으면 null), "
+                    + "resultWaiting(signal=RESULT_WAITING — 가장 오래된 신호 모집 id·제목·끝난 날, 신호 모집 수, 결과 미확정 지원 합), "
+                    + "joinRequestWaiting(signal=JOIN_REQUEST_WAITING — 대기 신청 전부의 수, 가장 오래된 신청 시각). "
+                    + "신호와 무관한 하위 레코드는 null 이고(NO_RECORD·OPERATOR_INACTIVE 는 둘 다 null), "
+                    + "행 조회와 재료 조회 사이에 처리돼 재료가 없으면 그 하위 레코드도 null 이다. signal 을 보내지 않으면 signalDetail 은 null 이다.")
     @GetMapping("/admin/clubs")
     ResponseEntity<ApiResponse<PageResponse<AdminClubSummaryResponse>>> getAdminClubs(
             @Parameter(description = "상태 필터 (미지정 시 전체)") @RequestParam(required = false) ClubStatus status,
             @Parameter(description = "카테고리 필터") @RequestParam(required = false) ClubCategory category,
             @Parameter(description = "분류 필터") @RequestParam(required = false) String division,
             @Parameter(description = "이름/소개/태그/학과 키워드") @RequestParam(required = false) String keyword,
+            @Parameter(description = "true 면 정리할 남은 미결(결과 미정 지원서·대기 가입 신청)이 있는 운영 중단 동아리만 반환한다. "
+                    + "status 와 함께 오면 둘 다 건다(다른 상태를 고르면 빈 결과)")
+            @RequestParam(defaultValue = "false") boolean needsPendingCleanup,
+            @Parameter(description = "신호 필터(값은 AdminClubSignal). 운영 중(ACTIVE) 조건을 품고, status·needsPendingCleanup·category·division·keyword 와 "
+                    + "함께 오면 모두 건다(AND — 다른 상태나 미결 정리 필요와 함께면 빈 결과). 대문자 값만 받는다(모르는 값·소문자는 400), "
+                    + "빈 값(signal=)은 신호 없음과 같다. RESULT_WAITING 은 판정·재료 모두 지원자 목록과 같은 기준이라 "
+                    + "탈퇴한 지원자의 지원서는 세지 않는다. 정렬은 그대로 이름순이다.")
+            @RequestParam(required = false) AdminClubSignal signal,
             @Parameter(hidden = true) Pageable pageable
     );
 
@@ -98,6 +115,16 @@ public interface AdminClubApi {
     ResponseEntity<ApiResponse<Void>> closeClub(
             @PathVariable Long clubId,
             @Valid @RequestBody(required = false) CloseClubRequest closeClubRequest,
+            @Parameter(hidden = true) @AuthenticationPrincipal UserPrincipal currentUser
+    );
+
+    @Operation(summary = "운영 중단 동아리 남은 미결 정리",
+            description = "운영 중단(INACTIVE) 동아리의 결과 미정 지원서(제출·보류·면접 대기 — 마감 모집 포함)를 불합격으로, "
+                    + "대기 중 가입 신청을 거절(사유 '동아리 운영 중단')로 한 번에 정리하고 실제 처리 건수를 돌려준다. "
+                    + "알림은 보내지 않고 면접 라운드·일정은 그대로 둔다. 운영 중단이 아니면 409, 없거나 폐쇄된 동아리는 404.")
+    @PostMapping("/admin/clubs/{clubId}/pending-cleanup")
+    ResponseEntity<ApiResponse<AdminClubPendingCleanupResponse>> cleanupPendingItems(
+            @PathVariable Long clubId,
             @Parameter(hidden = true) @AuthenticationPrincipal UserPrincipal currentUser
     );
 }

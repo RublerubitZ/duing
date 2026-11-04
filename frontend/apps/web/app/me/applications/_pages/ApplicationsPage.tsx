@@ -24,6 +24,7 @@ import { ExploreNav } from '@/app/_components/ExploreNav';
 import {
   APPLICATION_STATUS_APPLICANT_LABEL,
   isClosedWithoutResult,
+  isEndedByClubDeactivation,
 } from '@/app/_constants/application-status';
 import { useHydrated } from '@/app/_lib/useHydrated';
 import { ListRowsSkeleton } from '@/components/loading/Skeleton';
@@ -53,9 +54,12 @@ export function toAppStatus(
   status: ApplicationStatus,
   interview: AssignedInterview | null,
   recruitmentStatus: RecruitmentStatus | undefined,
+  endedByClubDeactivation?: boolean,
 ): AppStatus {
   // 모집이 마감됐는데 결과가 없으면 진행 표기(심사 중·면접)는 전부 거짓이다 — 상태 파생 전에 가른다.
   if (isClosedWithoutResult(status, recruitmentStatus)) return 'closed-unresolved';
+  // 운영 중단 정리로 끝난 불합격 — 운영진 불합격('failed')과 가른다. 이전 백엔드(칸 없음)는 'failed' 그대로.
+  if (isEndedByClubDeactivation(status, endedByClubDeactivation)) return 'deactivation-ended';
   switch (status) {
     case 'SUBMITTED':         return 'applied';
     // 보류는 지원자에게 심사 중과 동일하다 — 별도 시각 구분을 두지 않는다 (스펙 §1-1).
@@ -69,10 +73,11 @@ export function toAppStatus(
 function deriveSteps(
   status: ApplicationStatus,
   recruitmentStatus: RecruitmentStatus | undefined,
+  endedByClubDeactivation: boolean | undefined,
 ): Step[] {
   type StepStateValue = 'done' | 'current' | 'pending';
-  // 결과 없이 종료된 지원은 어느 단계도 "진행 중"이 아니다 — 현재 단계 점을 없애 멈춘 진행바로 보이지 않게 한다.
-  if (isClosedWithoutResult(status, recruitmentStatus)) {
+  // 결과 없이 종료된 지원(운영 중단으로 선발이 끝난 지원 포함)은 어느 단계도 "진행 중"이 아니다 — 현재 단계 점을 없애 멈춘 진행바로 보이지 않게 한다.
+  if (isClosedWithoutResult(status, recruitmentStatus) || isEndedByClubDeactivation(status, endedByClubDeactivation)) {
     return [
       { label: '심사',      date: '-', state: 'done'    },
       { label: '면접',      date: '-', state: 'pending' },
@@ -142,8 +147,8 @@ function toApp(summary: ApplicationSummary): App {
     department: '-',
     files: [],
     memo: '',
-    steps: deriveSteps(summary.status, summary.recruitmentStatus),
-    status: toAppStatus(summary.status, summary.interview, summary.recruitmentStatus),
+    steps: deriveSteps(summary.status, summary.recruitmentStatus, summary.endedByClubDeactivation),
+    status: toAppStatus(summary.status, summary.interview, summary.recruitmentStatus, summary.endedByClubDeactivation),
     right: deriveRight(summary.status, summary.interview, summary.recruitmentStatus),
     logo: toLogo(summary.logoUrl, summary.clubName),
   };

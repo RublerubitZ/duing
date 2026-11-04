@@ -24,8 +24,15 @@ function seoulTodayIso(): string {
 // data 가 없을 때 매 렌더 새 [] 를 만들면 useMemo 의존성이 매번 바뀐다 — 모듈 상수로 고정.
 const EMPTY_BOOKINGS: ReadonlyArray<FacilityBookingSummary> = [];
 
-export function FacilityBookingsView({ clubId }: { clubId: number }) {
-  const [activeTab, setActiveTab] = useState<ManageTabKey>('ACTIVE');
+export function FacilityBookingsView({
+  clubId,
+  initialTab = 'ACTIVE',
+}: {
+  clubId: number;
+  /** 주소 `?tab=past` 로 고른 처음 탭(page.tsx). 없으면 진행중. */
+  initialTab?: ManageTabKey;
+}) {
+  const [activeTab, setActiveTab] = useState<ManageTabKey>(initialTab);
   const [selectedBookingId, setSelectedBookingId] = useState<number | null>(null);
   // clubId 유효성(운영 권한·NaN)은 [clubId]/layout.tsx 의 ManageGuard 가 403 으로 처리하므로,
   // 여기서는 항상 유효한 clubId 만 받는다.

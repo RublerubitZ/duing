@@ -1,11 +1,11 @@
 import { describe, it, expect, beforeAll, afterAll, afterEach, vi } from 'vitest';
 import { Suspense } from 'react';
 import type { ReactNode } from 'react';
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { setupServer } from 'msw/node';
-import { http, HttpResponse } from 'msw';
+import { delay, http, HttpResponse } from 'msw';
 import type { DraftAnswer, RecruitmentDetail, RecruitmentQuestionItem } from '@duing/types';
 import { createApiClient } from '@duing/api';
 import { ApiClientProvider, draftQueryKeys } from '@duing/hooks';
@@ -986,5 +986,330 @@ describe('ApplyForm — 제출 확인', () => {
     await submitAndConfirm(user);
     await waitFor(() => expect(capturedBodies).toHaveLength(1));
     await waitFor(() => expect(mockRouterPush).toHaveBeenCalledTimes(1));
+  });
+});
+
+describe('ApplyPage — 임시저장 조회 실패', () => {
+  it('임시저장 조회가 실패하면 폼 대신 다시 시도 안내를 보여주고 빈 답으로 임시저장하지 않는다', async () => {
+    let draftGetCount = 0;
+    let draftPutCount = 0;
+    server.use(
+      // 첫 조회는 만료 토큰 403(u1 배포 전 실제 응답), 다시 시도부터는 저장본을 준다.
+      http.get(`*/recruitments/${RECRUITMENT_ID}/draft`, () => {
+        draftGetCount += 1;
+        if (draftGetCount === 1) {
+          return HttpResponse.json(
+            { ok: false, data: null, message: '권한이 없습니다.' },
+            { status: 403 },
+          );
+        }
+        return HttpResponse.json({
+          ok: true,
+          data: {
+            exists: true,
+            answers: [{ questionId: TEXT_QUESTION_ID, values: ['저장된 답'] }],
+            updatedAt: '2026-11-01T20:00:00',
+          },
+          message: null,
+        });
+      }),
+      http.put(`*/recruitments/${RECRUITMENT_ID}/draft`, () => {
+        draftPutCount += 1;
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+    const user = userEvent.setup();
+    renderApplyPage();
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('임시저장한 답변을 불러오지 못했습니다.');
+    // 403 의 서버 문구는 로그인한 학생에게 오해를 산다 — 고정 문구만 보인다.
+    expect(screen.queryByText('권한이 없습니다.')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '지원서 제출하기' })).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: '동아리 페이지로 돌아가기' })).toHaveAttribute('href', '/clubs/1');
+    // 폼이 없으니 자동저장 디바운스(2초)가 지나도 빈 답 PUT 이 나가지 않는다.
+    await new Promise((resolve) => setTimeout(resolve, 2500));
+    expect(draftPutCount).toBe(0);
+
+    await user.click(screen.getByRole('button', { name: '다시 시도' }));
+    expect(await screen.findByRole('textbox', { name: /지원 동기/ })).toHaveValue('저장된 답');
+    expect(draftGetCount).toBe(2);
+  }, 10_000);
+
+  it('폼이 열린 뒤 임시저장 재조회가 실패해도 폼과 쓰던 답을 그대로 둔다', async () => {
+    const queryClient = makeQueryClient();
+    const user = userEvent.setup();
+    renderApplyPage(queryClient);
+
+    await user.type(await screen.findByRole('textbox', { name: /지원 동기/ }), '쓰던 답');
+    server.use(
+      http.get(`*/recruitments/${RECRUITMENT_ID}/draft`, () =>
+        HttpResponse.json({ ok: false, data: null, message: '권한이 없습니다.' }, { status: 403 }),
+      ),
+    );
+    // 재연결 재조회(refetchOnReconnect)를 흉내 낸다. 50ms 는 React Query 의 변경 알림(setTimeout 0)까지 흘려보낸다 —
+    // 이 대기가 없으면 조건을 isError 하나로 넓힌 구현도 통과해 버린다.
+    await act(async () => {
+      await queryClient.refetchQueries({ queryKey: draftQueryKeys.byRecruitment(RECRUITMENT_ID) });
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    });
+
+    expect(queryClient.getQueryState(draftQueryKeys.byRecruitment(RECRUITMENT_ID))?.status).toBe('error');
+    expect(screen.getByRole('textbox', { name: /지원 동기/ })).toHaveValue('쓰던 답');
+    expect(screen.queryByRole('button', { name: '다시 시도' })).not.toBeInTheDocument();
+  });
+});
+
+describe('자동저장 — 보내는 때와 재전송', () => {
+  const AUTOSAVE_FAILED_TEXT = '임시저장에 실패했어요. 잠시 후 다시 시도해주세요.';
+
+  it('임시저장이 있는 지원서를 열기만 하면 PUT 을 보내지 않고 저장 시각 안내도 그대로다', async () => {
+    let draftPutCount = 0;
+    server.use(
+      http.get(`*/recruitments/${RECRUITMENT_ID}/draft`, () =>
+        HttpResponse.json({
+          ok: true,
+          data: {
+            exists: true,
+            answers: [{ questionId: TEXT_QUESTION_ID, values: ['저장된 답'] }],
+            updatedAt: '2026-11-01T20:00:00',
+          },
+          message: null,
+        }),
+      ),
+      http.put(`*/recruitments/${RECRUITMENT_ID}/draft`, () => {
+        draftPutCount += 1;
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+    renderApplyPage();
+
+    expect(await screen.findByRole('textbox', { name: /지원 동기/ })).toHaveValue('저장된 답');
+    await new Promise((resolve) => setTimeout(resolve, 2500));
+
+    expect(draftPutCount).toBe(0);
+    // 저장에 성공하면 캐시의 updatedAt 이 지금 시각으로 바뀌어 안내도 바뀐다 — 열기만 했으니 그대로여야 한다.
+    expect(screen.getByText('임시저장한 답변을 불러왔어요')).toHaveTextContent('11월 1일 20:00 저장');
+  }, 10_000);
+
+  it('임시저장이 400 이면 같은 내용을 다시 보내지 않고, 답을 고치면 다시 보낸다', async () => {
+    const draftBodies: unknown[] = [];
+    server.use(
+      http.put(`*/recruitments/${RECRUITMENT_ID}/draft`, async ({ request }) => {
+        draftBodies.push(await request.json());
+        return HttpResponse.json(
+          { ok: false, data: null, message: 'answers[0].values[0]: 답변은 2000자 이하여야 합니다.' },
+          { status: 400 },
+        );
+      }),
+    );
+    const user = userEvent.setup();
+    renderForm();
+    const textarea = screen.getByRole('textbox', { name: /지원 동기/ });
+
+    await user.type(textarea, '열정');
+    expect(await screen.findByText(AUTOSAVE_FAILED_TEXT, {}, { timeout: 4000 })).toBeInTheDocument();
+    expect(draftBodies).toHaveLength(1);
+    // 수정 전에는 error 로 바뀔 때마다 2초 뒤 같은 body 를 또 보낸다.
+    await new Promise((resolve) => setTimeout(resolve, 3000));
+    expect(draftBodies).toHaveLength(1);
+
+    await user.type(textarea, '!');
+    await waitFor(() => expect(draftBodies).toHaveLength(2), { timeout: 4000 });
+    expect(draftBodies.at(-1)).toEqual({ answers: [{ questionId: TEXT_QUESTION_ID, values: ['열정!'] }] });
+  }, 15_000);
+
+  it('저장 중에는 다음 PUT 을 보내지 않고, 끝난 뒤 마지막 답을 한 번 보낸다', async () => {
+    const draftBodies: unknown[] = [];
+    server.use(
+      http.put(`*/recruitments/${RECRUITMENT_ID}/draft`, async ({ request }) => {
+        draftBodies.push(await request.json());
+        // 첫 PUT 만 디바운스(2초)보다 오래 걸리게 해 저장 중 입력을 만든다.
+        if (draftBodies.length === 1) await delay(3000);
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+    const user = userEvent.setup();
+    renderForm();
+    const textarea = screen.getByRole('textbox', { name: /지원 동기/ });
+
+    await user.type(textarea, '첫');
+    await waitFor(() => expect(draftBodies).toHaveLength(1), { timeout: 4000 });
+    await user.type(textarea, '째');
+    await new Promise((resolve) => setTimeout(resolve, 2500));
+    expect(draftBodies).toHaveLength(1);
+
+    await waitFor(() => expect(draftBodies).toHaveLength(2), { timeout: 5000 });
+    expect(draftBodies[1]).toEqual({ answers: [{ questionId: TEXT_QUESTION_ID, values: ['첫째'] }] });
+  }, 15_000);
+
+  it('임시저장이 500 이면 2초 뒤 같은 내용을 다시 보내 저장한다', async () => {
+    let draftPutCount = 0;
+    server.use(
+      http.put(`*/recruitments/${RECRUITMENT_ID}/draft`, () => {
+        draftPutCount += 1;
+        if (draftPutCount === 1) {
+          return HttpResponse.json(
+            { ok: false, data: null, message: '일시적인 오류가 발생했습니다.' },
+            { status: 500 },
+          );
+        }
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+    const user = userEvent.setup();
+    renderForm();
+
+    await user.type(screen.getByRole('textbox', { name: /지원 동기/ }), '열정');
+    expect(await screen.findByText(/^마지막 저장 /, {}, { timeout: 7000 })).toBeInTheDocument();
+    expect(draftPutCount).toBe(2);
+  }, 15_000);
+
+  it('임시저장이 404 이면 같은 내용을 다시 보내지 않고, 답을 고치면 다시 보낸다', async () => {
+    const draftBodies: unknown[] = [];
+    server.use(
+      http.put(`*/recruitments/${RECRUITMENT_ID}/draft`, async ({ request }) => {
+        draftBodies.push(await request.json());
+        return HttpResponse.json(
+          { ok: false, data: null, message: '모집 공고를 찾을 수 없습니다.' },
+          { status: 404 },
+        );
+      }),
+    );
+    const user = userEvent.setup();
+    renderForm();
+    const textarea = screen.getByRole('textbox', { name: /지원 동기/ });
+
+    await user.type(textarea, '열정');
+    expect(await screen.findByText(AUTOSAVE_FAILED_TEXT, {}, { timeout: 4000 })).toBeInTheDocument();
+    expect(draftBodies).toHaveLength(1);
+    await new Promise((resolve) => setTimeout(resolve, 3000));
+    expect(draftBodies).toHaveLength(1);
+
+    await user.type(textarea, '!');
+    await waitFor(() => expect(draftBodies).toHaveLength(2), { timeout: 4000 });
+    expect(draftBodies.at(-1)).toEqual({ answers: [{ questionId: TEXT_QUESTION_ID, values: ['열정!'] }] });
+  }, 15_000);
+
+  it('임시저장이 401 이면 2초 뒤 같은 내용을 다시 보내 저장한다', async () => {
+    const draftBodies: unknown[] = [];
+    server.use(
+      http.put(`*/recruitments/${RECRUITMENT_ID}/draft`, async ({ request }) => {
+        draftBodies.push(await request.json());
+        // 갱신이 잠깐 안 돼(unavailable) 원래 401 이 올라온 경우 — 세션은 살아 있으니 멈추면 마지막 답을 잃는다.
+        if (draftBodies.length === 1) {
+          return HttpResponse.json({ ok: false, data: null, message: '인증이 필요합니다.' }, { status: 401 });
+        }
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+    const user = userEvent.setup();
+    renderForm();
+
+    await user.type(screen.getByRole('textbox', { name: /지원 동기/ }), '열정');
+    expect(await screen.findByText(/^마지막 저장 /, {}, { timeout: 7000 })).toBeInTheDocument();
+    expect(draftBodies).toEqual([
+      { answers: [{ questionId: TEXT_QUESTION_ID, values: ['열정'] }] },
+      { answers: [{ questionId: TEXT_QUESTION_ID, values: ['열정'] }] },
+    ]);
+  }, 15_000);
+
+  const OVERFLOW_TEXT = /^2000자를 넘은 답변이 있어 임시저장하지 않았어요/;
+
+  // 한글 조합 중엔 textarea 값이 maxLength 를 잠깐 넘는다 — fireEvent.change 로 그 값을 흉내 낸다(user.type 은 maxLength 를 지킨다).
+  it('주관식이 2000자를 넘으면 PUT 대신 안내를 띄우고, 2000자 이내로 돌아오면 다시 저장한다', async () => {
+    const draftBodies: unknown[] = [];
+    server.use(
+      http.put(`*/recruitments/${RECRUITMENT_ID}/draft`, async ({ request }) => {
+        draftBodies.push(await request.json());
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+    renderForm();
+    const textarea = screen.getByRole('textbox', { name: /지원 동기/ });
+    const fullText = 'a'.repeat(2000);
+
+    fireEvent.change(textarea, { target: { value: fullText } });
+    await waitFor(() => expect(draftBodies).toHaveLength(1), { timeout: 4000 });
+    expect(draftBodies[0]).toEqual({ answers: [{ questionId: TEXT_QUESTION_ID, values: [fullText] }] });
+    expect(await screen.findByText(/^마지막 저장 /, {}, { timeout: 4000 })).toBeInTheDocument();
+
+    fireEvent.change(textarea, { target: { value: `${fullText}b` } });
+    await new Promise((resolve) => setTimeout(resolve, 3000));
+    expect(draftBodies).toHaveLength(1);
+    expect(await screen.findByText(OVERFLOW_TEXT, {}, { timeout: 4000 })).toBeInTheDocument();
+    expect(screen.getByText('2001/2000')).toBeInTheDocument();
+
+    // 직전 저장값과 같은 2000자로 돌아와도 다시 저장해야 안내가 사라진다.
+    fireEvent.change(textarea, { target: { value: fullText } });
+    await waitFor(() => expect(draftBodies).toHaveLength(2), { timeout: 4000 });
+    expect(draftBodies[1]).toEqual({ answers: [{ questionId: TEXT_QUESTION_ID, values: [fullText] }] });
+    expect(await screen.findByText(/^마지막 저장 /, {}, { timeout: 4000 })).toBeInTheDocument();
+    expect(screen.queryByText(OVERFLOW_TEXT)).not.toBeInTheDocument();
+
+    const otherFullText = `${'a'.repeat(1999)}b`;
+    fireEvent.change(textarea, { target: { value: otherFullText } });
+    await waitFor(() => expect(draftBodies).toHaveLength(3), { timeout: 4000 });
+    expect(draftBodies.at(-1)).toEqual({ answers: [{ questionId: TEXT_QUESTION_ID, values: [otherFullText] }] });
+  }, 20_000);
+
+  it('불러온 임시저장이 2000자를 넘으면 다른 답을 고쳐도 PUT 대신 안내를 띄우고, 줄이면 저장한다', async () => {
+    const draftBodies: unknown[] = [];
+    const overflowText = 'a'.repeat(2300);
+    server.use(
+      mockRecruitmentDetailHandler(makeRecruitment({ questionItems: MIXED_QUESTION_ITEMS })),
+      http.get(`*/recruitments/${RECRUITMENT_ID}/draft`, () =>
+        HttpResponse.json({
+          ok: true,
+          data: {
+            exists: true,
+            answers: [{ questionId: TEXT_QUESTION_ID, values: [overflowText] }],
+            updatedAt: '2026-07-01T09:00:00',
+          },
+          message: null,
+        }),
+      ),
+      http.put(`*/recruitments/${RECRUITMENT_ID}/draft`, async ({ request }) => {
+        draftBodies.push(await request.json());
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+    const user = userEvent.setup();
+    renderApplyPage();
+
+    const textarea = await screen.findByRole('textbox', { name: /지원 동기/ });
+    expect(textarea).toHaveValue(overflowText);
+    await user.click(screen.getByRole('radio', { name: '월요일' }));
+    await new Promise((resolve) => setTimeout(resolve, 3000));
+    expect(draftBodies).toHaveLength(0);
+    expect(await screen.findByText(OVERFLOW_TEXT, {}, { timeout: 4000 })).toBeInTheDocument();
+    expect(screen.getByText('2300/2000')).toBeInTheDocument();
+
+    const fullText = 'a'.repeat(2000);
+    fireEvent.change(textarea, { target: { value: fullText } });
+    await waitFor(() => expect(draftBodies).toHaveLength(1), { timeout: 4000 });
+    expect(draftBodies[0]).toEqual({
+      answers: [
+        { questionId: TEXT_QUESTION_ID, values: [fullText] },
+        { questionId: SINGLE_QUESTION_ID, values: [SINGLE_CHOICE_MONDAY_ID] },
+        { questionId: MULTI_QUESTION_ID, values: [] },
+      ],
+    });
+    expect(await screen.findByText(/^마지막 저장 /, {}, { timeout: 4000 })).toBeInTheDocument();
+    expect(screen.queryByText(OVERFLOW_TEXT)).not.toBeInTheDocument();
+  }, 20_000);
+});
+
+describe('ApplyForm — 주관식 글자 수', () => {
+  it('주관식 입력칸은 서버 한도 2000자로 막고 지금 글자 수를 보여준다', async () => {
+    const user = userEvent.setup();
+    renderForm();
+    const textarea = screen.getByRole('textbox', { name: /지원 동기/ });
+
+    // 서버 UpsertDraftRequest·SubmitApplicationRequest 의 @Size(max = 2000) 과 같은 값이다.
+    expect(textarea).toHaveAttribute('maxlength', '2000');
+    expect(screen.getByText('0/2000')).toBeInTheDocument();
+
+    await user.type(textarea, '열정');
+    expect(screen.getByText('2/2000')).toBeInTheDocument();
   });
 });

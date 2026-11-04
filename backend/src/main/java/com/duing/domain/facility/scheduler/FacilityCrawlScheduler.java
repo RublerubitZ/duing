@@ -1,11 +1,19 @@
 package com.duing.domain.facility.scheduler;
 
 import com.duing.domain.facility.entity.CrawlSource;
+import com.duing.domain.facility.entity.FetchStatus;
 import com.duing.domain.facility.repository.FacilityRepository;
 import com.duing.domain.facility.service.FacilityCrawlService;
 import com.duing.domain.facility.service.FacilitySyncService;
+import com.duing.domain.facility.service.dto.query.CrawlSummary;
+import com.duing.global.jobrun.JobRunOutcome;
+import com.duing.global.jobrun.JobRunRecorder;
+import com.duing.global.jobrun.MonitoredJob;
 import java.time.Clock;
+import java.time.Instant;
 import java.time.YearMonth;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -33,6 +41,7 @@ public class FacilityCrawlScheduler {
     private final FacilitySyncService syncService;
     private final FacilityRepository facilityRepository;
     private final Clock clock;
+    private final JobRunRecorder jobRunRecorder;
 
     private final AtomicBoolean reservationRunning = new AtomicBoolean(false);
     private final AtomicBoolean syncRunning = new AtomicBoolean(false);
@@ -56,14 +65,41 @@ public class FacilityCrawlScheduler {
             log.info("Facility Crawl skip: 이전 예약 수집 사이클이 아직 진행 중");
             return;
         }
+        Instant startedAt = Instant.now(clock);
         try {
             YearMonth current = YearMonth.now(clock);
             YearMonth next = current.plusMonths(1);
-            crawlService.refreshMonthLocked(current, CrawlSource.SCHEDULER);
-            crawlService.refreshMonthLocked(next, CrawlSource.SCHEDULER);
+            CrawlSummary currentSummary = crawlService.refreshMonthLocked(current, CrawlSource.SCHEDULER);
+            CrawlSummary nextSummary = crawlService.refreshMonthLocked(next, CrawlSource.SCHEDULER);
+            recordReservationCrawl(startedAt, currentSummary, nextSummary);
+        } catch (RuntimeException crawlFailure) {
+            jobRunRecorder.record(MonitoredJob.FACILITY_RESERVATION_CRAWL, startedAt, JobRunOutcome.FAILED, 0, 0);
+            throw crawlFailure;
         } finally {
             reservationRunning.set(false);
         }
+    }
+
+    /**
+     * 총동연 홈 자동 작업 카드용 기록 — 결과는 두 달 상태로만 정한다(실패 룸 없이 PARTIAL 인 달도 있다: 일부 칸을 읽지 못한 달).
+     * 결과 건수는 이번 달 성공 룸 수, 실패 건수는 두 달 실패 룸의 중복 없는 합(같은 룸이 두 달 모두 실패해도 한 곳).
+     */
+    private void recordReservationCrawl(Instant startedAt, CrawlSummary currentSummary, CrawlSummary nextSummary) {
+        Set<Integer> failedRooms = new HashSet<>(currentSummary.failedRooms());
+        failedRooms.addAll(nextSummary.failedRooms());
+        jobRunRecorder.record(MonitoredJob.FACILITY_RESERVATION_CRAWL, startedAt,
+                crawlOutcome(currentSummary.status(), nextSummary.status()),
+                currentSummary.succeededRooms(), failedRooms.size());
+    }
+
+    private static JobRunOutcome crawlOutcome(FetchStatus currentStatus, FetchStatus nextStatus) {
+        if (currentStatus == FetchStatus.FAILED && nextStatus == FetchStatus.FAILED) {
+            return JobRunOutcome.FAILED;
+        }
+        if (currentStatus != FetchStatus.SUCCESS || nextStatus != FetchStatus.SUCCESS) {
+            return JobRunOutcome.PARTIAL;
+        }
+        return JobRunOutcome.SUCCESS;
     }
 
     @Scheduled(cron = "0 0 4 * * *", zone = "Asia/Seoul")

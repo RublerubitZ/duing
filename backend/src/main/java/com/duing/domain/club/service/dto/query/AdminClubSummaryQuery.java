@@ -26,6 +26,18 @@ public record AdminClubSummaryQuery(
         boolean facilitySecuredTimeTarget,
         String rejectionReason,
         LocalDateTime statusChangedAt,
-        String statusChangedByName
+        String statusChangedByName,
+        LocalDateTime pendingSince,
+        // 운영 중단(INACTIVE) 동아리만 채우고(0 포함) 다른 상태는 null — 목록·집계의 남은 미결 판정은 ClubRepositoryImpl 이다 — 정리 실행은 각 도메인 저장소 조회를 쓰고 동치 테스트로 묶는다(스펙 §3-1).
+        // 총동연 모집 목록의 pendingApplicationCount(SUBMITTED 만)와 뜻이 달라 이름을 달리한다(제출·보류·면접 대기).
+        Long undecidedApplicationCount,
+        Long pendingJoinRequestCount,
+        // signal 을 보낸 요청만 객체, 아니면 null(응답에 null 키 — 옛 백엔드의 "키 없음"과 구분된다). 동아리 신호 스펙 §6-1.
+        AdminClubSignalDetailQuery signalDetail
 ) {
+    public AdminClubSummaryQuery withSignalDetail(AdminClubSignalDetailQuery nextSignalDetail) {
+        return new AdminClubSummaryQuery(id, name, category, division, college, logoUrl, status, tags, leaderId, leaderName,
+                leaderStudentId, centralClub, facilitySecuredTimeTarget, rejectionReason, statusChangedAt,
+                statusChangedByName, pendingSince, undecidedApplicationCount, pendingJoinRequestCount, nextSignalDetail);
+    }
 }

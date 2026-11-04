@@ -215,18 +215,18 @@ export function AdminFaqListPage() {
 
                     return (
                       <tr key={faq.id} className="border-t border-line">
-                        <Td>
+                        <Td className="break-keep">
                           <div className="flex flex-wrap items-center gap-2">
                             {faq.pinned && (
-                              <span className="rounded-full bg-ink px-2 py-0.5 text-[10.5px] font-bold text-paper">고정</span>
+                              <span className="whitespace-nowrap rounded-full bg-ink px-2 py-0.5 text-[10.5px] font-bold text-paper">고정</span>
                             )}
                             <Link href={toRoute(`/admin/faqs/${faq.id}/edit`)} className="hover:underline">
                               {faq.question}
                             </Link>
                           </div>
                         </Td>
-                        <Td>{faq.categoryName ?? '—'}</Td>
-                        <Td>
+                        <Td className="whitespace-nowrap">{faq.categoryName ?? '—'}</Td>
+                        <Td className="whitespace-nowrap">
                           <span
                             className={cn(
                               'inline-block px-2 py-0.5 rounded-full text-[11.5px] font-semibold',
@@ -234,8 +234,8 @@ export function AdminFaqListPage() {
                             )}
                           >{faq.published ? '공개' : '비공개'}</span>
                         </Td>
-                        <Td>{faq.viewCount}</Td>
-                        <Td>
+                        <Td className="whitespace-nowrap">{faq.viewCount}</Td>
+                        <Td className="whitespace-nowrap">
                           <span
                             className={cn(
                               'font-medium tabular-nums',
@@ -247,7 +247,7 @@ export function AdminFaqListPage() {
                             {faq.helpfulCount} / {faq.notHelpfulCount}
                           </span>
                         </Td>
-                        <Td>{formatDateKst(faq.updatedAt)}</Td>
+                        <Td className="whitespace-nowrap">{formatDateKst(faq.updatedAt)}</Td>
                         <Td>
                           <div className="flex gap-1">
                             <button
@@ -268,7 +268,7 @@ export function AdminFaqListPage() {
                             >▼</button>
                           </div>
                         </Td>
-                        <Td>
+                        <Td className="whitespace-nowrap">
                           <div className="flex flex-wrap gap-2">
                             <button
                               type="button"
@@ -328,8 +328,8 @@ export function AdminFaqListPage() {
 }
 
 const Th = ({ children }: { children: React.ReactNode }) => (
-  <th className="text-left px-3 py-2 font-semibold">{children}</th>
+  <th className="whitespace-nowrap text-left px-3 py-2 font-semibold">{children}</th>
 );
-const Td = ({ children }: { children: React.ReactNode }) => (
-  <td className="px-3 py-2 align-middle">{children}</td>
+const Td = ({ children, className }: { children: React.ReactNode; className?: string }) => (
+  <td className={cn('px-3 py-2 align-middle', className)}>{children}</td>
 );

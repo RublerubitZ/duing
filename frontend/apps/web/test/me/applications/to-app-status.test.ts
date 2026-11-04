@@ -44,3 +44,22 @@ describe('toAppStatus — 모집 마감 축', () => {
     );
   });
 });
+
+describe('toAppStatus — 운영 중단 정리 축', () => {
+  it('불합격이고 표시 칸이 참이면(운영 중단 정리) deactivation-ended — 모집 상태와 무관', () => {
+    expect(toAppStatus('REJECTED', null, 'CLOSED', true)).toBe('deactivation-ended');
+    expect(toAppStatus('REJECTED', null, 'OPEN', true)).toBe('deactivation-ended');
+    // 목록 응답의 interview 칸은 상태와 무관하게 채워진다(스펙 §4-1) — 남은 일정이 있어도 면접 표기로 가지 않는다(스펙 §9 #4).
+    expect(toAppStatus('REJECTED', ASSIGNED_INTERVIEW, 'CLOSED', true)).toBe('deactivation-ended');
+  });
+
+  it('운영진 불합격(표시 칸 거짓)·이전 백엔드(칸 없음)는 지금처럼 failed', () => {
+    expect(toAppStatus('REJECTED', null, 'CLOSED', false)).toBe('failed');
+    expect(toAppStatus('REJECTED', null, 'CLOSED', undefined)).toBe('failed');
+    expect(toAppStatus('REJECTED', null, 'CLOSED')).toBe('failed');
+  });
+
+  it('불합격이 아니면 표시 칸을 보지 않는다', () => {
+    expect(toAppStatus('ACCEPTED', null, 'CLOSED', true)).toBe('passed');
+  });
+});

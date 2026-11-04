@@ -4,6 +4,7 @@ import {
   todayKstDateString,
   isTodayKst,
   daysUntilKst,
+  daysSinceKst,
   parseKstInstant,
 } from '../src/dashboardDate';
 
@@ -35,6 +36,17 @@ describe('dashboardDate', () => {
   it('daysUntilKst: KST 자정 직전(23:59)도 당일로 계산', () => {
     // 2026-06-12T14:59:00Z == 2026-06-12 23:59 KST → 6/13까지 1일
     expect(daysUntilKst('2026-06-13', new Date('2026-06-12T14:59:00Z'))).toBe(1);
+  });
+
+  it('daysSinceKst: KST 달력 기준 지난 일수, 미래(기기 시계가 늦음)는 0', () => {
+    const now = new Date('2026-10-29T03:00:00Z'); // 10/29 KST 12:00
+    expect(daysSinceKst('2026-10-22T03:00:00Z', now)).toBe(7);
+    expect(daysSinceKst('2026-10-29T00:30:00Z', now)).toBe(0);
+    expect(daysSinceKst('2026-10-30T03:00:00Z', now)).toBe(0);
+    // 실제 응답 Instant 는 소수 초가 붙는다(…T03:00:00.123456Z)
+    expect(daysSinceKst('2026-10-22T03:00:00.123456Z', now)).toBe(7);
+    // 자정 직후 — 1시간 전 접수도 KST 날짜로는 1일(오프셋 없는 값은 KST)
+    expect(daysSinceKst('2026-10-28T23:30:00', new Date('2026-10-28T15:30:00Z'))).toBe(1);
   });
 });
 

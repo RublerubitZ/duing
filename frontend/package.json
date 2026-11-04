@@ -20,12 +20,13 @@
   "devDependencies": {
     "dependency-cruiser": "^16.10.4",
     "openapi-typescript": "^7.4.4",
-    "prettier": "^3.9.9",
+    "prettier": "^3.9.10",
     "typescript": "^5.6.3"
   },
   "pnpm": {
     "overrides": {
-      "next>postcss": "^8.5.28"
+      "next>postcss": "^8.5.28",
+      "@opentelemetry/api": ">=1.9.1 <1.10.0"
     },
     "patchedDependencies": {
       "next-view-transitions@0.3.5": "patches/next-view-transitions@0.3.5.patch"

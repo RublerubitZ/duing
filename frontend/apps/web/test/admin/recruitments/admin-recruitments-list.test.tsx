@@ -15,8 +15,10 @@ vi.mock('@duing/hooks', () => ({
 // 검색어는 의도적으로 주소에 싣지 않는다 — replace 호출 여부로 그 약속을 지킨다.
 const mockPush = vi.fn();
 const mockReplace = vi.fn();
+const mockSearchParams = vi.fn(() => new URLSearchParams());
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: mockPush, replace: mockReplace }),
+  useSearchParams: () => mockSearchParams(),
 }));
 
 vi.mock('next/link', () => ({
@@ -86,6 +88,7 @@ function rowByTitle(title: string): HTMLElement {
 }
 
 beforeEach(() => {
+  mockSearchParams.mockReturnValue(new URLSearchParams());
   vi.clearAllMocks();
   mockRecruitmentsQuery.mockReturnValue(listSuccess([makeRecruitment()]));
 });
@@ -364,5 +367,31 @@ describe('관리자 모집 목록', () => {
     render(<AdminRecruitmentsPage />);
 
     expect(screen.getByRole('alert')).toHaveTextContent('모집을 불러오지 못했어요.');
+  });
+});
+
+describe('주소 초기 필터', () => {
+  it('총동연 홈 칸에서 온 ?status=OPEN&sort=STALE 를 첫 상태·정렬로 쓴다', () => {
+    mockSearchParams.mockReturnValue(new URLSearchParams('status=OPEN&sort=STALE'));
+    render(<AdminRecruitmentsPage />);
+    expect(mockRecruitmentsQuery).toHaveBeenCalledWith(expect.objectContaining({ status: 'OPEN', sort: 'STALE' }));
+  });
+
+  it('모르는 값이면 전체 상태·최신순으로 연다', () => {
+    mockSearchParams.mockReturnValue(new URLSearchParams('status=DRAFT&sort=RANDOM'));
+    render(<AdminRecruitmentsPage />);
+    expect(mockRecruitmentsQuery).toHaveBeenCalledWith(expect.objectContaining({ status: undefined, sort: 'LATEST' }));
+  });
+
+  it('주소 쿼리만 바뀌어도 첫 상태·정렬부터 다시 시작한다', () => {
+    mockSearchParams.mockReturnValue(new URLSearchParams('status=OPEN&sort=STALE'));
+    const { rerender } = render(<AdminRecruitmentsPage />);
+    mockRecruitmentsQuery.mockClear();
+
+    mockSearchParams.mockReturnValue(new URLSearchParams());
+    rerender(<AdminRecruitmentsPage />);
+
+    expect(mockRecruitmentsQuery).toHaveBeenCalledWith(expect.objectContaining({ status: undefined, sort: 'LATEST' }));
+    expect(mockRecruitmentsQuery).not.toHaveBeenCalledWith(expect.objectContaining({ status: 'OPEN', sort: 'STALE' }));
   });
 });

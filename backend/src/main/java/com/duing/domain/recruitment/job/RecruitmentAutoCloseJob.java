@@ -1,6 +1,11 @@
 package com.duing.domain.recruitment.job;
 
 import com.duing.domain.recruitment.service.RecruitmentAutoCloseService;
+import com.duing.global.jobrun.JobRunOutcome;
+import com.duing.global.jobrun.JobRunRecorder;
+import com.duing.global.jobrun.MonitoredJob;
+import java.time.Clock;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
@@ -19,6 +24,7 @@ import org.springframework.stereotype.Component;
  * 스케줄러로 내보낸다(형제 잡 관례).
  * 마감마다 다른 동아리 경로라 상세 재생성 리스너의 최소 간격이 합쳐 주지 못하고 단일 스레드·큐 100 실행기에 쌓인다 — 넘친
  * 요청은 WARN 뒤 버려지지만 상세 표기는 만료-OPEN 과 CLOSED 가 같아 피해가 작다.
+ * <p>끝날 때 총동연 홈 자동 작업 카드용 실행 기록을 남긴다(JobRunRecorder — 기록 실패는 잡에 영향 없음).
  */
 @Component
 @RequiredArgsConstructor
@@ -30,31 +36,42 @@ public class RecruitmentAutoCloseJob {
     private static final String SUMMARY_LOG_FORMAT = "RecruitmentAutoCloseJob done: candidates={}, closed={}, failed={}";
 
     private final RecruitmentAutoCloseService recruitmentAutoCloseService;
+    private final Clock clock;
+    private final JobRunRecorder jobRunRecorder;
 
     // 트랜잭션을 두지 않는다 — 두면 모집별 마감이 한 트랜잭션에 합류해 잠금 조회가 첫 조회라는 보장이 깨지고,
     // 한 모집의 실패가 전체를 롤백한다. 메서드 이름 run 은 RecruitmentAutoCloseScheduleRegistrationTest 가 확인한다.
     @Scheduled(cron = "0 40 0 * * *", zone = "Asia/Seoul")
     public void run() {
-        List<Long> candidateIds = recruitmentAutoCloseService.findCandidateIds();
-        log.info("RecruitmentAutoCloseJob start: candidates={}", candidateIds.size());
-        List<Long> closedIds = new ArrayList<>();
-        int failedCount = 0;
-        for (Long recruitmentId : candidateIds) {
-            try {
-                if (recruitmentAutoCloseService.closeIfSettled(recruitmentId)) {
-                    closedIds.add(recruitmentId);
+        Instant startedAt = Instant.now(clock);
+        try {
+            List<Long> candidateIds = recruitmentAutoCloseService.findCandidateIds();
+            log.info("RecruitmentAutoCloseJob start: candidates={}", candidateIds.size());
+            List<Long> closedIds = new ArrayList<>();
+            int failedCount = 0;
+            for (Long recruitmentId : candidateIds) {
+                try {
+                    if (recruitmentAutoCloseService.closeIfSettled(recruitmentId)) {
+                        closedIds.add(recruitmentId);
+                    }
+                } catch (RuntimeException closeFailure) {
+                    failedCount++;
+                    log.warn("RecruitmentAutoCloseJob: 마감 실패 — 다음 날 다시 판정 recruitmentId={}",
+                            recruitmentId, closeFailure);
                 }
-            } catch (RuntimeException closeFailure) {
-                failedCount++;
-                log.warn("RecruitmentAutoCloseJob: 마감 실패 — 다음 날 다시 판정 recruitmentId={}",
-                        recruitmentId, closeFailure);
             }
-        }
-        log.info("RecruitmentAutoCloseJob closed ids={}", closedIds);
-        if (failedCount == 0) {
-            log.info(SUMMARY_LOG_FORMAT, candidateIds.size(), closedIds.size(), failedCount);
-        } else {
-            log.warn(SUMMARY_LOG_FORMAT, candidateIds.size(), closedIds.size(), failedCount);
+            log.info("RecruitmentAutoCloseJob closed ids={}", closedIds);
+            if (failedCount == 0) {
+                log.info(SUMMARY_LOG_FORMAT, candidateIds.size(), closedIds.size(), failedCount);
+            } else {
+                log.warn(SUMMARY_LOG_FORMAT, candidateIds.size(), closedIds.size(), failedCount);
+            }
+            jobRunRecorder.record(MonitoredJob.RECRUITMENT_AUTO_CLOSE, startedAt,
+                    JobRunOutcome.of(failedCount), closedIds.size(), failedCount);
+        } catch (RuntimeException jobFailure) {
+            // 후보 조회 실패는 삼키지 않고 스케줄러로 내보낸다(형제 잡 관례) — 실패만 기록하고 같은 예외를 다시 던진다.
+            jobRunRecorder.record(MonitoredJob.RECRUITMENT_AUTO_CLOSE, startedAt, JobRunOutcome.FAILED, 0, 0);
+            throw jobFailure;
         }
     }
 }

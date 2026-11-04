@@ -27,6 +27,20 @@ export type AdminClubSummary = {
   rejectionReason: string | null;
   statusChangedAt: string | null;
   statusChangedByName: string | null;
+  /** 승인 대기에 들어온 시각(승인 대기가 아니면 null). 필드가 없으면 옛 백엔드 — 총동연 홈이 '시각 모름'으로 물러선다. */
+  pendingSince?: string | null;
+  /**
+   * 운영 중단 동아리의 남은 결과 미정 지원서 수(제출·보류·면접 대기, 삭제된 모집 제외, 0 포함). 운영 중단이 아니면 null.
+   * 필드가 없으면 옛 백엔드 — 화면은 건수·정리 버튼·홈 대기열 행을 그리지 않는다.
+   */
+  undecidedApplicationCount?: number | null;
+  /** 운영 중단 동아리의 남은 대기 가입 신청 수(0 포함). 운영 중단이 아니면 null, 필드가 없으면 옛 백엔드. */
+  pendingJoinRequestCount?: number | null;
+  /**
+   * 신호 목록(signal 을 보낸 요청)의 행 재료. signal 을 보냈으면 객체, 아니면 null.
+   * 키가 없으면 신호를 모르는 옛 백엔드다 — 목록 화면은 롤백 가드로 물러선다(null 과 구분한다).
+   */
+  signalDetail?: AdminClubSignalDetail | null;
 };
 
 // === 시설 예약 오픈일(총동연) — 시설별 booking_open_date ===
@@ -91,12 +105,49 @@ export type AdminCrawlReservationParams = {
 
 export type AdminClubSearchParams = {
   status?: ClubStatus;
+  /** true 면 운영 중단 동아리 중 남은 미결이 있는 곳만(status 와 함께 걸린다). 옛 백엔드는 모르는 파라미터라 무시한다. */
+  needsPendingCleanup?: boolean;
+  /** 신호 필터 — 운영 중 조건을 품고 다른 조건과 모두 건다. 옛 백엔드는 모르는 파라미터라 무시한다(목록의 롤백 가드가 받는다). */
+  signal?: AdminClubSignal;
   category?: ClubCategory;
   division?: string;
   keyword?: string;
   page?: number;
   size?: number;
   sort?: string;
+};
+
+/** POST /admin/clubs/{clubId}/pending-cleanup 응답 — 실제로 불합격·거절 처리한 건수(두 번째 실행은 0·0). */
+export type AdminClubPendingCleanupResult = {
+  rejectedApplicationCount: number;
+  rejectedJoinRequestCount: number;
+};
+
+/** 총동연 동아리 목록 신호(요청 전용 — 서버는 저장하지 않는다). 신호 이름·묶음은 apps/web clubs/_lib/clubSignals.ts 한 곳에서 정한다. */
+export type AdminClubSignal = 'RESULT_WAITING' | 'JOIN_REQUEST_WAITING' | 'NO_RECORD' | 'OPERATOR_INACTIVE';
+
+/**
+ * 신호 목록 행의 재료. 신호와 무관한 하위 레코드는 null 이고(NO_RECORD·OPERATOR_INACTIVE 는 둘 다 null),
+ * 행 조회와 재료 조회 사이에 처리돼 재료가 없으면 그 하위 레코드도 null 이다 — 화면은 경과일이 8일 이상이라고 가정하지 않는다.
+ */
+export type AdminClubSignalDetail = {
+  /** 운영진(회장·임원) 세션 사용·로그인 중 늦은 시각(ISO Instant). 기록이 없으면 null. */
+  operatorsLastActiveAt: IsoInstantString | null;
+  resultWaiting: {
+    oldestRecruitmentId: number;
+    oldestRecruitmentTitle: string;
+    /** 그 동아리 신호 모집 중 가장 이른 끝난 날 — KST 날짜 'YYYY-MM-DD' */
+    oldestEndedOn: string;
+    /** 그 동아리 신호 모집 수 */
+    recruitmentCount: number;
+    /** 그 동아리 신호 모집들의 결과 미확정 지원 합(지원서 단위) */
+    applicationCount: number;
+  } | null;
+  joinRequestWaiting: {
+    /** 그 동아리 대기 신청 전부(7일 안 신청 포함) */
+    requestCount: number;
+    oldestRequestedAt: IsoInstantString;
+  } | null;
 };
 
 /** 계정 상태. SUSPENDED 는 로그인·API 접근이 차단된 이용 정지이며 탈퇴와 별개다. */
@@ -526,7 +577,61 @@ export type AdminPendingCounts = {
   leaderSuccession: number;
   /** 제출 후 7일 넘게 처리되지 않은 지원서가 있는 진행 중 모집 수 — 운영진 미처리 리마인더 대상과 같은 집합. */
   stalePendingRecruitment: number;
+  /**
+   * 남은 미결(결과 미정 지원서·대기 가입 신청)이 있는 운영 중단 동아리 수 — totalPendingCount 에 포함된다.
+   * 필드가 없으면 옛 백엔드 — 총동연 홈은 이 칸을 그리지 않는다.
+   */
+  inactiveClubPending?: number;
   totalPendingCount: number;
+};
+
+/** 처리 대기 추이의 하루 — 그날 하루 끝(다음 날 00:01 KST) 남은 대기 건수 합계. 기록이 없는 날은 null(0 과 다르다). */
+export type AdminPendingTrendDay = {
+  /** KST 날짜 "YYYY-MM-DD" */
+  date: string;
+  totalPendingCount: number | null;
+};
+
+/**
+ * GET /admin/pending-trend 응답 — 총동연 홈 처리 대기 추이.
+ * days 는 지난 13일(오래된 날부터, 마지막이 KST 어제). 오늘 값은 이 응답에 없다 — 머리말과 같은 pending-counts 의
+ * totalPendingCount 를 쓴다. recentFlow 는 최근 7일(롤링) 접수·처리로 신고·문의·시설 예약·홍보·회장 승계만 센다.
+ */
+export type AdminPendingTrend = {
+  days: AdminPendingTrendDay[];
+  recentFlow: { days: number; receivedCount: number; handledCount: number };
+};
+
+/** 총동연 홈 자동 작업 키 — 서버 MonitoredJob 선언 순서와 같다. */
+export type AdminJobKey =
+  | 'RECRUITMENT_AUTO_CLOSE'
+  | 'APPLICATION_PENDING_REMINDER'
+  | 'FACILITY_RESERVATION_CRAWL'
+  | 'FACILITY_BOOKING_MATCHING'
+  | 'FEDERATION_INQUIRY_PURGE';
+
+/** 자동 작업 한 줄의 화면 상태 — 판정은 서버가 한다. NOT_YET = 첫 실행 전, OVERDUE = 늦음, DISABLED = 꺼짐. */
+export type AdminJobHealth = 'OK' | 'PARTIAL' | 'FAILED' | 'OVERDUE' | 'NOT_YET' | 'DISABLED';
+
+/**
+ * GET /admin/job-statuses 의 한 줄. job·health 는 앞선 백엔드가 모르는 값을 보낼 수 있어 string 이다 —
+ * 화면은 아는 키만 그리고(AdminJobKey), 모르는 상태는 경고로 세지 않는다(fail-open).
+ * 시각은 ISO Instant(…Z). 기록이 없으면 job·health 를 뺀 값이 null 이다.
+ */
+export type AdminJobStatus = {
+  job: string;
+  health: string;
+  lastFinishedAt: string | null;
+  lastSucceededAt: string | null;
+  /** SUCCESS·PARTIAL·FAILED */
+  lastOutcome: string | null;
+  resultCount: number | null;
+  failedCount: number | null;
+};
+
+/** GET /admin/job-statuses 응답 — 작업 5개, 서버 순서. */
+export type AdminJobStatuses = {
+  jobs: AdminJobStatus[];
 };
 
 /**

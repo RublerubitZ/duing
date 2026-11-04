@@ -2,16 +2,35 @@ import type {
   ActionItem,
   ActionItemType,
   ApplicantStatusTotals,
+  BookingStatus,
+  DashboardTask,
+  DashboardTaskGroup,
+  DashboardTaskGroupKey,
+  FacilityAttentionStatus,
+  FacilityBookingSummary,
+  FeeBillSummary,
   InterviewRoundSummary,
+  JoinRequestSummary,
+  OperationItem,
+  OperationItemType,
   RecruitmentSummary,
   StatsSummary,
   TodayScheduleItem,
 } from '@duing/types';
-import { daysUntilKst, parseKstInstant } from './dashboardDate';
+import { daysSinceKst, daysUntilKst, parseKstInstant, todayKstDateString } from './dashboardDate';
 
 /** 진행 중 모집 카드에서 D-day 강조(coral)를 적용하는 잔여 일수 윈도 */
 export const CLOSING_SOON_DAYS = 3;
-export const ACTION_ITEM_PREVIEW_COUNT = 3;
+
+/** 미처리 대기가 이 일수(KST 날짜) 이상이면 늦은 것 — 두 콘솔의 칩 톤·운영진 '지금 처리'가 같이 쓴다. 서버 미처리 알림의 168시간 경계와는 다른 규칙이다(합치지 않는다). */
+export const STALE_WAITING_DAYS = 7;
+
+// 판정은 raw status — 마감일이 지났어도 수동 마감 전이면 백엔드는 모집을 OPEN(심사 진행 중)으로 다루고,
+// 그 구간에 미결 지원자가 남아 있다. displayStatus 로 판정하면 이 필터를 공유하는 진행 중 모집 카드·
+// 지원자 요약·처리 필요 업무가 모두 그 모집을 통째로 빼버려 "처리 필요 0건"이 표시된다.
+export function isActiveRecruitment(recruitment: RecruitmentSummary): boolean {
+  return recruitment.status !== 'CLOSED';
+}
 
 /** 모집 1건 + 그 모집의 통계·면접 라운드 묶음 */
 export type RecruitmentDashboardInput = {
@@ -37,11 +56,23 @@ export function buildActionItems(inputs: RecruitmentDashboardInput[], now: Date)
   for (const { recruitment, stats, rounds, candidateCount } of inputs) {
     const base = { recruitmentId: recruitment.id, recruitmentTitle: recruitment.title };
 
-    // 검토 대기 지원자
+    // 검토 대기 지원자 — 미처리(보류 제외) 가장 오래된 제출부터 지난 날도 싣는다.
+    // 카운트와 MIN 은 서버에서 별도 쿼리라 순간적으로 어긋날 수 있어 미처리 수가 있을 때만 쓴다.
     if (stats) {
       const awaiting = countAwaitingReview(stats);
       if (awaiting > 0) {
-        items.push({ type: 'APPLICANTS_AWAITING_REVIEW', ...base, count: awaiting });
+        const pendingDays =
+          stats.submitted > 0 && typeof stats.oldestPendingSubmittedAt === 'string'
+            ? daysSinceKst(stats.oldestPendingSubmittedAt, now)
+            : undefined;
+        items.push({
+          type: 'APPLICANTS_AWAITING_REVIEW',
+          ...base,
+          count: awaiting,
+          submitted: stats.submitted,
+          onHold: stats.onHold,
+          ...(pendingDays === undefined ? {} : { pendingDays }),
+        });
       }
     }
 
@@ -125,6 +156,16 @@ export function buildClosedRecruitmentItems(inputs: ClosedRecruitmentDashboardIn
   return items;
 }
 
+/**
+ * 모집 1건의 할 일 — 운영진 홈(useClubActionItems)과 모집 상세(useRecruitmentActionItems)가 함께 쓰는 단일 입구라 두 화면 규칙이 갈리지 않는다.
+ * 진행 중(외부 폼 포함)은 buildActionItems, 마감 자체 폼은 결과 미확정만, 마감 외부 폼은 지원서가 없어 없다. 정렬은 부르는 쪽이 한다.
+ */
+export function buildRecruitmentActionItems(input: RecruitmentDashboardInput, now: Date): ActionItem[] {
+  if (isActiveRecruitment(input.recruitment)) return buildActionItems([input], now);
+  if (input.recruitment.applicationMode === 'SELF') return buildClosedRecruitmentItems([input]);
+  return [];
+}
+
 export function sortActionItems(items: ActionItem[]): ActionItem[] {
   return [...items].sort((a, b) => {
     const aHas = a.daysLeft !== undefined;
@@ -160,4 +201,156 @@ export function sortTodaySchedule(items: TodayScheduleItem[]): TodayScheduleItem
     if (byTime !== 0) return byTime;
     return KIND_RANK[a.kind] - KIND_RANK[b.kind];
   });
+}
+
+/** 운영 업무 출처 묶음 — 조회 전·실패면 undefined 로 들어와 항목을 만들지 않는다. */
+export type OperationItemsInput = {
+  pendingJoinRequests: JoinRequestSummary[] | undefined;
+  feeSummary: FeeBillSummary | undefined;
+  bankPendingCount: number | undefined;
+  bookings: FacilityBookingSummary[] | undefined;
+};
+
+function isAttentionStatus(status: BookingStatus): status is FacilityAttentionStatus {
+  return status === 'REJECTED' || status === 'CONFLICT';
+}
+
+/** 거절·충돌 예약 중 예약일(KST)이 오늘 이후인 것 — 지난 예약은 확인할 이유가 없어 빠진다(읽음 상태가 없어서 대신하는 규칙). */
+export function selectAttentionBookings(bookings: FacilityBookingSummary[], now: Date): OperationItem[] {
+  const today = todayKstDateString(now);
+  const items: OperationItem[] = [];
+  for (const booking of bookings) {
+    if (!isAttentionStatus(booking.status) || booking.date < today) continue;
+    items.push({
+      type: 'FACILITY_BOOKING_ATTENTION',
+      bookingId: booking.bookingId,
+      roomName: booking.roomName,
+      date: booking.date,
+      startTime: booking.startTime,
+      endTime: booking.endTime,
+      status: booking.status,
+    });
+  }
+  return items;
+}
+
+export function buildOperationItems(input: OperationItemsInput, now: Date): OperationItem[] {
+  const items: OperationItem[] = [];
+  const joinRequests = input.pendingJoinRequests ?? [];
+  const [firstRequest, ...restRequests] = joinRequests;
+  if (firstRequest) {
+    // requestedAt 은 절대시각(…Z) — 문자열이 아니라 시각으로 비교한다.
+    const oldest = restRequests.reduce(
+      (earliest, request) =>
+        parseKstInstant(request.requestedAt).getTime() < parseKstInstant(earliest.requestedAt).getTime() ? request : earliest,
+      firstRequest,
+    );
+    items.push({ type: 'JOIN_REQUESTS_PENDING', count: joinRequests.length, oldestRequestedAt: oldest.requestedAt });
+  }
+  if (input.feeSummary && input.feeSummary.overdueCount > 0) {
+    items.push({ type: 'FEE_OVERDUE', count: input.feeSummary.overdueCount });
+  }
+  if (input.bankPendingCount !== undefined && input.bankPendingCount > 0) {
+    items.push({ type: 'BANK_REVIEW_PENDING', count: input.bankPendingCount });
+  }
+  items.push(...selectAttentionBookings(input.bookings ?? [], now));
+  return items;
+}
+
+/** 모집 업무 우선순위(TYPE_PRIORITY 0~5) 뒤에 잇는다. */
+const OPERATION_PRIORITY: Record<OperationItemType, number> = {
+  FEE_OVERDUE: 6,
+  JOIN_REQUESTS_PENDING: 7,
+  BANK_REVIEW_PENDING: 8,
+  FACILITY_BOOKING_ATTENTION: 9,
+};
+
+export const DASHBOARD_TASK_GROUP_ORDER: readonly DashboardTaskGroupKey[] = ['NOW', 'WAITING', 'INFO'];
+
+/** 누군가 결과를 기다리거나 기한이 지났으면 지금 처리. */
+export function dashboardTaskGroupOf(task: DashboardTask): DashboardTaskGroupKey {
+  if (task.source === 'OPERATION') {
+    switch (task.item.type) {
+      case 'FEE_OVERDUE':
+        return 'NOW';
+      case 'FACILITY_BOOKING_ATTENTION':
+        return 'INFO';
+      case 'JOIN_REQUESTS_PENDING':
+      case 'BANK_REVIEW_PENDING':
+        return 'WAITING';
+    }
+  }
+  switch (task.item.type) {
+    case 'CLOSED_RECRUITMENT_UNDECIDED':
+    case 'INTERVIEW_RESULT_PENDING':
+    case 'INTERVIEW_ROUND_UNCONFIRMED':
+      return 'NOW';
+    case 'INTERVIEW_RESPONSE_UNCOLLECTED':
+      return task.item.daysLeft !== undefined && task.item.daysLeft < 0 ? 'NOW' : 'WAITING';
+    case 'APPLICANTS_AWAITING_REVIEW':
+      // 가장 오래된 미처리가 STALE_WAITING_DAYS(KST 날짜) 이상이면 지금 처리로 올린다. 칩과 같은 미리 계산된 값을 읽는다.
+      return task.item.pendingDays !== undefined && task.item.pendingDays >= STALE_WAITING_DAYS ? 'NOW' : 'WAITING';
+    case 'INTERVIEW_ROUND_NEEDED':
+      return 'WAITING';
+  }
+}
+
+function taskDaysLeft(task: DashboardTask): number | undefined {
+  return task.source === 'RECRUITMENT' ? task.item.daysLeft : undefined;
+}
+
+function taskPriority(task: DashboardTask): number {
+  return task.source === 'RECRUITMENT' ? TYPE_PRIORITY[task.item.type] : OPERATION_PRIORITY[task.item.type];
+}
+
+function compareText(left: string, right: string): number {
+  if (left === right) return 0;
+  return left < right ? -1 : 1;
+}
+
+function compareTasks(left: DashboardTask, right: DashboardTask): number {
+  const leftDays = taskDaysLeft(left);
+  const rightDays = taskDaysLeft(right);
+  if (leftDays !== undefined && rightDays !== undefined && leftDays !== rightDays) return leftDays - rightDays;
+  if ((leftDays !== undefined) !== (rightDays !== undefined)) return leftDays !== undefined ? -1 : 1;
+  const byPriority = taskPriority(left) - taskPriority(right);
+  if (byPriority !== 0) return byPriority;
+  if (
+    left.source === 'RECRUITMENT' &&
+    right.source === 'RECRUITMENT' &&
+    left.item.type === 'APPLICANTS_AWAITING_REVIEW' &&
+    right.item.type === 'APPLICANTS_AWAITING_REVIEW'
+  ) {
+    // 오래 기다린 순 — 총동연 대기열과 같은 원칙. 미처리 일수가 없는 쪽은 뒤, 같으면 입력 순서 유지.
+    const leftPending = left.item.pendingDays;
+    const rightPending = right.item.pendingDays;
+    if (leftPending !== undefined && rightPending !== undefined) return rightPending - leftPending;
+    if ((leftPending !== undefined) !== (rightPending !== undefined)) return leftPending !== undefined ? -1 : 1;
+    return 0;
+  }
+  if (
+    left.source === 'OPERATION' &&
+    right.source === 'OPERATION' &&
+    left.item.type === 'FACILITY_BOOKING_ATTENTION' &&
+    right.item.type === 'FACILITY_BOOKING_ATTENTION'
+  ) {
+    return (
+      compareText(left.item.date, right.item.date) ||
+      compareText(left.item.startTime, right.item.startTime) ||
+      left.item.bookingId - right.item.bookingId
+    );
+  }
+  return 0;
+}
+
+/** 모집 업무 + 운영 업무 → 비어 있지 않은 묶음만, 정해진 순서로. 묶음 안은 안정 정렬. */
+export function groupDashboardTasks(actionItems: ActionItem[], operationItems: OperationItem[]): DashboardTaskGroup[] {
+  const tasks: DashboardTask[] = [
+    ...actionItems.map((item): DashboardTask => ({ source: 'RECRUITMENT', item })),
+    ...operationItems.map((item): DashboardTask => ({ source: 'OPERATION', item })),
+  ];
+  return DASHBOARD_TASK_GROUP_ORDER.map((key) => ({
+    key,
+    tasks: tasks.filter((task) => dashboardTaskGroupOf(task) === key).sort(compareTasks),
+  })).filter((group) => group.tasks.length > 0);
 }

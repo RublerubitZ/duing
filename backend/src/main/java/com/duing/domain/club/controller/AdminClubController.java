@@ -7,13 +7,16 @@ import com.duing.domain.club.controller.dto.request.CreateClubRequest;
 import com.duing.domain.club.controller.dto.request.UpdateClubCentralClubRequest;
 import com.duing.domain.club.controller.dto.request.UpdateClubFacilitySecuredTimeTargetRequest;
 import com.duing.domain.club.controller.dto.request.UpdateClubStatusRequest;
+import com.duing.domain.club.controller.dto.response.AdminClubPendingCleanupResponse;
 import com.duing.domain.club.controller.dto.response.AdminClubSummaryResponse;
 import com.duing.domain.club.controller.dto.response.ClubDetailResponse;
 import com.duing.domain.club.entity.ClubCategory;
 import com.duing.domain.club.entity.ClubStatus;
 import com.duing.domain.club.service.ClubClosureService;
+import com.duing.domain.club.service.ClubPendingCleanupService;
 import com.duing.domain.club.service.ClubService;
 import com.duing.domain.club.service.dto.query.AdminClubSearchCondition;
+import com.duing.domain.club.service.dto.query.AdminClubSignal;
 import com.duing.domain.club.service.dto.query.ClubViewer;
 import com.duing.global.auth.UserPrincipal;
 import com.duing.global.response.ApiResponse;
@@ -40,6 +43,7 @@ public class AdminClubController implements AdminClubApi {
 
     private final ClubService clubService;
     private final ClubClosureService clubClosureService;
+    private final ClubPendingCleanupService clubPendingCleanupService;
 
     @Override
     public ResponseEntity<ApiResponse<PageResponse<AdminClubSummaryResponse>>> getAdminClubs(
@@ -47,9 +51,12 @@ public class AdminClubController implements AdminClubApi {
             @RequestParam(required = false) ClubCategory category,
             @RequestParam(required = false) String division,
             @RequestParam(required = false) String keyword,
+            @RequestParam(defaultValue = "false") boolean needsPendingCleanup,
+            @RequestParam(required = false) AdminClubSignal signal,
             Pageable pageable
     ) {
-        AdminClubSearchCondition condition = new AdminClubSearchCondition(status, category, division, keyword);
+        AdminClubSearchCondition condition =
+                new AdminClubSearchCondition(status, category, division, keyword, needsPendingCleanup, signal);
         Page<AdminClubSummaryResponse> page = clubService.searchForAdmin(condition, pageable)
                 .map(AdminClubSummaryResponse::from);
         return ResponseEntity.ok(ApiResponse.success(PageResponse.from(page)));
@@ -122,5 +129,15 @@ public class AdminClubController implements AdminClubApi {
         CloseClubRequest body = closeClubRequest != null ? closeClubRequest : new CloseClubRequest(null);
         clubClosureService.close(body.toCommand(clubId, currentUser.id()));
         return ResponseEntity.noContent().build();
+    }
+
+    @Override
+    public ResponseEntity<ApiResponse<AdminClubPendingCleanupResponse>> cleanupPendingItems(
+            @PathVariable Long clubId,
+            @AuthenticationPrincipal UserPrincipal currentUser
+    ) {
+        AdminClubPendingCleanupResponse response = AdminClubPendingCleanupResponse.from(
+                clubPendingCleanupService.cleanup(clubId, currentUser.id()));
+        return ResponseEntity.ok(ApiResponse.success(response));
     }
 }
