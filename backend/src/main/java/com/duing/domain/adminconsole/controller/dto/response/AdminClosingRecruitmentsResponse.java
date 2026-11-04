@@ -8,6 +8,7 @@ import com.duing.domain.recruitment.service.dto.query.ClosingRecruitmentRow;
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 
 @Schema(description = "총동연 주간 브리핑 — 이번 주(서버 KST 기준 월~일) 모집 기간이 끝나는 진행 중 모집")
 public record AdminClosingRecruitmentsResponse(
@@ -21,7 +22,7 @@ public record AdminClosingRecruitmentsResponse(
     public static AdminClosingRecruitmentsResponse from(AdminClosingRecruitmentsQuery query) {
         return new AdminClosingRecruitmentsResponse(query.weekStart(),
                 query.recruitments().stream()
-                        .map(row -> ClosingRecruitmentResponse.from(row, query.today()))
+                        .map(row -> ClosingRecruitmentResponse.from(row, query.today(), query.undecidedApplicationCounts()))
                         .toList());
     }
 
@@ -41,14 +42,16 @@ public record AdminClosingRecruitmentsResponse(
                     example = "OPEN")
             RecruitmentDisplayStatus displayStatus,
             ApplicationMode applicationMode,
-            @Schema(description = "결과 안 정한 지원 수(제출·보류·면접 대상). 외부 폼은 두잉 지원이 없어 null",
-                    nullable = true, example = "12")
+            @Schema(description = "결과 안 정한 지원 수(제출·보류·면접 대상). 탈퇴한 지원자의 지원서는 세지 않는다. "
+                    + "외부 폼은 두잉 지원이 없어 null", nullable = true, example = "12")
             Long undecidedApplicationCount
     ) {
-        static ClosingRecruitmentResponse from(ClosingRecruitmentRow row, LocalDate today) {
+        static ClosingRecruitmentResponse from(ClosingRecruitmentRow row, LocalDate today,
+                                               Map<Long, Long> undecidedApplicationCounts) {
             return new ClosingRecruitmentResponse(row.recruitmentId(), row.title(), row.clubId(), row.clubName(),
                     row.endDate(), row.status(), row.displayStatus(today), row.applicationMode(),
-                    row.applicationMode() == ApplicationMode.EXTERNAL ? null : row.undecidedApplicationCount());
+                    row.applicationMode() == ApplicationMode.EXTERNAL
+                            ? null : undecidedApplicationCounts.getOrDefault(row.recruitmentId(), 0L));
         }
     }
 }

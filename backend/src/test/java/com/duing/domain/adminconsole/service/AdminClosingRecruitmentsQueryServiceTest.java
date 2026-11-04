@@ -20,7 +20,10 @@ import com.duing.domain.recruitment.entity.RecruitmentDisplayStatus;
 import com.duing.domain.recruitment.entity.RecruitmentStatus;
 import com.duing.domain.recruitment.entity.TargetRole;
 import com.duing.domain.recruitment.repository.RecruitmentRepository;
+import com.duing.domain.recruitment.service.RecruitmentAutoCloseService;
+import com.duing.domain.recruitment.service.dto.query.AutoCloseOutlookQuery;
 import com.duing.domain.recruitment.service.dto.query.ClosingRecruitmentRow;
+import com.duing.domain.user.entity.User;
 import com.duing.domain.user.repository.UserRepository;
 import java.time.Clock;
 import java.time.Instant;
@@ -33,9 +36,14 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.jdbc.core.JdbcTemplate;
 
+/**
+ * 자동 마감을 켠다 — 꺼져 있으면 화면용 자동 마감 전망이 비어, 브리핑과 전망이 같은 수를 싣는지 견줄 수 없다.
+ * 설정이 같은 {@code RecruitmentAutoCloseScheduleRegistrationTest} 와 테스트 컨텍스트를 함께 쓴다.
+ */
 @Import(TestcontainersConfiguration.class)
-@SpringBootTest
+@SpringBootTest(properties = "duing.recruitment.auto-close.enabled=true")
 class AdminClosingRecruitmentsQueryServiceTest extends IntegrationTestBase {
 
     /** KST 2026-11-04(수) 14:00 — 이번 주는 11/2(월)~11/8(일), 11/2·11/3 종료는 이미 기간이 지났다. */
@@ -47,11 +55,13 @@ class AdminClosingRecruitmentsQueryServiceTest extends IntegrationTestBase {
     @Autowired ApplicationRepository applicationRepository;
     @Autowired ClubRepository clubRepository;
     @Autowired UserRepository userRepository;
+    @Autowired RecruitmentAutoCloseService recruitmentAutoCloseService;
+    @Autowired JdbcTemplate jdbcTemplate;
 
     private final AtomicLong sequence = new AtomicLong(1);
 
     private AdminClosingRecruitmentsQueryService service() {
-        return new AdminClosingRecruitmentsQueryService(recruitmentRepository, WEDNESDAY_CLOCK);
+        return new AdminClosingRecruitmentsQueryService(recruitmentRepository, applicationRepository, WEDNESDAY_CLOCK);
     }
 
     @Test
@@ -93,10 +103,57 @@ class AdminClosingRecruitmentsQueryServiceTest extends IntegrationTestBase {
                 userRepository.save(UserFixture.unique()), ApplicationStatus.SUBMITTED);
         applicationRepository.delete(withdrawn);
 
-        List<ClosingRecruitmentRow> rows = service().getClosingRecruitments().recruitments();
+        List<ClosingRecruitmentResponse> rows =
+                AdminClosingRecruitmentsResponse.from(service().getClosingRecruitments()).recruitments();
 
-        assertThat(rows).extracting(ClosingRecruitmentRow::recruitmentId).containsExactly(recruitment.getId(), empty.getId());
-        assertThat(rows).extracting(ClosingRecruitmentRow::undecidedApplicationCount).containsExactly(3L, 0L);
+        assertThat(rows).extracting(ClosingRecruitmentResponse::recruitmentId).containsExactly(recruitment.getId(), empty.getId());
+        assertThat(rows).extracting(ClosingRecruitmentResponse::undecidedApplicationCount).containsExactly(3L, 0L);
+    }
+
+    @Test
+    @DisplayName("탈퇴한 지원자의 지원서는 결과 안 정한 지원 수에 세지 않는다 — 보통 학생의 제출 1건과 탈퇴한 학생들의 제출·보류가 있으면 1 이다")
+    void excludesWithdrawnApplicants() {
+        Recruitment recruitment = saveOpen(MONDAY.plusDays(4), ApplicationMode.SELF);
+        saveApplication(recruitment, ApplicationStatus.SUBMITTED);
+        withdraw(saveApplication(recruitment, ApplicationStatus.SUBMITTED).getUser());
+        withdraw(saveApplication(recruitment, ApplicationStatus.ON_HOLD).getUser());
+
+        List<ClosingRecruitmentResponse> rows =
+                AdminClosingRecruitmentsResponse.from(service().getClosingRecruitments()).recruitments();
+
+        assertThat(rows).extracting(ClosingRecruitmentResponse::undecidedApplicationCount).containsExactly(1L);
+    }
+
+    @Test
+    @DisplayName("결과 안 정한 지원이 탈퇴한 지원자의 것뿐인 모집도 줄은 남고 수는 0 이다")
+    void keepsRowWhenOnlyWithdrawnApplicantsAreUndecided() {
+        Recruitment recruitment = saveOpen(MONDAY.plusDays(4), ApplicationMode.SELF);
+        saveApplication(recruitment, ApplicationStatus.ACCEPTED);
+        withdraw(saveApplication(recruitment, ApplicationStatus.SUBMITTED).getUser());
+
+        List<ClosingRecruitmentResponse> rows =
+                AdminClosingRecruitmentsResponse.from(service().getClosingRecruitments()).recruitments();
+
+        assertThat(rows).extracting(ClosingRecruitmentResponse::recruitmentId).containsExactly(recruitment.getId());
+        assertThat(rows).extracting(ClosingRecruitmentResponse::undecidedApplicationCount).containsExactly(0L);
+    }
+
+    @Test
+    @DisplayName("기간이 지난 진행 중 모집의 결과 안 정한 지원 수는 자동 마감 전망의 수와 같다 — 두 화면이 같은 집계 쿼리로 센다")
+    void matchesAutoCloseOutlookCount() {
+        Recruitment endedMonday = saveOpen(MONDAY, ApplicationMode.SELF);
+        saveApplication(endedMonday, ApplicationStatus.SUBMITTED);
+        saveApplication(endedMonday, ApplicationStatus.INTERVIEW_PENDING);
+        saveApplication(endedMonday, ApplicationStatus.ACCEPTED);
+        withdraw(saveApplication(endedMonday, ApplicationStatus.ON_HOLD).getUser());
+
+        Long briefingCount = AdminClosingRecruitmentsResponse.from(service().getClosingRecruitments())
+                .recruitments().get(0).undecidedApplicationCount();
+        AutoCloseOutlookQuery outlook = recruitmentAutoCloseService.findOutlooks(List.of(endedMonday), WEDNESDAY)
+                .get(endedMonday.getId());
+
+        assertThat(outlook).as("자동 마감을 켠 설정에서 기간이 지난 진행 중 모집은 전망이 있다").isNotNull();
+        assertThat(briefingCount).isEqualTo(outlook.undecidedApplicationCount()).isEqualTo(2L);
     }
 
     @Test
@@ -127,5 +184,15 @@ class AdminClosingRecruitmentsQueryServiceTest extends IntegrationTestBase {
                 "모집" + sequence.incrementAndGet(), null, startDate, endDate, 10, applicationMode,
                 applicationMode == ApplicationMode.EXTERNAL ? "https://forms.gle/example" : null,
                 true, TargetRole.MEMBER, null, null, false));
+    }
+
+    private Application saveApplication(Recruitment recruitment, ApplicationStatus status) {
+        return PendingItemsFixture.saveApplication(applicationRepository, recruitment,
+                userRepository.save(UserFixture.unique()), status);
+    }
+
+    /** 탈퇴(GeneralUserService#withdraw)는 users 행을 soft-delete 하고 지원서는 남긴다 — SQL 로 같은 표시만 남긴다. */
+    private void withdraw(User user) {
+        jdbcTemplate.update("UPDATE users SET deleted_at = NOW() WHERE id = ?", user.getId());
     }
 }

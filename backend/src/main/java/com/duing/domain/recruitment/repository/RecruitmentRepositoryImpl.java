@@ -5,7 +5,6 @@ import static com.duing.domain.club.entity.QClub.club;
 import static com.duing.domain.recruitment.entity.QRecruitment.recruitment;
 import static com.duing.domain.user.entity.QUser.user;
 
-import com.duing.domain.application.entity.ApplicationStatus;
 import com.duing.domain.club.entity.ClubStatus;
 import com.duing.domain.recruitment.entity.ApplicationMode;
 import com.duing.domain.recruitment.entity.Recruitment;
@@ -286,7 +285,6 @@ public class RecruitmentRepositoryImpl implements RecruitmentRepositoryCustom {
 
     @Override
     public List<ClosingRecruitmentRow> findOpenEndingBetween(LocalDate firstDay, LocalDate lastDay) {
-        NumberExpression<Long> undecidedApplicationCount = application.id.count();
         return queryFactory
                 .select(Projections.constructor(ClosingRecruitmentRow.class,
                         recruitment.id,
@@ -296,22 +294,14 @@ public class RecruitmentRepositoryImpl implements RecruitmentRepositoryCustom {
                         recruitment.status,
                         recruitment.startDate,
                         recruitment.endDate,
-                        recruitment.applicationMode,
-                        undecidedApplicationCount))
+                        recruitment.applicationMode))
                 .from(recruitment)
                 .join(recruitment.club, club)
-                // 결과 안 정한 지원만 붙인다 — 조건을 ON 에 둬 지원이 없는 모집도 0 으로 남긴다.
-                .leftJoin(application)
-                    .on(application.recruitment.eq(recruitment)
-                            .and(application.deletedAt.isNull())
-                            .and(application.status.in(ApplicationStatus.activeSet())))
                 .where(
                         recruitment.status.eq(RecruitmentStatus.OPEN),
                         recruitment.endDate.goe(firstDay),
                         recruitment.endDate.loe(lastDay)
                 )
-                .groupBy(recruitment.id, recruitment.title, club.id, club.name, recruitment.status,
-                        recruitment.startDate, recruitment.endDate, recruitment.applicationMode)
                 .orderBy(recruitment.endDate.asc(), recruitment.id.asc())
                 .fetch();
     }

@@ -68,7 +68,7 @@ public interface AdminConsoleApi {
 
     @Operation(summary = "이번 주 모집 기간이 끝나는 모집 조회",
             description = "총동연 주간 브리핑 '이번 주 챙길 것' — 서버가 정한 이번 주(KST 월~일)에 종료일이 든 진행 중 모집과 "
-                    + "결과 안 정한 지원 수(외부 폼은 null). weekStart 는 서버가 정한 이번 주 월요일")
+                    + "결과 안 정한 지원 수(탈퇴한 지원자의 지원서는 세지 않는다, 외부 폼은 null). weekStart 는 서버가 정한 이번 주 월요일")
     @GetMapping("/admin/weekly-briefing/closing-recruitments")
     ResponseEntity<ApiResponse<AdminClosingRecruitmentsResponse>> getClosingRecruitments();
 }
