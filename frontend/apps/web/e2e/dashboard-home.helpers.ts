@@ -7,8 +7,9 @@ import { expect, type Locator, type Page } from '@playwright/test';
  * <p>실패 기록 — 두 스펙이 trace·스크린샷을 꺼도 실패한 테스트는 test-results/ 에 error-context.md 를 쓴다(끄는 설정이 없다).
  * 로케이터 단언이 실패하면 받은 값과 그 요소의 ARIA 스냅숏(실명 등 화면 내용)이 든다. 페이지 단언(toHaveURL 등)과
  * 숨었거나 없는 요소의 로케이터 단언은 화면 전체를 찍고 입력칸 값도 평문으로 담는다. PLAYWRIGHT_NO_COPY_PROMPT=1 은
- * 이 단언 스냅숏을 막지 못하고, 그 밖의 실패(값 단언·toHaveCount·시간 초과 등)에 따로 찍는 페이지 스냅숏만 막는다 — 학번·비밀번호가
- * 채워진 로그인 화면은 login 이 단언 없이 waitForURL 로 기다려 이 값으로 막힌다(두 스펙 실행 예시에 이 값을 넣은 이유).
+ * 이 단언 스냅숏을 막지 못하고, 그 밖의 실패(값 단언·toHaveCount·시간 초과 등)에 테스트 끝 화면을 따로 찍는 페이지 스냅숏만 막는다
+ * (두 스펙 실행 예시에 이 값을 넣은 이유 — 실명 등 화면 내용). 학번·비밀번호는 이 값에 기대지 않는다 — login 이 단언 없이 기다리고,
+ * 학번을 넣은 뒤 실패하면 빈 페이지로 옮긴 다음 같은 오류를 다시 던져, 이 값 없이 e2e/ 전체를 돌려도 그 스냅숏에 입력칸이 없다.
  * 실패한 뒤에는 test-results/ 를 지우고 error-context.md 를 어디에도 붙이지 않는다.
  */
 
@@ -71,13 +72,21 @@ export function collectPageErrors(page: Page): string[] {
  * next 로 바로 착지한다 — 기본 착지(/me)의 상관없는 조회가 가드에 걸리지 않게.
  * 단언(expect(page).not.toHaveURL)이 아니라 waitForURL 로 기다린다 — 페이지 단언이 실패하면 학번·비밀번호가 채워진
  * 입력칸까지 찍은 화면 스냅숏이 error-context.md 에 남는다. 'commit' 이라 load(이미지)를 기다리다 멈추지 않는다.
+ * 학번을 넣은 뒤 실패하면 빈 페이지로 옮기고 같은 오류를 다시 던진다 — 테스트 끝 페이지 스냅숏에 입력칸이 남지 않는다.
+ * 그 단계마다 제한 시간을 두는 이유: 테스트 제한 시간을 넘겨 끝나면 그 스냅숏이 이 catch 보다 먼저 찍힌다.
  */
 export async function login(page: Page, studentId: string, password: string, next: string): Promise<void> {
   await page.goto(`/login?next=${encodeURIComponent(next)}`);
   await page.getByLabel('학번', { exact: true }).fill(studentId);
-  await page.getByLabel('비밀번호', { exact: true }).fill(password);
-  await page.getByRole('button', { name: '로그인', exact: true }).click();
-  await page.waitForURL((url) => !url.pathname.startsWith('/login'), { waitUntil: 'commit', timeout: ROUTE_TIMEOUT_MS });
+  try {
+    await page.getByLabel('비밀번호', { exact: true }).fill(password, { timeout: ROUTE_TIMEOUT_MS });
+    await page.getByRole('button', { name: '로그인', exact: true }).click({ timeout: ROUTE_TIMEOUT_MS });
+    await page.waitForURL((url) => !url.pathname.startsWith('/login'), { waitUntil: 'commit', timeout: ROUTE_TIMEOUT_MS });
+  } catch (loginError) {
+    // 빈 페이지로 못 옮겨도 원래 오류를 던진다 — 실패 원인을 다른 오류로 가리지 않는다.
+    await page.goto('about:blank').catch(() => undefined);
+    throw loginError;
+  }
 }
 
 /**
