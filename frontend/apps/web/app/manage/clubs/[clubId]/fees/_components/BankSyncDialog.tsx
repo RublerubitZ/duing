@@ -1,5 +1,6 @@
 'use client';
 
+import { useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 
@@ -72,7 +73,12 @@ export function BankSyncDialog({ clubId, bankLabel, onClose }: BankSyncDialogPro
     onClose();
   };
 
+  // 제출 동기 가드 — isSubmitting·isPending 은 렌더 값이라 같은 순간 들어온 두 번째 제출(버튼을 거치지 않는 submit)을 못 막는다(#1608).
+  const isSubmittingRef = useRef(false);
+
   const onSubmit = (formData: SyncBankTransactionsInput) => {
+    if (isSubmittingRef.current) return;
+    isSubmittingRef.current = true;
     syncTransactions.mutate(formData, {
       onSuccess: (result) => {
         addToast(
@@ -86,6 +92,9 @@ export function BankSyncDialog({ clubId, bankLabel, onClose }: BankSyncDialogPro
           );
         }
         closeAndClear();
+      },
+      onSettled: () => {
+        isSubmittingRef.current = false;
       },
     });
   };

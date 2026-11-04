@@ -1,5 +1,6 @@
 'use client';
 
+import { useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 
@@ -84,7 +85,15 @@ export function CreatePolicyDialog({ clubId, policy, onClose }: CreatePolicyDial
   const effectiveTargetType = isEditMode ? policy.targetType : watchedTargetType;
   const showAutoIssue = effectiveBillingType === 'MONTHLY' && effectiveTargetType === 'ALL_MEMBERS';
 
+  // 제출 동기 가드 — isSubmitting·isPending 은 렌더 값이라 같은 순간 들어온 두 번째 제출(버튼을 거치지 않는 submit)을 못 막는다(#1608).
+  const isSubmittingRef = useRef(false);
+  const releaseSubmit = () => {
+    isSubmittingRef.current = false;
+  };
+
   const onSubmit = (formData: CreateFeePolicyInput) => {
+    if (isSubmittingRef.current) return;
+    isSubmittingRef.current = true;
     if (isEditMode) {
       // billingType 은 수정 모드에서 읽기 전용이므로 와이어에 싣지 않는다(보수적 잠금).
       // autoIssue=true 면 백엔드 검증을 위해 issueDay/dueDay 를 항상 함께 보낸다.
@@ -97,7 +106,7 @@ export function CreatePolicyDialog({ clubId, policy, onClose }: CreatePolicyDial
         payload.issueDay = formData.issueDay;
         payload.dueDay = formData.dueDay;
       }
-      updatePolicy.mutate({ policyId: policy.id, payload }, { onSuccess: onClose });
+      updatePolicy.mutate({ policyId: policy.id, payload }, { onSuccess: onClose, onSettled: releaseSubmit });
       return;
     }
     const payload: CreateFeePolicyPayload = {
@@ -111,7 +120,7 @@ export function CreatePolicyDialog({ clubId, policy, onClose }: CreatePolicyDial
       payload.issueDay = formData.issueDay;
       payload.dueDay = formData.dueDay;
     }
-    createPolicy.mutate(payload, { onSuccess: onClose });
+    createPolicy.mutate(payload, { onSuccess: onClose, onSettled: releaseSubmit });
   };
 
   const submitError = activeMutation.error;

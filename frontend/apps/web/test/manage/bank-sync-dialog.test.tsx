@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
@@ -123,6 +123,37 @@ describe('BankSyncDialog', () => {
     // 성공 토스트도 그대로 뜬다.
     expect(mockAddToast).toHaveBeenCalledWith('동기화 완료 — 4건 적재 · 2건 자동매칭 · 1건 검토 필요');
     expect(mockAddToast).toHaveBeenCalledTimes(2);
+  });
+
+  it('버튼을 거치지 않은 제출이 두 번 들어와도 요청은 한 번이다', async () => {
+    mockSyncMutate.mockImplementation(() => {}); // 앞 테스트의 onSuccess 구현을 지운다(clearAllMocks 는 구현을 남김)
+    const user = userEvent.setup();
+    render(<BankSyncDialog clubId={1} bankLabel="신한" onClose={() => {}} />);
+    await user.type(screen.getByLabelText(/계좌 비밀번호/), 'secret-pw');
+    await user.type(screen.getByLabelText(/주민등록번호 앞 6자리/), '900101');
+
+    const form = screen.getByRole('button', { name: '동기화' }).closest('form')!;
+    // 같은 태스크의 두 번째 제출 — 버튼을 거치지 않아 disabled 로는 못 막는다
+    fireEvent.submit(form);
+    fireEvent.submit(form);
+    await waitFor(() => expect(mockSyncMutate).toHaveBeenCalled());
+    await new Promise((resolve) => setTimeout(resolve, 0)); // 두 handleSubmit 의 비동기 검증이 모두 끝나게
+    expect(mockSyncMutate).toHaveBeenCalledTimes(1);
+  });
+
+  it('요청이 끝나면(onSettled) 다시 제출할 수 있다', async () => {
+    mockSyncMutate.mockImplementation(() => {}); // 앞 테스트의 onSuccess 구현을 지운다(clearAllMocks 는 구현을 남김)
+    const user = userEvent.setup();
+    render(<BankSyncDialog clubId={1} bankLabel="신한" onClose={() => {}} />);
+    await user.type(screen.getByLabelText(/계좌 비밀번호/), 'secret-pw');
+    await user.type(screen.getByLabelText(/주민등록번호 앞 6자리/), '900101');
+
+    await user.click(screen.getByRole('button', { name: '동기화' }));
+    await waitFor(() => expect(mockSyncMutate).toHaveBeenCalledTimes(1));
+    const [, callOptions] = mockSyncMutate.mock.calls[0] as [unknown, { onSettled?: () => void }];
+    act(() => callOptions.onSettled?.());
+    await user.click(screen.getByRole('button', { name: '동기화' }));
+    await waitFor(() => expect(mockSyncMutate).toHaveBeenCalledTimes(2));
   });
 
   it('429(요청 한도) ApiError 면 한도 안내 메시지를 노출한다', () => {
