@@ -165,6 +165,8 @@ test.describe('진입 차단', () => {
     await expect(page.getByRole('link', { name: '홈으로 돌아가기', exact: true })).toBeVisible();
     await page.goto('/admin/clubs?status=INACTIVE_PENDING');
     await expect(pageHeading(page, '접근 권한이 없어요.')).toBeVisible({ timeout: ROUTE_TIMEOUT_MS });
+    // "부르지 않는다"는 화면이 뜬 직후에 세면 늦게 나가는 조회를 놓친다 — 잠깐 둔 뒤 센다.
+    await page.waitForTimeout(500);
     expect(
       apiRequests.filter((requestUrl) => requestUrl.pathname.startsWith('/api/v1/admin/')).map((requestUrl) => requestUrl.pathname),
       '비관리자가 부른 관리자 API',
