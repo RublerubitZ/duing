@@ -3,6 +3,13 @@ import { expect, type Locator, type Page } from '@playwright/test';
 /**
  * 운영진 홈·총동연 홈 E2E 스모크 공용 — manage-home.smoke.spec.ts·admin-home.smoke.spec.ts 가 같이 쓴다.
  * dev FE·로컬 BE·개발 DB 에 붙어 읽기만 한다. 응답은 unknown 으로 받아 아래 리더로 좁힌다(as 단언 금지).
+ *
+ * <p>실패 기록 — 두 스펙이 trace·스크린샷을 꺼도 실패한 테스트는 test-results/ 에 error-context.md 를 쓴다(끄는 설정이 없다).
+ * 로케이터 단언이 실패하면 받은 값과 그 요소의 ARIA 스냅숏(실명 등 화면 내용)이 든다. 페이지 단언(toHaveURL 등)과
+ * 숨었거나 없는 요소의 로케이터 단언은 화면 전체를 찍고 입력칸 값도 평문으로 담는다. PLAYWRIGHT_NO_COPY_PROMPT=1 은
+ * 이 단언 스냅숏을 막지 못하고, 그 밖의 실패(값 단언·toHaveCount·시간 초과 등)에 따로 찍는 페이지 스냅숏만 막는다 — 학번·비밀번호가
+ * 채워진 로그인 화면은 login 이 단언 없이 waitForURL 로 기다려 이 값으로 막힌다(두 스펙 실행 예시에 이 값을 넣은 이유).
+ * 실패한 뒤에는 test-results/ 를 지우고 error-context.md 를 어디에도 붙이지 않는다.
  */
 
 export const API_BASE_URL = process.env.E2E_API_BASE_URL ?? 'http://localhost:8080/api/v1';

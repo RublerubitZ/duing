@@ -34,12 +34,7 @@ import {
  * 계정은 환경변수로만 받는다 — 총동연 E2E_ADMIN_STUDENT_ID·E2E_ADMIN_PASSWORD, 비관리자 회원 E2E_MEMBER_STUDENT_ID·E2E_MEMBER_PASSWORD.
  * 없으면 그 묶음을 건너뛴다.
  *
- * <p>trace·스크린샷을 꺼도 실패한 테스트는 test-results/ 에 error-context.md 를 쓴다(끄는 설정이 없다).
- * 로케이터 단언이 실패하면 받은 값과 그 요소의 ARIA 스냅숏(대기열 요청자 실명 등)이 든다. 페이지 단언(toHaveURL 등)과
- * 숨었거나 없는 요소의 로케이터 단언은 화면 전체를 찍고 입력칸 값도 평문으로 담는다. PLAYWRIGHT_NO_COPY_PROMPT=1 은
- * 이 단언 스냅숏을 막지 못하고, 그 밖의 실패(값 단언·toHaveCount·시간 초과 등)에 따로 찍는 페이지 스냅숏만 막는다 — 학번·비밀번호가
- * 채워진 로그인 화면은 login 이 단언 없이 waitForURL 로 기다려 이 값으로 막힌다.
- * 실패한 뒤에는 test-results/ 를 지우고 error-context.md 를 어디에도 붙이지 않는다.
+ * <p>실패 기록(test-results/ 의 error-context.md)에 남는 것과 뒤처리는 dashboard-home.helpers.ts 머리말을 본다.
  *
  * <p>읽기 전용이다 — 쓰기 요청과 열람 감사 GET 은 installReadOnlyGuard 가 서버에 닿기 전에 끊고 테스트를 실패시킨다.
  * 자정(23:59~00:02 KST)에는 돌리지 않는다(오늘 회비 활동·최근 7일 흐름·일수가 요청 사이에 바뀐다).
