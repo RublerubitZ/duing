@@ -9,6 +9,7 @@ import { ApiClientProvider } from '../src/api-context';
 import { interviewRoundKeys } from '../src/interviewRoundQueryKeys';
 import { statsQueryKeys } from '../src/statsQueryKeys';
 import {
+  useInterviewRoundCandidatesQuery,
   useCreateInterviewRoundMutation,
   useCancelInterviewRoundMutation,
   useConfirmRoundMutation,
@@ -86,6 +87,49 @@ describe('useCreateInterviewRoundMutation (스펙 §10.1)', () => {
     expect(queryClient.getQueryState(interviewRoundKeys.candidates(10))?.isInvalidated).toBe(true);
     // 비대상: detail 은 create 단계에서 invalidate 안 함
     expect(queryClient.getQueryState(interviewRoundKeys.detail(42))?.isInvalidated).toBe(false);
+  });
+
+  it('대기열을 보는 화면이 없어도 성공 직후 대기열을 다시 받는다 — 홈이 낡은 대기열로 생성 필요를 겹쳐 내지 않게', async () => {
+    const queryClient = newQueryClient();
+    let candidatesRequestCount = 0;
+    let roundCreated = false;
+    const queuedCandidates = [31, 32, 33].map((applicationId) => ({
+      applicationId,
+      userId: applicationId + 100,
+      userName: `지원자${applicationId}`,
+      studentId: `2025${applicationId}`,
+      college: 'IT_ENGINEERING',
+      major: '컴퓨터공학과',
+      grade: 'SOPHOMORE',
+      status: 'INTERVIEW_PENDING',
+      submittedAt: '2026-06-05T01:00:00Z',
+    }));
+    server.use(
+      http.get('*/leader/recruitments/10/interview-round-candidates', () => {
+        candidatesRequestCount += 1;
+        return HttpResponse.json({ ok: true, data: roundCreated ? [] : queuedCandidates, message: null });
+      }),
+      http.post('*/leader/recruitments/10/interview-rounds', () => {
+        roundCreated = true;
+        return HttpResponse.json({ ok: true, data: { roundId: 42 }, message: null });
+      }),
+    );
+
+    // 마법사 1단계처럼 대기열을 한 번 받고 떠난다 — 라운드를 만드는 2단계에는 대기열을 보는 곳이 없다.
+    const queueView = renderHook(() => useInterviewRoundCandidatesQuery(10, false), {
+      wrapper: makeWrapper(queryClient),
+    });
+    await waitFor(() => expect(queueView.result.current.isSuccess).toBe(true));
+    queueView.unmount();
+
+    const { result } = renderHook(() => useCreateInterviewRoundMutation(10), {
+      wrapper: makeWrapper(queryClient),
+    });
+    result.current.mutate({ title: '2차 면접', applicationIds: [31, 32, 33] });
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+
+    await waitFor(() => expect(candidatesRequestCount).toBe(2));
+    await waitFor(() => expect(queryClient.getQueryData(interviewRoundKeys.candidates(10, false))).toEqual([]));
   });
 });
 
