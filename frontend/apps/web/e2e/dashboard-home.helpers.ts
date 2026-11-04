@@ -62,14 +62,15 @@ export function collectPageErrors(page: Page): string[] {
 
 /**
  * next 로 바로 착지한다 — 기본 착지(/me)의 상관없는 조회가 가드에 걸리지 않게.
- * waitForURL 은 load 까지 기다려 이미지 때문에 멈출 수 있어 toHaveURL 로 기다린다.
+ * 단언(expect(page).not.toHaveURL)이 아니라 waitForURL 로 기다린다 — 페이지 단언이 실패하면 학번·비밀번호가 채워진
+ * 입력칸까지 찍은 화면 스냅숏이 error-context.md 에 남는다. 'commit' 이라 load(이미지)를 기다리다 멈추지 않는다.
  */
 export async function login(page: Page, studentId: string, password: string, next: string): Promise<void> {
   await page.goto(`/login?next=${encodeURIComponent(next)}`);
   await page.getByLabel('학번', { exact: true }).fill(studentId);
   await page.getByLabel('비밀번호', { exact: true }).fill(password);
   await page.getByRole('button', { name: '로그인', exact: true }).click();
-  await expect(page).not.toHaveURL(/\/login/, { timeout: ROUTE_TIMEOUT_MS });
+  await page.waitForURL((url) => !url.pathname.startsWith('/login'), { waitUntil: 'commit', timeout: ROUTE_TIMEOUT_MS });
 }
 
 /**
