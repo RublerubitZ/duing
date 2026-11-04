@@ -5,11 +5,14 @@ import com.duing.domain.adminconsole.controller.dto.response.AdminClubSignalsRes
 import com.duing.domain.adminconsole.controller.dto.response.AdminJobStatusesResponse;
 import com.duing.domain.adminconsole.controller.dto.response.AdminPendingCountsResponse;
 import com.duing.domain.adminconsole.controller.dto.response.AdminPendingTrendResponse;
+import com.duing.domain.adminconsole.controller.dto.response.AdminWeeklyBriefingResponse;
 import com.duing.domain.adminconsole.service.AdminClubSignalsQueryService;
 import com.duing.domain.adminconsole.service.AdminJobStatusQueryService;
 import com.duing.domain.adminconsole.service.AdminPendingCountsQueryService;
 import com.duing.domain.adminconsole.service.AdminPendingTrendQueryService;
+import com.duing.domain.adminconsole.service.AdminWeeklyBriefingQueryService;
 import com.duing.global.response.ApiResponse;
+import java.time.LocalDate;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -26,6 +29,7 @@ public class AdminConsoleController implements AdminConsoleApi {
     private final AdminPendingTrendQueryService adminPendingTrendQueryService;
     private final AdminJobStatusQueryService adminJobStatusQueryService;
     private final AdminClubSignalsQueryService adminClubSignalsQueryService;
+    private final AdminWeeklyBriefingQueryService adminWeeklyBriefingQueryService;
 
     @Override
     public ResponseEntity<ApiResponse<AdminPendingCountsResponse>> getPendingCounts() {
@@ -49,5 +53,11 @@ public class AdminConsoleController implements AdminConsoleApi {
     public ResponseEntity<ApiResponse<AdminClubSignalsResponse>> getClubSignals() {
         return ResponseEntity.ok(ApiResponse.success(
                 AdminClubSignalsResponse.from(adminClubSignalsQueryService.getClubSignals())));
+    }
+
+    @Override
+    public ResponseEntity<ApiResponse<AdminWeeklyBriefingResponse>> getWeeklyBriefing(LocalDate weekStart) {
+        return ResponseEntity.ok(ApiResponse.success(
+                AdminWeeklyBriefingResponse.from(adminWeeklyBriefingQueryService.getWeeklyBriefing(weekStart))));
     }
 }

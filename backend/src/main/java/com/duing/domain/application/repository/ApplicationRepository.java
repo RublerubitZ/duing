@@ -219,4 +219,7 @@ public interface ApplicationRepository extends JpaRepository<Application, Long>,
     int purgeExpiredTextAnswers(@Param("closedCutoffDate") LocalDate closedCutoffDate,
                                 @Param("withdrawnCutoff") LocalDateTime withdrawnCutoff,
                                 @Param("placeholder") String placeholder);
+
+    /** 주간 브리핑 — 기간에 제출된 지원서(감사 created_at). 철회(소프트 삭제)는 빠진다. from 포함·to 미만. */
+    long countByCreatedAtGreaterThanEqualAndCreatedAtLessThan(LocalDateTime from, LocalDateTime to);
 }

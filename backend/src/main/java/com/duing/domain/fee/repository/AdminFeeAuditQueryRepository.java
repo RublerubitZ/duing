@@ -29,6 +29,7 @@ import com.querydsl.core.types.dsl.NumberExpression;
 import com.querydsl.jpa.impl.JPAQueryFactory;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -77,6 +78,21 @@ public class AdminFeeAuditQueryRepository {
                 .fetch().stream()
                 .collect(Collectors.toMap(row -> row.get(feeBill.clubId),
                         row -> new AdminFeeBillAggregate(row.get(billCount), row.get(totalBilled))));
+    }
+
+    /**
+     * 주간 브리핑 — 기간에 청구서를 발행한 동아리 수(CANCELLED 제외). aggregateBills 와 같은 청구 정의이고 동아리 상태는 가리지 않는다.
+     * 경계는 created_at 과 같은 JVM 존 벽시계, from 포함·to 미만.
+     */
+    public long countBilledClubs(LocalDateTime createdFrom, LocalDateTime createdTo) {
+        Long billedClubCount = queryFactory
+                .select(feeBill.clubId.countDistinct())
+                .from(feeBill)
+                .where(feeBill.status.ne(FeeStatus.CANCELLED),
+                        feeBill.createdAt.goe(createdFrom),
+                        feeBill.createdAt.lt(createdTo))
+                .fetchOne();
+        return billedClubCount == null ? 0L : billedClubCount;
     }
 
     /**

@@ -4,12 +4,17 @@ import com.duing.domain.adminconsole.controller.dto.response.AdminClubSignalsRes
 import com.duing.domain.adminconsole.controller.dto.response.AdminJobStatusesResponse;
 import com.duing.domain.adminconsole.controller.dto.response.AdminPendingCountsResponse;
 import com.duing.domain.adminconsole.controller.dto.response.AdminPendingTrendResponse;
+import com.duing.domain.adminconsole.controller.dto.response.AdminWeeklyBriefingResponse;
 import com.duing.global.response.ApiResponse;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import java.time.LocalDate;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 
 @Tag(name = "관리자 콘솔(총동연)", description = "총동연 관리자 콘솔 공통 API")
 @SecurityRequirement(name = "BearerAuth")
@@ -40,4 +45,13 @@ public interface AdminConsoleApi {
                     + "같은 스냅숏이 아닐 수 있다 — 묶음 사이 불변식을 가정하지 않는다. 미처리 건수(/admin/pending-counts)와 섞지 않는다.")
     @GetMapping("/admin/club-signals")
     ResponseEntity<ApiResponse<AdminClubSignalsResponse>> getClubSignals();
+
+    @Operation(summary = "주간 브리핑 지표 조회",
+            description = "총동연 주간 브리핑 '한 주 돌아보기' — 고른 주(KST 월 00:00 ~ 다음 월 00:00)에 접수·처리한 일, "
+                    + "그 주 일요일 하루 끝 남은 대기, 모집·회비·공지·정보 확인 활동. weekStart 는 월요일만 받고 "
+                    + "진행 중인 주·미래·52주보다 이른 주는 400(code WEEK_NOT_MONDAY·WEEK_NOT_ENDED·WEEK_IN_FUTURE·WEEK_TOO_OLD)")
+    @GetMapping("/admin/weekly-briefing")
+    ResponseEntity<ApiResponse<AdminWeeklyBriefingResponse>> getWeeklyBriefing(
+            @Parameter(description = "그 주 월요일(KST 날짜)", example = "2026-10-26")
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate weekStart);
 }

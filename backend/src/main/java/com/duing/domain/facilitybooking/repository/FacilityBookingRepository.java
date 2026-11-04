@@ -74,6 +74,15 @@ public interface FacilityBookingRepository
      */
     long countByDecidedAtGreaterThanEqual(LocalDateTime since);
 
+    /** 주간 브리핑 — 기간 접수(감사 created_at, system regime). from 포함·to 미만. */
+    long countByCreatedAtGreaterThanEqualAndCreatedAtLessThan(LocalDateTime from, LocalDateTime to);
+
+    /**
+     * 주간 브리핑 — 기간 처리(승인·반려 decided_at). decided_at 은 <b>seoul regime</b> 이라 KST 벽시계 경계를 받는다.
+     * 충돌 뒤 재승인은 decided_at 이 덮여 다시 센다(홈 처리 대기 추이와 같다). from 포함·to 미만.
+     */
+    long countByDecidedAtGreaterThanEqualAndDecidedAtLessThan(LocalDateTime from, LocalDateTime to);
+
     /**
      * 오늘 접수(생성) 건수 — 상태 무관(처리 완료돼도 오늘 접수는 접수). createdAt 은 JPA 감사가 저장 존(JVM 기본)
      * 으로 기록하므로, 호출부가 KST 하루 경계를 같은 저장 존 LocalDateTime 으로 변환해 넘긴다(§9.7·§5.3).

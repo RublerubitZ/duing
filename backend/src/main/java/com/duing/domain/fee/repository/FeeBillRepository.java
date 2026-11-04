@@ -1,8 +1,10 @@
 package com.duing.domain.fee.repository;
 
 import com.duing.domain.fee.entity.FeeBill;
+import com.duing.domain.fee.entity.FeeStatus;
 import jakarta.persistence.LockModeType;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
@@ -139,4 +141,7 @@ public interface FeeBillRepository extends JpaRepository<FeeBill, Long>, FeeBill
     @Modifying(flushAutomatically = true, clearAutomatically = true)
     @Query(value = "UPDATE fee_bill SET status = 'OVERDUE', updated_at = now() WHERE id IN (:ids)", nativeQuery = true)
     int markOverdue(@Param("ids") java.util.Collection<Long> ids);
+
+    /** 주간 브리핑 — 기간에 발행한 회원 청구(status ≠ 주어진 값, 감사 created_at). 감사 청구 집계(aggregateBills)와 같은 정의. */
+    long countByStatusNotAndCreatedAtGreaterThanEqualAndCreatedAtLessThan(FeeStatus status, LocalDateTime from, LocalDateTime to);
 }
