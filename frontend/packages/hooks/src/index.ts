@@ -149,6 +149,7 @@ export {
   useAdminPendingTrendQuery,
   useAdminJobStatusesQuery,
   ADMIN_JOB_STATUSES_REFETCH_INTERVAL_MS,
+  useAdminClubSignalsQuery,
   useAdminClubMembersQuery,
   useAdminClubsQuery,
   useAdminClubDetailQuery,
@@ -318,6 +319,7 @@ export {
   useClubActionItems,
   useClubOperationItems,
   useDashboardTaskQueue,
+  useRecruitmentActionItems,
   useTodaySchedule,
   useClubFeedCounts,
 } from './dashboard';

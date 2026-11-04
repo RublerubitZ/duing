@@ -2,53 +2,39 @@
 
 import { useRoutePathname } from '@/app/_lib/useRoutePathname';
 
-/**
- * 광고 로더를 실을 공개 화면 — 게시자 콘텐츠(동아리 소개·소식·서비스 소개·약관·FAQ)가 있는 곳만 둔다.
- * 여기 없는 경로는 전부 거부(기본 거부)다. 예약 현황(`/facilities`)·캠퍼스 일정(`/calendar`)은 도구 화면이라 뺐다 —
- * 애드센스는 게시자 콘텐츠가 없거나 탐색·행동 목적인 화면의 광고를 금지한다(Google 게시자 정책 "게시자 콘텐츠가 없는
- * 화면에 Google 게재 광고"). `/faq` 는 서버가 질문·답변을 초기 HTML 에 그린다(24시간 ISR) — 공개 FAQ 를 0건으로
- * 만들면 다시 뺀다.
- */
-const ALLOWED_PREFIXES = ['/clubs', '/notices', '/introduce', '/terms', '/faq'] as const;
-
-/** 동아리 부원 전용 영역(공지·일정) — `/clubs` 허용 프리픽스 안에 있지만 MemberAccessGuard 뒤 회원 전용이다. */
-const MEMBER_AREA_PATTERN = /^\/clubs\/[^/]+\/member(\/|$)/;
+import { AdSenseScript } from './AdSenseScript';
 
 /**
- * 광고 로더를 실을 공개 콘텐츠 화면인지 판정한다 — 프리픽스는 세그먼트 경계까지 맞아야 한다(`/clubsecret` 은 거부).
+ * 레이아웃이 광고 로더를 싣는 공개 화면 — 경로만으로 게시자 콘텐츠가 있다고 말할 수 있는 곳(홈·목록·서비스 소개·약관·FAQ)이다.
+ * 정확히 일치해야 하고 나머지는 전부 거부(기본 거부)다.
+ * - 동아리·소식 상세(`/clubs/<id>`·`/notices/<id>`)는 여기 없다 — 같은 경로가 없는·숨긴·삭제된 자원의 noindex 셸이 되기도
+ *   하고 동아리 상세는 소개 한 줄뿐인 곳도 많아서, 서버 조회 결과를 아는 page.tsx 가 콘텐츠가 있을 때만 <AdSenseScript /> 를 싣는다.
+ * - 예약 현황(`/facilities`)·캠퍼스 일정(`/calendar`)은 도구 화면이라 뺐다.
+ * 애드센스는 게시자 콘텐츠가 없거나 가치가 낮은 화면, 오류·탐색·행동 목적 화면의 광고를 금지한다(Google 게시자 정책
+ * "게시자 콘텐츠가 없는 화면에 Google 게재 광고"). `/faq` 는 서버가 질문·답변을 초기 HTML 에 그린다(24시간 ISR) — 공개 FAQ 를
+ * 0건으로 만들면 다시 뺀다.
  */
+const ALLOWED_PATHS: ReadonlySet<string> = new Set(['/', '/clubs', '/notices', '/introduce', '/terms', '/faq']);
+
+/** 레이아웃이 광고 로더를 실을 경로인지 — 정확 일치만 본다(`/clubs/1`·`/clubsecret` 은 거부). */
 export function isAdSenseAllowedPath(pathname: string): boolean {
-  if (MEMBER_AREA_PATTERN.test(pathname)) return false;
-  if (pathname === '/') return true;
-  return ALLOWED_PREFIXES.some(
-    (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
-  );
+  return ALLOWED_PATHS.has(pathname);
 }
 
 /**
- * Google AdSense 사이트 확인·광고 로더.
+ * Google AdSense 사이트 확인·광고 로더(루트 레이아웃 head).
  *
- * <p>게시자 콘텐츠가 있는 공개 화면에서만 싣는다 — 개인정보가 보이는 화면(`/me`·`/manage`·`/admin`·`/apply`·
- * `/notifications`·인증·`/join`·`/clubs/{id}/member/**`)과 콘텐츠가 없는 도구·빈 화면의 문서에는 광고 스크립트를 붙이지 않는다.
- *
- * <p>구글 안내가 "각 페이지의 &lt;head&gt; 안"을 요구하므로 next/script(body 주입)가 아니라 평문
- * 태그를 그대로 반환한다. React 19 는 `<script async src>` 를 어디서 렌더하든 head 로 호이스팅하고
- * SSR HTML 의 head 에 직렬화하므로, 크롤러는 허용 경로의 초기 HTML 에서 그대로 읽는다(#1126 요건).
- * async 라 렌더 비차단이고, client ID 는 공개 식별자(시크릿 아님)다.
+ * <p>개인정보가 보이는 화면(`/me`·`/manage`·`/admin`·`/apply`·`/notifications`·인증·`/join`·`/clubs/{id}/member/**`)과
+ * 콘텐츠가 없는 도구·빈 화면의 문서에는 광고 스크립트를 붙이지 않는다. 상세는 page.tsx 가 판단한다(위 허용 목록 주석).
  *
  * <p>경로 판정은 `useRoutePathname()` — ISR 재생성 중 `/index` 를 `/` 로 접어 hydration mismatch 를 막는다.
  *
- * <p>런타임 한계: 공개 화면을 먼저 거친 뒤 클라이언트 내비게이션으로 `/manage` 에 들어가면 로더는
- * 이미 로드돼 있다. 이 컴포넌트가 막는 것은 개인정보 화면의 <b>최초 문서 로드</b>와 그 이후 내비게이션이다.
+ * <p>런타임 한계(소프트 이동): 한 번 로드된 로더는 문서에 남는다 — 공개 화면을 거친 뒤 클라이언트 내비게이션으로 `/manage` 나
+ * 얇은 상세에 들어가도 그대로다. 반대로 인터셉트 모달로 연 동아리 상세는 서버 데이터가 없는 셸이라 로더를 새로 싣지 않는다.
+ * 크롤러는 하드 로드만 하므로 이 컴포넌트와 상세 page.tsx 가 막는 것은 그런 화면의 <b>최초 문서 로드</b>다.
  */
 export function AdSenseLoader() {
   const pathname = useRoutePathname();
   if (!isAdSenseAllowedPath(pathname)) return null;
-  return (
-    <script
-      async
-      src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-3402309590379365"
-      crossOrigin="anonymous"
-    />
-  );
+  return <AdSenseScript />;
 }

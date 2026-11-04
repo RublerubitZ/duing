@@ -18,7 +18,6 @@ const STATIC_URLS = [
   `${SITE_URL}/clubs`,
   `${SITE_URL}/notices`,
   `${SITE_URL}/faq`,
-  `${SITE_URL}/calendar`,
   `${SITE_URL}/introduce`,
   `${SITE_URL}/terms`,
 ];
@@ -86,5 +85,13 @@ describe('sitemap.xml', () => {
     fetchPublicNoticeIdsMock.mockRejectedValue(error);
 
     await expect(sitemap()).rejects.toBe(error);
+  });
+
+  it('클라이언트 조회 화면인 캠퍼스 일정(/calendar)은 넣지 않는다 — 크롤러 HTML 에 일정이 없다', async () => {
+    fetchActiveClubIdsMock.mockResolvedValue([]);
+    fetchPublicNoticeIdsMock.mockResolvedValue([]);
+
+    const urls = (await sitemap()).map((entry) => entry.url);
+    expect(urls).not.toContain(`${SITE_URL}/calendar`);
   });
 });

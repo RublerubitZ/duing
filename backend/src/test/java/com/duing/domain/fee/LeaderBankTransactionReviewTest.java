@@ -492,6 +492,51 @@ class LeaderBankTransactionReviewTest extends IntegrationTestBase {
     }
 
     @Test
+    @DisplayName("청구 납부 내역에서 매칭 납부를 먼저 취소해도 매칭취소가 거래를 매칭 대기로 되돌려, 같은 입금을 다른 청구에 승인할 수 있다")
+    void unmatchAfterPaymentVoidedReleasesDepositForAnotherBill() {
+        User wrongMember = joinMember(club);
+        User rightMember = joinMember(club);
+        FeeBill wrongBill = saveBill(clubId, policyId, wrongMember.getId(), DEPOSIT_AMOUNT, earlierPeriod);
+        FeeBill rightBill = saveBill(clubId, policyId, rightMember.getId(), DEPOSIT_AMOUNT, laterPeriod);
+        BankTransaction deposit = savePendingDeposit(clubId, DEPOSIT_AMOUNT, "홍길동");
+        String transactionPath = "/api/v1/leader/clubs/" + clubId + "/bank-transactions/" + deposit.getId();
+
+        // 입금을 다른 회원 청구에 잘못 승인한다(실제 매칭 경로).
+        authed(leaderToken).contentType(ContentType.JSON).body(Map.of("feeBillId", wrongBill.getId()))
+                .when().post(transactionPath + "/approve")
+                .then().statusCode(HttpStatus.NO_CONTENT.value());
+        Long wrongPaymentId = jdbcTemplate.queryForObject(
+                "SELECT id FROM payment WHERE bank_transaction_id = ?", Long.class, deposit.getId());
+
+        // 총무가 청구의 납부 내역에서 그 납부를 먼저 취소한다 — 거래는 아직 매칭됨이다.
+        authed(leaderToken).contentType(ContentType.JSON).body(Map.of("reason", "다른 회원 입금"))
+                .when().post("/api/v1/leader/clubs/" + clubId + "/fee-bills/" + wrongBill.getId()
+                        + "/payments/" + wrongPaymentId + "/void")
+                .then().statusCode(HttpStatus.NO_CONTENT.value());
+        assertThat(bankTransactionRepository.findById(deposit.getId()).orElseThrow().getMatchStatus())
+                .isEqualTo(MatchStatus.MANUAL_MATCHED);
+
+        // 수정 전에는 409(매칭된 거래의 납부 내역을 찾을 수 없습니다)로 거래가 매칭됨에 갇혔다.
+        authed(leaderToken).when().post(transactionPath + "/unmatch")
+                .then().statusCode(HttpStatus.NO_CONTENT.value());
+        BankTransaction released = bankTransactionRepository.findById(deposit.getId()).orElseThrow();
+        assertThat(released.getMatchStatus()).isEqualTo(MatchStatus.PENDING);
+        assertThat(released.getMatchedFeeBillId()).isNull();
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT void_reason FROM payment WHERE id = ?", String.class, wrongPaymentId))
+                .as("먼저 남긴 정정 사유를 '매칭취소'로 덮어쓰지 않는다").isEqualTo("다른 회원 입금");
+
+        authed(leaderToken).contentType(ContentType.JSON).body(Map.of("feeBillId", rightBill.getId()))
+                .when().post(transactionPath + "/approve")
+                .then().statusCode(HttpStatus.NO_CONTENT.value());
+        BankTransaction rematched = bankTransactionRepository.findById(deposit.getId()).orElseThrow();
+        assertThat(rematched.getMatchStatus()).isEqualTo(MatchStatus.MANUAL_MATCHED);
+        assertThat(rematched.getMatchedFeeBillId()).isEqualTo(rightBill.getId());
+        assertThat(feeBillRepository.findById(rightBill.getId()).orElseThrow().getStatus()).isEqualTo(FeeStatus.PAID);
+        assertThat(feeBillRepository.findById(wrongBill.getId()).orElseThrow().getStatus()).isEqualTo(FeeStatus.PENDING);
+    }
+
+    @Test
     @DisplayName("매칭 안 된 거래(PENDING) 매칭취소 → 400")
     void unmatchPendingBadRequest() {
         BankTransaction deposit = savePendingDeposit(clubId, DEPOSIT_AMOUNT, "홍길동");

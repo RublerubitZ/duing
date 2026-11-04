@@ -119,3 +119,24 @@ describe('HomeFooter — 데스크탑 풀 푸터', () => {
     expect(routerPushMock).toHaveBeenCalledWith('/me/inquiries/new');
   });
 });
+
+describe('HomeFooter — 이용 가이드', () => {
+  it('모바일·데스크탑 푸터 모두 이용 가이드 첫 글로 가는 링크가 있다', () => {
+    render(
+      <ToastProvider>
+        <HomeFooter />
+      </ToastProvider>,
+    );
+
+    const footers = screen.getAllByRole('contentinfo');
+    expect(footers).toHaveLength(2);
+    footers.forEach((footer) => {
+      expect(within(footer).getByRole('link', { name: '이용 가이드' })).toHaveAttribute('href', '/notices/23');
+      // 자리: '서비스 소개' 바로 다음 링크다.
+      const linkNames = within(footer)
+        .getAllByRole('link')
+        .map((link) => link.textContent?.trim() ?? '');
+      expect(linkNames[linkNames.indexOf('서비스 소개') + 1]).toBe('이용 가이드');
+    });
+  });
+});

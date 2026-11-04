@@ -8,11 +8,13 @@ import java.time.Instant;
  * <p>미처리 두 값은 외부 폼 모집이면 비어 있다(지원 데이터가 없으므로 0 이 아니라 해당 없음 — 지원자 수와 같은 규칙).
  * 자체 폼 모집은 미처리가 없으면 0건·시각 없음이다. 운영진 접속은 회장·임원의 세션 사용(seoul regime)과
  * 로그인(system regime)을 각각 절대시각으로 바꾼 뒤 늦은 값이고, 운영진이나 기록이 없으면 비어 있다.
+ * 자동 마감 전망은 기간이 끝났지만 아직 OPEN 인 모집에만 있다(외부 폼 포함, 자동 마감이 꺼져 있으면 없음 — #1583).
  */
 public record AdminRecruitmentListItem(
         AdminRecruitmentRow recruitmentRow,
         Long pendingApplicationCount,
         Instant oldestPendingSubmittedAt,
-        Instant operatorsLastActiveAt
+        Instant operatorsLastActiveAt,
+        AutoCloseOutlookQuery autoClose
 ) {
 }

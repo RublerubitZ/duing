@@ -4,6 +4,7 @@ import { useApiClient } from './api-context';
 import { clubQueryKeys } from './clubQueryKeys';
 import { CALENDAR_STALE_TIME_MS } from './freshness';
 import { recruitmentQueryKeys } from './recruitmentQueryKeys';
+import { statsQueryKeys } from './statsQueryKeys';
 
 export function useCreateRecruitmentMutation(clubId: number) {
   const client = useApiClient();
@@ -73,6 +74,9 @@ export function useCloseRecruitmentMutation(recruitmentId: number, clubId: numbe
       // 만료 일시로 채워진다(스펙 §4.3). 무효화하지 않으면 상태 카드가 "모집 종료 후 N일까지"에
       // 멈춰 새로고침 전까지 구체 일시를 보여주지 못한다.
       queryClient.invalidateQueries({ queryKey: clubQueryKeys.joinCode(clubId, recruitmentId) });
+      // 마감은 통계 요약의 삭제 가능 여부를 바꾼다(#1635) — 진행 중일 때 받은 false 가 남으면 마감 직후 같은 화면에
+      // 삭제 버튼이 나오지 않는다. 일별 차트 범위도 마감 시각을 따르므로 이 모집의 통계 전체를 무효화한다.
+      queryClient.invalidateQueries({ queryKey: statsQueryKeys.byRecruitment(recruitmentId) });
     },
   });
 }

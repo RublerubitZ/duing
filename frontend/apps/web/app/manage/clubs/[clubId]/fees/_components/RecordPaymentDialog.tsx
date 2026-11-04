@@ -52,7 +52,7 @@ export function RecordPaymentDialog({
     register,
     handleSubmit,
     formState: { errors, isSubmitting },
-  } = useForm<RecordPaymentInput>({
+  } = useForm({
     resolver: zodResolver(recordPaymentSchema),
     defaultValues: {
       amount: bill.remainingAmount,

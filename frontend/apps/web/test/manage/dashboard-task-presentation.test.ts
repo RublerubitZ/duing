@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { ActionItem, DashboardTask, OperationItem } from '@duing/types';
 
-import { presentDashboardTask } from '@/app/manage/_components/dashboard/dashboardTaskPresentation';
+import { pendingDaysChip, presentDashboardTask } from '@/app/manage/_components/dashboard/dashboardTaskPresentation';
 
 const NOW = new Date('2026-10-28T03:00:00Z'); // 10/28 KST 12:00
 const recruitment = (item: Partial<ActionItem> & Pick<ActionItem, 'type'>): DashboardTask => ({
@@ -116,5 +116,63 @@ describe('presentDashboardTask — 운영 업무', () => {
     const conflict = presentDashboardTask(10, operation({ type: 'FACILITY_BOOKING_ATTENTION', ...base, status: 'CONFLICT' }), NOW);
     expect(conflict.chip).toEqual({ text: '학교 일정 충돌', tone: 'late' });
     expect(conflict.href).toBe('/manage/clubs/10/facility-bookings');
+  });
+});
+
+describe('presentDashboardTask — 모집 상세 변형', () => {
+  const present = (item: Partial<ActionItem> & Pick<ActionItem, 'type'>) =>
+    presentDashboardTask(10, recruitment(item), NOW, { variant: 'recruitment' });
+
+  it.each([
+    [{ type: 'INTERVIEW_ROUND_NEEDED', count: 2 }, '면접 라운드 생성 필요 2명', null],
+    [{ type: 'INTERVIEW_ROUND_UNCONFIRMED', roundId: 7, roundTitle: '1차 면접' }, '면접 일정 미확정', '1차 면접'],
+    [{ type: 'INTERVIEW_RESPONSE_UNCOLLECTED', roundId: 8, roundTitle: '2차 면접', count: 2 }, '면접 응답 미수집 2명', '2차 면접'],
+    [{ type: 'INTERVIEW_RESULT_PENDING', roundId: 9, roundTitle: '1차 면접', count: 5 }, '면접 결과 미확정 5명', '1차 면접'],
+    [{ type: 'INTERVIEW_RESULT_PENDING', count: 5 }, '면접 결과 미확정 5명', null],
+    [{ type: 'APPLICANTS_AWAITING_REVIEW', count: 12, submitted: 9, onHold: 3 }, '검토 대기 지원자 12명', '지원 완료 9명 · 보류 3명'],
+    [{ type: 'APPLICANTS_AWAITING_REVIEW', count: 4, submitted: 0, onHold: 4 }, '검토 대기 지원자 4명', '보류 4명'],
+    [{ type: 'APPLICANTS_AWAITING_REVIEW', count: 9, submitted: 9, onHold: 0 }, '검토 대기 지원자 9명', '지원 완료 9명'],
+    [{ type: 'APPLICANTS_AWAITING_REVIEW', count: 3 }, '검토 대기 지원자 3명', null],
+    [{ type: 'CLOSED_RECRUITMENT_UNDECIDED', count: 6 }, '마감 모집 결과 미확정 6명', '마감 뒤에도 최종 결과를 확정할 수 있어요'],
+  ] as const)('%o → 첫째 줄 %s, 둘째 줄 %s', (item, label, context) => {
+    const row = present(item);
+    expect(row.label).toBe(label);
+    expect(row.context).toBe(context);
+  });
+
+  it('모집 제목은 쓰지 않는다', () => {
+    const row = present({ type: 'INTERVIEW_RESULT_PENDING', roundId: 9, roundTitle: '1차 면접', count: 5 });
+    expect(`${row.label} ${row.context}`).not.toContain('신입 부원 모집');
+  });
+
+  it.each([
+    { type: 'INTERVIEW_ROUND_NEEDED', count: 2 },
+    { type: 'INTERVIEW_ROUND_UNCONFIRMED', roundId: 7, roundTitle: '1차 면접' },
+    { type: 'INTERVIEW_RESPONSE_UNCOLLECTED', roundId: 8, roundTitle: '2차 면접', count: 2, daysLeft: 1 },
+    { type: 'INTERVIEW_RESULT_PENDING', roundId: 9, count: 5 },
+    { type: 'APPLICANTS_AWAITING_REVIEW', count: 3, submitted: 3, onHold: 0, pendingDays: 9 },
+    { type: 'APPLICANTS_AWAITING_REVIEW', count: 3, submitted: 0, onHold: 3 },
+    { type: 'CLOSED_RECRUITMENT_UNDECIDED', count: 6 },
+  ] as const)('칩·처리 문구·목적지·키는 홈과 같다 — %o', (item) => {
+    const home = presentDashboardTask(10, recruitment(item), NOW);
+    const detail = present(item);
+    expect({ key: detail.key, chip: detail.chip, actionLabel: detail.actionLabel, href: detail.href })
+      .toEqual({ key: home.key, chip: home.chip, actionLabel: home.actionLabel, href: home.href });
+  });
+
+  it('variant 를 주지 않으면 홈 그대로 — 맥락에 모집명 · 라운드 · 인원', () => {
+    const row = presentDashboardTask(10, recruitment({ type: 'APPLICANTS_AWAITING_REVIEW', count: 12, submitted: 9, onHold: 3 }), NOW);
+    expect(row.label).toBe('검토 대기 지원자');
+    expect(row.context).toBe('신입 부원 모집 · 12명');
+  });
+});
+
+describe('pendingDaysChip', () => {
+  it.each([
+    [0, '미처리 오늘', 'info'],
+    [3, '미처리 3일', 'soon'],
+    [9, '미처리 9일', 'late'],
+  ] as const)('%s일 → %s(%s)', (days, text, tone) => {
+    expect(pendingDaysChip(days)).toEqual({ text, tone });
   });
 });
