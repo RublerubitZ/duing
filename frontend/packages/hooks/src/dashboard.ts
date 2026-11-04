@@ -22,24 +22,15 @@ import { isTodayKst, todayKstDateString } from './dashboardDate';
 import { retryUnlessStatuses } from './retry';
 import {
   aggregateApplicantTotals,
-  buildActionItems,
-  buildClosedRecruitmentItems,
   buildOperationItems,
+  buildRecruitmentActionItems,
   groupDashboardTasks,
+  isActiveRecruitment,
   sortActionItems,
   sortTodaySchedule,
-  type ClosedRecruitmentDashboardInput,
-  type RecruitmentDashboardInput,
 } from './dashboardSelectors';
 
 export const DASHBOARD_QUERY_OPTIONS = { staleTime: 60_000, gcTime: 300_000 } as const;
-
-// 판정은 raw status — 마감일이 지났어도 수동 마감 전이면 백엔드는 모집을 OPEN(심사 진행 중)으로 다루고,
-// 그 구간에 미결 지원자가 남아 있다. displayStatus 로 판정하면 이 필터를 공유하는 진행 중 모집 카드·
-// 지원자 요약·처리 필요 업무가 모두 그 모집을 통째로 빼버려 "처리 필요 0건"이 표시된다.
-function isActive(recruitment: RecruitmentSummary): boolean {
-  return recruitment.status !== 'CLOSED';
-}
 
 /** 대시보드 카드들이 공유하는 동아리 모집 목록(마감 포함) — 카드별 필터는 호출부가 건다. */
 function useDashboardRecruitments(clubId: number | undefined) {
@@ -58,7 +49,7 @@ function useDashboardRecruitments(clubId: number | undefined) {
 /** 카드2: 마감(raw CLOSED) 제외 진행 중 모집 */
 export function useActiveRecruitments(clubId: number | undefined) {
   const query = useDashboardRecruitments(clubId);
-  const data = useMemo(() => query.data?.filter(isActive), [query.data]);
+  const data = useMemo(() => query.data?.filter(isActiveRecruitment), [query.data]);
   return { ...query, data };
 }
 
@@ -102,10 +93,10 @@ export function useClubActionItems(clubId: number | undefined): {
 } {
   const client = useApiClient();
   const recruitments = useDashboardRecruitments(clubId);
-  const list = useMemo(() => recruitments.data?.filter(isActive) ?? [], [recruitments.data]);
+  const list = useMemo(() => recruitments.data?.filter(isActiveRecruitment) ?? [], [recruitments.data]);
   // 마감 모집도 남은 지원의 결과 확정은 열려 있어(#892) 미결만 따로 센다. 외부 폼은 지원서가 없어 뺀다.
   const closedSelfList = useMemo(
-    () => recruitments.data?.filter((recruitment) => !isActive(recruitment) && recruitment.applicationMode === 'SELF') ?? [],
+    () => recruitments.data?.filter((recruitment) => !isActiveRecruitment(recruitment) && recruitment.applicationMode === 'SELF') ?? [],
     [recruitments.data],
   );
   const ids = list.map((r) => r.id);
@@ -167,8 +158,8 @@ export function useClubActionItems(clubId: number | undefined): {
   });
 
   // 면접 대기열 fan-out — 라운드 화면의 useInterviewRoundCandidatesQuery(includeUndecided=false)와
-  // 쿼리키 모양을 동일하게 맞춰 캐시를 공유하고, 라운드 생성/취소/제외/확정 mutation의
-  // candidates(recruitmentId) prefix invalidation이 여기에도 닿게 한다.
+  // 쿼리키 모양을 동일하게 맞춰 캐시를 공유하고, 라운드 생성/취소/제외/확정·지원 상태 변경(단건·일괄)
+  // mutation의 candidates(recruitmentId) prefix invalidation이 여기에도 닿게 한다.
   const candidatesQueries = useQueries({
     queries: interviewRecruitmentIds.map((recruitmentId) => ({
       queryKey: interviewRoundKeys.candidates(recruitmentId, false),
@@ -197,17 +188,26 @@ export function useClubActionItems(clubId: number | undefined): {
   // shortcut: 열어 둔 채 리렌더가 없으면 어제 기준으로 남는다(미처리 7일 올림·면접 응답 기한), 불만이 나오면 자정 타이머를 단다.
   const todayKst = todayKstDateString(new Date());
   const items = useMemo(() => {
-    const inputs: RecruitmentDashboardInput[] = list.map((recruitment, index) => ({
-      recruitment,
-      stats: statsQueries.data[index],
-      rounds: roundsByRecruitmentId.get(recruitment.id),
-      candidateCount: candidateCountByRecruitmentId.get(recruitment.id),
-    }));
-    const closedInputs: ClosedRecruitmentDashboardInput[] = closedSelfList.map((recruitment, index) => ({
-      recruitment,
-      stats: closedStatsQueries.data[index],
-    }));
-    return sortActionItems([...buildActionItems(inputs, new Date()), ...buildClosedRecruitmentItems(closedInputs)]);
+    const now = new Date();
+    // 모집마다 단일 입구(buildRecruitmentActionItems)로 만든다 — 모집 상세 카드와 규칙이 갈리지 않게. 진행 중 목록 순서 → 마감 목록 순서.
+    const activeItems = list.flatMap((recruitment, index) =>
+      buildRecruitmentActionItems(
+        {
+          recruitment,
+          stats: statsQueries.data[index],
+          rounds: roundsByRecruitmentId.get(recruitment.id),
+          candidateCount: candidateCountByRecruitmentId.get(recruitment.id),
+        },
+        now,
+      ),
+    );
+    const closedItems = closedSelfList.flatMap((recruitment, index) =>
+      buildRecruitmentActionItems(
+        { recruitment, stats: closedStatsQueries.data[index], rounds: undefined, candidateCount: undefined },
+        now,
+      ),
+    );
+    return sortActionItems([...activeItems, ...closedItems]);
   }, [list, statsQueries.data, roundsByRecruitmentId, candidateCountByRecruitmentId, closedSelfList, closedStatsQueries.data, todayKst]);
 
   return {
@@ -229,6 +229,60 @@ export function useClubActionItems(clubId: number | undefined): {
       roundsQueries.someError ||
       candidatesQueries.someError ||
       closedStatsQueries.someError,
+  };
+}
+
+/**
+ * 모집 상세 "이 모집에서 할 일" — 이 모집 하나의 통계·라운드·면접 대기열만 받아 홈과 같은 규칙(buildRecruitmentActionItems)으로 묶는다.
+ * 쿼리 키·옵션은 홈 fan-out 과 같아 캐시·무효화를 공유한다. 다른 모집의 조회 실패는 이 결과에 닿지 않는다.
+ * 자체 폼(SELF) 모집에서만 부른다 — 외부 폼은 호출부(모집 상세)가 카드를 그리지 않는다.
+ */
+export function useRecruitmentActionItems(recruitment: RecruitmentSummary): {
+  groups: DashboardTaskGroup[];
+  submittedCount: number | undefined;
+  isLoading: boolean;
+  isError: boolean;
+} {
+  const client = useApiClient();
+  const recruitmentId = recruitment.id;
+  // 홈처럼 진행 중 ∧ 면접 사용 모집만 라운드·대기열을 받는다 — 면접 안 쓰는 모집은 라운드 API 가 InterviewNotUsed 를 던진다.
+  const interviewEnabled = isActiveRecruitment(recruitment) && recruitment.useInterview;
+
+  const statsQuery = useQuery({
+    queryKey: statsQueryKeys.summary(recruitmentId),
+    queryFn: () => client.stats.summary(recruitmentId),
+    ...DASHBOARD_QUERY_OPTIONS,
+  });
+  const roundsQuery = useQuery({
+    queryKey: interviewRoundKeys.list(recruitmentId),
+    queryFn: () => client.interviewRounds.list(recruitmentId),
+    enabled: interviewEnabled,
+    ...DASHBOARD_QUERY_OPTIONS,
+  });
+  const candidatesQuery = useQuery({
+    queryKey: interviewRoundKeys.candidates(recruitmentId, false),
+    queryFn: () => client.interviewRounds.candidates(recruitmentId, false),
+    enabled: interviewEnabled,
+    ...DASHBOARD_QUERY_OPTIONS,
+  });
+
+  // 판정·입력은 켠 쿼리만 본다 — 꺼 둔 쿼리라도 같은 키를 다른 관찰자(이 화면의 면접 단계 칩)가 받으면 그 로딩·오류가 그대로 보인다.
+  const stats = statsQuery.data;
+  const rounds = interviewEnabled ? roundsQuery.data : undefined;
+  const candidateCount = interviewEnabled ? candidatesQuery.data?.length : undefined;
+  // 자정 뒤 첫 렌더에서 다시 계산한다 — 홈 useClubActionItems 와 같은 shortcut(자정 타이머 없음).
+  const todayKst = todayKstDateString(new Date());
+  const groups = useMemo(
+    () => groupDashboardTasks(sortActionItems(buildRecruitmentActionItems({ recruitment, stats, rounds, candidateCount }, new Date())), []),
+    [recruitment, stats, rounds, candidateCount, todayKst],
+  );
+
+  return {
+    groups,
+    // 다시 받기가 실패해도 옛 값을 쓴다 — 할 일 줄 둘째 줄(같은 통계)과 미리보기 숫자가 맞게.
+    submittedCount: stats?.submitted,
+    isLoading: statsQuery.isLoading || (interviewEnabled && (roundsQuery.isLoading || candidatesQuery.isLoading)),
+    isError: statsQuery.isError || (interviewEnabled && (roundsQuery.isError || candidatesQuery.isError)),
   };
 }
 

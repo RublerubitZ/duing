@@ -56,7 +56,8 @@ public interface AdminClubApi {
             @RequestParam(defaultValue = "false") boolean needsPendingCleanup,
             @Parameter(description = "신호 필터(값은 AdminClubSignal). 운영 중(ACTIVE) 조건을 품고, status·needsPendingCleanup·category·division·keyword 와 "
                     + "함께 오면 모두 건다(AND — 다른 상태나 미결 정리 필요와 함께면 빈 결과). 대문자 값만 받는다(모르는 값·소문자는 400), "
-                    + "빈 값(signal=)은 신호 없음과 같다. 정렬은 그대로 이름순이다.")
+                    + "빈 값(signal=)은 신호 없음과 같다. RESULT_WAITING 은 판정·재료 모두 지원자 목록과 같은 기준이라 "
+                    + "탈퇴한 지원자의 지원서는 세지 않는다. 정렬은 그대로 이름순이다.")
             @RequestParam(required = false) AdminClubSignal signal,
             @Parameter(hidden = true) Pageable pageable
     );

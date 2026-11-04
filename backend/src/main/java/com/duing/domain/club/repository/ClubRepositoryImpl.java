@@ -89,6 +89,12 @@ public class ClubRepositoryImpl implements ClubRepositoryCustom {
     private static final QUser SIGNAL_OPERATOR_USER = new QUser("signalOperatorUser");
     private static final QAuthSession SIGNAL_OPERATOR_SESSION = new QAuthSession("signalOperatorSession");
 
+    /**
+     * 지원 결과 미확정 신호(RESULT_WAITING)의 지원자 조인 전용 alias — SIGNAL_OPERATOR 와 같은 규약(행 쿼리의 회장 조인이 기본 alias {@code user} 를 쓴다).
+     * 목록 EXISTS 와 재료·집계의 행 쿼리가 resultWaitingRecruitmentRow 를 함께 쓰므로 두 쿼리 모두 이 alias 로 application.user 를 조인한다.
+     */
+    private static final QUser SIGNAL_APPLICANT = new QUser("signalApplicant");
+
     /** 재료가 없는 신호 행 — 하위 레코드가 없는 신호(NO_RECORD·OPERATOR_INACTIVE)이거나 처리 경합으로 재료 문장이 비었다. */
     private static final AdminClubSignalDetailQuery NO_SIGNAL_MATERIAL = new AdminClubSignalDetailQuery(null, null, null);
 
@@ -436,6 +442,7 @@ public class ClubRepositoryImpl implements ClubRepositoryCustom {
             case RESULT_WAITING -> JPAExpressions.selectOne()
                     .from(application)
                     .join(application.recruitment, recruitment)
+                    .join(application.user, SIGNAL_APPLICANT)
                     .where(recruitment.club.id.eq(club.id), resultWaitingRecruitmentRow(cutoffs))
                     .exists();
             case JOIN_REQUEST_WAITING -> JPAExpressions.selectOne()
@@ -453,10 +460,13 @@ public class ClubRepositoryImpl implements ClubRepositoryCustom {
 
     /**
      * 신호 모집의 결과 미확정 지원 행(스펙 §4-1) — 동아리 상관이 없어 목록 EXISTS·재료·집계가 같이 쓴다.
-     * 호출 측이 recruitment 기본 별칭으로 application.recruitment 를 조인해야 한다(undecidedApplicationRow 와 같은 조건).
+     * 호출 측이 recruitment 기본 별칭으로 application.recruitment 를(undecidedApplicationRow 와 같은 조건), SIGNAL_APPLICANT 로
+     * application.user 를 조인해야 한다. 탈퇴한 지원자의 지원서는 세지 않는다 — 운영진 지원자 목록이 지원자를 조인해 빼므로, 세면
+     * 운영진이 치울 수 없는 건으로 신호가 남는다(#1594). 조인 ON 의 @SQLRestriction 에 기대지 않고 명시한다(운영 중단 미결 정리는 일부러 센다).
      */
     private static BooleanExpression resultWaitingRecruitmentRow(ClubSignalCutoffs cutoffs) {
-        return undecidedApplicationRow().and(recruitmentEndedBefore(cutoffs.resultEndedBefore()));
+        return undecidedApplicationRow().and(recruitmentEndedBefore(cutoffs.resultEndedBefore()))
+                .and(SIGNAL_APPLICANT.deletedAt.isNull());
     }
 
     /**
@@ -574,6 +584,7 @@ public class ClubRepositoryImpl implements ClubRepositoryCustom {
                         recruitment.closedAt, recruitment.endDate, recruitment.startDate, undecidedCount)
                 .from(application)
                 .join(application.recruitment, recruitment)
+                .join(application.user, SIGNAL_APPLICANT)
                 .join(recruitment.club, club)
                 .where(resultWaitingRecruitmentRow(cutoffs),
                         club.status.eq(ClubStatus.ACTIVE), club.deletedAt.isNull(), clubIds == null ? null : club.id.in(clubIds))

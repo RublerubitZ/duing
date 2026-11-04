@@ -6,7 +6,7 @@ import com.duing.domain.recruitment.entity.RecruitmentDisplayStatus;
 import java.time.LocalDate;
 
 /**
- * 관리자 모집 목록·상세의 공통 행. 지원자 수는 모집 방식과 무관하게 실제 지원서를 센 값이다.
+ * 관리자 모집 목록·상세의 공통 행. 지원자 수는 모집 방식과 무관하게 실제 지원서를 센 값이다(지원자 목록처럼 탈퇴한 지원자의 지원서는 뺀다).
  *
  * <p>{@code clubName} 을 따로 들고 있는 이유: 목록 쿼리가 동아리를 fetch join 하지 않고 이름만
  * 스칼라로 뽑기 때문이다(집계 groupBy 와 병용 불가). 응답 매핑은 이 값을 쓰고 LAZY 연관을 건드리지 않는다.
