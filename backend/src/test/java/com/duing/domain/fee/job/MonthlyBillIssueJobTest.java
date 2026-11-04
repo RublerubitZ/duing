@@ -165,6 +165,25 @@ class MonthlyBillIssueJobTest extends IntegrationTestBase {
     }
 
     @Test
+    @DisplayName("다른 정책에서 취소한 청구는 건너뛸 이유가 아니다 — 새 월 정책은 취소된 회원을 포함해 전원에게 발행한다")
+    void cancelledBillOfAnotherPolicyDoesNotSkipMember() {
+        feePolicyRepository.save(FeePolicyFixture.autoIssue(clubId, 5, 25));
+        job.run();
+        jdbcTemplate.update("UPDATE fee_bill SET status = 'CANCELLED' WHERE id = ?",
+                feeBillRepository.findAll().get(0).getId());
+        FeePolicy newPolicy = feePolicyRepository.save(FeePolicyFixture.autoIssue(clubId, 5, 25));
+
+        job.run();
+
+        assertThat(feeBillRepository.findAll())
+                .filteredOn(bill -> bill.getFeePolicyId().equals(newPolicy.getId()))
+                .extracting(FeeBill::getUserId)
+                .containsExactlyInAnyOrderElementsOf(clubMemberRepository.findAll().stream()
+                        .map(member -> member.getUser().getId()).toList());
+        assertThat(billCount()).isEqualTo(4); // 첫 정책 2(그중 1건 취소, 재발행 없음) + 새 정책 2
+    }
+
+    @Test
     @DisplayName("비활성·비-MONTHLY·자동발행 꺼짐 정책은 발행 대상에서 제외된다")
     void excludesNonEligiblePolicies() {
         feePolicyRepository.save(FeePolicyFixture.inactive(clubId)); // active=false
