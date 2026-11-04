@@ -3,16 +3,14 @@
 import { useState } from 'react';
 import type { FormEvent } from 'react';
 import { useGuardedRouter } from '@/app/_lib/useGuardedRouter';
-import { useQueryClient } from '@tanstack/react-query';
 import { ApiError } from '@duing/api';
 import type {
-  ApplicationDraft,
   DraftAnswer,
   RecruitmentDetail,
   RecruitmentQuestionItem,
   SubmitApplicationPayload,
 } from '@duing/types';
-import { kstDateTimeFormatter, parseKstInstant, useSubmitApplicationMutation, draftQueryKeys } from '@duing/hooks';
+import { kstDateTimeFormatter, parseKstInstant, useSubmitApplicationMutation } from '@duing/hooks';
 import { ConfirmDialog } from '@/app/_components/ConfirmDialog';
 import { Spinner, ButtonSpinner } from '@/components/loading/Spinner';
 import { MarkdownProse } from '@/components/markdown/MarkdownProse';
@@ -86,7 +84,6 @@ function collectRequiredViolations(
 
 export function ApplyForm({ recruitment, recruitmentId, questionItems, initialAnswers, restoredDraft = false, draftUpdatedAt = null }: Props) {
   const router = useGuardedRouter();
-  const queryClient = useQueryClient();
   const submit = useSubmitApplicationMutation(recruitmentId);
 
   const [answers, setAnswers] = useState<DraftAnswer[]>(initialAnswers);
@@ -170,13 +167,6 @@ export function ApplyForm({ recruitment, recruitmentId, questionItems, initialAn
         club_name: recruitment.clubName,
         application_id: applicationId,
       });
-      // 서버가 제출 시 draft 를 삭제하므로 재조회 대신 캐시를 직접 비운다 — GET 1회 제거(#985).
-      // 응답이 화면을 떠난 뒤 오면 쿼리를 새로 만들지 않는다 — 기본 gcTime 5분으로 남아 다시 들어올 때 빈 폼이 열린다.
-      queryClient.setQueryData<ApplicationDraft>(
-        draftQueryKeys.byRecruitment(recruitmentId),
-        (cached) =>
-          cached === undefined ? undefined : { exists: false, answers: [], updatedAt: null },
-      );
       setConfirmOpen(false);
       router.push(toRoute(`/me/applications/${applicationId}`));
     } catch (submitError) {

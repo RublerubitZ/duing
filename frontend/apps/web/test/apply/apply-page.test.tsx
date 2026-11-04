@@ -893,7 +893,7 @@ describe('ApplyPage — 임시저장 시드', () => {
 
 describe('ApplyPage — 제출 후 임시저장 캐시', () => {
   // 서버가 제출과 함께 draft 를 지우므로 재조회는 반드시 exists:false 만 받아오는 낭비된 왕복이다(#985).
-  it('제출에 성공하면 draft 를 다시 조회하지 않고 캐시를 직접 비운다', async () => {
+  it('제출에 성공하면 draft 를 다시 조회하지 않는다', async () => {
     let draftGetCount = 0;
     server.use(
       http.get(`*/recruitments/${RECRUITMENT_ID}/draft`, () => {
@@ -911,9 +911,8 @@ describe('ApplyPage — 제출 후 임시저장 캐시', () => {
       mockSubmitApplication(888),
     );
 
-    const queryClient = makeQueryClient();
     const user = userEvent.setup();
-    renderApplyPage(queryClient);
+    renderApplyPage();
 
     expect(await screen.findByRole('textbox', { name: /지원 동기/ })).toHaveValue('저장된 답');
     expect(draftGetCount).toBe(1);
@@ -921,11 +920,6 @@ describe('ApplyPage — 제출 후 임시저장 캐시', () => {
     await submitAndConfirm(user);
 
     await waitFor(() => expect(mockRouterPush).toHaveBeenCalled());
-    expect(queryClient.getQueryData(draftQueryKeys.byRecruitment(RECRUITMENT_ID))).toEqual({
-      exists: false,
-      answers: [],
-      updatedAt: null,
-    });
     expect(draftGetCount).toBe(1);
   });
 
@@ -964,7 +958,7 @@ describe('ApplyPage — 제출 후 임시저장 캐시', () => {
     expect(queryClient.getQueryState(draftQueryKeys.byRecruitment(RECRUITMENT_ID))).toBeUndefined();
 
     releaseSubmit();
-    // 이동 직전에 캐시를 쓴다 — 여기서 쿼리가 새로 생기면 기본 gcTime 5분으로 남아, 다시 들어올 때 빈 폼이 열린다.
+    // 제출 성공에 캐시 쓰기가 다시 들어와 쿼리를 새로 만들면 기본 gcTime 5분으로 남아 다시 들어올 때 빈 폼이 열린다 — 그 회귀를 잡는다.
     await waitFor(() => expect(mockRouterPush).toHaveBeenCalled());
     expect(queryClient.getQueryData(draftQueryKeys.byRecruitment(RECRUITMENT_ID))).toBeUndefined();
   });
