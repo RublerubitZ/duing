@@ -8,7 +8,7 @@ import { setupServer } from 'msw/node';
 import { delay, http, HttpResponse } from 'msw';
 import type { DraftAnswer, RecruitmentDetail, RecruitmentQuestionItem } from '@duing/types';
 import { createApiClient } from '@duing/api';
-import { ApiClientProvider, draftQueryKeys, recruitmentQueryKeys } from '@duing/hooks';
+import { ApiClientProvider, applicationQueryKeys, draftQueryKeys } from '@duing/hooks';
 
 const mockRouterPush = vi.fn();
 const mockRouterReplace = vi.fn();
@@ -958,7 +958,7 @@ describe('ApplyPage — 제출 후 임시저장 캐시', () => {
     expect(queryClient.getQueryState(draftQueryKeys.byRecruitment(RECRUITMENT_ID))).toBeUndefined();
 
     releaseSubmit();
-    // 제출 성공에 캐시 쓰기가 다시 들어와 쿼리를 새로 만들면 기본 gcTime 5분으로 남아 다시 들어올 때 빈 폼이 열린다 — 그 회귀를 잡는다.
+    // 제출 성공에 캐시 쓰기가 다시 들어와 쿼리를 새로 만들면 기본 gcTime 5분으로 남아 저장본 조회의 gcTime 0 이 무력해진다(지원을 철회한 뒤 5분 안에 다시 들어오면 남은 캐시로 빈 폼이 열린다) — 그 회귀를 잡는다.
     await waitFor(() => expect(mockRouterPush).toHaveBeenCalled());
     expect(queryClient.getQueryData(draftQueryKeys.byRecruitment(RECRUITMENT_ID))).toBeUndefined();
   });
@@ -1077,7 +1077,7 @@ describe('ApplyPage — 임시저장 복원 안내', () => {
     expect(screen.queryByText('임시저장한 답변을 불러왔어요')).not.toBeInTheDocument();
   });
 
-  it('모집 정보를 다시 받다 실패한 뒤 폼이 다시 열리면 그때의 저장본으로 복원 안내를 다시 정한다', async () => {
+  it('지원 자격 확인에 막혔다 풀려 폼이 다시 열리면 그때의 저장본으로 복원 안내를 다시 정한다', async () => {
     let draftPutCount = 0;
     server.use(
       http.put(`*/recruitments/${RECRUITMENT_ID}/draft`, () => {
@@ -1093,30 +1093,23 @@ describe('ApplyPage — 임시저장 복원 안내', () => {
     await waitFor(() => expect(draftPutCount).toBe(1), { timeout: 4000 });
     await screen.findByText(/^마지막 저장 /, {}, { timeout: 4000 });
 
-    // 상세 재조회가 실패하면 폼이 내려가고 회복되면 그때의 캐시로 다시 마운트된다 — 안내를 폼 밖(useRef)에서 고정하면 여기서 틀린다.
-    server.use(
-      http.get(`*/recruitments/${RECRUITMENT_ID}`, () =>
-        HttpResponse.json(
-          { ok: false, data: null, message: '일시적인 오류가 발생했습니다.' },
-          { status: 500 },
-        ),
-      ),
-    );
+    // 자격 재확인이 막으면(예: 마감) 폼이 내려가고 풀리면 그때의 캐시로 다시 마운트된다 — 안내를 폼 밖(useRef)에서 고정하면 여기서 틀린다.
+    server.use(mockEligibilityHandler(400, '마감된 모집 공고에는 지원할 수 없습니다.'));
     await act(async () => {
-      await queryClient.refetchQueries({ queryKey: recruitmentQueryKeys.detail(RECRUITMENT_ID), exact: true });
+      await queryClient.refetchQueries({ queryKey: applicationQueryKeys.eligibility(RECRUITMENT_ID), exact: true });
       await new Promise((resolve) => setTimeout(resolve, 50));
     });
-    expect(screen.getByRole('alert')).toHaveTextContent('일시적인 오류가 발생했습니다.');
+    expect(screen.getByText('마감된 모집 공고에는 지원할 수 없습니다.')).toBeInTheDocument();
     expect(screen.queryByRole('textbox', { name: /지원 동기/ })).not.toBeInTheDocument();
 
-    server.use(mockRecruitmentDetailHandler());
+    server.use(mockEligibilityHandler(200));
     await act(async () => {
-      await queryClient.refetchQueries({ queryKey: recruitmentQueryKeys.detail(RECRUITMENT_ID), exact: true });
+      await queryClient.refetchQueries({ queryKey: applicationQueryKeys.eligibility(RECRUITMENT_ID), exact: true });
       await new Promise((resolve) => setTimeout(resolve, 50));
     });
 
     expect(screen.getByRole('textbox', { name: /지원 동기/ })).toHaveValue('열정');
-    expect(screen.getByText('임시저장한 답변을 불러왔어요')).toBeInTheDocument();
+    expect(screen.getByText('임시저장한 답변을 불러왔어요')).toHaveTextContent(/\d+월 \d+일 \d{2}:\d{2} 저장/);
   }, 10_000);
 });
 
