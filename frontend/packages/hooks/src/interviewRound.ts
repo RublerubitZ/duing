@@ -75,13 +75,15 @@ export function useCreateInterviewRoundMutation(recruitmentId: number) {
       queryClient.invalidateQueries({
         queryKey: interviewRoundKeys.list(recruitmentId),
       });
-      // 대기열은 마법사 1단계만 보여 생성 순간엔 보는 곳이 없다 — 바로 다시 받아 홈이 낡은 대기열로 '생성 필요'를 겹쳐 내지 않게.
+      // 라운드를 만드는 순간(마법사 2단계)엔 대기열을 보는 화면이 없다 — 바로 다시 받아 홈이 낡은 대기열로 '생성 필요'를 겹쳐 내지 않게.
       queryClient.invalidateQueries({
         queryKey: interviewRoundKeys.candidates(recruitmentId),
         refetchType: 'all',
       });
+      // 통계도 같은 이유로 바로 다시 받는다 — 면접 대상이 된 사람을 홈이 '검토 대기'로도 겹쳐 내지 않게.
       queryClient.invalidateQueries({
         queryKey: statsQueryKeys.byRecruitment(recruitmentId),
+        refetchType: 'all',
       });
       queryClient.invalidateQueries({
         queryKey: applicationQueryKeys.applicants(recruitmentId),
@@ -142,7 +144,7 @@ export function useCancelInterviewRoundMutation(recruitmentId: number, roundId: 
 
 /**
  * 슬롯 일괄 생성 (BE#4)
- * 성공 → detail(roundId) invalidate
+ * 성공 → detail(roundId) + 모든 모집의 list invalidate
  * (슬롯 목록 + 멤버 reinvitedMemberCount 반영)
  */
 export function useCreateRoundSlotsMutation(roundId: number) {
@@ -154,6 +156,10 @@ export function useCreateRoundSlotsMutation(roundId: number) {
     onSuccess: () => {
       queryClient.invalidateQueries({
         queryKey: interviewRoundKeys.detail(roundId),
+      });
+      // 마감 전 응답 수집 라운드에 슬롯을 더하면 '가능 시간 없음' 멤버가 다시 초대돼 목록의 응답 수가 준다 — 모집 id 를 몰라 접두로 건다.
+      queryClient.invalidateQueries({
+        queryKey: [...interviewRoundKeys.all, 'list'],
       });
     },
   });
@@ -256,7 +262,7 @@ export function useUnassignMemberScheduleMutation(roundId: number) {
 
 /**
  * 멤버 제외 (BE#11)
- * 성공 → detail(roundId) + list(recruitmentId) + candidates(recruitmentId) invalidate
+ * 성공 → detail(roundId) + list(recruitmentId) + candidates(recruitmentId) + 통계 invalidate
  * (제외 시 멤버 대기열 복귀 — 재큐잉이므로 candidates 포함 §10.1)
  */
 export function useExcludeMemberMutation(recruitmentId: number, roundId: number) {
@@ -275,6 +281,8 @@ export function useExcludeMemberMutation(recruitmentId: number, roundId: number)
       queryClient.invalidateQueries({
         queryKey: interviewRoundKeys.candidates(recruitmentId),
       });
+      // 자동 마감 전망(통계 요약)은 결과를 기다리는 사람이 남은 라운드만 센다 — 기다리던 마지막 멤버를 빼면 진행 중 라운드 수가 바뀐다.
+      queryClient.invalidateQueries({ queryKey: statsQueryKeys.byRecruitment(recruitmentId) });
     },
   });
 }

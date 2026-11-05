@@ -12,10 +12,14 @@ import {
   useInterviewRoundCandidatesQuery,
   useCreateInterviewRoundMutation,
   useCancelInterviewRoundMutation,
+  useCreateRoundSlotsMutation,
+  useRequestAvailabilityMutation,
+  useRoundAutoAssignMutation,
   useConfirmRoundMutation,
   useExcludeMemberMutation,
   useAssignMemberScheduleMutation,
 } from '../src/interviewRound';
+import { useRecruitmentStatsSummaryQuery } from '../src/stats';
 
 const server = setupServer();
 
@@ -131,6 +135,39 @@ describe('useCreateInterviewRoundMutation (스펙 §10.1)', () => {
     await waitFor(() => expect(candidatesRequestCount).toBe(2));
     await waitFor(() => expect(queryClient.getQueryData(interviewRoundKeys.candidates(10, false))).toEqual([]));
   });
+
+  it('통계를 보는 화면이 없어도 성공 직후 통계를 다시 받는다 — 홈이 면접 대상이 된 사람을 검토 대기로 겹쳐 내지 않게', async () => {
+    const queryClient = newQueryClient();
+    let statsSummaryRequestCount = 0;
+    server.use(
+      http.get('*/leader/recruitments/10/stats/summary', () => {
+        statsSummaryRequestCount += 1;
+        return HttpResponse.json({
+          ok: true,
+          data: { total: 3, submitted: 2, onHold: 0, interviewPending: 1, accepted: 0, rejected: 0, capacity: 5, ratio: 0.6 },
+          message: null,
+        });
+      }),
+      http.post('*/leader/recruitments/10/interview-rounds', () =>
+        HttpResponse.json({ ok: true, data: { roundId: 42 }, message: null }),
+      ),
+    );
+
+    // 홈처럼 통계를 한 번 받고 떠난다 — 라운드를 만드는 마법사에는 통계를 보는 곳이 없다.
+    const statsView = renderHook(() => useRecruitmentStatsSummaryQuery(10), {
+      wrapper: makeWrapper(queryClient),
+    });
+    await waitFor(() => expect(statsView.result.current.isSuccess).toBe(true));
+    statsView.unmount();
+
+    const { result } = renderHook(() => useCreateInterviewRoundMutation(10), {
+      wrapper: makeWrapper(queryClient),
+    });
+    result.current.mutate({ title: '2차 면접', applicationIds: [31, 32] });
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+
+    await waitFor(() => expect(statsSummaryRequestCount).toBe(2));
+  });
 });
 
 describe('useCancelInterviewRoundMutation (스펙 §10.1 — 재큐잉)', () => {
@@ -159,6 +196,91 @@ describe('useCancelInterviewRoundMutation (스펙 §10.1 — 재큐잉)', () => 
     expect(queryClient.getQueryState(interviewRoundKeys.candidates(10))?.isInvalidated).toBe(true);
     expect(queryClient.getQueryState(interviewRoundKeys.detail(42))?.isInvalidated).toBe(true);
     expect(queryClient.getQueryState(statsQueryKeys.summary(10))?.isInvalidated).toBe(true);
+  });
+});
+
+describe('useCreateRoundSlotsMutation (슬롯 추가 → 가능 시간 없음 멤버 재초대)', () => {
+  it('성공 시 detail + 라운드 목록이 invalidate 된다 — 모집 id 를 몰라 모든 모집 목록을 낡게 하고 candidates 는 유지된다', async () => {
+    const queryClient = newQueryClient();
+    server.use(
+      http.post('*/leader/interview-rounds/42/slots', () =>
+        HttpResponse.json({
+          ok: true,
+          data: { createdSlotIds: [501], reinvitedMemberCount: 1 },
+          message: null,
+        }),
+      ),
+    );
+
+    queryClient.setQueryData(interviewRoundKeys.detail(42), null);
+    queryClient.setQueryData(interviewRoundKeys.list(10), []);
+    // 다른 모집 목록 — 훅이 모집 id 를 몰라 접두로 걸기 때문에 함께 낡는다.
+    queryClient.setQueryData(interviewRoundKeys.list(11), []);
+    queryClient.setQueryData(interviewRoundKeys.candidates(10), []);
+
+    const { result } = renderHook(() => useCreateRoundSlotsMutation(42), {
+      wrapper: makeWrapper(queryClient),
+    });
+    result.current.mutate({
+      slots: [{ startTime: '2026-11-10T10:00:00', endTime: '2026-11-10T10:30:00', capacity: 1 }],
+    });
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+
+    expect(queryClient.getQueryState(interviewRoundKeys.list(10))?.isInvalidated).toBe(true);
+    expect(queryClient.getQueryState(interviewRoundKeys.list(11))?.isInvalidated).toBe(true);
+    expect(queryClient.getQueryState(interviewRoundKeys.detail(42))?.isInvalidated).toBe(true);
+    // 비대상: 슬롯 추가는 대기열을 바꾸지 않는다
+    expect(queryClient.getQueryState(interviewRoundKeys.candidates(10))?.isInvalidated).toBe(false);
+  });
+});
+
+describe('useRequestAvailabilityMutation (스펙 §10.1 — 발송: DRAFT → COLLECTING)', () => {
+  it('성공 시 detail + list queryKey 가 invalidate 된다 — 발송 뒤 홈이 초안 줄을 띄우지 않게', async () => {
+    const queryClient = newQueryClient();
+    server.use(
+      http.post('*/leader/interview-rounds/42/request-availability', () =>
+        HttpResponse.json({ ok: true, data: { notifiedMemberCount: 3 }, message: null }),
+      ),
+    );
+
+    queryClient.setQueryData(interviewRoundKeys.detail(42), null);
+    queryClient.setQueryData(interviewRoundKeys.list(10), []);
+
+    const { result } = renderHook(() => useRequestAvailabilityMutation(10, 42), {
+      wrapper: makeWrapper(queryClient),
+    });
+    result.current.mutate();
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+
+    expect(queryClient.getQueryState(interviewRoundKeys.detail(42))?.isInvalidated).toBe(true);
+    expect(queryClient.getQueryState(interviewRoundKeys.list(10))?.isInvalidated).toBe(true);
+  });
+});
+
+describe('useRoundAutoAssignMutation (스펙 §10.1 — 자동 배정: COLLECTING → ASSIGNING)', () => {
+  it('성공 시 detail + list queryKey 가 invalidate 된다 — 배정 뒤 홈이 자동 배정 줄을 남기지 않게', async () => {
+    const queryClient = newQueryClient();
+    server.use(
+      http.post('*/leader/interview-rounds/42/auto-assign', () =>
+        HttpResponse.json({
+          ok: true,
+          data: { assignedMemberCount: 2, unassignedMemberCount: 1 },
+          message: null,
+        }),
+      ),
+    );
+
+    queryClient.setQueryData(interviewRoundKeys.detail(42), null);
+    queryClient.setQueryData(interviewRoundKeys.list(10), []);
+
+    const { result } = renderHook(() => useRoundAutoAssignMutation(10, 42), {
+      wrapper: makeWrapper(queryClient),
+    });
+    result.current.mutate();
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+
+    expect(queryClient.getQueryState(interviewRoundKeys.detail(42))?.isInvalidated).toBe(true);
+    expect(queryClient.getQueryState(interviewRoundKeys.list(10))?.isInvalidated).toBe(true);
   });
 });
 
@@ -205,6 +327,8 @@ describe('useExcludeMemberMutation (스펙 §10.1 — 제외 시 재큐잉)', ()
     queryClient.setQueryData(interviewRoundKeys.detail(42), null);
     queryClient.setQueryData(interviewRoundKeys.list(10), []);
     queryClient.setQueryData(interviewRoundKeys.candidates(10), []);
+    // 자동 마감 전망은 결과를 기다리는 사람이 남은 라운드만 센다 — 기다리던 마지막 멤버를 빼면 통계 요약이 바뀐다.
+    queryClient.setQueryData(statsQueryKeys.summary(10), null);
 
     const { result } = renderHook(() => useExcludeMemberMutation(10, 42), {
       wrapper: makeWrapper(queryClient),
@@ -215,6 +339,7 @@ describe('useExcludeMemberMutation (스펙 §10.1 — 제외 시 재큐잉)', ()
     expect(queryClient.getQueryState(interviewRoundKeys.detail(42))?.isInvalidated).toBe(true);
     expect(queryClient.getQueryState(interviewRoundKeys.list(10))?.isInvalidated).toBe(true);
     expect(queryClient.getQueryState(interviewRoundKeys.candidates(10))?.isInvalidated).toBe(true);
+    expect(queryClient.getQueryState(statsQueryKeys.summary(10))?.isInvalidated).toBe(true);
   });
 });
 
