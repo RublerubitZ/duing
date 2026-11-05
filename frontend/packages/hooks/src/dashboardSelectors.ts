@@ -85,8 +85,10 @@ export function buildActionItems(inputs: RecruitmentDashboardInput[], now: Date)
       items.push({ type: 'INTERVIEW_ROUND_NEEDED', ...base, count: candidateCount });
     }
 
-    // 면접 라운드 기반 — 진행 중 라운드마다 정확히 한 줄.
+    // 면접 라운드 기반 — 진행 중 라운드마다 한 줄, 인원 0 인 응답 수집·배정 검토 라운드만 줄이 없다.
     for (const round of rounds ?? []) {
+      // 인원 0(전원 결과 확정·제외·탈퇴)이면 사람을 더할 수도 확정할 수도 없고 자동 마감도 막지 않아 할 일이 아니다(취소는 라운드 화면에서). 초안은 새 라운드 생성을 막아 남긴다.
+      if ((round.status === 'COLLECTING' || round.status === 'ASSIGNING') && round.totalMemberCount === 0) continue;
       const roundBase = { ...base, roundId: round.roundId, roundTitle: round.title };
       const daysLeft = round.availabilityDeadline ? daysUntilKst(round.availabilityDeadline, now) : undefined;
       if (round.status === 'COLLECTING' && round.respondedMemberCount < round.totalMemberCount) {
@@ -97,7 +99,6 @@ export function buildActionItems(inputs: RecruitmentDashboardInput[], now: Date)
         });
       } else if (round.status === 'COLLECTING') {
         // 응답 수는 인원 수를 넘지 않아 이 갈래는 응답이 다 모인 라운드다 — 다음 단계인 자동 배정은 운영진이 눌러야 하고 대신 하는 잡이 없다.
-        // shortcut: 인원 0(전원 제외·탈퇴)도 이 줄로 낸다 — 자동 배정 뒤 확정이 막혀 실제 다음 단계는 라운드 취소다. 문의가 오면 인원 수를 실어 인원 0 줄의 버튼을 나눈다.
         items.push({ type: 'INTERVIEW_ROUND_UNCONFIRMED', ...roundBase, roundStatus: round.status, daysLeft });
       } else if (round.status === 'DRAFT' || round.status === 'ASSIGNING') {
         items.push({ type: 'INTERVIEW_ROUND_UNCONFIRMED', ...roundBase, roundStatus: round.status });

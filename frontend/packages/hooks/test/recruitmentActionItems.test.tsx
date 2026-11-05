@@ -46,7 +46,7 @@ function statsBody(over: Partial<StatsSummary> = {}): StatsSummary {
   };
 }
 const ROUNDS: InterviewRoundSummary[] = [
-  { roundId: 7, title: '1차 면접', status: 'ASSIGNING', availabilityDeadline: null, location: null, totalMemberCount: 0, respondedMemberCount: 0 },
+  { roundId: 7, title: '1차 면접', status: 'ASSIGNING', availabilityDeadline: null, location: null, totalMemberCount: 3, respondedMemberCount: 3 },
   { roundId: 8, title: '2차 면접', status: 'COLLECTING', availabilityDeadline: '2026-06-14T14:59:00Z', location: null, totalMemberCount: 3, respondedMemberCount: 1 },
   { roundId: 9, title: '3차 면접', status: 'SCHEDULED', availabilityDeadline: null, location: null, totalMemberCount: 2, respondedMemberCount: 2 },
 ];

@@ -44,7 +44,8 @@ function round(over: Partial<InterviewRoundSummary> = {}): InterviewRoundSummary
   return {
     roundId: 100, title: '1차 면접', status: 'DRAFT',
     availabilityDeadline: null, location: null,
-    totalMemberCount: 0, respondedMemberCount: 0, ...over,
+    // 인원 0 이면 응답 수집·배정 검토 줄이 빠지므로 기본은 응답이 다 모인 라운드 — 인원 0 을 보는 테스트만 0 을 넣는다.
+    totalMemberCount: 3, respondedMemberCount: 3, ...over,
   };
 }
 
@@ -90,7 +91,7 @@ describe('buildActionItems', () => {
     [
       'COLLECTING 인원 0',
       { status: 'COLLECTING', totalMemberCount: 0, respondedMemberCount: 0, availabilityDeadline: '2026-06-15' },
-      [{ type: 'INTERVIEW_ROUND_UNCONFIRMED', ...roundLine, roundStatus: 'COLLECTING', daysLeft: 3 }],
+      [],
     ],
     [
       'COLLECTING 응답 10/10·응답 마감 없음',
@@ -98,9 +99,11 @@ describe('buildActionItems', () => {
       [{ type: 'INTERVIEW_ROUND_UNCONFIRMED', ...roundLine, roundStatus: 'COLLECTING' }],
     ],
     ['ASSIGNING', { status: 'ASSIGNING', availabilityDeadline: '2026-06-10' }, [{ type: 'INTERVIEW_ROUND_UNCONFIRMED', ...roundLine, roundStatus: 'ASSIGNING' }]],
+    ['ASSIGNING 인원 0', { status: 'ASSIGNING', totalMemberCount: 0, respondedMemberCount: 0, availabilityDeadline: '2026-06-10' }, []],
+    ['DRAFT 인원 0', { status: 'DRAFT', totalMemberCount: 0, respondedMemberCount: 0, availabilityDeadline: '2026-06-10' }, [{ type: 'INTERVIEW_ROUND_UNCONFIRMED', ...roundLine, roundStatus: 'DRAFT' }]],
     ['SCHEDULED', { status: 'SCHEDULED', availabilityDeadline: '2026-06-10' }, []],
     ['CANCELLED', { status: 'CANCELLED', availabilityDeadline: '2026-06-10' }, []],
-  ])('라운드 상태별 할 일 줄(진행 중이면 정확히 한 줄) — %s', (_name, roundOverrides, expectedItems) => {
+  ])('라운드 상태별 할 일 줄(진행 중이면 한 줄, 인원 0 인 응답 수집·배정 검토는 없음) — %s', (_name, roundOverrides, expectedItems) => {
     const items = buildActionItems([dashboardInput({ rounds: [round({ roundId: 7, ...roundOverrides })] })], NOW);
     expect(items).toEqual(expectedItems);
   });
@@ -215,7 +218,7 @@ describe('buildActionItems', () => {
   });
 
   it.each<InterviewRoundSummary['status']>(['COLLECTING', 'ASSIGNING'])(
-    '%s 라운드가 있어도 초안이 없으면 라운드 생성 필요와 그 라운드의 줄 — 인원 0 픽스처라 미확정',
+    '%s 라운드가 있어도 초안이 없으면 라운드 생성 필요와 그 라운드의 줄 — 응답이 다 모인 픽스처라 미확정',
     (roundStatus) => {
       const items = buildActionItems([dashboardInput({ candidateCount: 3, rounds: [round({ status: roundStatus })] })], NOW);
       expect(items.find((item) => item.type === 'INTERVIEW_ROUND_NEEDED')?.count).toBe(3);
@@ -223,20 +226,22 @@ describe('buildActionItems', () => {
     },
   );
 
-  it('확정 1차 + 응답 수집 2차(인원 0)에 대기열 2명이면 라운드 생성 필요 2명·2차의 줄·1차 결과 미확정 3명', () => {
+  it('확정 1차 + 응답 수집 2차(인원 0)에 대기열 2명이면 라운드 생성 필요 2명·1차 결과 미확정 3명 — 인원 0 인 2차의 줄만 빠진다', () => {
     const items = buildActionItems(
       [
         dashboardInput({
           stats: stats({ interviewPending: 5 }), // 1차 결과 미결 3 + 대기열 2
           candidateCount: 2,
-          rounds: [round({ roundId: 6, status: 'SCHEDULED' }), round({ roundId: 7, title: '2차 면접', status: 'COLLECTING' })],
+          rounds: [
+            round({ roundId: 6, status: 'SCHEDULED' }),
+            round({ roundId: 7, title: '2차 면접', status: 'COLLECTING', totalMemberCount: 0, respondedMemberCount: 0 }),
+          ],
         }),
       ],
       NOW,
     );
     expect(items).toEqual([
       { type: 'INTERVIEW_ROUND_NEEDED', recruitmentId: 1, recruitmentTitle: '2026 봄 모집', count: 2 },
-      { type: 'INTERVIEW_ROUND_UNCONFIRMED', ...roundLine, roundTitle: '2차 면접', roundStatus: 'COLLECTING' },
       { type: 'INTERVIEW_RESULT_PENDING', recruitmentId: 1, recruitmentTitle: '2026 봄 모집', roundId: 6, roundTitle: '1차 면접', count: 3 },
     ]);
   });
@@ -272,7 +277,7 @@ describe('buildActionItems', () => {
       NOW,
     );
     expect(items.find((item) => item.type === 'INTERVIEW_ROUND_NEEDED')?.count).toBe(3);
-    // 인원 0 인 COLLECTING 은 응답이 다 모인 라운드다 — 취소 라운드는 줄을 내지 않는다.
+    // 응답이 다 모인 COLLECTING 은 미확정 줄을 낸다 — 취소 라운드는 줄을 내지 않는다.
     expect(items.filter((i) => i.type === 'INTERVIEW_ROUND_UNCONFIRMED').map((i) => i.roundId)).toEqual([101]);
   });
 
