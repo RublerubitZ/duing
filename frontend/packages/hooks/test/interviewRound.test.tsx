@@ -183,6 +183,40 @@ describe('useCreateInterviewRoundMutation (스펙 §10.1)', () => {
     expect(statsDailyRequestCount).toBe(1);
     expect(queryClient.getQueryState(statsQueryKeys.daily(10))?.isInvalidated).toBe(true);
   });
+
+  it('통계 요약을 보는 화면이 떠 있으면 무효화가 다시 받은 한 번으로 끝난다 — 받는 중인 요약을 끊고 겹쳐 받지 않게', async () => {
+    const queryClient = newQueryClient();
+    let statsSummaryRequestCount = 0;
+    server.use(
+      http.get('*/leader/recruitments/10/stats/summary', () => {
+        statsSummaryRequestCount += 1;
+        return HttpResponse.json({
+          ok: true,
+          data: { total: 3, submitted: 2, onHold: 0, interviewPending: 1, accepted: 0, rejected: 0, capacity: 5, ratio: 0.6 },
+          message: null,
+        });
+      }),
+      http.post('*/leader/recruitments/10/interview-rounds', () =>
+        HttpResponse.json({ ok: true, data: { roundId: 42 }, message: null }),
+      ),
+    );
+
+    // 요약을 보는 화면을 띄운 채로 라운드를 만든다.
+    const statsView = renderHook(() => useRecruitmentStatsSummaryQuery(10), {
+      wrapper: makeWrapper(queryClient),
+    });
+    await waitFor(() => expect(statsView.result.current.isSuccess).toBe(true));
+
+    const { result } = renderHook(() => useCreateInterviewRoundMutation(10), {
+      wrapper: makeWrapper(queryClient),
+    });
+    result.current.mutate({ title: '2차 면접', applicationIds: [31, 32] });
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+
+    await waitFor(() => expect(queryClient.isFetching()).toBe(0));
+    expect(statsSummaryRequestCount).toBe(2);
+    statsView.unmount();
+  });
 });
 
 describe('useCancelInterviewRoundMutation (스펙 §10.1 — 재큐잉)', () => {
