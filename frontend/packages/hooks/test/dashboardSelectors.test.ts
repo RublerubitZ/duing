@@ -94,11 +94,17 @@ describe('buildActionItems', () => {
       [],
     ],
     [
+      'COLLECTING 응답 0/1',
+      { status: 'COLLECTING', totalMemberCount: 1, respondedMemberCount: 0, availabilityDeadline: '2026-06-15' },
+      [{ type: 'INTERVIEW_RESPONSE_UNCOLLECTED', ...roundLine, count: 1, daysLeft: 3 }],
+    ],
+    [
       'COLLECTING 응답 10/10·응답 마감 없음',
       { status: 'COLLECTING', totalMemberCount: 10, respondedMemberCount: 10, availabilityDeadline: null },
       [{ type: 'INTERVIEW_ROUND_UNCONFIRMED', ...roundLine, roundStatus: 'COLLECTING' }],
     ],
     ['ASSIGNING', { status: 'ASSIGNING', availabilityDeadline: '2026-06-10' }, [{ type: 'INTERVIEW_ROUND_UNCONFIRMED', ...roundLine, roundStatus: 'ASSIGNING' }]],
+    ['ASSIGNING 응답 0/1', { status: 'ASSIGNING', totalMemberCount: 1, respondedMemberCount: 0, availabilityDeadline: '2026-06-10' }, [{ type: 'INTERVIEW_ROUND_UNCONFIRMED', ...roundLine, roundStatus: 'ASSIGNING' }]],
     ['ASSIGNING 인원 0', { status: 'ASSIGNING', totalMemberCount: 0, respondedMemberCount: 0, availabilityDeadline: '2026-06-10' }, []],
     ['DRAFT 인원 0', { status: 'DRAFT', totalMemberCount: 0, respondedMemberCount: 0, availabilityDeadline: '2026-06-10' }, [{ type: 'INTERVIEW_ROUND_UNCONFIRMED', ...roundLine, roundStatus: 'DRAFT' }]],
     ['SCHEDULED', { status: 'SCHEDULED', availabilityDeadline: '2026-06-10' }, []],
@@ -201,8 +207,8 @@ describe('buildActionItems', () => {
     expect(items.some((i) => i.type === 'INTERVIEW_ROUND_NEEDED')).toBe(true);
   });
 
-  it('발송 전 초안(DRAFT)이 있으면 라운드 생성 필요 없이 그 초안의 줄만 — 초안이 새 라운드 생성을 막는다', () => {
-    const items = buildActionItems([dashboardInput({ candidateCount: 3, rounds: [round({ status: 'DRAFT' })] })], NOW);
+  it('발송 전 초안(DRAFT)이 있으면 인원 0 이어도 라운드 생성 필요 없이 그 초안의 줄만 — 초안이 새 라운드 생성을 막는다', () => {
+    const items = buildActionItems([dashboardInput({ candidateCount: 3, rounds: [round({ status: 'DRAFT', totalMemberCount: 0, respondedMemberCount: 0 })] })], NOW);
     expect(items.some((item) => item.type === 'INTERVIEW_ROUND_NEEDED')).toBe(false);
     expect(items.filter((item) => item.type === 'INTERVIEW_ROUND_UNCONFIRMED').map((item) => item.roundStatus)).toEqual(['DRAFT']);
   });
@@ -244,6 +250,15 @@ describe('buildActionItems', () => {
       { type: 'INTERVIEW_ROUND_NEEDED', recruitmentId: 1, recruitmentTitle: '2026 봄 모집', count: 2 },
       { type: 'INTERVIEW_RESULT_PENDING', recruitmentId: 1, recruitmentTitle: '2026 봄 모집', roundId: 6, roundTitle: '1차 면접', count: 3 },
     ]);
+  });
+
+  it('서버 순서(최신순)대로 인원 0 라운드가 앞에 와도 뒤 라운드의 줄은 남는다', () => {
+    const rounds = [
+      round({ roundId: 8, title: '2차 면접', status: 'COLLECTING', totalMemberCount: 0, respondedMemberCount: 0 }),
+      round({ roundId: 7, status: 'ASSIGNING' }),
+    ];
+    const items = buildActionItems([dashboardInput({ rounds })], NOW);
+    expect(items).toEqual([{ type: 'INTERVIEW_ROUND_UNCONFIRMED', ...roundLine, roundStatus: 'ASSIGNING' }]);
   });
 
   it('대기열 0명 또는 undefined → 라운드 생성 필요 아님', () => {
