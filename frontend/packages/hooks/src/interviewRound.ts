@@ -63,7 +63,7 @@ export function useInterviewRoundDetailQuery(
 /**
  * 면접 라운드 생성 (BE#3)
  * 성공 → list(recruitmentId) + candidates(recruitmentId) invalidate (생성 시 멤버 대기열 변동 + 목록 갱신)
- * + 통계·지원자 목록·이웃 순서 — 생성이 고른 지원을 SUBMITTED·ON_HOLD → INTERVIEW_PENDING 으로 바꾼다
+ * + 통계·지원자 목록·이웃 순서·고른 지원서 상세 — 생성이 고른 지원을 SUBMITTED·ON_HOLD → INTERVIEW_PENDING 으로 바꾼다
  */
 export function useCreateInterviewRoundMutation(recruitmentId: number) {
   const client = useApiClient();
@@ -71,7 +71,7 @@ export function useCreateInterviewRoundMutation(recruitmentId: number) {
   return useMutation({
     mutationFn: (payload: CreateInterviewRoundPayload) =>
       client.interviewRounds.create(recruitmentId, payload),
-    onSuccess: () => {
+    onSuccess: (_createdRound, variables) => {
       queryClient.invalidateQueries({
         queryKey: interviewRoundKeys.list(recruitmentId),
       });
@@ -91,6 +91,12 @@ export function useCreateInterviewRoundMutation(recruitmentId: number) {
       queryClient.invalidateQueries({
         queryKey: applicationQueryKeys.applicantNeighborsAll(),
       });
+      // 일괄 변경과 같은 이유 — 상세를 다시 열면 낡은 캐시로 옛 상태의 전이 버튼이 계산돼 400 PATCH 가 난다.
+      for (const applicationId of variables.applicationIds) {
+        queryClient.invalidateQueries({
+          queryKey: applicationQueryKeys.applicantDetail(applicationId),
+        });
+      }
     },
   });
 }

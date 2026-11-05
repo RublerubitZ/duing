@@ -131,7 +131,7 @@ describe('모집 캐시 무효화 — 지원 상태가 바뀌는 mutation', () =
     expect(queryClient.getQueryState(interviewRoundKeys.detail(ROUND_ID))?.isInvalidated).toBe(true);
   });
 
-  it('면접 라운드를 만들면(지원 완료·보류 → 면접 대상) 통계·지원자 목록도 낡는다', async () => {
+  it('면접 라운드를 만들면(지원 완료·보류 → 면접 대상) 통계·지원자 목록·고른 지원서 상세도 낡는다', async () => {
     const queryClient = seededQueryClient();
     // 이웃 키 접두는 모든 모집을 덮어 consumerKeys 비교에 넣지 않고 따로 본다.
     queryClient.setQueryData(applicationQueryKeys.applicantNeighbors(RECRUITMENT_ID, 31), { prevApplicationId: null, nextApplicationId: null });
@@ -140,5 +140,7 @@ describe('모집 캐시 무효화 — 지원 상태가 바뀌는 mutation', () =
     expect(invalidatedKeys(queryClient, RECRUITMENT_ID)).toEqual(consumerKeys(RECRUITMENT_ID));
     expect(invalidatedKeys(queryClient, OTHER_RECRUITMENT_ID)).toEqual([]);
     expect(queryClient.getQueryState(applicationQueryKeys.applicantNeighbors(RECRUITMENT_ID, 31))?.isInvalidated).toBe(true);
+    expect(queryClient.getQueryState(applicationQueryKeys.applicantDetail(31))?.isInvalidated).toBe(true);
+    expect(queryClient.getQueryState(applicationQueryKeys.applicantDetail(32))?.isInvalidated).toBe(false);
   });
 });
