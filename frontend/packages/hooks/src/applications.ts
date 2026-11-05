@@ -75,8 +75,10 @@ export function useApplicationEligibilityQuery(recruitmentId: number, enabled: b
     // 루트 QueryClient 는 SPA 네비게이션 내내 살아 있어, 캐시가 남으면 재진입 시 status 가
     // 'success'|'error' 라 isLoading=false 가 되고 로딩 게이트가 재확인을 기다리지 않고 통과한다.
     // 그러면 그 사이 마감된 모집에도 지원 폼이 먼저 그려져 사용자가 입력을 시작해 버린다.
-    // 이 화면이 스스로 만든 판정은 언마운트 즉시 버린다(gcTime:0). 클릭이 넘겨준 판정은
-    // fetchQuery 가 세운 gcTime(=핸드오프 창)을 따르므로 그 창보다 오래 살아남지 못한다.
+    // 이 화면이 처음 만든 판정 쿼리는 언마운트 즉시 버린다(gcTime:0). 다만 쿼리의 gcTime 은 그 쿼리에 한 번이라도 걸린
+    // 값 가운데 가장 긴 값이고(클릭 fetchQuery 의 핸드오프 창 10초 포함 — 줄지 않는다, query-core updateGcTime)
+    // 마지막 관찰자가 떠난 때부터 센다 — 클릭이 남긴 판정은 화면을 떠난 뒤 10초 안에 돌아오면 남아 있고
+    // (낡았으면 마운트에서 다시 받는다), 그보다 늦으면 사라진다.
     gcTime: 0,
   });
 }

@@ -770,7 +770,7 @@ describe('ApplyPage — 지원 가능 여부 딥링크 가드', () => {
     await new Promise((resolve) => setTimeout(resolve, 0));
 
     // 2) 이탈한 사이 모집이 마감돼 부적격으로 바뀐 상태에서 재진입.
-    server.use(mockEligibilityHandler(400, '마감된 모집 공고에는 지원할 수 없습니다.'));
+    server.use(mockEligibilityHandler(409, '마감된 모집 공고에는 지원할 수 없습니다.'));
     renderApplyPage(sharedQueryClient);
 
     // 캐시된 '적격' 판정으로 지원 폼이 한 프레임이라도 그려지면 사용자가 입력을 시작해 버린다.
@@ -1207,7 +1207,7 @@ describe('ApplyPage — 임시저장 복원 안내', () => {
     await screen.findByText(/^마지막 저장 /, {}, { timeout: 4000 });
 
     // 자격 재확인이 막으면(예: 마감) 폼이 내려가고 풀리면 그때의 캐시로 다시 마운트된다 — 안내를 폼 밖(useRef)에서 고정하면 여기서 틀린다.
-    server.use(mockEligibilityHandler(400, '마감된 모집 공고에는 지원할 수 없습니다.'));
+    server.use(mockEligibilityHandler(409, '마감된 모집 공고에는 지원할 수 없습니다.'));
     await act(async () => {
       await queryClient.refetchQueries({ queryKey: applicationQueryKeys.eligibility(RECRUITMENT_ID), exact: true });
       await new Promise((resolve) => setTimeout(resolve, 50));
@@ -1330,7 +1330,7 @@ describe('ApplyPage — 다시 받다 잠깐 실패해도 쓰던 폼을 지킨�
     await user.type(await screen.findByRole('textbox', { name: /지원 동기/ }), TYPED_ANSWER);
   }
 
-  // 데이터가 있는 채로 다시 받기를 흉내 낸다(앱은 networkMode 'always' 라 재연결 재조회가 꺼져 있다 — 다시 받는 계기가 생길 때를 지킨다). 50ms 는 React Query 의 변경 알림(setTimeout 0)까지 흘려보낸다.
+  // 데이터가 있는 채로 다시 받는 순간을 바로 흉내 낸다 — 재진입 때 낡은 상세를 마운트에서 다시 받는 일은 지금도 일어난다(상세 staleTime 2분·gcTime 5분). 50ms 는 React Query 의 변경 알림(setTimeout 0)까지 흘려보낸다.
   async function refetchExact(queryClient: QueryClient, queryKey: readonly unknown[]) {
     await act(async () => {
       await queryClient.refetchQueries({ queryKey, exact: true });
