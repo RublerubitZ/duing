@@ -71,7 +71,7 @@ public interface LeaderApplicationApi {
             @Parameter(hidden = true) @AuthenticationPrincipal UserPrincipal currentUser
     );
 
-    @Operation(summary = "지원자 상태 변경", description = "ACCEPTED 또는 REJECTED 로만 변경 가능. SUBMITTED 로 되돌릴 수 없다. 운영진 대상(targetRole=OFFICER) 모집의 합격 처리는 동아리 회장만 할 수 있다. 결과(합격·불합격)를 정하면 그 지원은 진행 중 면접 라운드에서 빠지고 그 라운드의 가능 시간 응답·초안 배정이 지워진다(확정된 라운드는 그대로).")
+    @Operation(summary = "지원자 상태 변경", description = "허용된 전이(보류 ON_HOLD·면접 대상 INTERVIEW_PENDING·합격 ACCEPTED·불합격 REJECTED)로만 바꿀 수 있다. SUBMITTED 로 되돌릴 수 없다. 운영진 대상(targetRole=OFFICER) 모집의 합격 처리는 동아리 회장만 할 수 있다. 결과(합격·불합격)를 정하면 그 지원은 진행 중 면접 라운드에서 빠지고 그 라운드의 가능 시간 응답·초안 배정이 지워진다(확정된 라운드는 그대로).")
     @PatchMapping("/leader/applications/{applicationId}/status")
     ResponseEntity<ApiResponse<Void>> updateStatus(
             @PathVariable Long applicationId,
