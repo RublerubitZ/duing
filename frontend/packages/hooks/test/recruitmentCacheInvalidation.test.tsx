@@ -48,7 +48,7 @@ function seededQueryClient() {
   queryClient.setQueryData(interviewRoundKeys.list(RECRUITMENT_ID), []);
   queryClient.setQueryData(interviewRoundKeys.list(OTHER_RECRUITMENT_ID), []);
   queryClient.setQueryData(interviewRoundKeys.detail(ROUND_ID), null);
-  // 일괄 대상(31·32)과 대상이 아닌 지원서(33)의 상세 — 일괄 뒤 바꾼 지원서 상세만 낡는지 본다.
+  // 일괄·라운드 생성 대상(31·32)과 대상이 아닌 지원서(33)의 상세 — 일괄 뒤 바꾼 지원서 상세만 낡는지 본다.
   for (const applicationId of [31, 32, 33]) queryClient.setQueryData(applicationQueryKeys.applicantDetail(applicationId), null);
   return queryClient;
 }
@@ -136,11 +136,12 @@ describe('모집 캐시 무효화 — 지원 상태가 바뀌는 mutation', () =
     // 이웃 키 접두는 모든 모집을 덮어 consumerKeys 비교에 넣지 않고 따로 본다.
     queryClient.setQueryData(applicationQueryKeys.applicantNeighbors(RECRUITMENT_ID, 31), { prevApplicationId: null, nextApplicationId: null });
     const { result } = renderHook(() => useCreateInterviewRoundMutation(RECRUITMENT_ID), { wrapper: makeWrapper(queryClient) });
-    await act(() => result.current.mutateAsync({ title: '1차 면접', applicationIds: [31] }));
+    await act(() => result.current.mutateAsync({ title: '1차 면접', applicationIds: [31, 32] }));
     expect(invalidatedKeys(queryClient, RECRUITMENT_ID)).toEqual(consumerKeys(RECRUITMENT_ID));
     expect(invalidatedKeys(queryClient, OTHER_RECRUITMENT_ID)).toEqual([]);
     expect(queryClient.getQueryState(applicationQueryKeys.applicantNeighbors(RECRUITMENT_ID, 31))?.isInvalidated).toBe(true);
     expect(queryClient.getQueryState(applicationQueryKeys.applicantDetail(31))?.isInvalidated).toBe(true);
-    expect(queryClient.getQueryState(applicationQueryKeys.applicantDetail(32))?.isInvalidated).toBe(false);
+    expect(queryClient.getQueryState(applicationQueryKeys.applicantDetail(32))?.isInvalidated).toBe(true);
+    expect(queryClient.getQueryState(applicationQueryKeys.applicantDetail(33))?.isInvalidated).toBe(false);
   });
 });

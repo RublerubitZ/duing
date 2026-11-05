@@ -352,6 +352,8 @@ describe('RecruitmentDetailPage — 면접 진행 단계표시 칩 (§10.5)', ()
     ['인원 0 과 취소 라운드뿐이면 인원 없음', [stageRound(noMembers), stageRound({ roundId: 98, status: 'CANCELLED', ...noMembers })], '라운드 인원 없음'],
     ['인원 0 라운드 뒤에 확정 라운드가 있으면 그 단계', [stageRound(noMembers), stageRound({ roundId: 98, status: 'SCHEDULED' })], '면접 확정'],
     ['인원 0 라운드 뒤에 응답 수집 라운드가 있으면 그 단계', [stageRound(noMembers), stageRound({ roundId: 98, respondedMemberCount: 1 })], '응답 대기 1/3'],
+    ['인원 0 뒤에 라운드가 여럿이면 그중 최신 단계', [stageRound(noMembers), stageRound({ roundId: 98, status: 'ASSIGNING' }), stageRound({ roundId: 97, status: 'SCHEDULED' })], '배정 검토 중'],
+    ['확정은 인원 0 이어도 면접 확정', [stageRound({ status: 'SCHEDULED', ...noMembers })], '면접 확정'],
     ['취소 라운드뿐이면 선정 전 그대로', [stageRound({ status: 'CANCELLED', ...noMembers })], '면접 대상 선정 전'],
     ['초안은 인원 0 이어도 작성 중', [stageRound({ status: 'DRAFT', ...noMembers })], '라운드 작성 중'],
     ['발송 직후 응답 0/3 은 응답 대기', [stageRound({ respondedMemberCount: 0 })], '응답 대기 0/3'],

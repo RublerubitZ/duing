@@ -10,7 +10,7 @@ import { Spinner } from '@/components/loading/Spinner';
 // 면접 진행 단계 칩 — §10.5 가드레일 1:1.
 // 최신 비CANCELLED 라운드(생성 최신순 첫 항목)의 상태를 라벨로 변환.
 // BE#6 이 생성 최신순(createdAtDesc)으로 반환 — 계약 확정.
-// 라운드 없음·최신이 CANCELLED 이면 "면접 대상 선정 전" 취급.
+// 라운드 없음·전부 CANCELLED 이면 "면접 대상 선정 전" 취급.
 // 인원 0 응답 수집·배정 검토 라운드는 기다릴 응답도 검토할 배정도 없어 건너뛴다 — 그것뿐이면 "라운드 인원 없음"(대기열에 사람이 있을 수 있어 모집 전체를 말하지 않는다).
 // useInterview=false 모집은 부모에서 미렌더링.
 
@@ -27,7 +27,6 @@ const STAGE_CHIP_CLASS: Record<string, string> = {
   '라운드 작성 중': 'bg-slate-100 text-slate-700',
   '배정 검토 중': 'bg-amber-100 text-amber-700',
   '면접 확정': 'bg-emerald-100 text-emerald-700',
-  '라운드 인원 없음': 'bg-slate-100 text-slate-600',
 };
 
 /** 라운드 목록 → 단계 라벨 (§10.5) */
