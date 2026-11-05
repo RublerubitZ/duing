@@ -203,6 +203,13 @@ export function useUpdateApplicationStatusMutation(recruitmentId: number) {
       queryClient.invalidateQueries({
         queryKey: interviewRoundKeys.candidates(recruitmentId),
       });
+      // 면접 대상의 결과를 정하면 진행 중 라운드에서 빠져 인원·응답 수가 바뀐다 — 어느 라운드인지 몰라 상세는 접두로 건다.
+      queryClient.invalidateQueries({
+        queryKey: interviewRoundKeys.list(recruitmentId),
+      });
+      queryClient.invalidateQueries({
+        queryKey: interviewRoundKeys.detailAll(),
+      });
     },
   });
 }
@@ -214,7 +221,7 @@ export function useBulkUpdateApplicationStatusMutation(recruitmentId: number) {
     mutationFn: (payload) => client.applications.bulkUpdateStatus(payload),
     onSuccess: () => {
       // 일괄 변경은 어떤 applicationId 가 영향받았는지 individual detail 캐시까지 알 수 없으므로
-      // 안전하게 목록·통계만 무효화한다. 사용자가 모달을 다시 열면 detail 은 fresh 로드된다.
+      // 지원서 detail 은 두고 지원자 목록·통계·이웃·면접 대기열·라운드 목록·상세를 무효화한다. 사용자가 모달을 다시 열면 detail 은 fresh 로드된다.
       queryClient.invalidateQueries({
         queryKey: applicationQueryKeys.applicants(recruitmentId),
       });
@@ -228,6 +235,13 @@ export function useBulkUpdateApplicationStatusMutation(recruitmentId: number) {
       // 일괄 "면접 대상으로 선정"(지원 완료·보류 → 면접 대상)과 일괄 합격·불합격은 면접 대기열을 바꾼다.
       queryClient.invalidateQueries({
         queryKey: interviewRoundKeys.candidates(recruitmentId),
+      });
+      // 면접 대상의 결과를 정하면 진행 중 라운드에서 빠져 인원·응답 수가 바뀐다 — 어느 라운드인지 몰라 상세는 접두로 건다.
+      queryClient.invalidateQueries({
+        queryKey: interviewRoundKeys.list(recruitmentId),
+      });
+      queryClient.invalidateQueries({
+        queryKey: interviewRoundKeys.detailAll(),
       });
     },
   });

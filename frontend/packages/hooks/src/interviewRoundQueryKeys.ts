@@ -12,8 +12,9 @@ export const interviewRoundKeys = {
   listAll: () => [...interviewRoundKeys.all, 'list'] as const,
   list: (recruitmentId: number) =>
     [...interviewRoundKeys.listAll(), recruitmentId] as const,
+  detailAll: () => [...interviewRoundKeys.all, 'detail'] as const,
   detail: (roundId: number) =>
-    [...interviewRoundKeys.all, 'detail', roundId] as const,
+    [...interviewRoundKeys.detailAll(), roundId] as const,
   // includeUndecided 를 넘기면 토글별 캐시 엔트리, 생략하면 그 엔트리들을 모두 덮는 무효화 prefix 다.
   // 생략했을 때의 키 모양은 인자 1개짜리 시절과 완전히 같아야 한다 — 한 칸이라도 달라지면
   // 라운드 생성/취소/제외/확정·지원 상태 변경(단건·일괄)의 prefix 무효화가 후보 캐시에 닿지 않는다.

@@ -14,6 +14,7 @@ import { statsQueryKeys } from '../src/statsQueryKeys';
 
 const RECRUITMENT_ID = 1;
 const OTHER_RECRUITMENT_ID = 2;
+const ROUND_ID = 7;
 const apiClient = createApiClient({ baseUrl: 'http://localhost:8080/api/v1' });
 
 function makeWrapper(queryClient: QueryClient) {
@@ -37,14 +38,16 @@ function consumerKeys(recruitmentId: number): QueryKey[] {
   ];
 }
 
-// 두 모집 몫을 미리 채워 두고, mutation 뒤 이 모집 몫에만 무효화 표시가 붙는지 본다(관찰자가 없어 재요청은 하지 않는다).
+// 두 모집 몫을 미리 채워 두고, mutation 뒤 이 모집 몫에만 무효화 표시가 붙는지 본다(라운드 생성은 보는 화면이 없어도 대기열('all')과 통계 요약('inactive')을 다시 받지만, 시드에는 queryFn 이 없어 그 요청은 조용히 실패하고 무효화 표시만 남는다).
 function seededQueryClient() {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
   for (const recruitmentId of [RECRUITMENT_ID, OTHER_RECRUITMENT_ID]) {
     for (const queryKey of consumerKeys(recruitmentId)) queryClient.setQueryData(queryKey, []);
   }
-  // 라운드 목록은 지원 상태 변경으로 바뀌지 않는다(상태 변경은 라운드 멤버십을 바꾸지 않는다) — 상태 변경 테스트에서 낡지 않았는지 본다.
+  // 결과를 정하면 그 멤버가 진행 중 라운드에서 빠져 인원·응답 수가 바뀐다(백엔드 짝) — 이 모집 라운드 목록·라운드 상세는 낡고 다른 모집 목록은 그대로인지 본다.
   queryClient.setQueryData(interviewRoundKeys.list(RECRUITMENT_ID), []);
+  queryClient.setQueryData(interviewRoundKeys.list(OTHER_RECRUITMENT_ID), []);
+  queryClient.setQueryData(interviewRoundKeys.detail(ROUND_ID), null);
   return queryClient;
 }
 
@@ -66,13 +69,15 @@ afterEach(() => server.resetHandlers());
 afterAll(() => server.close());
 
 describe('모집 캐시 무효화 — 지원 상태가 바뀌는 mutation', () => {
-  it('지원 상태 하나를 바꾸면 면접 대기열(토글 두 엔트리)·통계·지원자 목록이 낡는다 — 다른 모집은 그대로', async () => {
+  it('지원 하나를 합격으로 정하면 면접 대기열(토글 두 엔트리)·통계·지원자 목록·라운드 목록·상세가 낡는다 — 다른 모집은 그대로', async () => {
     const queryClient = seededQueryClient();
     const { result } = renderHook(() => useUpdateApplicationStatusMutation(RECRUITMENT_ID), { wrapper: makeWrapper(queryClient) });
-    await act(() => result.current.mutateAsync({ applicationId: 31, payload: { status: 'INTERVIEW_PENDING' } }));
+    await act(() => result.current.mutateAsync({ applicationId: 31, payload: { status: 'ACCEPTED' } }));
     expect(invalidatedKeys(queryClient, RECRUITMENT_ID)).toEqual(consumerKeys(RECRUITMENT_ID));
     expect(invalidatedKeys(queryClient, OTHER_RECRUITMENT_ID)).toEqual([]);
-    expect(queryClient.getQueryState(interviewRoundKeys.list(RECRUITMENT_ID))?.isInvalidated).toBe(false);
+    expect(queryClient.getQueryState(interviewRoundKeys.list(RECRUITMENT_ID))?.isInvalidated).toBe(true);
+    expect(queryClient.getQueryState(interviewRoundKeys.list(OTHER_RECRUITMENT_ID))?.isInvalidated).toBe(false);
+    expect(queryClient.getQueryState(interviewRoundKeys.detail(ROUND_ID))?.isInvalidated).toBe(true);
   });
 
   it('일괄 "면접 대상으로 선정"도 면접 대기열·통계·지원자 목록을 낡게 한다', async () => {
@@ -81,7 +86,15 @@ describe('모집 캐시 무효화 — 지원 상태가 바뀌는 mutation', () =
     await act(() => result.current.mutateAsync({ applicationIds: [31, 32], status: 'INTERVIEW_PENDING' }));
     expect(invalidatedKeys(queryClient, RECRUITMENT_ID)).toEqual(consumerKeys(RECRUITMENT_ID));
     expect(invalidatedKeys(queryClient, OTHER_RECRUITMENT_ID)).toEqual([]);
-    expect(queryClient.getQueryState(interviewRoundKeys.list(RECRUITMENT_ID))?.isInvalidated).toBe(false);
+  });
+
+  it('일괄 불합격(결과 확정)은 이 모집 라운드 목록·라운드 상세도 낡게 한다 — 다른 모집 목록은 그대로', async () => {
+    const queryClient = seededQueryClient();
+    const { result } = renderHook(() => useBulkUpdateApplicationStatusMutation(RECRUITMENT_ID), { wrapper: makeWrapper(queryClient) });
+    await act(() => result.current.mutateAsync({ applicationIds: [31, 32], status: 'REJECTED' }));
+    expect(queryClient.getQueryState(interviewRoundKeys.list(RECRUITMENT_ID))?.isInvalidated).toBe(true);
+    expect(queryClient.getQueryState(interviewRoundKeys.detail(ROUND_ID))?.isInvalidated).toBe(true);
+    expect(queryClient.getQueryState(interviewRoundKeys.list(OTHER_RECRUITMENT_ID))?.isInvalidated).toBe(false);
   });
 
   it('면접 라운드를 만들면(지원 완료·보류 → 면접 대상) 통계·지원자 목록도 낡는다', async () => {
