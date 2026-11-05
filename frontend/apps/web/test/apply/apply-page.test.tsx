@@ -1179,7 +1179,7 @@ describe('ApplyPage — 임시저장 복원 안내', () => {
         }),
       ),
     );
-    // 데이터가 있는 채로 다시 받기를 흉내 낸다(앱은 재연결 재조회를 전역에서 껐다 — 재진입 때 마운트 재조회 같은 계기를 지킨다) — 50ms 는 React Query 의 변경 알림(setTimeout 0)까지 흘려보낸다.
+    // 데이터가 있는 채로 다시 받기를 흉내 낸다(저장본은 떠나면 바로 버려 지금은 다시 받는 계기가 없다 — 생길 때를 지킨다) — 50ms 는 React Query 의 변경 알림(setTimeout 0)까지 흘려보낸다.
     await act(async () => {
       await queryClient.refetchQueries({ queryKey: draftQueryKeys.byRecruitment(RECRUITMENT_ID) });
       await new Promise((resolve) => setTimeout(resolve, 50));
@@ -1307,7 +1307,7 @@ describe('ApplyPage — 임시저장 조회 실패', () => {
         HttpResponse.json({ ok: false, data: null, message: '권한이 없습니다.' }, { status: 403 }),
       ),
     );
-    // 데이터가 있는 채로 다시 받기를 흉내 낸다(앱은 재연결 재조회를 전역에서 껐다 — 재진입 때 마운트 재조회 같은 계기를 지킨다). 50ms 는 React Query 의 변경 알림(setTimeout 0)까지 흘려보낸다 —
+    // 데이터가 있는 채로 다시 받기를 흉내 낸다(저장본은 떠나면 바로 버려 지금은 다시 받는 계기가 없다 — 생길 때를 지킨다). 50ms 는 React Query 의 변경 알림(setTimeout 0)까지 흘려보낸다 —
     // 이 대기가 없으면 조건을 isError 하나로 넓힌 구현도 통과해 버린다.
     await act(async () => {
       await queryClient.refetchQueries({ queryKey: draftQueryKeys.byRecruitment(RECRUITMENT_ID) });
@@ -1707,7 +1707,6 @@ describe('ApplyPage — 화면을 떠날 때 자동저장', () => {
     await user.type(await screen.findByRole('textbox', { name: /지원 동기/ }), '열정');
     view.unmount();
     await waitFor(() => expect(draftPutCount).toBe(1));
-    await waitFor(() => expect(queryClient.isMutating()).toBe(0));
     // 알릴 화면이 없어 삼킨다 — 거부가 새면 Vitest 가 Unhandled Rejection 으로 실행을 실패시킨다.
     await waitFor(() => expect(queryClient.getMutationCache().getAll()).toHaveLength(0));
   });
