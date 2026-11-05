@@ -1,6 +1,7 @@
 package com.duing.domain.notification.listener;
 
 import com.duing.domain.application.entity.Application;
+import com.duing.domain.application.entity.ApplicationStatus;
 import com.duing.domain.application.repository.ApplicationRepository;
 import com.duing.domain.interview.event.InterviewCancelledEvent;
 import com.duing.domain.notification.entity.NotificationType;
@@ -21,8 +22,7 @@ import org.springframework.transaction.event.TransactionalEventListener;
  * <p>현재 프로덕션 코드에 {@link InterviewCancelledEvent} 발행처가 없다 — 죽은 코드가 아니라 정책의
  * 결과다. 라운드 취소는 일정이 통보되지 않은 라운드에만 허용되고(SCHEDULED 라운드는 도메인이 취소를
  * 거부한다) 그래서 알릴 학생이 없다. 이 리스너가 받는 것은 개별 면접 취소이며, 그 기능이 생기면
- * 그대로 자리를 받는다. 다만 그때 다른 면접 알림 셋처럼 INTERVIEW_PENDING 이 아닌 지원은 생략하는
- * 가드를 함께 넣는다. 지우려면 NotificationType.INTERVIEW_CANCELLED 와 그 저장 계약까지 함께
+ * 그대로 자리를 받는다. 지우려면 NotificationType.INTERVIEW_CANCELLED 와 그 저장 계약까지 함께
  * 정리해야 하므로 존치가 더 싸다.
  */
 @Slf4j
@@ -46,6 +46,12 @@ public class InterviewCancelledListener {
             if (application == null) {
                 log.warn("INTERVIEW_CANCELLED 알림 생략 — application 없음: applicationId={}",
                         event.applicationId());
+                return;
+            }
+            // 결과가 정해진 지원자에게는 면접 단계가 없다 — 지원자 화면(ApplicantInterviewPhase)·하루 전 리마인더와 같은 기준.
+            if (application.getStatus() != ApplicationStatus.INTERVIEW_PENDING) {
+                log.debug("INTERVIEW_CANCELLED 알림 생략 — 결과가 정해진 지원: applicationId={}, status={}",
+                        event.applicationId(), application.getStatus());
                 return;
             }
 
