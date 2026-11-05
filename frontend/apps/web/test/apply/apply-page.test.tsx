@@ -1008,6 +1008,8 @@ describe('ApplyPage — 제출과 자동저장', () => {
     // 디바운스(2초)가 지나도록 화면을 둔다 — 먼저 내리면 언마운트가 타이머를 지워 제출 뒤 PUT 을 못 본다.
     await new Promise((resolve) => setTimeout(resolve, 2500));
     expect(requestMethods).toEqual(['POST']);
+    // 이동이 늦거나 막힌 동안 다시 제출하면 두 번째 POST 의 실패가 자동저장을 다시 켠다 — 버튼도 꺼져 있어야 한다.
+    expect(screen.getByRole('button', { name: '지원서 제출하기' })).toBeDisabled();
 
     // 성공 뒤 이동으로 화면이 내려갈 때도 보내지 않는다 — 제출과 함께 지운 서버 저장본을 되살리지 않게.
     view.unmount();
@@ -1036,30 +1038,33 @@ describe('ApplyPage — 제출과 자동저장', () => {
     await waitFor(() => expect(mockRouterPush).toHaveBeenCalled());
   }, 10_000);
 
-  it('제출이 실패하면 자동저장이 다시 켜져 그 뒤 입력을 저장한다', async () => {
+  it('제출이 실패하면 자동저장이 다시 켜져 그때의 답을 저장한다', async () => {
     const draftBodies: unknown[] = [];
     server.use(
       http.put(`*/recruitments/${RECRUITMENT_ID}/draft`, async ({ request }) => {
         draftBodies.push(await request.json());
         return new HttpResponse(null, { status: 204 });
       }),
-      http.post(`*/recruitments/${RECRUITMENT_ID}/applications`, () =>
-        HttpResponse.json({ ok: false, data: null, message: '일시적인 오류가 발생했습니다.' }, { status: 500 }),
-      ),
+      http.post(`*/recruitments/${RECRUITMENT_ID}/applications`, async () => {
+        // '제출 중'이 그려질 만큼 늦춘다 — 바로 실패하면 자동저장이 꺼졌다 다시 켜지는 길을 지나지 않는다.
+        await delay(100);
+        return HttpResponse.json({ ok: false, data: null, message: '일시적인 오류가 발생했습니다.' }, { status: 500 });
+      }),
     );
     const user = userEvent.setup();
     renderApplyPage();
 
-    const textarea = await screen.findByRole('textbox', { name: /지원 동기/ });
-    await user.type(textarea, '열정');
+    await user.type(await screen.findByRole('textbox', { name: /지원 동기/ }), '열정');
     await submitAndConfirm(user);
     const dialog = await screen.findByRole('dialog');
     expect(await within(dialog).findByRole('alert')).toHaveTextContent('일시적인 오류가 발생했습니다.');
     await user.click(within(dialog).getByRole('button', { name: '취소' }));
 
-    await user.type(textarea, '!');
-    await waitFor(() => expect(draftBodies).toHaveLength(1), { timeout: 4000 });
-    expect(draftBodies).toEqual([{ answers: [{ questionId: TEXT_QUESTION_ID, values: ['열정!'] }] }]);
+    // 더 치지 않는다 — 제출 중에 지워진 타이머 대신, 다시 켜진 뒤 제출 전에 친 답을 2초 뒤 저장해야 한다.
+    await waitFor(
+      () => expect(draftBodies).toEqual([{ answers: [{ questionId: TEXT_QUESTION_ID, values: ['열정'] }] }]),
+      { timeout: 4000 },
+    );
   }, 10_000);
 });
 
