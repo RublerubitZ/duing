@@ -6,7 +6,8 @@ import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { setupServer } from 'msw/node';
 import { delay, http, HttpResponse } from 'msw';
-import type { DraftAnswer, RecruitmentDetail, RecruitmentQuestionItem } from '@duing/types';
+import type { PathParams } from 'msw';
+import type { DraftAnswer, RecruitmentDetail, RecruitmentQuestionItem, UpsertDraftPayload } from '@duing/types';
 import { createApiClient } from '@duing/api';
 import { ApiClientProvider, applicationQueryKeys, draftQueryKeys, recruitmentQueryKeys } from '@duing/hooks';
 
@@ -82,16 +83,19 @@ const REQUIRED_MULTI_QUESTION_ITEMS: RecruitmentQuestionItem[] = [
 
 // 딥링크 가드 테스트(ApplyPage 전체 렌더)가 recruitment 상세·draft·eligibility 세 요청을 모두
 // 거치므로, resetHandlers 이후에도 유지되도록 기본 200 핸들러를 setupServer 초기 목록에 둔다.
-// ApplyForm 을 직접 렌더하는 기존 테스트들은 이 핸들러들을 타지 않으므로 영향이 없다.
-const server = setupServer(mockRecruitmentDetailHandler(), mockDraftHandler(), mockEligibilityHandler(200));
+// ApplyForm 을 직접 렌더하는 기존 테스트들은 조회 셋을 타지 않는다. 자동저장 PUT 은 어느 테스트에서나
+// 나갈 수 있어 기본 204 로 받는다 — 흘려보내면 실제 네트워크(localhost:8080)로 나간다.
+const server = setupServer(
+  mockRecruitmentDetailHandler(),
+  mockDraftHandler(),
+  mockEligibilityHandler(200),
+  mockDraftSaveHandler(),
+);
 const apiClient = createApiClient({ baseUrl: 'http://localhost:8080/api/v1' });
 
 beforeAll(() =>
   server.listen({
     onUnhandledRequest: (req) => {
-      // 자동저장(useAutosaveDraft) 의 debounce PUT 가 테스트 종료 직전 발화할 수 있어
-      // unhandled 로 흘려보낸다. 다른 unhandled 는 그대로 에러.
-      if (req.method === 'PUT' && req.url.endsWith(`/draft`)) return;
       console.error(`Unhandled ${req.method} ${req.url}`);
       throw new Error(`Unhandled ${req.method} ${req.url}`);
     },
@@ -162,6 +166,18 @@ function mockDraftHandler() {
   return http.get(`*/recruitments/${RECRUITMENT_ID}/draft`, () =>
     HttpResponse.json({ ok: true, data: { exists: false, answers: [], updatedAt: null }, message: null }),
   );
+}
+
+function mockDraftSaveHandler() {
+  return http.put(`*/recruitments/${RECRUITMENT_ID}/draft`, () => new HttpResponse(null, { status: 204 }));
+}
+
+/** 임시저장 PUT 본문을 도착 순서대로 남긴다 — 떠날 때 저장이 무엇을 보냈는지 본다. */
+function recordDraftSave(draftBodies: UpsertDraftPayload[]) {
+  return http.put<PathParams, UpsertDraftPayload>(`*/recruitments/${RECRUITMENT_ID}/draft`, async ({ request }) => {
+    draftBodies.push(await request.json());
+    return new HttpResponse(null, { status: 204 });
+  });
 }
 
 function mockEligibilityHandler(status: number, message: string | null = null) {
@@ -754,7 +770,7 @@ describe('ApplyPage — 지원 가능 여부 딥링크 가드', () => {
     await new Promise((resolve) => setTimeout(resolve, 0));
 
     // 2) 이탈한 사이 모집이 마감돼 부적격으로 바뀐 상태에서 재진입.
-    server.use(mockEligibilityHandler(400, '마감된 모집 공고에는 지원할 수 없습니다.'));
+    server.use(mockEligibilityHandler(409, '마감된 모집 공고에는 지원할 수 없습니다.'));
     renderApplyPage(sharedQueryClient);
 
     // 캐시된 '적격' 판정으로 지원 폼이 한 프레임이라도 그려지면 사용자가 입력을 시작해 버린다.
@@ -973,6 +989,94 @@ describe('ApplyPage — 제출 후 임시저장 캐시', () => {
   });
 });
 
+describe('ApplyPage — 제출과 자동저장', () => {
+  // 제출(POST)과 자동저장(PUT)만 도착 순서대로 남긴다 — 조회(GET)는 세지 않는다.
+  function recordSubmitAndDraftSave(requestMethods: string[], submitGate: Promise<void> = Promise.resolve()) {
+    return [
+      http.put(`*/recruitments/${RECRUITMENT_ID}/draft`, () => {
+        requestMethods.push('PUT');
+        return new HttpResponse(null, { status: 204 });
+      }),
+      http.post(`*/recruitments/${RECRUITMENT_ID}/applications`, async () => {
+        requestMethods.push('POST');
+        await submitGate;
+        return HttpResponse.json({ ok: true, data: 999, message: null });
+      }),
+    ];
+  }
+
+  it('입력 뒤 2초 안에 제출하면 보류 중이던 자동저장을 보내지 않고, 화면이 내려가도 보내지 않는다', async () => {
+    const requestMethods: string[] = [];
+    server.use(...recordSubmitAndDraftSave(requestMethods));
+    const user = userEvent.setup();
+    const view = renderApplyPage();
+
+    await user.type(await screen.findByRole('textbox', { name: /지원 동기/ }), '열정');
+    await submitAndConfirm(user);
+    await waitFor(() => expect(mockRouterPush).toHaveBeenCalled());
+    // 디바운스(2초)가 지나도록 화면을 둔다 — 먼저 내리면 언마운트가 타이머를 지워 제출 뒤 PUT 을 못 본다.
+    await new Promise((resolve) => setTimeout(resolve, 2500));
+    expect(requestMethods).toEqual(['POST']);
+    // 이동이 늦거나 막힌 동안 다시 제출하면 두 번째 POST 의 실패가 자동저장을 다시 켠다 — 버튼도 꺼져 있어야 한다.
+    expect(screen.getByRole('button', { name: '지원서 제출하기' })).toBeDisabled();
+
+    // 성공 뒤 이동으로 화면이 내려갈 때도 보내지 않는다 — 제출과 함께 지운 서버 저장본을 되살리지 않게.
+    view.unmount();
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    expect(requestMethods).toEqual(['POST']);
+  }, 10_000);
+
+  it('제출 응답을 기다리는 동안에도 보류 중이던 자동저장을 보내지 않는다', async () => {
+    const requestMethods: string[] = [];
+    let releaseSubmit: () => void = () => {};
+    const submitGate = new Promise<void>((resolve) => {
+      releaseSubmit = resolve;
+    });
+    server.use(...recordSubmitAndDraftSave(requestMethods, submitGate));
+    const user = userEvent.setup();
+    renderApplyPage();
+
+    await user.type(await screen.findByRole('textbox', { name: /지원 동기/ }), '열정');
+    await submitAndConfirm(user);
+    await waitFor(() => expect(requestMethods).toEqual(['POST']));
+    // 응답을 붙잡은 채 디바운스(2초)를 넘긴다 — 바로 성공하면 '제출 뒤' 조건만으로도 타이머가 지워져 '제출 중' 조건을 못 본다.
+    await new Promise((resolve) => setTimeout(resolve, 2500));
+    expect(requestMethods).toEqual(['POST']);
+
+    releaseSubmit();
+    await waitFor(() => expect(mockRouterPush).toHaveBeenCalled());
+  }, 10_000);
+
+  it('제출이 실패하면 자동저장이 다시 켜져 그때의 답을 저장한다', async () => {
+    const draftBodies: unknown[] = [];
+    server.use(
+      http.put(`*/recruitments/${RECRUITMENT_ID}/draft`, async ({ request }) => {
+        draftBodies.push(await request.json());
+        return new HttpResponse(null, { status: 204 });
+      }),
+      http.post(`*/recruitments/${RECRUITMENT_ID}/applications`, async () => {
+        // '제출 중'이 그려질 만큼 늦춘다 — 바로 실패하면 자동저장이 꺼졌다 다시 켜지는 길을 지나지 않는다.
+        await delay(100);
+        return HttpResponse.json({ ok: false, data: null, message: '일시적인 오류가 발생했습니다.' }, { status: 500 });
+      }),
+    );
+    const user = userEvent.setup();
+    renderApplyPage();
+
+    await user.type(await screen.findByRole('textbox', { name: /지원 동기/ }), '열정');
+    await submitAndConfirm(user);
+    const dialog = await screen.findByRole('dialog');
+    expect(await within(dialog).findByRole('alert')).toHaveTextContent('일시적인 오류가 발생했습니다.');
+    await user.click(within(dialog).getByRole('button', { name: '취소' }));
+
+    // 더 치지 않는다 — 제출 중에 지워진 타이머 대신, 다시 켜진 뒤 제출 전에 친 답을 2초 뒤 저장해야 한다.
+    await waitFor(
+      () => expect(draftBodies).toEqual([{ answers: [{ questionId: TEXT_QUESTION_ID, values: ['열정'] }] }]),
+      { timeout: 4000 },
+    );
+  }, 10_000);
+});
+
 describe('ApplyPage — 임시저장 복원 안내', () => {
   it('임시저장 값이 있으면 복원 안내와 저장 시각을 보여주고 닫을 수 있다', async () => {
     server.use(
@@ -1075,7 +1179,7 @@ describe('ApplyPage — 임시저장 복원 안내', () => {
         }),
       ),
     );
-    // 데이터가 있는 채로 다시 받기를 흉내 낸다(앱은 networkMode 'always' 라 재연결 재조회가 꺼져 있다 — 다시 받는 계기가 생길 때를 지킨다) — 50ms 는 React Query 의 변경 알림(setTimeout 0)까지 흘려보낸다.
+    // 데이터가 있는 채로 다시 받기를 흉내 낸다(저장본은 떠나면 바로 버려 지금은 다시 받는 계기가 없다 — 생길 때를 지킨다) — 50ms 는 React Query 의 변경 알림(setTimeout 0)까지 흘려보낸다.
     await act(async () => {
       await queryClient.refetchQueries({ queryKey: draftQueryKeys.byRecruitment(RECRUITMENT_ID) });
       await new Promise((resolve) => setTimeout(resolve, 50));
@@ -1103,7 +1207,7 @@ describe('ApplyPage — 임시저장 복원 안내', () => {
     await screen.findByText(/^마지막 저장 /, {}, { timeout: 4000 });
 
     // 자격 재확인이 막으면(예: 마감) 폼이 내려가고 풀리면 그때의 캐시로 다시 마운트된다 — 안내를 폼 밖(useRef)에서 고정하면 여기서 틀린다.
-    server.use(mockEligibilityHandler(400, '마감된 모집 공고에는 지원할 수 없습니다.'));
+    server.use(mockEligibilityHandler(409, '마감된 모집 공고에는 지원할 수 없습니다.'));
     await act(async () => {
       await queryClient.refetchQueries({ queryKey: applicationQueryKeys.eligibility(RECRUITMENT_ID), exact: true });
       await new Promise((resolve) => setTimeout(resolve, 50));
@@ -1203,7 +1307,7 @@ describe('ApplyPage — 임시저장 조회 실패', () => {
         HttpResponse.json({ ok: false, data: null, message: '권한이 없습니다.' }, { status: 403 }),
       ),
     );
-    // 데이터가 있는 채로 다시 받기를 흉내 낸다(앱은 networkMode 'always' 라 재연결 재조회가 꺼져 있다 — 다시 받는 계기가 생길 때를 지킨다). 50ms 는 React Query 의 변경 알림(setTimeout 0)까지 흘려보낸다 —
+    // 데이터가 있는 채로 다시 받기를 흉내 낸다(저장본은 떠나면 바로 버려 지금은 다시 받는 계기가 없다 — 생길 때를 지킨다). 50ms 는 React Query 의 변경 알림(setTimeout 0)까지 흘려보낸다 —
     // 이 대기가 없으면 조건을 isError 하나로 넓힌 구현도 통과해 버린다.
     await act(async () => {
       await queryClient.refetchQueries({ queryKey: draftQueryKeys.byRecruitment(RECRUITMENT_ID) });
@@ -1219,14 +1323,14 @@ describe('ApplyPage — 임시저장 조회 실패', () => {
 describe('ApplyPage — 다시 받다 잠깐 실패해도 쓰던 폼을 지킨다', () => {
   const TYPED_ANSWER = '쓰던 답';
 
-  // 자동저장(2초 디바운스)을 기다리지 않는다 — 폼이 내려가면 사라지는 저장 전 입력이다.
+  // 자동저장(2초 디바운스)을 기다리지 않는다 — 아직 서버에 없는 입력이다(폼이 내려가면 떠날 때 저장이 한 번 보낸다).
   async function openFormAndType(queryClient: QueryClient) {
     const user = userEvent.setup();
     renderApplyPage(queryClient);
     await user.type(await screen.findByRole('textbox', { name: /지원 동기/ }), TYPED_ANSWER);
   }
 
-  // 데이터가 있는 채로 다시 받기를 흉내 낸다(앱은 networkMode 'always' 라 재연결 재조회가 꺼져 있다 — 다시 받는 계기가 생길 때를 지킨다). 50ms 는 React Query 의 변경 알림(setTimeout 0)까지 흘려보낸다.
+  // 데이터가 있는 채로 다시 받는 순간을 바로 흉내 낸다 — 재진입 때 낡은 상세·자격을 마운트에서 다시 받는 일은 지금도 일어난다(상세 staleTime 2분·gcTime 5분, 자격은 클릭이 남긴 판정이 남는 10초 창). 50ms 는 React Query 의 변경 알림(setTimeout 0)까지 흘려보낸다.
   async function refetchExact(queryClient: QueryClient, queryKey: readonly unknown[]) {
     await act(async () => {
       await queryClient.refetchQueries({ queryKey, exact: true });
@@ -1302,20 +1406,28 @@ describe('ApplyPage — 다시 받다 잠깐 실패해도 쓰던 폼을 지킨�
   });
 
   // 받아들인 동작 — 막힘은 마지막 오류 하나로 정해지고 실패해도 예전 data 가 남는다. 계속 막기로 바꾸면 이 테스트가 바뀐다.
-  it('확정 거절(409)로 막힌 뒤 재확인이 일시 실패(500)면 폼이 다시 열린다', async () => {
+  it('확정 거절(409)로 막힌 뒤 재확인이 일시 실패(500)면 폼이 쓰던 답으로 다시 열린다', async () => {
+    const draftBodies: UpsertDraftPayload[] = [];
+    server.use(recordDraftSave(draftBodies));
     const queryClient = makeQueryClient();
     await openFormAndType(queryClient);
 
     server.use(mockEligibilityHandler(409, '마감된 모집 공고에는 지원할 수 없습니다.'));
     await refetchExact(queryClient, applicationQueryKeys.eligibility(RECRUITMENT_ID));
     expect(screen.getByRole('link', { name: '동아리 페이지로 돌아가기' })).toBeInTheDocument();
+    // 409 로 폼이 내려갈 때 떠날 때 저장이 쓰던 답을 보낸다 — 끝나야 훅 수준 캐시 쓰기가 저장본을 그 답으로 맞춘다.
+    await waitFor(() =>
+      expect(draftBodies).toEqual([{ answers: [{ questionId: TEXT_QUESTION_ID, values: [TYPED_ANSWER] }] }]),
+    );
+    await waitFor(() => expect(queryClient.isMutating()).toBe(0));
 
     server.use(mockEligibilityHandler(500, '일시적인 오류가 발생했습니다.'));
     await refetchExact(queryClient, applicationQueryKeys.eligibility(RECRUITMENT_ID));
 
     expect(queryClient.getQueryState(applicationQueryKeys.eligibility(RECRUITMENT_ID))?.status).toBe('error');
-    // 409 로 폼이 내려갈 때 저장 전 답은 사라졌다 — 다시 열린 폼은 그때의 저장본(없음)으로 채워진다.
-    expect(screen.getByRole('textbox', { name: /지원 동기/ })).toHaveValue('');
+    // 다시 열린 폼은 떠날 때 저장이 맞춘 저장본으로 채워진다.
+    expect(screen.getByRole('textbox', { name: /지원 동기/ })).toHaveValue(TYPED_ANSWER);
+    expect(screen.getByText('임시저장한 답변을 불러왔어요')).toBeInTheDocument();
   });
 });
 
@@ -1393,6 +1505,210 @@ describe('ApplyPage — 다시 들어올 때 임시저장 저장본', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('임시저장한 답변을 불러오지 못했습니다.');
     expect(screen.getByRole('button', { name: '다시 시도' })).toBeInTheDocument();
     expect(screen.queryByRole('textbox', { name: /지원 동기/ })).not.toBeInTheDocument();
+  });
+});
+
+// 떠날 때 저장은 언마운트 순간에 mutation 을 만든다 — 결과를 보기 전에 isMutating() 0 을 기다린다(PUT 기록은 클라이언트 처리보다 먼저다).
+describe('ApplyPage — 화면을 떠날 때 자동저장', () => {
+  it('입력 뒤 2초 안에 떠나면 마지막 답을 한 번 보내고, 다시 들어오면 그 답으로 연다', async () => {
+    const draftBodies: UpsertDraftPayload[] = [];
+    server.use(
+      // 다시 들어올 때 받은 PUT 값을 저장본으로 돌려준다.
+      http.get(`*/recruitments/${RECRUITMENT_ID}/draft`, () => {
+        const lastSavedDraft = draftBodies.at(-1);
+        return HttpResponse.json({
+          ok: true,
+          data:
+            lastSavedDraft === undefined
+              ? { exists: false, answers: [], updatedAt: null }
+              : { exists: true, answers: lastSavedDraft.answers, updatedAt: '2026-11-05T12:00:00' },
+          message: null,
+        });
+      }),
+      recordDraftSave(draftBodies),
+    );
+    const queryClient = makeQueryClient();
+    const user = userEvent.setup();
+    const firstVisit = renderApplyPage(queryClient);
+
+    await user.type(await screen.findByRole('textbox', { name: /지원 동기/ }), '마지막 문장');
+    firstVisit.unmount();
+    await waitFor(() => expect(queryClient.isMutating()).toBe(0));
+    expect(draftBodies).toEqual([{ answers: [{ questionId: TEXT_QUESTION_ID, values: ['마지막 문장'] }] }]);
+
+    renderApplyPage(queryClient);
+    expect(await screen.findByRole('textbox', { name: /지원 동기/ })).toHaveValue('마지막 문장');
+  });
+
+  it('열기만 하고 떠나면 보내지 않는다', async () => {
+    const draftBodies: UpsertDraftPayload[] = [];
+    server.use(recordDraftSave(draftBodies));
+    const view = renderApplyPage();
+
+    await screen.findByRole('textbox', { name: /지원 동기/ });
+    view.unmount();
+    await new Promise((resolve) => setTimeout(resolve, 2500));
+    expect(draftBodies).toHaveLength(0);
+  }, 10_000);
+
+  it('자동저장이 끝난 뒤 떠나면 다시 보내지 않는다', async () => {
+    const draftBodies: UpsertDraftPayload[] = [];
+    server.use(recordDraftSave(draftBodies));
+    const queryClient = makeQueryClient();
+    const user = userEvent.setup();
+    const view = renderApplyPage(queryClient);
+
+    await user.type(await screen.findByRole('textbox', { name: /지원 동기/ }), '열정');
+    await screen.findByText(/^마지막 저장 /, {}, { timeout: 4000 });
+    view.unmount();
+    await waitFor(() => expect(queryClient.isMutating()).toBe(0));
+    expect(draftBodies).toHaveLength(1);
+  }, 10_000);
+
+  // 한글 조합 중엔 textarea 값이 maxLength 를 잠깐 넘는다 — 기존 2000자 테스트처럼 fireEvent.change 로 흉내 낸다(보내도 400).
+  it('2000자를 넘긴 답이 있으면 떠날 때 보내지 않는다', async () => {
+    const draftBodies: UpsertDraftPayload[] = [];
+    server.use(recordDraftSave(draftBodies));
+    const queryClient = makeQueryClient();
+    const view = renderApplyPage(queryClient);
+
+    fireEvent.change(await screen.findByRole('textbox', { name: /지원 동기/ }), { target: { value: 'a'.repeat(2001) } });
+    view.unmount();
+    await waitFor(() => expect(queryClient.isMutating()).toBe(0));
+    expect(draftBodies).toHaveLength(0);
+  });
+
+  it('410 으로 닫힌 뒤 떠나면 다시 보내지 않는다', async () => {
+    let draftPutCount = 0;
+    server.use(
+      http.put(`*/recruitments/${RECRUITMENT_ID}/draft`, () => {
+        draftPutCount += 1;
+        return HttpResponse.json({ ok: false, data: null, message: '마감된 모집 공고입니다.' }, { status: 410 });
+      }),
+    );
+    const queryClient = makeQueryClient();
+    const user = userEvent.setup();
+    const view = renderApplyPage(queryClient);
+
+    await user.type(await screen.findByRole('textbox', { name: /지원 동기/ }), '열정');
+    expect(await screen.findByRole('alert', {}, { timeout: 4000 })).toHaveTextContent(CLOSED_BANNER_TEXT);
+    // 410 은 저장한 셈 치지 않아 답이 시드와 다른 채로 남는다 — 닫힌 상태를 보지 않으면 떠날 때 또 보낸다.
+    view.unmount();
+    await waitFor(() => expect(queryClient.isMutating()).toBe(0));
+    expect(draftPutCount).toBe(1);
+  }, 10_000);
+
+  it('저장 중에 떠나도 보내되, 진행 중 저장이 끝난 뒤에 보낸다', async () => {
+    const draftBodies: unknown[] = [];
+    const putEvents: string[] = [];
+    let releaseFirstPut: () => void = () => {};
+    const firstPutGate = new Promise<void>((resolve) => {
+      releaseFirstPut = resolve;
+    });
+    server.use(
+      http.put(`*/recruitments/${RECRUITMENT_ID}/draft`, async ({ request }) => {
+        const putNumber = draftBodies.push(await request.json());
+        putEvents.push(`start${putNumber}`);
+        if (putNumber === 1) await firstPutGate;
+        putEvents.push(`end${putNumber}`);
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+    const queryClient = makeQueryClient();
+    const user = userEvent.setup();
+    const view = renderApplyPage(queryClient);
+
+    const textarea = await screen.findByRole('textbox', { name: /지원 동기/ });
+    await user.type(textarea, '첫');
+    await waitFor(() => expect(putEvents).toEqual(['start1']), { timeout: 4000 });
+    await user.type(textarea, '째');
+    view.unmount();
+    // 게이트는 떠난 뒤에 푼다 — 떠날 때 저장이 줄을 서지 않고 바로 나간다면 그 전에 도착할 틈을 준다.
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    releaseFirstPut();
+
+    // 겹치면 늦게 끝난 옛 답('첫')이 서버의 마지막 값이 된다.
+    await waitFor(() => expect(putEvents).toEqual(['start1', 'end1', 'start2', 'end2']));
+    expect(draftBodies).toEqual([
+      { answers: [{ questionId: TEXT_QUESTION_ID, values: ['첫'] }] },
+      { answers: [{ questionId: TEXT_QUESTION_ID, values: ['첫째'] }] },
+    ]);
+    await waitFor(() => expect(queryClient.isMutating()).toBe(0));
+  }, 10_000);
+
+  it('떠난 뒤 끝난 저장은 저장본 캐시를 새로 만들지 않는다', async () => {
+    let draftPutCount = 0;
+    let releasePut: () => void = () => {};
+    const putGate = new Promise<void>((resolve) => {
+      releasePut = resolve;
+    });
+    server.use(
+      http.put(`*/recruitments/${RECRUITMENT_ID}/draft`, async () => {
+        draftPutCount += 1;
+        await putGate;
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+    const queryClient = makeQueryClient();
+    const user = userEvent.setup();
+    const view = renderApplyPage(queryClient);
+
+    await user.type(await screen.findByRole('textbox', { name: /지원 동기/ }), '열정');
+    view.unmount();
+    // 저장본 쿼리(gcTime 0)가 지워질 한 틱을 흘린다 — 게이트가 없으면 저장이 먼저 끝나 캐시 가드를 지워도 통과한다.
+    await act(() => new Promise((resolve) => setTimeout(resolve, 0)));
+    expect(queryClient.getQueryState(draftQueryKeys.byRecruitment(RECRUITMENT_ID))).toBeUndefined();
+
+    await waitFor(() => expect(draftPutCount).toBe(1));
+    releasePut();
+    await waitFor(() => expect(queryClient.isMutating()).toBe(0));
+    // 새로 만들면 기본 gcTime 5분으로 남아, 5분 안에 다시 들어올 때 서버 저장본 대신 이 캐시로 연다.
+    expect(queryClient.getQueryState(draftQueryKeys.byRecruitment(RECRUITMENT_ID))).toBeUndefined();
+  });
+
+  it('떠날 때 보낸 저장이 끝나면 mutation 캐시에서 치워진다', async () => {
+    const draftBodies: UpsertDraftPayload[] = [];
+    server.use(recordDraftSave(draftBodies));
+    // 끝난 mutation 을 바로 치우게 gcTime 0 — 관찰자가 붙어 있으면 그래도 남아 답 전문이 메모리에 쌓인다.
+    const queryClient = new QueryClient({
+      defaultOptions: {
+        queries: { retry: false, refetchOnWindowFocus: false },
+        mutations: { retry: false, gcTime: 0 },
+      },
+    });
+    const user = userEvent.setup();
+    const view = renderApplyPage(queryClient);
+
+    await user.type(await screen.findByRole('textbox', { name: /지원 동기/ }), '열정');
+    view.unmount();
+    // PUT 도착을 먼저 기다린다 — 보내지 않았으면 캐시는 처음부터 비어 있다.
+    await waitFor(() => expect(draftBodies).toHaveLength(1));
+    await waitFor(() => expect(queryClient.isMutating()).toBe(0));
+    await waitFor(() => expect(queryClient.getMutationCache().getAll()).toHaveLength(0));
+  });
+
+  it('떠날 때 보낸 저장이 실패해도 처리되지 않은 거부 없이 mutation 캐시에서 치워진다', async () => {
+    let draftPutCount = 0;
+    server.use(
+      http.put(`*/recruitments/${RECRUITMENT_ID}/draft`, () => {
+        draftPutCount += 1;
+        return HttpResponse.json({ ok: false, data: null, message: '일시적인 오류가 발생했습니다.' }, { status: 500 });
+      }),
+    );
+    const queryClient = new QueryClient({
+      defaultOptions: {
+        queries: { retry: false, refetchOnWindowFocus: false },
+        mutations: { retry: false, gcTime: 0 },
+      },
+    });
+    const user = userEvent.setup();
+    const view = renderApplyPage(queryClient);
+
+    await user.type(await screen.findByRole('textbox', { name: /지원 동기/ }), '열정');
+    view.unmount();
+    await waitFor(() => expect(draftPutCount).toBe(1));
+    // 알릴 화면이 없어 삼킨다 — 거부가 새면 Vitest 가 Unhandled Rejection 으로 실행을 실패시킨다.
+    await waitFor(() => expect(queryClient.getMutationCache().getAll()).toHaveLength(0));
   });
 });
 
