@@ -8,7 +8,7 @@ import { setupServer } from 'msw/node';
 import { delay, http, HttpResponse } from 'msw';
 import type { DraftAnswer, RecruitmentDetail, RecruitmentQuestionItem } from '@duing/types';
 import { createApiClient } from '@duing/api';
-import { ApiClientProvider, applicationQueryKeys, draftQueryKeys } from '@duing/hooks';
+import { ApiClientProvider, applicationQueryKeys, draftQueryKeys, recruitmentQueryKeys } from '@duing/hooks';
 
 const mockRouterPush = vi.fn();
 const mockRouterReplace = vi.fn();
@@ -728,6 +728,15 @@ describe('ApplyPage — 지원 가능 여부 딥링크 가드', () => {
     expect(backLink).toHaveAttribute('href', '/clubs/1');
   });
 
+  // 확정 거절 목록 밖의 실패라 '데이터 없음' 조건만 막는다 — 그 조건이 빠지면 자격을 확인하지 못한 폼이 열린다.
+  it('첫 진입 자격 확인이 일시 실패(500)면 폼을 열지 않고 막힘 화면을 띄운다', async () => {
+    server.use(mockEligibilityHandler(500, '일시적인 오류가 발생했습니다.'));
+    renderApplyPage();
+
+    expect(await screen.findByText('일시적인 오류가 발생했습니다.')).toBeInTheDocument();
+    expect(screen.queryByRole('textbox', { name: /지원 동기/ })).not.toBeInTheDocument();
+  });
+
   it('재진입 시 직전 판정 캐시로 지원 폼을 먼저 그리지 않는다', async () => {
     // 루트 QueryClient 는 SPA 네비게이션 내내 살아 있으므로, 캐시가 남아 있으면
     // 재마운트 시 status 가 'success' 라 isLoading=false → 로딩 게이트가 백그라운드
@@ -1066,7 +1075,7 @@ describe('ApplyPage — 임시저장 복원 안내', () => {
         }),
       ),
     );
-    // 재연결 재조회(refetchOnReconnect)를 흉내 낸다 — 50ms 는 React Query 의 변경 알림(setTimeout 0)까지 흘려보낸다.
+    // 데이터가 있는 채로 다시 받기를 흉내 낸다(앱은 networkMode 'always' 라 재연결 재조회가 꺼져 있다 — 다시 받는 계기가 생길 때를 지킨다) — 50ms 는 React Query 의 변경 알림(setTimeout 0)까지 흘려보낸다.
     await act(async () => {
       await queryClient.refetchQueries({ queryKey: draftQueryKeys.byRecruitment(RECRUITMENT_ID) });
       await new Promise((resolve) => setTimeout(resolve, 50));
@@ -1194,7 +1203,7 @@ describe('ApplyPage — 임시저장 조회 실패', () => {
         HttpResponse.json({ ok: false, data: null, message: '권한이 없습니다.' }, { status: 403 }),
       ),
     );
-    // 재연결 재조회(refetchOnReconnect)를 흉내 낸다. 50ms 는 React Query 의 변경 알림(setTimeout 0)까지 흘려보낸다 —
+    // 데이터가 있는 채로 다시 받기를 흉내 낸다(앱은 networkMode 'always' 라 재연결 재조회가 꺼져 있다 — 다시 받는 계기가 생길 때를 지킨다). 50ms 는 React Query 의 변경 알림(setTimeout 0)까지 흘려보낸다 —
     // 이 대기가 없으면 조건을 isError 하나로 넓힌 구현도 통과해 버린다.
     await act(async () => {
       await queryClient.refetchQueries({ queryKey: draftQueryKeys.byRecruitment(RECRUITMENT_ID) });
@@ -1204,6 +1213,109 @@ describe('ApplyPage — 임시저장 조회 실패', () => {
     expect(queryClient.getQueryState(draftQueryKeys.byRecruitment(RECRUITMENT_ID))?.status).toBe('error');
     expect(screen.getByRole('textbox', { name: /지원 동기/ })).toHaveValue('쓰던 답');
     expect(screen.queryByRole('button', { name: '다시 시도' })).not.toBeInTheDocument();
+  });
+});
+
+describe('ApplyPage — 다시 받다 잠깐 실패해도 쓰던 폼을 지킨다', () => {
+  const TYPED_ANSWER = '쓰던 답';
+
+  // 자동저장(2초 디바운스)을 기다리지 않는다 — 폼이 내려가면 사라지는 저장 전 입력이다.
+  async function openFormAndType(queryClient: QueryClient) {
+    const user = userEvent.setup();
+    renderApplyPage(queryClient);
+    await user.type(await screen.findByRole('textbox', { name: /지원 동기/ }), TYPED_ANSWER);
+  }
+
+  // 데이터가 있는 채로 다시 받기를 흉내 낸다(앱은 networkMode 'always' 라 재연결 재조회가 꺼져 있다 — 다시 받는 계기가 생길 때를 지킨다). 50ms 는 React Query 의 변경 알림(setTimeout 0)까지 흘려보낸다.
+  async function refetchExact(queryClient: QueryClient, queryKey: readonly unknown[]) {
+    await act(async () => {
+      await queryClient.refetchQueries({ queryKey, exact: true });
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    });
+  }
+
+  it('모집 상세 재조회가 실패(500)해도 오류 화면 대신 폼과 쓰던 답을 그대로 둔다', async () => {
+    const queryClient = makeQueryClient();
+    await openFormAndType(queryClient);
+
+    server.use(
+      http.get(`*/recruitments/${RECRUITMENT_ID}`, () =>
+        HttpResponse.json({ ok: false, data: null, message: '일시적인 오류가 발생했습니다.' }, { status: 500 }),
+      ),
+    );
+    await refetchExact(queryClient, recruitmentQueryKeys.detail(RECRUITMENT_ID));
+
+    expect(queryClient.getQueryState(recruitmentQueryKeys.detail(RECRUITMENT_ID))?.status).toBe('error');
+    expect(screen.queryByRole('link', { name: '동아리 탐색으로 돌아가기' })).not.toBeInTheDocument();
+    expect(screen.getByRole('textbox', { name: /지원 동기/ })).toHaveValue(TYPED_ANSWER);
+  });
+
+  it.each([
+    ['서버 오류(500)', mockEligibilityHandler(500, '일시적인 오류가 발생했습니다.')],
+    // 네트워크 실패 — api 계층이 status 0 으로 정규화한다.
+    ['네트워크 오류', http.get(`*/recruitments/${RECRUITMENT_ID}/applications/eligibility`, () => HttpResponse.error())],
+    // 토큰 갱신이 잠깐 안 되면 만료 통지 없이 원래 요청의 401 이 올라온다 — 4xx 를 통째로 막는 식이면 여기서 틀린다.
+    ['401', mockEligibilityHandler(401)],
+  ])('지원 자격 재확인이 일시 실패(%s)면 막힘 화면 대신 폼과 쓰던 답을 그대로 둔다', async (_label, failingHandler) => {
+    const queryClient = makeQueryClient();
+    await openFormAndType(queryClient);
+
+    server.use(failingHandler);
+    await refetchExact(queryClient, applicationQueryKeys.eligibility(RECRUITMENT_ID));
+
+    expect(queryClient.getQueryState(applicationQueryKeys.eligibility(RECRUITMENT_ID))?.status).toBe('error');
+    expect(screen.queryByRole('link', { name: '동아리 페이지로 돌아가기' })).not.toBeInTheDocument();
+    expect(screen.getByRole('textbox', { name: /지원 동기/ })).toHaveValue(TYPED_ANSWER);
+  });
+
+  // 확정 거절 넷을 모두 묶는다 — 목록을 줄이는 회귀(예: 400·409 만)는 다른 테스트가 잡지 못한다.
+  it.each([
+    [400, '외부 폼 모집은 du-ing 에서 직접 지원할 수 없습니다.'],
+    [403, '운영진 모집은 해당 동아리의 기존 부원만 지원할 수 있습니다.'],
+    [404, '모집 공고를 찾을 수 없습니다.'],
+    [409, '마감된 모집 공고에는 지원할 수 없습니다.'],
+  ])('지원 자격 재확인이 확정 거절(%i)이면 쓰던 중에도 막힘 화면을 띄운다', async (status, message) => {
+    const queryClient = makeQueryClient();
+    await openFormAndType(queryClient);
+
+    server.use(mockEligibilityHandler(status, message));
+    await refetchExact(queryClient, applicationQueryKeys.eligibility(RECRUITMENT_ID));
+
+    expect(screen.getByText(message)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: '동아리 페이지로 돌아가기' })).toBeInTheDocument();
+    expect(screen.queryByRole('textbox', { name: /지원 동기/ })).not.toBeInTheDocument();
+  });
+
+  it('모집 상세 재조회가 없는 모집(404)이면 쓰던 중에도 "찾을 수 없음" 화면을 띄운다', async () => {
+    const queryClient = makeQueryClient();
+    await openFormAndType(queryClient);
+
+    server.use(
+      http.get(`*/recruitments/${RECRUITMENT_ID}`, () =>
+        HttpResponse.json({ ok: false, data: null, message: '모집 공고를 찾을 수 없습니다.' }, { status: 404 }),
+      ),
+    );
+    await refetchExact(queryClient, recruitmentQueryKeys.detail(RECRUITMENT_ID));
+
+    expect(screen.getByRole('heading', { level: 1, name: '이 모집은 찾을 수 없어요' })).toBeInTheDocument();
+    expect(screen.queryByRole('textbox', { name: /지원 동기/ })).not.toBeInTheDocument();
+  });
+
+  // 받아들인 동작 — 막힘은 마지막 오류 하나로 정해지고 실패해도 예전 data 가 남는다. 계속 막기로 바꾸면 이 테스트가 바뀐다.
+  it('확정 거절(409)로 막힌 뒤 재확인이 일시 실패(500)면 폼이 다시 열린다', async () => {
+    const queryClient = makeQueryClient();
+    await openFormAndType(queryClient);
+
+    server.use(mockEligibilityHandler(409, '마감된 모집 공고에는 지원할 수 없습니다.'));
+    await refetchExact(queryClient, applicationQueryKeys.eligibility(RECRUITMENT_ID));
+    expect(screen.getByRole('link', { name: '동아리 페이지로 돌아가기' })).toBeInTheDocument();
+
+    server.use(mockEligibilityHandler(500, '일시적인 오류가 발생했습니다.'));
+    await refetchExact(queryClient, applicationQueryKeys.eligibility(RECRUITMENT_ID));
+
+    expect(queryClient.getQueryState(applicationQueryKeys.eligibility(RECRUITMENT_ID))?.status).toBe('error');
+    // 409 로 폼이 내려갈 때 저장 전 답은 사라졌다 — 다시 열린 폼은 그때의 저장본(없음)으로 채워진다.
+    expect(screen.getByRole('textbox', { name: /지원 동기/ })).toHaveValue('');
   });
 });
 

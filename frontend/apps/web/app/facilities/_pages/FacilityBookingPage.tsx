@@ -467,7 +467,7 @@ export function FacilityBookingPage() {
         </div>
       )}
       {/* 재요청이 실패해도 이미 받은 이용현황은 남긴다 — TanStack Query 는 이때 isSuccess 를 내리지만 data 는 유지한다.
-          재방문 때 캐시로 그린 캘린더가 마운트·재연결 재요청의 실패로 통째로 오류 문구 한 줄로 바뀌던 결함이다. */}
+          재방문 때 캐시로 그린 캘린더가 마운트 재요청의 실패로 통째로 오류 문구 한 줄로 바뀌던 결함이다. */}
       {usageQuery.isError && usageQuery.data && (
         <div
           role="alert"

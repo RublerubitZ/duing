@@ -1735,7 +1735,7 @@ describe('FacilityBookingPage — 이용현황 불러오기 실패', () => {
     expect(await screen.findByRole('heading', { level: 1, name: '커뮤니티룸(1) 예약' })).toBeInTheDocument();
 
     // TanStack Query v5 는 데이터가 있는 상태에서 재요청이 실패하면 isSuccess 를 내리되 data 는 남긴다
-    // (재방문 때 캐시로 그린 뒤 마운트·재연결 재요청이 실패하는 경우).
+    // (재방문 때 캐시로 그린 뒤 마운트 재요청이 실패하는 경우).
     failUsage();
     await act(async () => {
       await queryClient.refetchQueries({ queryKey: facilityQueryKeys.usage() });
