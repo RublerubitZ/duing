@@ -17,7 +17,10 @@ import com.duing.domain.club.repository.ClubRepository;
 import com.duing.domain.clubmember.entity.ClubMember;
 import com.duing.domain.clubmember.repository.ClubMemberRepository;
 import com.duing.domain.interview.entity.InterviewRound;
+import com.duing.domain.interview.entity.InterviewRoundMember;
+import com.duing.domain.interview.entity.RoundMemberStatus;
 import com.duing.domain.interview.entity.RoundStatus;
+import com.duing.domain.interview.repository.InterviewRoundMemberRepository;
 import com.duing.domain.interview.repository.InterviewRoundRepository;
 import com.duing.domain.recruitment.entity.ApplicationMode;
 import com.duing.domain.recruitment.entity.Recruitment;
@@ -47,6 +50,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.util.ReflectionTestUtils;
 
 /**
  * 자동 마감 전망(#1572·#1583) — 화면이 보는 전망과 잡의 마감 판정이 같은 계산에서 나오는지,
@@ -73,6 +77,7 @@ class AutoCloseOutlookTest extends IntegrationTestBase {
     @Autowired RecruitmentRepository recruitmentRepository;
     @Autowired ApplicationRepository applicationRepository;
     @Autowired InterviewRoundRepository interviewRoundRepository;
+    @Autowired InterviewRoundMemberRepository interviewRoundMemberRepository;
     @Autowired ClubRepository clubRepository;
     @Autowired ClubMemberRepository clubMemberRepository;
     @Autowired UserRepository userRepository;
@@ -127,18 +132,73 @@ class AutoCloseOutlookTest extends IntegrationTestBase {
     }
 
     @Test
-    @DisplayName("진행 중 면접 라운드가 남은 모집은 닫지 않는다 — 확정·취소·삭제된 라운드는 막지 않는다")
+    @DisplayName("결과를 기다리는 면접 대상이 남은 진행 중 라운드는 마감을 막는 라운드로 센다 — 확정·취소·삭제된 라운드는 그런 대상이 있어도 세지 않는다")
     void inProgressRoundsBlockClosing() {
         Recruitment blocked = saveSelfRecruitmentEndedDaysAgo(10);
-        saveRound(blocked, RoundStatus.COLLECTING);
+        addMember(saveRound(blocked, RoundStatus.COLLECTING),
+                saveApplication(blocked, ApplicationStatus.INTERVIEW_PENDING), RoundMemberStatus.INVITED);
         saveRound(blocked, RoundStatus.SCHEDULED);
-        assertOutlookMatchesJob(blocked, TODAY.minusDays(2), true, 0, 1);
+        assertOutlookMatchesJob(blocked, TODAY.minusDays(2), true, 1, 1);
 
+        // 끝난 라운드에도 결과를 기다리는 대상을 둔다 — 비어 있으면 라운드 상태 조건이 없어도 0 이라 막는지 가릴 수 없다.
         Recruitment finishedRoundsOnly = saveSelfRecruitmentEndedDaysAgo(10);
-        saveRound(finishedRoundsOnly, RoundStatus.SCHEDULED);
-        saveRound(finishedRoundsOnly, RoundStatus.CANCELLED);
-        interviewRoundRepository.delete(saveRound(finishedRoundsOnly, RoundStatus.DRAFT));
-        assertOutlookMatchesJob(finishedRoundsOnly, TODAY.minusDays(2), true, 0, 0);
+        addMember(saveRound(finishedRoundsOnly, RoundStatus.SCHEDULED),
+                saveApplication(finishedRoundsOnly, ApplicationStatus.INTERVIEW_PENDING), RoundMemberStatus.ASSIGNED);
+        addMember(saveRound(finishedRoundsOnly, RoundStatus.CANCELLED),
+                saveApplication(finishedRoundsOnly, ApplicationStatus.INTERVIEW_PENDING), RoundMemberStatus.INVITED);
+        InterviewRound deletedRound = saveRound(finishedRoundsOnly, RoundStatus.DRAFT);
+        addMember(deletedRound,
+                saveApplication(finishedRoundsOnly, ApplicationStatus.INTERVIEW_PENDING), RoundMemberStatus.INVITED);
+        interviewRoundRepository.delete(deletedRound);
+        assertOutlookMatchesJob(finishedRoundsOnly, TODAY.minusDays(2), true, 3, 0);
+    }
+
+    @Test
+    @DisplayName("진행 중 라운드의 면접 대상이 모두 결과를 받았으면 그 라운드는 막지 않아 모집이 닫힌다 — 결과만 정하고 라운드에 남은 기존 데이터")
+    void roundWhoseMembersAreAllDecidedDoesNotBlock() {
+        Recruitment recruitment = saveSelfRecruitmentEndedDaysAgo(10);
+        InterviewRound round = saveRound(recruitment, RoundStatus.COLLECTING);
+        addMember(round, saveApplication(recruitment, ApplicationStatus.ACCEPTED), RoundMemberStatus.INVITED);
+        addMember(round, saveApplication(recruitment, ApplicationStatus.REJECTED), RoundMemberStatus.RESPONDED);
+        assertOutlookMatchesJob(recruitment, TODAY.minusDays(2), true, 0, 0);
+    }
+
+    @Test
+    @DisplayName("인원이 없는 진행 중 라운드는 막지 않아 모집이 닫힌다")
+    void memberlessRoundDoesNotBlock() {
+        Recruitment recruitment = saveSelfRecruitmentEndedDaysAgo(10);
+        saveRound(recruitment, RoundStatus.ASSIGNING);
+        assertOutlookMatchesJob(recruitment, TODAY.minusDays(2), true, 0, 0);
+    }
+
+    @Test
+    @DisplayName("운영진이 제외한 지원자만 남은 진행 중 라운드는 세지 않는다 — 결과 없는 그 지원이 마감을 막는다")
+    void roundWithOnlyExcludedMembersIsNotCounted() {
+        Recruitment recruitment = saveSelfRecruitmentEndedDaysAgo(10);
+        addMember(saveRound(recruitment, RoundStatus.COLLECTING),
+                saveApplication(recruitment, ApplicationStatus.INTERVIEW_PENDING), RoundMemberStatus.EXCLUDED);
+        assertOutlookMatchesJob(recruitment, TODAY.minusDays(2), true, 1, 0);
+    }
+
+    @Test
+    @DisplayName("탈퇴한 지원자만 남은 진행 중 라운드는 막지 않아 모집이 닫힌다")
+    void roundWithOnlyWithdrawnApplicantsDoesNotBlock() {
+        Recruitment recruitment = saveSelfRecruitmentEndedDaysAgo(10);
+        Application withdrawnApplication = saveApplication(recruitment, ApplicationStatus.INTERVIEW_PENDING);
+        addMember(saveRound(recruitment, RoundStatus.COLLECTING), withdrawnApplication, RoundMemberStatus.INVITED);
+        // 탈퇴 API 는 탈퇴 정리가 멤버를 제외로 바꿔 '제외만' 사례와 같아진다 — 탈퇴 표시만 남겨 지원자 조건을 따로 본다.
+        jdbcTemplate.update("UPDATE users SET deleted_at = NOW() WHERE id = ?", withdrawnApplication.getUser().getId());
+        assertOutlookMatchesJob(recruitment, TODAY.minusDays(2), true, 0, 0);
+    }
+
+    @Test
+    @DisplayName("삭제된 지원서만 남은 진행 중 라운드는 막지 않아 모집이 닫힌다")
+    void roundWithOnlyDeletedApplicationsDoesNotBlock() {
+        Recruitment recruitment = saveSelfRecruitmentEndedDaysAgo(10);
+        Application deletedApplication = saveApplication(recruitment, ApplicationStatus.INTERVIEW_PENDING);
+        addMember(saveRound(recruitment, RoundStatus.COLLECTING), deletedApplication, RoundMemberStatus.INVITED);
+        jdbcTemplate.update("UPDATE application SET deleted_at = NOW() WHERE id = ?", deletedApplication.getId());
+        assertOutlookMatchesJob(recruitment, TODAY.minusDays(2), true, 0, 0);
     }
 
     @Test
@@ -168,7 +228,8 @@ class AutoCloseOutlookTest extends IntegrationTestBase {
     void summaryAndAdminListCarryTheSameOutlook() {
         Recruitment inGrace = saveSelfRecruitmentEndedDaysAgo(2);
         Recruitment blockedByRound = saveSelfRecruitmentEndedDaysAgo(10);
-        saveRound(blockedByRound, RoundStatus.COLLECTING);
+        addMember(saveRound(blockedByRound, RoundStatus.COLLECTING),
+                saveApplication(blockedByRound, ApplicationStatus.INTERVIEW_PENDING), RoundMemberStatus.INVITED);
         Recruitment blockedByApplication = saveSelfRecruitmentEndedDaysAgo(10);
         saveApplication(blockedByApplication, ApplicationStatus.SUBMITTED);
         Recruitment externalInGrace = saveExternalRecruitmentEndedDaysAgo(2);
@@ -180,7 +241,7 @@ class AutoCloseOutlookTest extends IntegrationTestBase {
         adminList.then().statusCode(HttpStatus.OK.value());
 
         assertSameOutlook(adminList, inGrace, expectedOutlook(TODAY.plusDays(6), false, 0, 0));
-        assertSameOutlook(adminList, blockedByRound, expectedOutlook(TODAY.minusDays(2), true, 0, 1));
+        assertSameOutlook(adminList, blockedByRound, expectedOutlook(TODAY.minusDays(2), true, 1, 1));
         assertSameOutlook(adminList, blockedByApplication, expectedOutlook(TODAY.minusDays(2), true, 1, 0));
         assertSameOutlook(adminList, externalInGrace, expectedOutlook(TODAY.plusDays(6), false, 0, 0));
         assertThat(summaryOutlookOf(inPeriod)).as("기간 중 모집 — 통계 요약").isNull();
@@ -292,6 +353,15 @@ class AutoCloseOutlookTest extends IntegrationTestBase {
     private InterviewRound saveRound(Recruitment recruitment, RoundStatus status) {
         return interviewRoundRepository.save(InterviewRoundFixture.withStatus(
                 recruitment.getId(), TODAY.atStartOfDay().minusDays(3), "학생회관 201호", status));
+    }
+
+    /** 지원을 라운드 멤버로 넣는다 — 멤버 상태는 전이 규칙을 거치지 않는 셋업 한정 리플렉션으로 바로 만든다. */
+    private void addMember(InterviewRound round, Application application, RoundMemberStatus status) {
+        InterviewRoundMember member = InterviewRoundMember.invite(round.getId(), application.getId());
+        if (status != RoundMemberStatus.INVITED) {
+            ReflectionTestUtils.setField(member, "status", status);
+        }
+        interviewRoundMemberRepository.save(member);
     }
 
     private Recruitment reload(Recruitment recruitment) {

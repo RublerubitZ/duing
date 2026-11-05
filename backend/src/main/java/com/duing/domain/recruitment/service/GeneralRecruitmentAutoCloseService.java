@@ -98,7 +98,8 @@ public class GeneralRecruitmentAutoCloseService implements RecruitmentAutoCloseS
         Map<Long, Long> undecidedCounts = toCountMap(applicationRepository
                 .countByRecruitmentIdsAndStatusInExcludingWithdrawnApplicants(recruitmentIds, ApplicationStatus.activeSet()));
         Map<Long, Long> inProgressRoundCounts = toCountMap(interviewRoundRepository
-                .countByRecruitmentIdsAndStatusIn(recruitmentIds, RoundStatus.inProgressSet()));
+                .countByRecruitmentIdsAndStatusInWithAwaitingMembers(
+                        recruitmentIds, RoundStatus.inProgressSet(), ApplicationStatus.activeSet()));
 
         Map<Long, AutoCloseOutlookQuery> outlooks = new HashMap<>();
         for (Recruitment recruitment : expiredOpen) {

@@ -15,9 +15,10 @@ import java.util.Optional;
  *
  * <p>마감 조건(전부 만족): 저장 상태 OPEN·삭제 안 됨, 종료일이 있고 종료일 다음 날부터
  * {@link RecruitmentAutoClosePolicy#GRACE_DAYS}일이 지났다({@link RecruitmentAutoClosePolicy#closesOn}),
- * 결과 없는 지원({@link ApplicationStatus#activeSet()} — 지원자 목록처럼 탈퇴한 지원자의 지원서는 빼고)이 0건, 진행 중 면접 라운드({@link RoundStatus#inProgressSet()})가
- * 0개. 남은 심사·면접이 없는 모집이라 마감해도 운영진이 잃는 작업이 없다 — 마감 뒤에는 모집 수정(종료일 연장 포함)·
- * 평가 입력·라운드 운영이 막히므로({@link ClosedRecruitmentPolicy}) 그런 일은 유예 기간 안에 끝낸다.
+ * 결과 없는 지원({@link ApplicationStatus#activeSet()} — 지원자 목록처럼 탈퇴한 지원자의 지원서는 빼고)이 0건, 결과를 기다리는 면접
+ * 대상(제외 안 됨·결과 없음·지원 삭제와 지원자 탈퇴 아님)이 남은 진행 중 면접 라운드({@link RoundStatus#inProgressSet()})가 0개 — 그런 라운드의
+ * 지원은 결과 없는 지원에도 잡혀 라운드 조건이 혼자 막는 일은 없다. 남은 심사·면접이 없는 모집이라 마감해도 운영진이 잃는 작업이 없다 —
+ * 마감 뒤에는 모집 수정(종료일 연장 포함)·평가 입력·라운드 운영이 막히므로({@link ClosedRecruitmentPolicy}) 그런 일은 유예 기간 안에 끝낸다.
  *
  * <p>이 조건은 {@link AutoCloseOutlookQuery} 하나로 계산한다 — 잡({@link #closeIfSettled})과 화면용 전망
  * ({@link #findOutlook}·{@link #findOutlooks})이 같은 집계 쿼리와 같은 조립을 쓴다. 잡은 시스템 작업이라 권한을 보지 않고,

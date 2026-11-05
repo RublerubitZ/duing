@@ -24,7 +24,7 @@ import com.duing.domain.recruitment.exception.RecruitmentException;
  *
  * <p>판정은 저장된 status 기준이다. 마감일이 지났어도 마감 전이면 심사 진행 중이므로 전 기능이 그대로 열려 있다.
  * 기간 종료 모집 자동 마감({@link RecruitmentAutoCloseService})은 종료일 다음 날부터 7일이 지나고 결과 없는 지원과
- * 진행 중 면접 라운드가 모두 없을 때만 닫으므로, 그 전까지는(유예 7일 안이거나 남은 심사·면접이 있으면) 열린 상태가 유지된다.
+ * 결과를 기다리는 면접 대상이 남은 진행 중 면접 라운드가 모두 없을 때만 닫으므로, 그 전까지는(유예 7일 안이거나 남은 심사·면접이 있으면) 열린 상태가 유지된다.
  */
 public final class ClosedRecruitmentPolicy {
 
