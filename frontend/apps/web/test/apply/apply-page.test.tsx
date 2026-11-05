@@ -82,16 +82,19 @@ const REQUIRED_MULTI_QUESTION_ITEMS: RecruitmentQuestionItem[] = [
 
 // 딥링크 가드 테스트(ApplyPage 전체 렌더)가 recruitment 상세·draft·eligibility 세 요청을 모두
 // 거치므로, resetHandlers 이후에도 유지되도록 기본 200 핸들러를 setupServer 초기 목록에 둔다.
-// ApplyForm 을 직접 렌더하는 기존 테스트들은 이 핸들러들을 타지 않으므로 영향이 없다.
-const server = setupServer(mockRecruitmentDetailHandler(), mockDraftHandler(), mockEligibilityHandler(200));
+// ApplyForm 을 직접 렌더하는 기존 테스트들은 조회 셋을 타지 않는다. 자동저장 PUT 은 어느 테스트에서나
+// 나갈 수 있어 기본 204 로 받는다 — 흘려보내면 실제 네트워크(localhost:8080)로 나간다.
+const server = setupServer(
+  mockRecruitmentDetailHandler(),
+  mockDraftHandler(),
+  mockEligibilityHandler(200),
+  mockDraftSaveHandler(),
+);
 const apiClient = createApiClient({ baseUrl: 'http://localhost:8080/api/v1' });
 
 beforeAll(() =>
   server.listen({
     onUnhandledRequest: (req) => {
-      // 자동저장(useAutosaveDraft) 의 debounce PUT 가 테스트 종료 직전 발화할 수 있어
-      // unhandled 로 흘려보낸다. 다른 unhandled 는 그대로 에러.
-      if (req.method === 'PUT' && req.url.endsWith(`/draft`)) return;
       console.error(`Unhandled ${req.method} ${req.url}`);
       throw new Error(`Unhandled ${req.method} ${req.url}`);
     },
@@ -162,6 +165,10 @@ function mockDraftHandler() {
   return http.get(`*/recruitments/${RECRUITMENT_ID}/draft`, () =>
     HttpResponse.json({ ok: true, data: { exists: false, answers: [], updatedAt: null }, message: null }),
   );
+}
+
+function mockDraftSaveHandler() {
+  return http.put(`*/recruitments/${RECRUITMENT_ID}/draft`, () => new HttpResponse(null, { status: 204 }));
 }
 
 function mockEligibilityHandler(status: number, message: string | null = null) {
@@ -971,6 +978,89 @@ describe('ApplyPage — 제출 후 임시저장 캐시', () => {
     await waitFor(() => expect(mockRouterPush).toHaveBeenCalled());
     expect(queryClient.getQueryData(draftQueryKeys.byRecruitment(RECRUITMENT_ID))).toBeUndefined();
   });
+});
+
+describe('ApplyPage — 제출과 자동저장', () => {
+  // 제출(POST)과 자동저장(PUT)만 도착 순서대로 남긴다 — 조회(GET)는 세지 않는다.
+  function recordSubmitAndDraftSave(requestMethods: string[], submitGate: Promise<void> = Promise.resolve()) {
+    return [
+      http.put(`*/recruitments/${RECRUITMENT_ID}/draft`, () => {
+        requestMethods.push('PUT');
+        return new HttpResponse(null, { status: 204 });
+      }),
+      http.post(`*/recruitments/${RECRUITMENT_ID}/applications`, async () => {
+        requestMethods.push('POST');
+        await submitGate;
+        return HttpResponse.json({ ok: true, data: 999, message: null });
+      }),
+    ];
+  }
+
+  it('입력 뒤 2초 안에 제출하면 보류 중이던 자동저장을 보내지 않고, 화면이 내려가도 보내지 않는다', async () => {
+    const requestMethods: string[] = [];
+    server.use(...recordSubmitAndDraftSave(requestMethods));
+    const user = userEvent.setup();
+    const view = renderApplyPage();
+
+    await user.type(await screen.findByRole('textbox', { name: /지원 동기/ }), '열정');
+    await submitAndConfirm(user);
+    await waitFor(() => expect(mockRouterPush).toHaveBeenCalled());
+    // 디바운스(2초)가 지나도록 화면을 둔다 — 먼저 내리면 언마운트가 타이머를 지워 제출 뒤 PUT 을 못 본다.
+    await new Promise((resolve) => setTimeout(resolve, 2500));
+    expect(requestMethods).toEqual(['POST']);
+
+    // 성공 뒤 이동으로 화면이 내려갈 때도 보내지 않는다 — 제출과 함께 지운 서버 저장본을 되살리지 않게.
+    view.unmount();
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    expect(requestMethods).toEqual(['POST']);
+  }, 10_000);
+
+  it('제출 응답을 기다리는 동안에도 보류 중이던 자동저장을 보내지 않는다', async () => {
+    const requestMethods: string[] = [];
+    let releaseSubmit: () => void = () => {};
+    const submitGate = new Promise<void>((resolve) => {
+      releaseSubmit = resolve;
+    });
+    server.use(...recordSubmitAndDraftSave(requestMethods, submitGate));
+    const user = userEvent.setup();
+    renderApplyPage();
+
+    await user.type(await screen.findByRole('textbox', { name: /지원 동기/ }), '열정');
+    await submitAndConfirm(user);
+    await waitFor(() => expect(requestMethods).toEqual(['POST']));
+    // 응답을 붙잡은 채 디바운스(2초)를 넘긴다 — 바로 성공하면 '제출 뒤' 조건만으로도 타이머가 지워져 '제출 중' 조건을 못 본다.
+    await new Promise((resolve) => setTimeout(resolve, 2500));
+    expect(requestMethods).toEqual(['POST']);
+
+    releaseSubmit();
+    await waitFor(() => expect(mockRouterPush).toHaveBeenCalled());
+  }, 10_000);
+
+  it('제출이 실패하면 자동저장이 다시 켜져 그 뒤 입력을 저장한다', async () => {
+    const draftBodies: unknown[] = [];
+    server.use(
+      http.put(`*/recruitments/${RECRUITMENT_ID}/draft`, async ({ request }) => {
+        draftBodies.push(await request.json());
+        return new HttpResponse(null, { status: 204 });
+      }),
+      http.post(`*/recruitments/${RECRUITMENT_ID}/applications`, () =>
+        HttpResponse.json({ ok: false, data: null, message: '일시적인 오류가 발생했습니다.' }, { status: 500 }),
+      ),
+    );
+    const user = userEvent.setup();
+    renderApplyPage();
+
+    const textarea = await screen.findByRole('textbox', { name: /지원 동기/ });
+    await user.type(textarea, '열정');
+    await submitAndConfirm(user);
+    const dialog = await screen.findByRole('dialog');
+    expect(await within(dialog).findByRole('alert')).toHaveTextContent('일시적인 오류가 발생했습니다.');
+    await user.click(within(dialog).getByRole('button', { name: '취소' }));
+
+    await user.type(textarea, '!');
+    await waitFor(() => expect(draftBodies).toHaveLength(1), { timeout: 4000 });
+    expect(draftBodies).toEqual([{ answers: [{ questionId: TEXT_QUESTION_ID, values: ['열정!'] }] }]);
+  }, 10_000);
 });
 
 describe('ApplyPage — 임시저장 복원 안내', () => {
