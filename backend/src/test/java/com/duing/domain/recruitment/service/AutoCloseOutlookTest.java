@@ -156,6 +156,11 @@ class AutoCloseOutlookTest extends IntegrationTestBase {
     @Test
     @DisplayName("진행 중 라운드의 면접 대상이 모두 결과를 받았으면 그 라운드는 막지 않아 모집이 닫힌다 — 결과만 정하고 라운드에 남은 기존 데이터")
     void roundWhoseMembersAreAllDecidedDoesNotBlock() {
+        // 다른 모집의 결과를 기다리는 대상 — 라운드·지원 연결 조건이 빠지면 이 사람 때문에 아래 모집의 라운드가 잡힌다.
+        Recruitment otherRecruitment = saveSelfRecruitmentEndedDaysAgo(10);
+        addMember(saveRound(otherRecruitment, RoundStatus.COLLECTING),
+                saveApplication(otherRecruitment, ApplicationStatus.INTERVIEW_PENDING), RoundMemberStatus.INVITED);
+
         Recruitment recruitment = saveSelfRecruitmentEndedDaysAgo(10);
         InterviewRound round = saveRound(recruitment, RoundStatus.COLLECTING);
         addMember(round, saveApplication(recruitment, ApplicationStatus.ACCEPTED), RoundMemberStatus.INVITED);

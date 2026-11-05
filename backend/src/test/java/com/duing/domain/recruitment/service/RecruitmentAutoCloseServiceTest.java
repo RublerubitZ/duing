@@ -241,7 +241,7 @@ class RecruitmentAutoCloseServiceTest extends IntegrationTestBase {
     @ParameterizedTest(name = "{0}")
     @EnumSource(value = RoundStatus.class, mode = EnumSource.Mode.EXCLUDE, names = {"SCHEDULED", "CANCELLED"})
     @DisplayName("결과를 기다리는 면접 대상이 남은 진행 중 라운드가 있는 모집은 마감하지 않고, 전망은 그 라운드를 막는 라운드로 센다")
-    void keepsRecruitmentWithInProgressRound(RoundStatus inProgressStatus) {
+    void keepsRecruitmentWithAwaitingInProgressRound(RoundStatus inProgressStatus) {
         Recruitment recruitment = saveOpenRecruitmentEndedDaysAgo(8);
         InterviewRound round = saveRound(recruitment, inProgressStatus);
         Application awaitingApplication = saveApplication(recruitment, ApplicationStatus.INTERVIEW_PENDING);
