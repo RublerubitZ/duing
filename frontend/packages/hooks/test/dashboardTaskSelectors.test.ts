@@ -127,7 +127,6 @@ describe('dashboardTaskGroupOf', () => {
   it.each([
     ['CLOSED_RECRUITMENT_UNDECIDED', 'NOW'],
     ['INTERVIEW_RESULT_PENDING', 'NOW'],
-    ['INTERVIEW_ROUND_UNCONFIRMED', 'NOW'],
     ['APPLICANTS_AWAITING_REVIEW', 'WAITING'],
     ['INTERVIEW_ROUND_NEEDED', 'WAITING'],
   ] as const)('모집 업무 %s → %s', (type, group) => {
@@ -155,7 +154,7 @@ describe('dashboardTaskGroupOf', () => {
   });
 
   it.each<[string, DashboardTaskGroupKey, ActionItem['roundStatus'], number | undefined]>([
-    ['상태 없음(옛 줄)', 'NOW', undefined, undefined],
+    ['상태 없음(타입상 기본값)', 'NOW', undefined, undefined],
     ['ASSIGNING', 'NOW', 'ASSIGNING', undefined],
     ['DRAFT', 'WAITING', 'DRAFT', undefined],
     ['COLLECTING·응답 마감 없음', 'WAITING', 'COLLECTING', undefined],

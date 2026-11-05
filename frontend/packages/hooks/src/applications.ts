@@ -187,7 +187,7 @@ export function useUpdateApplicationStatusMutation(recruitmentId: number) {
       queryClient.invalidateQueries({
         queryKey: applicationQueryKeys.applicants(recruitmentId),
       });
-      // 모달이 읽는 detail 캐시를 무효화하지 않으면 닫았다 다시 열 때 stale status 로
+      // 상세 화면이 읽는 detail 캐시를 무효화하지 않으면 상세를 다시 열 때 stale status 로
       // 전이 버튼이 재계산돼 BE 의 실제 상태와 불일치한 PATCH 가 나가 400 이 발생한다.
       queryClient.invalidateQueries({
         queryKey: applicationQueryKeys.applicantDetail(variables.applicationId),
@@ -203,6 +203,15 @@ export function useUpdateApplicationStatusMutation(recruitmentId: number) {
       queryClient.invalidateQueries({
         queryKey: interviewRoundKeys.candidates(recruitmentId),
       });
+      // 결과를 정할 때만(→ 합격·불합격) 그 멤버가 진행 중 라운드에서 빠져 인원·응답 수가 바뀐다 — 어느 라운드인지 몰라 상세는 접두로 건다.
+      if (variables.payload.status === 'ACCEPTED' || variables.payload.status === 'REJECTED') {
+        queryClient.invalidateQueries({
+          queryKey: interviewRoundKeys.list(recruitmentId),
+        });
+        queryClient.invalidateQueries({
+          queryKey: interviewRoundKeys.detailAll(),
+        });
+      }
     },
   });
 }
@@ -212,12 +221,16 @@ export function useBulkUpdateApplicationStatusMutation(recruitmentId: number) {
   const queryClient = useQueryClient();
   return useMutation<BulkUpdateApplicationStatusResult, Error, BulkUpdateApplicationStatusPayload>({
     mutationFn: (payload) => client.applications.bulkUpdateStatus(payload),
-    onSuccess: () => {
-      // 일괄 변경은 어떤 applicationId 가 영향받았는지 individual detail 캐시까지 알 수 없으므로
-      // 안전하게 목록·통계만 무효화한다. 사용자가 모달을 다시 열면 detail 은 fresh 로드된다.
+    onSuccess: (_bulkResult, variables) => {
       queryClient.invalidateQueries({
         queryKey: applicationQueryKeys.applicants(recruitmentId),
       });
+      // 단건과 같은 이유 — 바꾼 지원서의 상세를 다시 열면 낡은 캐시로 옛 상태의 전이 버튼이 계산돼 400 PATCH 가 난다.
+      for (const applicationId of variables.applicationIds) {
+        queryClient.invalidateQueries({
+          queryKey: applicationQueryKeys.applicantDetail(applicationId),
+        });
+      }
       queryClient.invalidateQueries({
         queryKey: statsQueryKeys.byRecruitment(recruitmentId),
       });
@@ -229,6 +242,15 @@ export function useBulkUpdateApplicationStatusMutation(recruitmentId: number) {
       queryClient.invalidateQueries({
         queryKey: interviewRoundKeys.candidates(recruitmentId),
       });
+      // 결과를 정할 때만(→ 합격·불합격) 그 멤버가 진행 중 라운드에서 빠져 인원·응답 수가 바뀐다 — 어느 라운드인지 몰라 상세는 접두로 건다.
+      if (variables.status === 'ACCEPTED' || variables.status === 'REJECTED') {
+        queryClient.invalidateQueries({
+          queryKey: interviewRoundKeys.list(recruitmentId),
+        });
+        queryClient.invalidateQueries({
+          queryKey: interviewRoundKeys.detailAll(),
+        });
+      }
     },
   });
 }

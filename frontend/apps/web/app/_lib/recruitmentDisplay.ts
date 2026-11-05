@@ -101,7 +101,7 @@ export function recruitmentExpiredOpenNotice(
       applicationMode === 'EXTERNAL'
         ? '가입 처리를 마치면 모집을 마감해 주세요.'
         : '남은 지원자 심사를 이어서 진행하고, 심사를 마치면 모집을 마감해 주세요.';
-    // 자체 지원은 결과 없는 지원·진행 중 면접 라운드가 있으면 자동 마감되지 않는다. 외부 폼은 둘 다 없어 조건 없이 닫힌다.
+    // 자체 지원은 결과 없는 지원·결과를 기다리는 사람이 남은 면접 라운드가 있으면 자동 마감되지 않는다. 외부 폼은 둘 다 없어 조건 없이 닫힌다.
     const autoCloseSentence =
       applicationMode === 'EXTERNAL'
         ? `종료일로부터 ${AUTO_CLOSE_GRACE_DAYS}일이 지나면 자동으로 마감돼요.`

@@ -39,7 +39,7 @@ const ACTION_ITEM_ACTION_LABEL: Record<ActionItemType, string> = {
   CLOSED_RECRUITMENT_UNDECIDED: '결과 확정',
 };
 
-/** 면접 일정 미확정은 라운드 상태마다 다음 단계가 다르다 — 상태 없는 옛 줄은 표 그대로. */
+/** 면접 일정 미확정은 라운드 상태마다 다음 단계가 다르다 — 배정 검토(ASSIGNING) 줄은 표 그대로(선택 규칙은 미확정 줄에 늘 roundStatus 를 싣는다). */
 function recruitmentActionLabel(item: ActionItem): string {
   if (item.type === 'INTERVIEW_ROUND_UNCONFIRMED') {
     if (item.roundStatus === 'DRAFT') return '이어서 작성';
