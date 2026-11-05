@@ -64,6 +64,8 @@ export function Providers({ children }: { children: ReactNode }) {
             // 401/403(반복 무의미)·TIMEOUT(대기 배가)은 재시도하지 않고, 빠른 실패만 1회 재시도.
             retry: shouldRetryQuery,
             refetchOnWindowFocus: false,
+            // networkMode 'always' 의 기본값과 같지만 일부러 정한 것 — 재연결 순간 일제 재조회 실패가 화면 게이트를 치고 요청만 늘어, 필요한 화면만 쿼리 단위로 켠다.
+            refetchOnReconnect: false,
           },
           mutations: {
             // 재시도는 기본값 0 유지(비멱등 이중 실행 차단) — networkMode 만 fail-fast 를 위해 변경.
