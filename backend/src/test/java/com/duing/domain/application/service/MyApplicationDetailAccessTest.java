@@ -20,6 +20,7 @@ import com.duing.domain.clubmember.service.ClubAuthService;
 import com.duing.domain.clubmember.service.ClubMemberEnrollmentService;
 import com.duing.domain.draft.service.ApplicationDraftService;
 import com.duing.domain.interview.service.InterviewAssignmentQueryService;
+import com.duing.domain.interview.service.InterviewAssignmentService;
 import com.duing.domain.interview.service.dto.query.ApplicantInterviewProgress;
 import com.duing.domain.recruitment.entity.Recruitment;
 import com.duing.domain.recruitment.entity.RecruitmentForm;
@@ -66,7 +67,8 @@ class MyApplicationDetailAccessTest {
             clock,
             mock(ClubAuditEventRepository.class),
             new PhoneRevealRateLimiter(),
-            mock(ApplicationEventPublisher.class));
+            mock(ApplicationEventPublisher.class),
+            mock(InterviewAssignmentService.class));
 
     @Test
     @DisplayName("다른 사용자의 지원 상세를 조회하면 ForbiddenApplicationAccessException 이 발생한다")

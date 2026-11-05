@@ -71,7 +71,7 @@ public interface LeaderApplicationApi {
             @Parameter(hidden = true) @AuthenticationPrincipal UserPrincipal currentUser
     );
 
-    @Operation(summary = "지원자 상태 변경", description = "ACCEPTED 또는 REJECTED 로만 변경 가능. SUBMITTED 로 되돌릴 수 없다. 운영진 대상(targetRole=OFFICER) 모집의 합격 처리는 동아리 회장만 할 수 있다.")
+    @Operation(summary = "지원자 상태 변경", description = "ACCEPTED 또는 REJECTED 로만 변경 가능. SUBMITTED 로 되돌릴 수 없다. 운영진 대상(targetRole=OFFICER) 모집의 합격 처리는 동아리 회장만 할 수 있다. 결과(합격·불합격)를 정하면 그 지원은 진행 중 면접 라운드에서 빠지고 그 라운드의 가능 시간 응답·초안 배정이 지워진다(확정된 라운드는 그대로).")
     @PatchMapping("/leader/applications/{applicationId}/status")
     ResponseEntity<ApiResponse<Void>> updateStatus(
             @PathVariable Long applicationId,
@@ -80,7 +80,7 @@ public interface LeaderApplicationApi {
     );
 
     @Operation(summary = "지원자 상태 일괄 변경",
-            description = "N건의 지원서를 동일 status 로 일괄 전환한다. 건별 트랜잭션으로 처리되어 한 건이 실패해도 나머지는 그대로 커밋되며, 실패 사유는 응답의 failures 배열에 담겨 돌아온다. 운영진 대상 모집의 합격 처리는 동아리 회장만 할 수 있어, 회장이 아니면 해당 건이 failures 로 떨어진다.")
+            description = "N건의 지원서를 동일 status 로 일괄 전환한다. 건별 트랜잭션으로 처리되어 한 건이 실패해도 나머지는 그대로 커밋되며, 실패 사유는 응답의 failures 배열에 담겨 돌아온다. 운영진 대상 모집의 합격 처리는 동아리 회장만 할 수 있어, 회장이 아니면 해당 건이 failures 로 떨어진다. 결과(합격·불합격)를 정한 지원은 진행 중 면접 라운드에서 빠지고 그 라운드의 가능 시간 응답·초안 배정이 지워진다(확정된 라운드는 그대로).")
     @PatchMapping("/leader/applications/bulk-status")
     ResponseEntity<ApiResponse<BulkUpdateApplicationStatusResponse>> bulkUpdateStatus(
             @Valid @RequestBody BulkUpdateApplicationStatusRequest bulkUpdateApplicationStatusRequest,

@@ -23,6 +23,7 @@ import com.duing.domain.clubmember.service.ClubAuthService;
 import com.duing.domain.clubmember.service.ClubMemberEnrollmentService;
 import com.duing.domain.draft.service.ApplicationDraftService;
 import com.duing.domain.interview.service.InterviewAssignmentQueryService;
+import com.duing.domain.interview.service.InterviewAssignmentService;
 import com.duing.domain.recruitment.entity.ApplicationMode;
 import com.duing.domain.recruitment.entity.Recruitment;
 import com.duing.domain.recruitment.entity.TargetRole;
@@ -73,7 +74,8 @@ class ApplicationEligibilityCheckTest {
             clock,
             mock(ClubAuditEventRepository.class),
             new PhoneRevealRateLimiter(),
-            mock(ApplicationEventPublisher.class));
+            mock(ApplicationEventPublisher.class),
+            mock(InterviewAssignmentService.class));
 
     @Test
     @DisplayName("존재하지 않는 모집의 지원 가능 여부 확인은 404 로 실패한다")

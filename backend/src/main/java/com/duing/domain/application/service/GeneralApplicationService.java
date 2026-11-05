@@ -32,6 +32,7 @@ import com.duing.domain.clubmember.service.ClubAuthService;
 import com.duing.domain.clubmember.service.ClubMemberEnrollmentService;
 import com.duing.domain.draft.service.ApplicationDraftService;
 import com.duing.domain.interview.service.InterviewAssignmentQueryService;
+import com.duing.domain.interview.service.InterviewAssignmentService;
 import com.duing.domain.interview.service.dto.query.ApplicantInterviewProgress;
 import com.duing.domain.interview.service.dto.query.AssignedInterviewSlot;
 import com.duing.domain.interview.service.dto.query.InterviewRoundBrief;
@@ -102,6 +103,7 @@ public class GeneralApplicationService implements ApplicationService {
     private final ClubAuditEventRepository clubAuditEventRepository;
     private final PhoneRevealRateLimiter phoneRevealRateLimiter;
     private final ApplicationEventPublisher eventPublisher;
+    private final InterviewAssignmentService interviewAssignmentService;
 
     /**
      * 일괄 처리의 건별 트랜잭션을 위해 자기 자신의 프록시를 lazy 주입한다.
@@ -444,6 +446,12 @@ public class GeneralApplicationService implements ApplicationService {
             applicationRepository.flush();
         } catch (ObjectOptimisticLockingFailureException concurrentUpdate) {
             throw new ApplicationDomainException.ConcurrentStatusUpdateException();
+        }
+
+        // 결과를 정하면 진행 중 면접 라운드에 남을 이유가 없다 — 남으면 응답 미수집·자동 배정·재초대가 그 사람을 계속 센다.
+        // flush 뒤에 불러야 잠금 순서가 응답 API 와 같은 지원서 → 멤버다.
+        if (updateApplicationStatusCommand.status().isTerminal()) {
+            interviewAssignmentService.releaseOnResultDecided(applicationId);
         }
     }
 

@@ -220,8 +220,8 @@ class LeaderInterviewRoundRequestControllerTest extends InterviewControllerTestS
     }
 
     @Test
-    @DisplayName("재알림 전에 결과가 정해진 미응답 대상자에게는 새 회차 알림이 가지 않고 면접 대상자에게만 간다")
-    void remindSkipsDecidedApplicant() {
+    @DisplayName("재알림 전에 결과가 정해진 미응답 대상자는 재알림 대상에서 빠져 새 회차 알림이 가지 않고, 알림 인원도 면접 대상자만 센다")
+    void remindLeavesOutDecidedApplicant() {
         InterviewRound round = saveRoundWithStatus(RoundStatus.COLLECTING, LocalDateTime.now().plusDays(3));
         ReflectionTestUtils.setField(round, "requestSequence", 1);
         round = interviewRoundRepository.save(round);
@@ -230,7 +230,7 @@ class LeaderInterviewRoundRequestControllerTest extends InterviewControllerTestS
         saveMember(round, pendingApplication, RoundMemberStatus.INVITED);
         saveMember(round, acceptedApplication, RoundMemberStatus.INVITED);
 
-        // 응답 수집 중에도 결과 변경은 막히지 않는다.
+        // 응답 수집 중에도 결과 변경은 막히지 않는다 — 결과를 정한 멤버는 라운드에서 빠진다.
         RestAssured.given()
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
                 .contentType(ContentType.JSON)
@@ -238,12 +238,12 @@ class LeaderInterviewRoundRequestControllerTest extends InterviewControllerTestS
                 .when().patch("/api/v1/leader/applications/{applicationId}/status", acceptedApplication.getId())
                 .then().statusCode(HttpStatus.NO_CONTENT.value());
 
-        // 인원은 실제 알림 수가 아닌 대상 멤버 수다 — 결과가 정해진 멤버가 라운드에 남는 드문 경우라 맞추지 않았다.
+        // 인원은 대상 멤버 수다 — 결과를 정한 멤버가 대상에서 빠져 실제 알림 수와 같다.
         RestAssured.given()
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
                 .when().post(REMIND_PATH, round.getId())
                 .then().statusCode(HttpStatus.OK.value())
-                .body("data.notifiedMemberCount", equalTo(2));
+                .body("data.notifiedMemberCount", equalTo(1));
 
         assertThat(notificationRepository.existsByUserIdAndDedupKey(
                 pendingApplication.getUser().getId(), requestDedupKey(round, pendingApplication, 2))).isTrue();
