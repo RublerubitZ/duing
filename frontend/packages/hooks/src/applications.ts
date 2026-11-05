@@ -187,7 +187,7 @@ export function useUpdateApplicationStatusMutation(recruitmentId: number) {
       queryClient.invalidateQueries({
         queryKey: applicationQueryKeys.applicants(recruitmentId),
       });
-      // 모달이 읽는 detail 캐시를 무효화하지 않으면 닫았다 다시 열 때 stale status 로
+      // 상세 화면이 읽는 detail 캐시를 무효화하지 않으면 상세를 다시 열 때 stale status 로
       // 전이 버튼이 재계산돼 BE 의 실제 상태와 불일치한 PATCH 가 나가 400 이 발생한다.
       queryClient.invalidateQueries({
         queryKey: applicationQueryKeys.applicantDetail(variables.applicationId),
@@ -225,7 +225,7 @@ export function useBulkUpdateApplicationStatusMutation(recruitmentId: number) {
       queryClient.invalidateQueries({
         queryKey: applicationQueryKeys.applicants(recruitmentId),
       });
-      // 단건과 같은 이유 — 바꾼 지원서의 낡은 상세로 모달을 다시 열면 옛 상태로 전이 버튼이 계산돼 400 PATCH 가 난다.
+      // 단건과 같은 이유 — 바꾼 지원서의 상세를 다시 열면 낡은 캐시로 옛 상태의 전이 버튼이 계산돼 400 PATCH 가 난다.
       for (const applicationId of variables.applicationIds) {
         queryClient.invalidateQueries({
           queryKey: applicationQueryKeys.applicantDetail(applicationId),

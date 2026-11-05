@@ -36,7 +36,7 @@ export type RecruitmentAutoCloseOutlook = {
   gracePeriodOver: boolean;
   /** 자동 마감을 막는 결과 없는 지원 수(지원 완료·보류·면접 대기, 탈퇴한 지원자 제외). */
   undecidedApplicationCount: number;
-  /** 자동 마감을 막는 진행 중 면접 라운드 수(초안·응답 수집·배정 중). */
+  /** 자동 마감을 막는 진행 중 면접 라운드 수(초안·응답 수집·배정 중) — 결과를 기다리는 사람이 남은 라운드만 센다. */
   inProgressRoundCount: number;
 };
 

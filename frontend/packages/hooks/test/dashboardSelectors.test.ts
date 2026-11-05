@@ -73,30 +73,6 @@ describe('buildActionItems', () => {
     expect(review?.count).toBe(4);
   });
 
-  it('ASSIGNING 라운드 → 미확정 면접 라운드', () => {
-    const input: RecruitmentDashboardInput[] = [
-      dashboardInput({ rounds: [round({ roundId: 7, status: 'ASSIGNING', title: '2차', availabilityDeadline: '2026-06-10' })] }),
-    ];
-    const items = buildActionItems(input, NOW);
-    const unconfirmed = items.find((i) => i.type === 'INTERVIEW_ROUND_UNCONFIRMED');
-    expect(unconfirmed?.roundId).toBe(7);
-    expect(unconfirmed?.roundTitle).toBe('2차');
-    expect(unconfirmed?.roundStatus).toBe('ASSIGNING');
-    expect(unconfirmed?.daysLeft).toBeUndefined();
-  });
-
-  it('COLLECTING & 미응답 인원 존재 → 응답 미수집', () => {
-    const input: RecruitmentDashboardInput[] = [
-      dashboardInput({
-        rounds: [round({ status: 'COLLECTING', totalMemberCount: 10, respondedMemberCount: 4, availabilityDeadline: '2026-06-10' })],
-      }),
-    ];
-    const items = buildActionItems(input, NOW);
-    const uncollected = items.find((i) => i.type === 'INTERVIEW_RESPONSE_UNCOLLECTED');
-    expect(uncollected?.count).toBe(6); // 미응답 10-4
-    expect(uncollected?.daysLeft).toBe(-2); // 6/10 마감 → 경과
-  });
-
   // '응답 마감 없음' 줄 말고는 응답 마감을 넣는다 — 마감이 없으면 'daysLeft 없음' 기대가 아무것도 고정하지 못한다.
   const roundLine = { recruitmentId: 1, recruitmentTitle: '2026 봄 모집', roundId: 7, roundTitle: '1차 면접' };
   it.each<[string, Partial<InterviewRoundSummary>, ActionItem[]]>([

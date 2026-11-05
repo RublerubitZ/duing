@@ -78,12 +78,6 @@ describe('presentDashboardTask — 모집 업무', () => {
     expect(row.href).toBe(href);
   });
 
-  it('면접 일정 미확정은 라운드가 있으면 라운드 화면으로', () => {
-    const row = presentDashboardTask(10, recruitment({ type: 'INTERVIEW_ROUND_UNCONFIRMED', roundId: 7, roundTitle: '1차' }), NOW);
-    expect(row.actionLabel).toBe('일정 확정');
-    expect(row.href).toBe('/manage/clubs/10/recruitments/1/interview/rounds/7');
-  });
-
   it.each<[string, Partial<ActionItem>, Pick<TaskRowModel, 'actionLabel' | 'href' | 'chip'>]>([
     ['DRAFT', { roundStatus: 'DRAFT' }, { actionLabel: '이어서 작성', href: '/manage/clubs/10/recruitments/1/interview/rounds/new', chip: null }],
     [
