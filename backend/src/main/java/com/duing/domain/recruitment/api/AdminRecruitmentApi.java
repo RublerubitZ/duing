@@ -39,7 +39,7 @@ public interface AdminRecruitmentApi {
                     + "operatorsLastActiveAt 은 그 동아리 회장·임원의 세션 사용(로그아웃·만료 세션 포함)과 로그인 중 가장 늦은 시각이며, "
                     + "운영진이 없거나 기록이 없으면 비어 있다 — 세션은 미사용 약 60일 뒤 정리되지만 비밀번호 로그인 시각은 남으므로, 비어 있는 경우는 운영진이 없거나 세션도 비밀번호 로그인 이력도 없는 경우다. "
                     + "페이지네이션은 제공하지 않는다. "
-                    + "autoClose 는 기간이 끝났지만 아직 OPEN 인 모집의 자동 마감 전망(자동 마감 첫날 closesOn·유예가 끝났는지·막는 결과 없는 지원 수·진행 중 면접 라운드 수)이며, "
+                    + "autoClose 는 기간이 끝났지만 아직 OPEN 인 모집의 자동 마감 전망(자동 마감 첫날 closesOn·유예가 끝났는지·막는 결과 없는 지원 수·결과를 기다리는 면접 대상이 남은 진행 중 면접 라운드 수)이며, "
                     + "그 밖의 모집이거나 자동 마감이 꺼져 있으면 null 이다. 유예가 끝났는지는 서버의 오늘로 판정한 값이라 화면은 날짜를 비교하지 않는다.")
     @GetMapping("/admin/recruitments")
     ResponseEntity<ApiResponse<List<AdminRecruitmentSummaryResponse>>> searchRecruitments(

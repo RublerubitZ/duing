@@ -364,7 +364,7 @@ SLACK_WEBHOOK_URL=                     # 운영 Slack 알림(Incoming Webhook). 
 DUING_FRONTEND_REVALIDATE_SECRET=      # 동아리 탐색(/clubs) 정각·상세(/clubs/<id>) 변경 시·매일 00:05 재생성 트리거. Vercel REVALIDATE_SECRET 과 같은 값(32바이트+). 비움=비활성(시작 로그 WARN)
 DUING_CLUB_DETAIL_DAILY_REVALIDATE_ENABLED=  # 동아리 상세 매일 재생성(00:05 KST, 진행 중·최근 마감 모집 동아리). 운영 기본 활성(application-prod.yml), 끄려면 false
 DUING_CLUB_LOGO_THUMBNAIL_BACKFILL_ENABLED=  # 동아리 로고 썸네일 백필(기동 뒤 백그라운드 1회, 썸네일 없는 로고). 운영 기본 활성(application-prod.yml), 끄려면 false
-DUING_RECRUITMENT_AUTO_CLOSE_ENABLED=  # 기간 종료 모집 자동 마감(00:40 KST, 종료 7일 경과·결과 없는 지원·진행 중 면접 라운드 0인 OPEN 모집). 운영 기본 활성(application-prod.yml), 끄려면 false — 끄면 화면의 자동 마감 전망도 숨긴다
+DUING_RECRUITMENT_AUTO_CLOSE_ENABLED=  # 기간 종료 모집 자동 마감(00:40 KST, 종료 7일 경과·결과 없는 지원·결과를 기다리는 면접 대상이 남은 진행 중 면접 라운드 0인 OPEN 모집). 운영 기본 활성(application-prod.yml), 끄려면 false — 끄면 화면의 자동 마감 전망도 숨긴다
 DUING_ADMIN_PENDING_SNAPSHOT_ENABLED=  # 총동연 홈 처리 대기 추이 일별 기록(00:01 KST, KST 어제 하루 끝 남은 대기 건수). 운영 기본 활성(application-prod.yml), 끄려면 false
 
 # 로컬 전용

@@ -114,8 +114,8 @@ class LeaderInterviewConfirmControllerTest extends InterviewControllerTestSuppor
     }
 
     @Test
-    @DisplayName("확정 전에 결과가 정해진 지원자에게는 면접 확정 알림이 가지 않고 면접 대상 지원자에게만 간다")
-    void confirmSkipsNotificationForDecidedApplicant() {
+    @DisplayName("확정 전에 결과가 정해진 지원자는 확정 대상에서 빠져 면접 확정 알림이 가지 않고, 확정 인원도 면접 대상 지원자만 센다")
+    void confirmLeavesOutDecidedApplicant() {
         InterviewRound round = saveRound(RoundStatus.ASSIGNING);
         InterviewSlot slot = saveSlot(round, "2026-06-20T14:00:00", 2);
         Application pendingApplication = saveInterviewPendingApplication(recruitment, "면접대상");
@@ -123,18 +123,18 @@ class LeaderInterviewConfirmControllerTest extends InterviewControllerTestSuppor
         saveMemberWithSchedule(round, pendingApplication, slot, RoundMemberStatus.RESPONDED);
         saveMemberWithSchedule(round, rejectedApplication, slot, RoundMemberStatus.RESPONDED);
 
-        // 라운드가 진행 중이어도 결과 변경은 막히지 않는다.
+        // 라운드가 진행 중이어도 결과 변경은 막히지 않는다 — 결과를 정한 멤버는 라운드에서 빠지고 초안 배정도 지워진다.
         givenLeader()
                 .contentType(ContentType.JSON)
                 .body(Map.of("status", "REJECTED"))
                 .when().patch("/api/v1/leader/applications/{applicationId}/status", rejectedApplication.getId())
                 .then().statusCode(HttpStatus.NO_CONTENT.value());
 
-        // 인원은 실제 알림 수가 아닌 대상 멤버 수다 — 결과가 정해진 멤버가 라운드에 남는 드문 경우라 맞추지 않았다.
+        // 인원은 대상 멤버 수다 — 결과를 정한 멤버가 대상에서 빠져 실제 알림 수와 같다.
         givenLeader()
                 .when().post(CONFIRM_PATH, round.getId())
                 .then().statusCode(HttpStatus.OK.value())
-                .body("data.assignedMemberCount", equalTo(2));
+                .body("data.assignedMemberCount", equalTo(1));
 
         assertThat(notificationRepository.existsByUserIdAndDedupKey(pendingApplication.getUser().getId(),
                 "INTERVIEW_SCHEDULED:a=" + pendingApplication.getId() + ":s=" + slot.getId())).isTrue();

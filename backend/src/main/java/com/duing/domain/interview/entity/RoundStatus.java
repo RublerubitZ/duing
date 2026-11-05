@@ -27,7 +27,8 @@ public enum RoundStatus {
 
     /**
      * 진행 중(비터미널) 라운드 상태 집합 — 쿼리 IN 절용. isTerminal() 부정의 컬렉션 파생이라 상태가 추가돼도
-     * 자동 추종한다. 리터럴 재열거(Set.of)를 만들지 말 것 — 사본이 갈라지면 진행 중 라운드가 있는 모집을 자동 마감한다.
+     * 자동 추종한다. 리터럴 재열거(Set.of)를 만들지 말 것 — 사본이 갈라지면 결과 확정 정리가 일부 진행 중 라운드를 놓치고
+     * 자동 마감 전망의 라운드 수가 틀린다.
      */
     public static Set<RoundStatus> inProgressSet() {
         return IN_PROGRESS_SET;

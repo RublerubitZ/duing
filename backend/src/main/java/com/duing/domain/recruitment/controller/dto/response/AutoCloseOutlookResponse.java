@@ -17,7 +17,7 @@ public record AutoCloseOutlookResponse(
         boolean gracePeriodOver,
         @Schema(description = "자동 마감을 막는 결과 없는 지원 수(지원 완료·보류·면접 대기, 탈퇴한 지원자 제외)", example = "0")
         long undecidedApplicationCount,
-        @Schema(description = "자동 마감을 막는 진행 중 면접 라운드 수(초안·응답 수집·배정 중)", example = "1")
+        @Schema(description = "자동 마감을 막는 진행 중 면접 라운드 수(초안·응답 수집·배정 중) — 결과를 기다리는 면접 대상(제외되지 않았고 결과가 없으며 철회·탈퇴한 지원자가 아닌 멤버)이 남은 라운드만 센다", example = "1")
         long inProgressRoundCount
 ) {
 

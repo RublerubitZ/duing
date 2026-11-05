@@ -6,8 +6,10 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -27,6 +29,7 @@ import com.duing.domain.clubmember.service.ClubAuthService;
 import com.duing.domain.clubmember.service.ClubMemberEnrollmentService;
 import com.duing.domain.draft.service.ApplicationDraftService;
 import com.duing.domain.interview.service.InterviewAssignmentQueryService;
+import com.duing.domain.interview.service.InterviewAssignmentService;
 import com.duing.domain.recruitment.entity.Recruitment;
 import com.duing.domain.recruitment.entity.TargetRole;
 import com.duing.domain.recruitment.exception.RecruitmentException;
@@ -39,6 +42,9 @@ import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
+import org.mockito.InOrder;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.security.access.AccessDeniedException;
@@ -56,6 +62,7 @@ class ApplicationStatusServiceTest {
     private final ApplicationEvaluationRepository applicationEvaluationRepository = mock(ApplicationEvaluationRepository.class);
     private final InterviewAssignmentQueryService interviewAssignmentQueryService =
             mock(InterviewAssignmentQueryService.class);
+    private final InterviewAssignmentService interviewAssignmentService = mock(InterviewAssignmentService.class);
     private final Clock clock = Clock.systemDefaultZone();
 
     private final GeneralApplicationService applicationService = new GeneralApplicationService(
@@ -73,7 +80,8 @@ class ApplicationStatusServiceTest {
             clock,
             mock(ClubAuditEventRepository.class),
             new PhoneRevealRateLimiter(),
-            mock(ApplicationEventPublisher.class));
+            mock(ApplicationEventPublisher.class),
+            interviewAssignmentService);
 
     // ────────────────────────────────────────────────────────────
     // 공통 픽스처 빌더
@@ -366,5 +374,49 @@ class ApplicationStatusServiceTest {
         // 권한 확인 및 도메인 전이는 충돌 검출 이전에 호출되었어야 한다
         verify(clubAuthService).requireManagerOrHidden(eq(managerId), eq(clubId), any());
         verify(application).transitionTo(ApplicationStatus.REJECTED, false, false);
+    }
+
+    // ────────────────────────────────────────────────────────────
+    // 8. 결과(합격·불합격)를 정하면 진행 중 면접 라운드 정리를 부른다 — 결과가 아닌 전이는 통합 테스트로 효과가
+    //    보이지 않아 여기서 고정한다. 지원서 flush 뒤에 불러야 잠금 순서가 응답 API 와 같은 지원서 → 멤버다.
+    // ────────────────────────────────────────────────────────────
+
+    @ParameterizedTest
+    @EnumSource(value = ApplicationStatus.class, names = {"ACCEPTED", "REJECTED"})
+    @DisplayName("결과를 정하면 지원서 변경을 반영한 뒤 그 지원의 진행 중 면접 라운드 정리를 한 번 부른다")
+    void resultReleasesInterviewRoundsAfterFlush(ApplicationStatus resultStatus) {
+        Long applicationId = 11L;
+        Long managerId = 10L;
+        Long clubId = 5L;
+
+        Application application = stubApplication(clubId, 20L, TargetRole.MEMBER);
+        when(applicationRepository.findById(applicationId)).thenReturn(Optional.of(application));
+        when(applicationRepository.findClubIdByApplicationId(applicationId)).thenReturn(Optional.of(clubId));
+        when(userRepository.findById(managerId)).thenReturn(Optional.of(mock(User.class)));
+
+        applicationService.updateStatus(
+                new UpdateApplicationStatusCommand(applicationId, managerId, resultStatus));
+
+        InOrder flushThenRelease = inOrder(applicationRepository, interviewAssignmentService);
+        flushThenRelease.verify(applicationRepository).flush();
+        flushThenRelease.verify(interviewAssignmentService, times(1)).releaseOnResultDecided(applicationId);
+    }
+
+    @Test
+    @DisplayName("결과가 아닌 상태(보류)로 바꾸면 면접 라운드 정리를 부르지 않는다")
+    void nonResultTransitionDoesNotReleaseInterviewRounds() {
+        Long applicationId = 12L;
+        Long managerId = 10L;
+        Long clubId = 5L;
+
+        Application application = stubApplication(clubId, 20L, TargetRole.MEMBER);
+        when(applicationRepository.findById(applicationId)).thenReturn(Optional.of(application));
+        when(applicationRepository.findClubIdByApplicationId(applicationId)).thenReturn(Optional.of(clubId));
+        when(userRepository.findById(managerId)).thenReturn(Optional.of(mock(User.class)));
+
+        applicationService.updateStatus(
+                new UpdateApplicationStatusCommand(applicationId, managerId, ApplicationStatus.ON_HOLD));
+
+        verify(interviewAssignmentService, never()).releaseOnResultDecided(any());
     }
 }

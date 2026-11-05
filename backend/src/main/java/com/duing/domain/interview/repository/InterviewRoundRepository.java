@@ -1,5 +1,6 @@
 package com.duing.domain.interview.repository;
 
+import com.duing.domain.application.entity.ApplicationStatus;
 import com.duing.domain.interview.entity.InterviewRound;
 import com.duing.domain.interview.entity.RoundStatus;
 import com.duing.domain.recruitment.repository.RecruitmentCountRow;
@@ -48,16 +49,24 @@ public interface InterviewRoundRepository extends JpaRepository<InterviewRound, 
     boolean existsByRecruitmentIdAndStatus(Long recruitmentId, RoundStatus status);
 
     /**
-     * 기간 종료 자동 마감을 막는 진행 중 면접 라운드 수(모집별) — 잡의 마감 판정과 화면의 자동 마감 전망이 이 한
-     * 쿼리를 쓴다(#1572). 삭제된 라운드는 세지 않는다(@SQLRestriction 과 함께 명시). 건수가 0 인 모집은 행이 없다.
-     * 빈 컬렉션으로 부르지 않는다.
+     * 기간 종료 자동 마감을 막는 진행 중 면접 라운드 수(모집별) — 결과를 기다리는 면접 대상(제외되지 않았고 지원에 결과가 없으며
+     * 지원 삭제·지원자 탈퇴가 아닌 멤버)이 남은 라운드만 센다. 잡의 마감 판정과 화면의 자동 마감 전망이 이 한 쿼리를 쓴다(#1572).
+     * 그 멤버의 지원은 결과 없는 지원 수에도 같은 기준으로 잡혀 라운드 조건이 혼자 마감을 막는 일은 없다 — 할 일 없는 라운드는 막지 않는다.
+     * 삭제된 라운드·지원과 탈퇴한 지원자는 @SQLRestriction 에 기대지 않고 명시해 거른다(결과 없는 지원 수 집계와 같은 기준).
+     * {@code u.deletedAt} 조건은 빼지 않는다 — u 를 참조하는 곳이 없으면 Hibernate 가 users 조인째 빼서 탈퇴한 지원자가 다시 잡힌다.
+     * 건수가 0 인 모집은 행이 없다. 빈 컬렉션으로 부르지 않는다.
      */
     @Query("SELECT round.recruitmentId AS recruitmentId, COUNT(round) AS itemCount FROM InterviewRound round "
             + "WHERE round.recruitmentId IN :recruitmentIds AND round.status IN :statuses AND round.deletedAt IS NULL "
+            + "AND EXISTS (SELECT 1 FROM InterviewRoundMember m, Application a JOIN a.user u "
+            + "WHERE m.roundId = round.id AND a.id = m.applicationId "
+            + "AND m.status <> com.duing.domain.interview.entity.RoundMemberStatus.EXCLUDED "
+            + "AND a.deletedAt IS NULL AND a.status IN :awaitingStatuses AND u.deletedAt IS NULL) "
             + "GROUP BY round.recruitmentId")
-    List<RecruitmentCountRow> countByRecruitmentIdsAndStatusIn(
+    List<RecruitmentCountRow> countByRecruitmentIdsAndStatusInWithAwaitingMembers(
             @Param("recruitmentIds") Collection<Long> recruitmentIds,
-            @Param("statuses") Collection<RoundStatus> statuses);
+            @Param("statuses") Collection<RoundStatus> statuses,
+            @Param("awaitingStatuses") Collection<ApplicationStatus> awaitingStatuses);
 
     List<InterviewRound> findByRecruitmentIdOrderByCreatedAtDesc(Long recruitmentId);
 }
