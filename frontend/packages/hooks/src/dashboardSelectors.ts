@@ -87,8 +87,7 @@ export function buildActionItems(inputs: RecruitmentDashboardInput[], now: Date)
 
     // 면접 라운드 기반 — 진행 중 라운드마다 한 줄, 인원 0 인 응답 수집·배정 검토 라운드만 줄이 없다.
     for (const round of rounds ?? []) {
-      // 인원 0(전원 결과 확정·제외·탈퇴)이면 사람을 더할 수도 확정할 수도 없고 자동 마감도 막지 않아 할 일이 아니다(취소는 라운드 화면에서). 초안은 새 라운드 생성을 막아 남긴다.
-      if ((round.status === 'COLLECTING' || round.status === 'ASSIGNING') && round.totalMemberCount === 0) continue;
+      if (isEmptyInProgressRound(round)) continue;
       const roundBase = { ...base, roundId: round.roundId, roundTitle: round.title };
       const daysLeft = round.availabilityDeadline ? daysUntilKst(round.availabilityDeadline, now) : undefined;
       if (round.status === 'COLLECTING' && round.respondedMemberCount < round.totalMemberCount) {
@@ -124,6 +123,14 @@ export function buildActionItems(inputs: RecruitmentDashboardInput[], now: Date)
   }
 
   return items;
+}
+
+/**
+ * 사람이 남지 않은 응답 수집·배정 검토 라운드(전원 결과 확정·제외·탈퇴) — 사람을 더할 수도 확정할 수도 없고 자동 마감도 막지 않아
+ * 할 일도 진행 단계도 아니다(취소는 라운드 화면에서). 초안은 새 라운드 생성을 막으므로 들지 않는다.
+ */
+export function isEmptyInProgressRound(round: InterviewRoundSummary): boolean {
+  return (round.status === 'COLLECTING' || round.status === 'ASSIGNING') && round.totalMemberCount === 0;
 }
 
 /** 검토 대기 = 지원 완료 + 보류 — 면접 대상은 이미 검토를 넘긴 지원이라 세지 않는다. */
