@@ -80,11 +80,11 @@ export function useCreateInterviewRoundMutation(recruitmentId: number) {
         queryKey: interviewRoundKeys.candidates(recruitmentId),
         refetchType: 'all',
       });
-      // 통계도 같은 이유로 바로 다시 받는다 — 면접 대상이 된 사람을 홈이 '검토 대기'로도 겹쳐 내지 않게.
       queryClient.invalidateQueries({
         queryKey: statsQueryKeys.byRecruitment(recruitmentId),
-        refetchType: 'all',
       });
+      // 홈이 읽는 통계 요약도 같은 이유로 바로 다시 받는다(면접 대상이 된 사람을 '검토 대기'로도 겹쳐 내지 않게) — 떠 있는 요약은 위 무효화가 이미 받으므로 inactive 만.
+      queryClient.refetchQueries({ queryKey: statsQueryKeys.summary(recruitmentId), type: 'inactive' });
       queryClient.invalidateQueries({
         queryKey: applicationQueryKeys.applicants(recruitmentId),
       });
@@ -144,7 +144,7 @@ export function useCancelInterviewRoundMutation(recruitmentId: number, roundId: 
 
 /**
  * 슬롯 일괄 생성 (BE#4)
- * 성공 → detail(roundId) + 모든 모집의 list invalidate
+ * 성공 → detail(roundId) invalidate + 재초대가 있으면(reinvitedMemberCount > 0) 모든 모집의 list
  * (슬롯 목록 + 멤버 reinvitedMemberCount 반영)
  */
 export function useCreateRoundSlotsMutation(roundId: number) {
@@ -153,14 +153,14 @@ export function useCreateRoundSlotsMutation(roundId: number) {
   return useMutation({
     mutationFn: (payload: CreateRoundSlotsPayload) =>
       client.interviewRounds.createSlots(roundId, payload),
-    onSuccess: () => {
+    onSuccess: (slotsResult) => {
       queryClient.invalidateQueries({
         queryKey: interviewRoundKeys.detail(roundId),
       });
-      // 마감 전 응답 수집 라운드에 슬롯을 더하면 '가능 시간 없음' 멤버가 다시 초대돼 목록의 응답 수가 준다 — 모집 id 를 몰라 접두로 건다.
-      queryClient.invalidateQueries({
-        queryKey: [...interviewRoundKeys.all, 'list'],
-      });
+      // 목록의 응답 수는 재초대로만 바뀐다(늘 걸면 목록을 보는 마법사 3단계가 헛되이 다시 받는다) — 모집 id 를 몰라 접두로 건다.
+      if (slotsResult.reinvitedMemberCount > 0) {
+        queryClient.invalidateQueries({ queryKey: interviewRoundKeys.listAll() });
+      }
     },
   });
 }

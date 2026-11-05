@@ -4,13 +4,14 @@
 //   생성(create)        → list + candidates + 통계·지원자 목록·이웃(지원 상태 전이)
 //   수정(update)        → detail + list
 //   취소(cancel)        → detail + list + candidates  (상태 전이 + 멤버 대기열 복귀 — 재큐잉)
-//   슬롯 생성           → detail + 모든 모집 list  (마감 전 응답 수집 라운드에 슬롯 추가 → '가능 시간 없음' 멤버 재초대)
+//   슬롯 생성           → detail (+ 재초대가 있으면 모든 모집 list — 마감 전 응답 수집 라운드의 '가능 시간 없음' 멤버 복귀)
 //   슬롯 삭제           → detail
 //   발송(requestAvail)  → detail + list
 export const interviewRoundKeys = {
   all: ['interview-rounds'] as const,
+  listAll: () => [...interviewRoundKeys.all, 'list'] as const,
   list: (recruitmentId: number) =>
-    [...interviewRoundKeys.all, 'list', recruitmentId] as const,
+    [...interviewRoundKeys.listAll(), recruitmentId] as const,
   detail: (roundId: number) =>
     [...interviewRoundKeys.all, 'detail', roundId] as const,
   // includeUndecided 를 넘기면 토글별 캐시 엔트리, 생략하면 그 엔트리들을 모두 덮는 무효화 prefix 다.
