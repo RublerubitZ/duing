@@ -1075,7 +1075,7 @@ describe('ApplyPage — 임시저장 복원 안내', () => {
         }),
       ),
     );
-    // 재연결 재조회(refetchOnReconnect)를 흉내 낸다 — 50ms 는 React Query 의 변경 알림(setTimeout 0)까지 흘려보낸다.
+    // 데이터가 있는 채로 다시 받기를 흉내 낸다(앱은 networkMode 'always' 라 재연결 재조회가 꺼져 있다 — 다시 받는 계기가 생길 때를 지킨다) — 50ms 는 React Query 의 변경 알림(setTimeout 0)까지 흘려보낸다.
     await act(async () => {
       await queryClient.refetchQueries({ queryKey: draftQueryKeys.byRecruitment(RECRUITMENT_ID) });
       await new Promise((resolve) => setTimeout(resolve, 50));
@@ -1203,7 +1203,7 @@ describe('ApplyPage — 임시저장 조회 실패', () => {
         HttpResponse.json({ ok: false, data: null, message: '권한이 없습니다.' }, { status: 403 }),
       ),
     );
-    // 재연결 재조회(refetchOnReconnect)를 흉내 낸다. 50ms 는 React Query 의 변경 알림(setTimeout 0)까지 흘려보낸다 —
+    // 데이터가 있는 채로 다시 받기를 흉내 낸다(앱은 networkMode 'always' 라 재연결 재조회가 꺼져 있다 — 다시 받는 계기가 생길 때를 지킨다). 50ms 는 React Query 의 변경 알림(setTimeout 0)까지 흘려보낸다 —
     // 이 대기가 없으면 조건을 isError 하나로 넓힌 구현도 통과해 버린다.
     await act(async () => {
       await queryClient.refetchQueries({ queryKey: draftQueryKeys.byRecruitment(RECRUITMENT_ID) });
@@ -1226,7 +1226,7 @@ describe('ApplyPage — 다시 받다 잠깐 실패해도 쓰던 폼을 지킨�
     await user.type(await screen.findByRole('textbox', { name: /지원 동기/ }), TYPED_ANSWER);
   }
 
-  // 재연결 재조회(refetchOnReconnect)를 흉내 낸다. 50ms 는 React Query 의 변경 알림(setTimeout 0)까지 흘려보낸다.
+  // 데이터가 있는 채로 다시 받기를 흉내 낸다(앱은 networkMode 'always' 라 재연결 재조회가 꺼져 있다 — 다시 받는 계기가 생길 때를 지킨다). 50ms 는 React Query 의 변경 알림(setTimeout 0)까지 흘려보낸다.
   async function refetchExact(queryClient: QueryClient, queryKey: readonly unknown[]) {
     await act(async () => {
       await queryClient.refetchQueries({ queryKey, exact: true });
@@ -1252,7 +1252,7 @@ describe('ApplyPage — 다시 받다 잠깐 실패해도 쓰던 폼을 지킨�
 
   it.each([
     ['서버 오류(500)', mockEligibilityHandler(500, '일시적인 오류가 발생했습니다.')],
-    // 재연결 직후의 주된 실패 — api 계층이 status 0 으로 정규화한다.
+    // 네트워크 실패 — api 계층이 status 0 으로 정규화한다.
     ['네트워크 오류', http.get(`*/recruitments/${RECRUITMENT_ID}/applications/eligibility`, () => HttpResponse.error())],
     // 토큰 갱신이 잠깐 안 되면 만료 통지 없이 원래 요청의 401 이 올라온다 — 4xx 를 통째로 막는 식이면 여기서 틀린다.
     ['401', mockEligibilityHandler(401)],
