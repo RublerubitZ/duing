@@ -1330,7 +1330,7 @@ describe('ApplyPage — 다시 받다 잠깐 실패해도 쓰던 폼을 지킨�
     await user.type(await screen.findByRole('textbox', { name: /지원 동기/ }), TYPED_ANSWER);
   }
 
-  // 데이터가 있는 채로 다시 받는 순간을 바로 흉내 낸다 — 재진입 때 낡은 상세를 마운트에서 다시 받는 일은 지금도 일어난다(상세 staleTime 2분·gcTime 5분). 50ms 는 React Query 의 변경 알림(setTimeout 0)까지 흘려보낸다.
+  // 데이터가 있는 채로 다시 받는 순간을 바로 흉내 낸다 — 재진입 때 낡은 상세·자격을 마운트에서 다시 받는 일은 지금도 일어난다(상세 staleTime 2분·gcTime 5분, 자격은 클릭이 남긴 판정이 남는 10초 창). 50ms 는 React Query 의 변경 알림(setTimeout 0)까지 흘려보낸다.
   async function refetchExact(queryClient: QueryClient, queryKey: readonly unknown[]) {
     await act(async () => {
       await queryClient.refetchQueries({ queryKey, exact: true });
