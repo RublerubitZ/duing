@@ -27,6 +27,15 @@
   color-scheme: light;
   /* GNB ↓ 첫 콘텐츠 공통 상단 여백 토큰 — tailwind `pt-page-top` 이 소비 (모바일 12px / md+ 24px) */
   --page-top: 0.75rem;
+  /* pill 페어(파스텔 배경 + 딥톤 글자) — .duing 밖(/apply·/join 등)에서도 쓰여 :root 에 둔다 */
+  --pill-warm-bg: #fbefd7;
+  --pill-warm-ink: #8e6620;
+  --pill-coral-bg: #fce2d9;
+  --pill-coral-ink: #9a3f23;
+  --pill-berry-bg: #f6dce3;
+  --pill-berry-ink: #7e2a45;
+  --pill-sky-bg: #dde8f1;
+  --pill-sky-ink: #2f557a;
 }
 
 @media (min-width: 768px) {
@@ -151,26 +160,26 @@ body {
     @apply bg-transparent border border-line text-charcoal-2;
   }
   .pill-warm {
-    background: #fbefd7;
-    color: #8e6620;
+    background: var(--pill-warm-bg);
+    color: var(--pill-warm-ink);
   }
   /* 만료-OPEN 전용 — 예정(warm)과 테두리로 구분, 경고 의미 유지 */
   .pill-warm-outline {
-    background: #fbefd7;
-    color: #8e6620;
-    box-shadow: inset 0 0 0 1px #8e6620;
+    background: var(--pill-warm-bg);
+    color: var(--pill-warm-ink);
+    box-shadow: inset 0 0 0 1px var(--pill-warm-ink);
   }
   .pill-coral {
-    background: #fce2d9;
-    color: #9a3f23;
+    background: var(--pill-coral-bg);
+    color: var(--pill-coral-ink);
   }
   .pill-berry {
-    background: #f6dce3;
-    color: #7e2a45;
+    background: var(--pill-berry-bg);
+    color: var(--pill-berry-ink);
   }
   .pill-sky {
-    background: #dde8f1;
-    color: #2f557a;
+    background: var(--pill-sky-bg);
+    color: var(--pill-sky-ink);
   }
 
   .btn {

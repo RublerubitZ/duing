@@ -150,7 +150,7 @@ export function FeeAuditCommentPanel({ clubId }: { clubId: number }) {
       {commentsQuery.isSuccess &&
         (comments.length === 0 ? (
           <ConsoleCard>
-            <EmptyState icon="🗒️" title={meta.empty} body="위 입력란에 첫 기록을 남겨 보세요." />
+            <EmptyState title={meta.empty} body="위 입력란에 첫 기록을 남겨 보세요." />
           </ConsoleCard>
         ) : (
           <ConsoleCard>

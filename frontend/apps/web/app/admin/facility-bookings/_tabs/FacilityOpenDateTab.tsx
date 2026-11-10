@@ -217,7 +217,7 @@ export function FacilityOpenDateTab() {
           />
         )}
         {facilitiesQuery.data !== undefined && facilities.length === 0 && (
-          <EmptyState icon="🏫" title="시설이 없어요" body="학교 시설 동기화 후 다시 확인해 주세요." />
+          <EmptyState title="시설이 없어요" body="학교 시설 동기화 후 다시 확인해 주세요." />
         )}
         {facilities.length > 0 && (
           <div className="overflow-x-auto">

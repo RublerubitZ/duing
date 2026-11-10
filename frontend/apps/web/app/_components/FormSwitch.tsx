@@ -23,8 +23,8 @@ export function FormSwitch({ checked, onChange, ariaLabel, disabled = false }: F
       }`}
     >
       <span
-        className={`absolute top-[3px] h-5 w-5 rounded-full bg-white shadow transition-[left] ${
-          checked ? 'left-[23px]' : 'left-[3px]'
+        className={`absolute left-[3px] top-[3px] h-5 w-5 rounded-full bg-white shadow motion-safe:transition-transform ${
+          checked ? 'translate-x-[20px]' : 'translate-x-0'
         }`}
       />
     </button>

@@ -75,7 +75,6 @@ export function AdminSelfRecruitmentPanel({ recruitmentId }: { recruitmentId: nu
       {applicantList && applicantList.total === 0 && (
         <ConsoleCard className="mt-5">
           <EmptyState
-            icon="🗂️"
             title="아직 지원자가 없습니다"
             body="지원서가 들어오면 이곳에서 확인할 수 있어요."
           />

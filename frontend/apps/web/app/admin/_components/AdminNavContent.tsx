@@ -75,7 +75,7 @@ export function AdminNavContent({
               // 접힌 폭에는 그룹 라벨이 들어가지 않아 여백으로 그룹을 가른다(첫 그룹 위는 비운다).
               groupIndex > 0 && <div aria-hidden className="my-2" />
             ) : (
-              <div className="px-3 pb-1 pt-2 text-[10.5px] font-bold uppercase tracking-wide08 text-charcoal-3">
+              <div className="px-3 pb-1 pt-2 text-xs font-semibold text-charcoal-3">
                 {group}
               </div>
             )}

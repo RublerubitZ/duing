@@ -85,7 +85,6 @@ export function AdminClubActivityLogList({ clubId }: { clubId: number }) {
           {events.length === 0 ? (
             <ConsoleCard>
               <EmptyState
-                icon="🗒️"
                 title="기록된 활동이 없습니다"
                 body={'선택한 유형에 기록된 활동이 없어요.\n활동 이력은 계측 배포 이후의 변경부터 기록됩니다.'}
               />
