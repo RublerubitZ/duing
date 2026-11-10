@@ -78,7 +78,7 @@ Tailwind 토큰과 `.duing` 스코프 CSS 변수(`var(--ink)` 등)가 1:1 동일
 ### Pretendard — 기능하는 모든 것: 본문·버튼·카드·네비. 디스플레이가 외칠 수 있도록 조용히 받친다 · `font-body`
 - **Substitute:** system-ui, -apple-system
 - **Weights:** 400, 600, 700, 800 (Font Guide 스케일 — 500 은 쓰지 않는다)
-- **Sizes:** 11.5, 12.5, 13, 13.5, 14, 15, 16(text-base), 18(text-lg) — 표준 스케일 대신 **픽셀 임의값이 기본** (`text-[13.5px]` 등)
+- **Sizes:** 11.5, 12(text-xs), 12.5, 13, 13.5, 14, 15, 16(text-base), 18(text-lg) — 표준 스케일 대신 **픽셀 임의값이 기본** (`text-[13.5px]` 등)
 - **Line height:** 1.5 (`.duing` 기본), 히어로 서브카피 1.6
 - **Letter spacing:** -0.005em (`.duing` 기본), `font-feature-settings: 'ss01' 'ss02' 'cv11'`
 - **Role:** 본문·UI 전부. 위계는 크기보다 **색 3단**(charcoal-3 → charcoal-2 → ink/ink-deep+bold)으로 만든다.
@@ -94,7 +94,7 @@ Tailwind 토큰과 `.duing` 스코프 CSS 변수(`var(--ink)` 등)가 1:1 동일
   모노를 걷어낸 뒤 이 속성이 유일한 정렬 수단이므로, 숫자가 세로로 쌓이는 UI 에서는 빠뜨리지 말 것.
 - **콘솔·내비의 그룹 라벨은 마이크로 라벨이 아니다:** 사이드바 그룹 이름(`모집`, `커뮤니티 운영`)과 드롭다운 머리말처럼
   한글로 길을 알려 주는 라벨은 12px(`text-xs font-semibold`)로, 대문자·와이드 트래킹 없이 쓴다.
-  10px 대 글자에 자간을 벌리면 읽기 어렵고, 한글에는 대문자 격식이 생기지 않는다.
+  한글 10px 대 글자에 자간을 벌리면 읽기 어렵고, 한글에는 대문자 격식이 생기지 않는다.
 
 ### Type Scale
 
@@ -187,7 +187,7 @@ Secondary: `bg-paper text-ink border border-line hover:border-sage` — 보더�
 ### Section Heading Block
 **Role:** 모든 콘텐츠 섹션의 도입부.
 
-`mb-9 flex items-end justify-between` — 좌측: 큰 h2 단독(아이브로우는 새 화면에 두지 않는다 — Do/Don't 참조. 남은 화면은 손볼 때 걷어낸다). 우측: 아이콘 전용 `전체 보기` 링크 — 면 없이 캐럿만(`-mr-2.5 grid h-11 w-11 rounded-full text-ink-deep hover:bg-sage-tint` + lucide `ChevronRight` 24px), 접근명은 `aria-label` 로. 44px 박스라 글리프 우측이 카드 열 끝선에 오도록 박스 여백만큼 당긴다.
+`mb-9 flex items-end justify-between` — 좌측: 큰 h2 단독(아이브로우는 새 화면에 두지 않는다 — 표기 규칙 참조. 남은 화면은 손볼 때 걷어낸다). 우측: 아이콘 전용 `전체 보기` 링크 — 면 없이 캐럿만(`-mr-2.5 grid h-11 w-11 rounded-full text-ink-deep hover:bg-sage-tint` + lucide `ChevronRight` 24px), 접근명은 `aria-label` 로. 44px 박스라 글리프 우측이 카드 열 끝선에 오도록 박스 여백만큼 당긴다.
 
 ### Nav Bar (HomeNav)
 **Role:** 사이트 전역 상단 바.
@@ -257,7 +257,7 @@ Secondary: `bg-paper text-ink border border-line hover:border-sage` — 보더�
 - 숫자는 단위와 결합: `{n}곳`, `{n}개 동아리`, `모집 20명`, `· 10기`
 - 아이브로우(`영문 대문자 키워드 · 한국어 설명`)는 새 화면에 쓰지 않는다 — 바로 아래 한글 제목이 같은 말을 해서 정보가 늘지 않는다. 남아 있는 것은 그 화면을 손볼 때 제목 하나로 합친다
 - 느낌표는 알림성 마이크로카피 한정 페이지당 최대 1회, 이모지는 카피 문장 안에 넣지 않는다
-- 이모지를 UI 아이콘으로 쓰지 않는다(빈 상태·오류·메뉴·표 머리 등) — 아이콘이 필요하면 `lucide-react`, 뜻이 글자로 충분하면 아이콘 없이 쓴다. 카테고리 그림은 토스페이스 원본 SVG 를 쓴다. 썸네일·배너 워터마크 같은 그래픽 레이어(Imagery 절)는 이 규칙의 대상이 아니다
+- 이모지를 UI 아이콘으로 쓰지 않는다(빈 상태·오류·메뉴·표 머리 등) — 새 화면부터 지키고, 남은 것은 그 화면을 손볼 때 걷어낸다 — 아이콘이 필요하면 `lucide-react`, 뜻이 글자로 충분하면 아이콘 없이 쓴다. 카테고리 그림은 토스페이스 원본 SVG 를 쓴다. 썸네일·배너 워터마크 같은 그래픽 레이어(Imagery 절)는 이 규칙의 대상이 아니다
 - 헤드라인은 3~8어절, 줄바꿈으로 호흡을 끊는다. playful 함은 `두잉/ing` 워드플레이로만
 
 ### Empty State
@@ -326,7 +326,7 @@ Secondary: `bg-paper text-ink border border-line hover:border-sage` — 보더�
 
 **Example Component Prompts**
 
-1. **섹션 도입부**: `mb-9 flex items-end justify-between`. 좌측에 h2 `지원 현황`(자동으로 ink-deep bold) 단독. 우측에 `flex items-center gap-1.5 text-sm font-semibold text-ink hover:gap-2` 링크 `전체 보기` + ArrowRight.
+1. **섹션 도입부**: `mb-9 flex items-end justify-between`. 좌측에 h2 `지원 현황`(자동으로 ink-deep bold) 단독. 우측에 아이콘 전용 `전체 보기` 링크(lucide `ChevronRight` 24px, 접근명은 `aria-label`).
 2. **표준 카드**: `rounded-lg border border-line bg-paper p-4 transition hover:shadow-2`. 상단 썸네일 `grid h-[156px] place-items-center rounded-md` + `linear-gradient(135deg, #1F4A3622, #1F4A3611)`. 제목 h3 17px, 설명 `text-[12.5px] text-charcoal-3`, 푸터 `pt-3` 양끝 정렬(구분선 없음).
 3. **상태 배지**: `.pill` + `h-1.5 w-1.5 rounded-full bg-sage` 도트 + `모집중`. 강조형은 `rounded-full bg-ink px-2.5 py-1 text-[11.5px] font-bold text-paper`.
 4. **CTA 패널**: `rounded-xl bg-sage-mist px-14 py-11 md:grid-cols-[1fr_auto]`, 좌측 h2 `text-4xl` + 서브 `지원자 관리 · 공지 발송 · 회비 정산까지.` 스타일 나열, 우측 `btn btn-primary btn-big` + ArrowRight. SparkleFull 48px sage 절대배치 1~2개.
