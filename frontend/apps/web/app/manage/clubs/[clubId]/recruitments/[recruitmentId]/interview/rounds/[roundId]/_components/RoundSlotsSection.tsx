@@ -112,7 +112,7 @@ export function RoundSlotsSection({ detail, onSlotsCreated }: RoundSlotsSectionP
                           setCapacityInput(Number.isFinite(nextCapacity) ? nextCapacity : 1);
                         }}
                         aria-label="새 정원"
-                        className="w-16 rounded-md border border-line px-2 py-0.5 text-xs focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
+                        className="w-16 rounded-md border border-line px-2 py-0.5 text-xs focus:border-ink focus:outline-none focus:ring-[3px] focus:ring-ink/15"
                       />
                       <button
                         type="button"

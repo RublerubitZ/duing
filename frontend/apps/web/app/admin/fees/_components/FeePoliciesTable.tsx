@@ -82,7 +82,7 @@ export function FeePoliciesTable({
                 <Td>
                   <span
                     className={`inline-flex whitespace-nowrap rounded-full px-2 py-0.5 text-[11.5px] font-semibold ${
-                      policy.active ? 'bg-sage-mist text-ink' : 'bg-graysoft text-charcoal-2'
+                      policy.active ? 'bg-sage/10 text-sage-deep' : 'bg-graysoft text-charcoal-2'
                     }`}
                   >
                     {policy.active ? '활성' : '비활성'}

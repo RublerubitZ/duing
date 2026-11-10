@@ -180,7 +180,7 @@ type RecruitmentFormProps = CreateMode | EditMode;
 
 const fieldLabelClass = 'block text-[12.5px] font-bold text-charcoal-2';
 const fieldInputClass =
-  'mt-1 w-full rounded-[10px] border border-line bg-paper px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sage';
+  'mt-1 w-full rounded-[10px] border border-line bg-paper px-3 py-2 text-sm focus:border-ink focus:outline-none focus:ring-[3px] focus:ring-ink/15';
 
 export function RecruitmentForm(props: RecruitmentFormProps) {
   const isEditMode = props.mode === 'edit';

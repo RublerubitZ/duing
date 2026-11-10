@@ -7,8 +7,8 @@ export const SUCCESSION_STATUS_LABEL: Record<SuccessionStatus, string> = {
 };
 
 export const SUCCESSION_STATUS_BADGE_CLASS: Record<SuccessionStatus, string> = {
-  PENDING: 'bg-warm/20 text-warm-deep',
-  APPROVED: 'bg-sage-mist text-ink',
+  PENDING: 'bg-warm/10 text-warm-deep',
+  APPROVED: 'bg-sage/10 text-sage-deep',
   REJECTED: 'bg-coral/10 text-coral-deep',
 };
 
