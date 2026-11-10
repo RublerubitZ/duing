@@ -71,7 +71,7 @@ export function NoticeArticleHeader({
       <div className="flex items-center gap-3 mt-4">
         {isClubNotice ? (
           <>
-            <span className="grid place-items-center w-9 h-9 rounded-full bg-sage-mist text-ink text-[15px] shrink-0" aria-hidden>🏛</span>
+            <span className="grid place-items-center w-9 h-9 rounded-full bg-sage-mist text-ink text-[15px] font-bold shrink-0" aria-hidden>{(clubName || '동').trim().charAt(0)}</span>
             <div className="flex flex-col min-w-0">
               <span className="block truncate max-w-[240px] text-[13.5px] font-bold text-ink-deep">{clubName ?? '동아리 공지'}</span>
               <span className="text-[12px] text-charcoal-3">동아리 공지</span>
@@ -79,7 +79,7 @@ export function NoticeArticleHeader({
           </>
         ) : (
           <>
-            <span className="grid place-items-center w-9 h-9 rounded-full bg-ink text-paper text-[11px] font-bold shrink-0 tabular-nums tracking-[0.08em]">DU</span>
+            <span className="grid place-items-center w-9 h-9 rounded-full bg-ink text-paper text-[11px] font-bold shrink-0 tabular-nums tracking-[0.08em]" aria-hidden>DU</span>
             <div className="flex flex-col">
               <span className="text-[13.5px] font-bold text-ink-deep">두잉 공지</span>
               <span className="text-[12px] text-charcoal-3">{noticeCategoryLabelOf(category)} 채널</span>

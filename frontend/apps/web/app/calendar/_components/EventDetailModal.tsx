@@ -2,6 +2,7 @@
 
 import * as DialogPrimitive from '@radix-ui/react-dialog';
 import Link from 'next/link';
+import { ArrowUpRight, MapPin, Tag } from 'lucide-react';
 import { useGlobalEventDetailQuery } from '@duing/hooks';
 import type { CalEvent, EventSource } from '@duing/types';
 import { useBackDismiss } from '@/app/_lib/backDismiss';
@@ -60,7 +61,7 @@ export function EventDetailModal({ event, open, onClose, isAdmin }: Props) {
           className="fixed left-1/2 top-1/2 z-50 w-[480px] max-w-[92vw] -translate-x-1/2 -translate-y-1/2 rounded-2xl bg-paper p-6 space-y-5 outline-none"
         >
           <header className="flex items-center justify-between">
-            <span className="text-[11px] font-bold tracking-wider text-charcoal-3">
+            <span className="text-[11px] font-bold text-charcoal-3">
               {KIND_LABEL[event.kind]}
             </span>
             <button
@@ -82,10 +83,16 @@ export function EventDetailModal({ event, open, onClose, isAdmin }: Props) {
               {event.date} · {event.time}
             </p>
             {event.place && (
-              <p className="mt-1 text-[13px] text-charcoal-2">📍 {event.place}</p>
+              <p className="mt-1 flex items-center gap-1 text-[13px] text-charcoal-2">
+                <MapPin size={13} aria-hidden className="shrink-0" />
+                {event.place}
+              </p>
             )}
             {event.club && (
-              <p className="mt-1 text-[13px] text-charcoal-2">🏷 {event.club}</p>
+              <p className="mt-1 flex items-center gap-1 text-[13px] text-charcoal-2">
+                <Tag size={13} aria-hidden className="shrink-0" />
+                {event.club}
+              </p>
             )}
           </div>
 
@@ -146,7 +153,8 @@ function GlobalDetailSection({ eventId }: { eventId: number }) {
           rel="noreferrer noopener"
           className="inline-flex items-center gap-1 text-[13px] text-ink font-semibold underline"
         >
-          자세히 보기 ↗
+          자세히 보기
+          <ArrowUpRight size={13} aria-hidden />
         </a>
       )}
     </div>

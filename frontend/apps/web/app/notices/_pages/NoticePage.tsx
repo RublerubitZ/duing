@@ -27,33 +27,33 @@ type IconProps = SVGProps<SVGSVGElement>;
 
 const Icon = {
   search: (p: IconProps) => (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" {...p}>
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" {...p} aria-hidden>
       <circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" />
     </svg>
   ),
   chev: (p: IconProps) => (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" {...p}>
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" {...p} aria-hidden>
       <path d="m6 9 6 6 6-6" />
     </svg>
   ),
   list: (p: IconProps) => (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" {...p}>
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" {...p} aria-hidden>
       <path d="M3 6h18M3 12h18M3 18h18" />
     </svg>
   ),
   grid: (p: IconProps) => (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" {...p}>
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" {...p} aria-hidden>
       <rect x="3" y="3" width="7" height="7" rx="1.6" /><rect x="14" y="3" width="7" height="7" rx="1.6" />
       <rect x="3" y="14" width="7" height="7" rx="1.6" /><rect x="14" y="14" width="7" height="7" rx="1.6" />
     </svg>
   ),
   arrowLeft: (p: IconProps) => (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" {...p}>
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" {...p} aria-hidden>
       <path d="M19 12H5M11 5l-7 7 7 7" />
     </svg>
   ),
   arrowRight: (p: IconProps) => (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" {...p}>
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" {...p} aria-hidden>
       <path d="M5 12h14M13 5l7 7-7 7" />
     </svg>
   ),
@@ -78,7 +78,7 @@ function NewBadge() {
     <span style={{
       display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
       padding: '2px 7px', borderRadius: 5,
-      background: '#B04A28', color: '#fff',
+      background: 'var(--danger)', color: 'var(--paper)',
       fontSize: 12, fontWeight: 800, letterSpacing: '0.06em',
       marginLeft: 8, transform: 'translateY(-1px)',
     }}>NEW</span>
@@ -90,20 +90,20 @@ type SideIconProps = SVGProps<SVGSVGElement>;
 
 const SideIcon = {
   list: (p: SideIconProps) => (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" {...p}>
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" {...p} aria-hidden>
       <rect x="3.5" y="4" width="17" height="3.5" rx="1" />
       <rect x="3.5" y="10.5" width="17" height="3.5" rx="1" />
       <rect x="3.5" y="17" width="17" height="3.5" rx="1" />
     </svg>
   ),
   bell: (p: SideIconProps) => (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" {...p}>
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" {...p} aria-hidden>
       <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
       <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
     </svg>
   ),
   people: (p: SideIconProps) => (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" {...p}>
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" {...p} aria-hidden>
       <circle cx="9" cy="8" r="3.2" />
       <path d="M2.5 20c0-3 3-5 6.5-5s6.5 2 6.5 5" />
       <circle cx="17" cy="9" r="2.6" />
@@ -111,19 +111,19 @@ const SideIcon = {
     </svg>
   ),
   spark: (p: SideIconProps) => (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" {...p}>
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" {...p} aria-hidden>
       <path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1" />
     </svg>
   ),
   gift: (p: SideIconProps) => (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" {...p}>
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" {...p} aria-hidden>
       <rect x="3" y="9" width="18" height="12" rx="1.5" />
       <path d="M3 13h18M12 9v12" />
       <path d="M7.5 9c-2 0-2.5-3.5 0-3.5 2 0 4.5 3.5 4.5 3.5s2.5-3.5 4.5-3.5c2.5 0 2 3.5 0 3.5" />
     </svg>
   ),
   faq: (p: SideIconProps) => (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" {...p}>
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" {...p} aria-hidden>
       <circle cx="12" cy="12" r="9" />
       <path d="M9.3 9.3a2.7 2.7 0 0 1 5.2 1c0 1.6-2.5 2.2-2.5 3.7" />
       <circle cx="12" cy="17" r="0.6" fill="currentColor" />
@@ -352,7 +352,7 @@ export function NoticePage() {
                   style={{
                     padding: '8px 18px', borderRadius: 9, border: 'none',
                     background: segActive ? 'var(--ink)' : 'transparent',
-                    color: segActive ? '#fff' : 'var(--charcoal-2)',
+                    color: segActive ? 'var(--paper)' : 'var(--charcoal-2)',
                     fontSize: 14, fontWeight: 700, fontFamily: 'inherit',
                     cursor: 'pointer', transition: 'background .15s',
                   }}
@@ -366,10 +366,6 @@ export function NoticePage() {
           {/* Hero — 가로 배치는 lg 부터. md 사이드바가 붙는 768~1023px 은 본문이 좁아 제목이 꺾인다(#1381). 고정 카드 2열·표도 같은 경계. */}
           <div className="mb-[22px] flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between lg:gap-6">
             <div>
-              <div style={{
-                fontSize: 11.5, fontWeight: 700, color: 'var(--ink)',
-                letterSpacing: '0.14em', marginBottom: 10,
-              }}>NOTICE</div>
               <h1 style={{ fontSize: 36, marginBottom: 10, display: 'inline-flex', alignItems: 'center', gap: 8 }}>
                 캠퍼스 소식
                 <SparkleFull size={22} color="var(--sage)" />
@@ -425,7 +421,7 @@ export function NoticePage() {
                   aria-label="검색"
                   style={{
                     width: 32, height: 32, borderRadius: 8,
-                    background: 'var(--ink)', color: '#fff', border: 'none',
+                    background: 'var(--ink)', color: 'var(--paper)', border: 'none',
                     display: 'grid', placeItems: 'center', cursor: 'pointer',
                   }}
                 >
@@ -450,7 +446,7 @@ export function NoticePage() {
                       padding: '7px 14px', borderRadius: 999,
                       border: `1px solid ${isActive ? 'var(--ink)' : 'var(--gray-line)'}`,
                       background: isActive ? 'var(--ink)' : 'var(--paper)',
-                      color: isActive ? '#fff' : 'var(--charcoal-2)',
+                      color: isActive ? 'var(--paper)' : 'var(--charcoal-2)',
                       fontSize: 13, fontWeight: 600, fontFamily: 'inherit',
                       display: 'inline-flex', alignItems: 'center', gap: 6,
                       cursor: 'pointer',
@@ -476,7 +472,7 @@ export function NoticePage() {
               data 가 없다). 다른 조건의 목록을 "이전 내용" 으로 남기면 결과를 오해하므로 전체 오류로 둔다. */}
           {listQuery.isError && !listQuery.data && (
             <div role="alert" style={{ padding: '48px 0', textAlign: 'center' }}>
-              <p style={{ color: '#E14A3A', fontSize: 13 }}>공지를 불러오지 못했습니다.</p>
+              <p style={{ color: 'var(--coral-deep)', fontSize: 13 }}>공지를 불러오지 못했습니다.</p>
               <button type="button" className="btn btn-secondary btn-sm mt-3" onClick={() => void listQuery.refetch()}>
                 다시 시도
               </button>
@@ -530,7 +526,7 @@ export function NoticePage() {
                           className="tap-card"
                           style={{
                             background: isDark ? 'var(--ink)' : 'var(--paper)',
-                            color: isDark ? '#fff' : 'var(--charcoal)',
+                            color: isDark ? 'var(--paper)' : 'var(--charcoal)',
                             border: isDark ? 'none' : '1px solid var(--gray-line)',
                             borderRadius: 16, padding: '20px 22px',
                             position: 'relative', overflow: 'hidden',
@@ -560,7 +556,7 @@ export function NoticePage() {
                                 background: isDark ? 'rgba(157,182,160,0.18)' : 'var(--sage-mist)',
                                 color: isDark ? 'var(--sage)' : 'var(--ink)',
                                 fontSize: 11, fontWeight: 700, letterSpacing: '0.02em',
-                              }}>🏛 {n.clubName ?? '동아리 공지'}</span>
+                              }}>{n.clubName ?? '동아리 공지'}</span>
                             )}
                             <span style={{
                               fontSize: 12, fontVariantNumeric: 'tabular-nums',
@@ -576,7 +572,7 @@ export function NoticePage() {
                           {/* Title */}
                           <h3 style={{
                             fontSize: 19, fontFamily: 'var(--font-body)', fontWeight: 700,
-                            color: isDark ? '#fff' : 'var(--ink-deep)',
+                            color: isDark ? 'var(--paper)' : 'var(--ink-deep)',
                             lineHeight: 1.35, marginBottom: 10, letterSpacing: '-0.015em',
                           }}>{n.title}</h3>
 
@@ -600,7 +596,7 @@ export function NoticePage() {
                             <span style={{
                               display: 'inline-flex', alignItems: 'center', gap: 4,
                               fontWeight: 700,
-                              color: isDark ? '#fff' : 'var(--ink-deep)',
+                              color: isDark ? 'var(--paper)' : 'var(--ink-deep)',
                             }}>
                               자세히 보기 <Icon.arrowRight style={{ width: 13, height: 13 }} />
                             </span>
@@ -644,13 +640,11 @@ export function NoticePage() {
               {(listRowItems.length > 0 || items.length === 0) && (
               <div className="md:overflow-hidden md:rounded-[14px] md:border md:border-line md:bg-paper">
                 {/* Header row (lg+ 전용 — 그 아래는 카드형 행) */}
-                <div className="hidden lg:grid" style={{
+                <div className="hidden bg-paper-warm lg:grid" style={{
                   gridTemplateColumns: '56px 56px 72px 1fr 110px',
                   padding: '12px 22px', gap: 14, alignItems: 'center',
-                  background: '#FAF8F2',
                   borderBottom: '1px solid var(--gray-line)',
                   fontSize: 11.5, fontWeight: 700, color: 'var(--charcoal-3)',
-                  letterSpacing: '0.04em',
                 }}>
                   <span>NO.</span>
                   <span />
@@ -695,7 +689,7 @@ export function NoticePage() {
                         <span style={{
                           display: 'inline-flex', alignItems: 'center',
                           padding: '1px 7px', borderRadius: 999, flexShrink: 0, marginRight: 7,
-                          background: 'var(--ink)', color: '#fff',
+                          background: 'var(--ink)', color: 'var(--paper)',
                           fontSize: 11, fontWeight: 700,
                         }}>고정</span>
                       )}
@@ -706,7 +700,7 @@ export function NoticePage() {
                           maxWidth: 150, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                           background: 'var(--sage-mist)', color: 'var(--ink)',
                           fontSize: 11, fontWeight: 700,
-                        }}>🏛 {n.clubName ?? '동아리 공지'}</span>
+                        }}>{n.clubName ?? '동아리 공지'}</span>
                       )}
                       {/* inline-flex 컨테이너엔 text-overflow 가 안 먹어 긴 제목이 NEW 배지를 밀어내 잘렸다 — 텍스트만 truncate */}
                       <span className="min-w-0 truncate">{n.title}</span>
@@ -741,6 +735,7 @@ export function NoticePage() {
                       setPage((prev) => Math.max(0, prev - 1));
                       scrollToPaginatedListStart(event.currentTarget);
                     }}
+                    aria-label="이전 페이지"
                     disabled={page === 0}
                     style={{
                       width: 32, height: 32, borderRadius: 8, border: 'none',
@@ -764,7 +759,7 @@ export function NoticePage() {
                       style={{
                         width: 32, height: 32, borderRadius: 8, border: 'none',
                         background: i === page ? 'var(--ink)' : 'transparent',
-                        color: i === page ? '#fff' : 'var(--charcoal-2)',
+                        color: i === page ? 'var(--paper)' : 'var(--charcoal-2)',
                         fontSize: 13, fontWeight: 600,
                         cursor: 'pointer', fontFamily: 'inherit',
                       }}
@@ -776,6 +771,7 @@ export function NoticePage() {
                       setPage((prev) => Math.min(totalPages - 1, prev + 1));
                       scrollToPaginatedListStart(event.currentTarget);
                     }}
+                    aria-label="다음 페이지"
                     disabled={page === totalPages - 1}
                     style={{
                       width: 32, height: 32, borderRadius: 8, border: 'none',

@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
+import { ChevronRight } from 'lucide-react';
 import {
   addDaysIso,
   monthsInRange,
@@ -318,9 +319,6 @@ export function CalendarPage({ renderedTodayIso }: Props) {
           <PageSegment label="일정·시설" items={CALENDAR_FACILITY_SEGMENT_ITEMS} />
           <div className="cal-header-row" style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 32, marginBottom: 28 }}>
             <div>
-              <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)', letterSpacing: '0.08em', marginBottom: 10 }}>
-                CAMPUS CALENDAR · 캠퍼스 캘린더
-              </div>
               {/* keep-all — 모바일에서 접힐 때 어절 단위로만 줄바꿈. 스파클은 마지막 어절과
                   nowrap 으로 묶어 단독 줄바꿈(장식만 다음 줄로 떨어지는 현상)을 막는다. */}
               <h1 className="cal-h1" style={{ fontSize: 56, lineHeight: 1.05, wordBreak: 'keep-all' }}>
@@ -342,7 +340,7 @@ export function CalendarPage({ renderedTodayIso }: Props) {
                   display: 'inline-flex', alignItems: 'center', gap: 8,
                   padding: '14px 22px', borderRadius: 999,
                   background: 'var(--ink)', border: 'none',
-                  color: '#fff', fontFamily: 'inherit',
+                  color: 'var(--paper)', fontFamily: 'inherit',
                   fontSize: 14, fontWeight: 700, cursor: 'pointer',
                   boxShadow: '0 8px 20px rgba(31,74,54,0.18)',
                   flexShrink: 0,
@@ -358,8 +356,8 @@ export function CalendarPage({ renderedTodayIso }: Props) {
           <div className="cal-stats" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16, marginBottom: 24 }}>
             {[
               { label: '이번 달 전체 일정', num: stats.total,    color: 'var(--ink)',      dot: 'var(--sage)' },
-              { label: '행사·일정',         num: stats.system,   color: '#8E6620',         dot: '#E8B968'     },
-              { label: '모집 마감',         num: stats.deadline, color: '#9A3F23',         dot: '#D97757'     },
+              { label: '행사·일정',         num: stats.system,   color: 'var(--pill-warm-ink)',         dot: 'var(--warm)'     },
+              { label: '모집 마감',         num: stats.deadline, color: 'var(--pill-coral-ink)',         dot: 'var(--coral)'     },
               // 총동연은 전 동아리 일정을 보므로 '내' 가 붙으면 거짓이 된다.
               { label: isAdmin ? '동아리 일정' : '내 동아리 일정', num: stats.event, color: 'var(--ink-deep)', dot: 'var(--sage)' },
             ].map((card) => (
@@ -386,7 +384,7 @@ export function CalendarPage({ renderedTodayIso }: Props) {
 
           {/* Filter chips */}
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
-            <span style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--charcoal-3)', letterSpacing: '0.04em', marginRight: 4 }}>
+            <span style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--charcoal-3)', marginRight: 4 }}>
               필터 ·
             </span>
             {KIND_ORDER.map((kind) => {
@@ -495,8 +493,8 @@ export function CalendarPage({ renderedTodayIso }: Props) {
                 {['일', '월', '화', '수', '목', '금', '토'].map((label, i) => (
                   <div key={label} className="cal-weekhead" style={{
                     padding: detailOpen ? '10px 10px' : '12px 16px',
-                    fontSize: detailOpen ? 11.5 : 12, fontWeight: 700, letterSpacing: '0.06em',
-                    color: i === 0 ? '#9A3F23' : i === 6 ? '#2F557A' : 'var(--charcoal-2)',
+                    fontSize: detailOpen ? 11.5 : 12, fontWeight: 700,
+                    color: i === 0 ? 'var(--pill-coral-ink)' : i === 6 ? 'var(--pill-sky-ink)' : 'var(--charcoal-2)',
                   }}>{label}</div>
                 ))}
               </div>
@@ -538,8 +536,8 @@ export function CalendarPage({ renderedTodayIso }: Props) {
                           padding: isToday ? '0 8px' : 0,
                           borderRadius: 999,
                           background: isToday ? 'var(--ink)' : 'transparent',
-                          color: isToday ? '#fff' :
-                            isSun ? '#9A3F23' : isSat ? '#2F557A' : 'var(--charcoal)',
+                          color: isToday ? 'var(--paper)' :
+                            isSun ? 'var(--pill-coral-ink)' : isSat ? 'var(--pill-sky-ink)' : 'var(--charcoal)',
                           fontWeight: 700,
                           fontSize: detailOpen ? 12.5 : 13.5,
                           fontVariantNumeric: 'tabular-nums',
@@ -625,7 +623,7 @@ export function CalendarPage({ renderedTodayIso }: Props) {
                   zIndex: 2,
                 }}
               >
-                ›
+                <ChevronRight size={16} aria-hidden />
               </button>
             </div>
 
@@ -674,16 +672,16 @@ export function CalendarPage({ renderedTodayIso }: Props) {
               </button>
               {/* Day header card */}
               <div style={{
-                background: 'var(--ink)', color: '#fff',
+                background: 'var(--ink)', color: 'var(--paper)',
                 borderRadius: 24, padding: '24px 24px 22px',
                 position: 'relative', overflow: 'hidden',
               }}>
                 <SparkleFull size={36} color="var(--sage)" style={{ position: 'absolute', top: 18, right: 22, opacity: 0.9 }} />
-                <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.55)', letterSpacing: '0.08em', fontWeight: 700, marginBottom: 10 }}>
-                  {selectedDate === todayIso ? 'TODAY · 오늘' : 'SELECTED · 선택한 날짜'}
+                <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.55)', fontWeight: 700, marginBottom: 10 }}>
+                  {selectedDate === todayIso ? '오늘' : '선택한 날짜'}
                 </div>
                 <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
-                  <span style={{ fontSize: 56, fontWeight: 700, lineHeight: 1, color: '#fff' }}>
+                  <span style={{ fontSize: 56, fontWeight: 700, lineHeight: 1, color: 'var(--paper)' }}>
                     {parseInt(selectedDate.slice(8), 10)}
                   </span>
                   <span style={{ fontSize: 16, color: 'rgba(255,255,255,0.7)', fontWeight: 600 }}>
@@ -744,7 +742,7 @@ export function CalendarPage({ renderedTodayIso }: Props) {
                             display: 'inline-flex', alignItems: 'center', gap: 5,
                             padding: '2px 8px', borderRadius: 999,
                             background: accent.bg, color: accent.fg,
-                            fontSize: 10.5, fontWeight: 700, letterSpacing: '0.04em',
+                            fontSize: 10.5, fontWeight: 700,
                           }}>
                             <span style={{ width: 5, height: 5, borderRadius: 999, background: accent.dot }} />
                             {KIND_LABEL[event.kind]}
@@ -773,9 +771,6 @@ export function CalendarPage({ renderedTodayIso }: Props) {
         <div style={{ maxWidth: CONTENT_WIDTH, margin: '0 auto' }}>
           <div style={{ display: 'flex', alignItems: 'end', justifyContent: 'space-between', marginBottom: 20 }}>
             <div>
-              <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink)', letterSpacing: '0.08em', marginBottom: 6 }}>
-                UPCOMING · 다가오는 일정
-              </div>
               <h2 style={{ fontSize: 28, lineHeight: 1.1 }}>
                 앞으로 한 달, 놓치면 아쉬워요
               </h2>

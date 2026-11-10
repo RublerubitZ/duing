@@ -70,7 +70,7 @@ export function WeekBlockSheet({ block, onClose }: Props) {
                 <span
                   className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-bold ${
                     isPending
-                      ? 'border-warm/60 bg-warm/15 text-[#8E6620]'
+                      ? 'border-warm/60 bg-warm/15 text-warm-deep'
                       : 'border-line bg-graysoft text-charcoal-2'
                   }`}
                 >

@@ -2,6 +2,7 @@
 
 import type { FacilityItem } from '@duing/types';
 import { facilityIcon } from '@/app/_lib/facilityIcon';
+import { ArrowRight } from '@/components/duing/Icon';
 import { openDateLabel, todayFreeSlotCount } from '../../_lib/bookingHome';
 import { seoulDateIso } from '../../_lib/facilityTimeline';
 
@@ -53,7 +54,10 @@ export function FacilityHomeCard({ facility, onSelect }: Props) {
             ))}
           </div>
         </div>
-        <span className="btn btn-secondary mt-3 w-full justify-center">날짜 보기 →</span>
+        <span className="btn btn-secondary mt-3 w-full justify-center">
+          날짜 보기
+          <ArrowRight size={14} aria-hidden />
+        </span>
       </div>
     </button>
   );

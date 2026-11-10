@@ -49,7 +49,7 @@ export function BookingSuccess({
                 <span
                   className={`grid h-6 w-6 shrink-0 place-items-center rounded-full text-[11px] font-bold ${
                     item.state === 'done' ? 'bg-ink text-cream'
-                    : item.state === 'current' ? 'border-2 border-warm bg-[#FBEFD7] text-[#8E6620]'
+                    : item.state === 'current' ? 'pill-warm border-2 border-warm'
                     : 'bg-graysoft text-charcoal-3'
                   }`}
                 >

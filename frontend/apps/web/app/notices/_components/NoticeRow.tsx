@@ -21,9 +21,8 @@ export function NoticeRow({ notice }: Props) {
         width: 56, textAlign: 'center',
         fontSize: 11, fontWeight: 700,
         color: notice.pinned ? 'var(--ink)' : 'var(--charcoal-3)',
-        letterSpacing: '0.04em',
       }}>
-        {notice.pinned ? '📌' : ''} {notice.tag}
+        {notice.pinned ? '고정 ' : ''}{notice.tag}
       </div>
       <div style={{ flex: 1, fontSize: 15, fontWeight: 600, color: 'var(--charcoal)' }}>
         {notice.title}

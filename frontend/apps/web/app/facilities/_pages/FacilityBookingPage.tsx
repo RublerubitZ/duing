@@ -501,8 +501,7 @@ export function FacilityBookingPage() {
                 <p className="break-keep text-[12.5px] text-charcoal-3">{BOOKING_SCOPE_NOTE}</p>
               </div>
               <header>
-                <p className="text-xs font-medium tracking-widest text-charcoal-3">RESERVE · 시설 예약</p>
-                <h1 className="mt-1 text-2xl text-ink-deep">예약할 시설을 골라보세요</h1>
+                <h1 className="text-2xl text-ink-deep">예약할 시설을 골라보세요</h1>
                 <p className="mt-1.5 text-sm text-charcoal-2">
                   학교 예약 현황을 반영해요. 비어 있는 시간만 신청할 수 있어요.
                 </p>
@@ -526,8 +525,7 @@ export function FacilityBookingPage() {
               <div>
                 <PageSegment label="일정·시설" items={CALENDAR_FACILITY_SEGMENT_ITEMS} />
                 <p className="mb-4 break-keep text-[12.5px] text-charcoal-3">{BOOKING_SCOPE_NOTE}</p>
-                <p className="text-xs font-medium tracking-widest text-charcoal-3">FACILITY · 시설 예약</p>
-                <h1 className="mb-3 mt-1 text-2xl text-ink-deep">{selectedFacility?.roomName ?? '시설'} 예약</h1>
+                <h1 className="mb-3 text-2xl text-ink-deep">{selectedFacility?.roomName ?? '시설'} 예약</h1>
                 <FacilityContextBar
                   facilities={contextFacilities}
                   selectedId={effectiveFacilityId}
