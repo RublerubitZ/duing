@@ -18,7 +18,7 @@ export function FormSwitch({ checked, onChange, ariaLabel, disabled = false }: F
       aria-label={ariaLabel}
       disabled={disabled}
       onClick={() => onChange(!checked)}
-      className={`relative h-[26px] w-[46px] shrink-0 rounded-full transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink disabled:cursor-default ${
+      className={`relative h-[26px] w-[46px] shrink-0 rounded-full transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink disabled:cursor-default disabled:opacity-60 ${
         checked ? 'bg-ink' : 'bg-charcoal-3/50'
       }`}
     >
