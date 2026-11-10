@@ -30,7 +30,7 @@ export function AdminMockup() {
 
       {/* 지원자 테이블 */}
       <div className="overflow-hidden rounded-md border border-line">
-        <div className="grid grid-cols-[1fr_1fr_auto] items-center gap-2.5 bg-paper px-3.5 py-2.5 tabular-nums text-[11px] uppercase tracking-[0.08em] text-charcoal-3">
+        <div className="grid grid-cols-[1fr_1fr_auto] items-center gap-2.5 bg-paper px-3.5 py-2.5 text-[11px] text-charcoal-3">
           <span>지원자</span>
           <span>학과</span>
           <span>상태</span>

@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { toRoute } from '@/app/_lib/route';
+import { ArrowRight } from '@/components/duing/Icon';
 import { SparkleFull } from '@/components/duing/Sparkle';
 import { Reveal } from '../motion/Reveal';
 
@@ -20,7 +21,7 @@ export function Cta() {
           <div className="flex flex-wrap justify-center gap-3">
             <Link href={toRoute('/signup')} className="btn btn-primary btn-big rounded-full">
               지금 시작하기
-              <span aria-hidden>→</span>
+              <ArrowRight size={16} aria-hidden />
             </Link>
             <Link href={toRoute('/clubs')} className="btn btn-secondary btn-big rounded-full">
               동아리 둘러보기

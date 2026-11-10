@@ -8,6 +8,7 @@ import { useCompletePasswordResetMutation } from '@duing/hooks';
 import { passwordSchema } from '@duing/schemas';
 import { PhoneVerificationField } from '@/app/_components/PhoneVerificationField';
 import { ButtonSpinner } from '@/components/loading/Spinner';
+import { ArrowLeft } from '@/components/duing/Icon';
 import { usePasswordResetVerification } from '@/app/_lib/use-phone-verification';
 import { useToast } from '@/app/_components/toast/ToastProvider';
 import { captureEvent } from '@/app/_lib/analytics';
@@ -70,7 +71,8 @@ export function ForgotPasswordPanel() {
           href="/login"
           className="flex items-center gap-1 text-sm text-charcoal-2 transition-colors hover:text-charcoal"
         >
-          ← 로그인으로
+          <ArrowLeft size={14} aria-hidden />
+          로그인으로
         </Link>
       </nav>
 
