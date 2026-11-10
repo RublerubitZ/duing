@@ -208,7 +208,7 @@ function LoginForm() {
                   className={cn(
                     'w-full rounded-md border bg-paper py-3 pl-10 pr-10 text-sm text-charcoal outline-none transition',
                     'placeholder:text-charcoal-3/50',
-                    'border-line focus:border-ink focus:ring-1 focus:ring-ink/20',
+                    'border-field focus:border-ink focus:ring-1 focus:ring-ink/20',
                   )}
                 />
                 {isStudentIdValid && (
@@ -245,7 +245,7 @@ function LoginForm() {
                   onChange={(changeEvent) => setPassword(changeEvent.target.value)}
                   className={cn(
                     'w-full rounded-md border bg-paper py-3 pl-10 pr-11 text-sm text-charcoal outline-none transition',
-                    'border-line focus:border-ink focus:ring-1 focus:ring-ink/20',
+                    'border-field focus:border-ink focus:ring-1 focus:ring-ink/20',
                   )}
                 />
                 <button

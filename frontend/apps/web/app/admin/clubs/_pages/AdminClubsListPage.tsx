@@ -335,7 +335,7 @@ function AdminClubsList({
           value={keywordDraft}
           onChange={(event) => setKeywordDraft(event.target.value)}
           placeholder="이름 또는 설명으로 검색"
-          className="border-line bg-paper w-full max-w-sm rounded-md border px-3 py-2 text-sm"
+          className="border-field bg-paper w-full max-w-sm rounded-md border px-3 py-2 text-sm"
         />
         <button
           type="submit"

@@ -99,7 +99,7 @@ function isExhausted(joinCode: JoinCodeSummary): boolean {
 }
 
 const fieldCls =
-  'w-full rounded-md border border-line bg-paper px-3 py-2 text-sm text-charcoal transition-colors placeholder:text-charcoal-3 focus-visible:border-ink focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring';
+  'w-full rounded-md border border-field bg-paper px-3 py-2 text-sm text-charcoal transition-colors placeholder:text-charcoal-3 focus-visible:border-ink focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring';
 
 /** 모집 상세용 — 제목과 테두리를 갖춘 섹션 껍데기. 내용은 패널이 전부 갖는다. */
 export function MemberEnrollmentSection(props: MemberEnrollmentProps) {

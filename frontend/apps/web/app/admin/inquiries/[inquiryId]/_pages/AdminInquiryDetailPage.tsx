@@ -367,7 +367,7 @@ export function AdminInquiryDetailPage({ inquiryId }: Props) {
               maxLength={ANSWER_MAX_LENGTH}
               required
               rows={8}
-              className="w-full resize-none rounded-lg border border-line px-3 py-2 text-sm text-ink-deep focus:border-ink focus:outline-none focus:ring-[3px] focus:ring-ink/15"
+              className="w-full resize-none rounded-lg border border-field px-3 py-2 text-sm text-ink-deep focus:border-ink focus:outline-none focus:ring-[3px] focus:ring-ink/15"
             />
           </label>
           {editAnswerError && (
@@ -425,7 +425,7 @@ export function AdminInquiryDetailPage({ inquiryId }: Props) {
               required
               rows={8}
               placeholder="학생에게 전달할 답변을 입력하세요"
-              className="w-full resize-none rounded-lg border border-line px-3 py-2 text-sm text-ink-deep focus:border-ink focus:outline-none focus:ring-[3px] focus:ring-ink/15"
+              className="w-full resize-none rounded-lg border border-field px-3 py-2 text-sm text-ink-deep focus:border-ink focus:outline-none focus:ring-[3px] focus:ring-ink/15"
             />
           </label>
           {answerError && (

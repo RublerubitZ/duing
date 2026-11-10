@@ -220,7 +220,7 @@ export function NoticeRichEditor({ value, format, onChange, features }: Props) {
             inputMode="url"
             aria-label="링크 URL"
             placeholder="https://"
-            className="h-8 min-w-0 flex-1 rounded-md border border-line bg-paper px-2.5 text-[13px] text-charcoal placeholder:text-charcoal-3 focus:border-sage focus:outline-none"
+            className="h-8 min-w-0 flex-1 rounded-md border border-field bg-paper px-2.5 text-[13px] text-charcoal placeholder:text-charcoal-3 focus:border-sage focus:outline-none"
           />
           <button type="button" onClick={applyLink} className="h-8 shrink-0 rounded-md bg-ink px-3 text-[12.5px] font-medium text-paper transition hover:opacity-90">적용</button>
           {editor.isActive('link') && (

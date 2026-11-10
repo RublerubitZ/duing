@@ -67,7 +67,7 @@ export function SlotPatternForm({ onGenerate, isPending = false }: Props) {
             onChange={(event) => setDate(event.target.value)}
             required
             aria-label="시작 날짜"
-            className="mt-1 w-full rounded-md border border-line px-2 py-1 text-sm focus:border-ink focus:outline-none focus:ring-[3px] focus:ring-ink/15"
+            className="mt-1 w-full rounded-md border border-field px-2 py-1 text-sm focus:border-ink focus:outline-none focus:ring-[3px] focus:ring-ink/15"
           />
         </label>
 
@@ -79,7 +79,7 @@ export function SlotPatternForm({ onGenerate, isPending = false }: Props) {
             onChange={(event) => setStartTime(event.target.value)}
             required
             aria-label="시작 시각"
-            className="mt-1 w-full rounded-md border border-line px-2 py-1 text-sm focus:border-ink focus:outline-none focus:ring-[3px] focus:ring-ink/15"
+            className="mt-1 w-full rounded-md border border-field px-2 py-1 text-sm focus:border-ink focus:outline-none focus:ring-[3px] focus:ring-ink/15"
           />
         </label>
 
@@ -91,7 +91,7 @@ export function SlotPatternForm({ onGenerate, isPending = false }: Props) {
             onChange={(event) => setEndTime(event.target.value)}
             required
             aria-label="종료 시각"
-            className="mt-1 w-full rounded-md border border-line px-2 py-1 text-sm focus:border-ink focus:outline-none focus:ring-[3px] focus:ring-ink/15"
+            className="mt-1 w-full rounded-md border border-field px-2 py-1 text-sm focus:border-ink focus:outline-none focus:ring-[3px] focus:ring-ink/15"
           />
         </label>
 
@@ -104,7 +104,7 @@ export function SlotPatternForm({ onGenerate, isPending = false }: Props) {
             value={durationMinutes}
             onChange={(event) => setDurationMinutes(readNumberInput(event, 30))}
             aria-label="면접 시간 (분)"
-            className="mt-1 w-full rounded-md border border-line px-2 py-1 text-sm focus:border-ink focus:outline-none focus:ring-[3px] focus:ring-ink/15"
+            className="mt-1 w-full rounded-md border border-field px-2 py-1 text-sm focus:border-ink focus:outline-none focus:ring-[3px] focus:ring-ink/15"
           />
         </label>
 
@@ -118,7 +118,7 @@ export function SlotPatternForm({ onGenerate, isPending = false }: Props) {
             onChange={(event) => setCapacity(readNumberInput(event, 1))}
             required
             aria-label="정원"
-            className="mt-1 w-full rounded-md border border-line px-2 py-1 text-sm focus:border-ink focus:outline-none focus:ring-[3px] focus:ring-ink/15"
+            className="mt-1 w-full rounded-md border border-field px-2 py-1 text-sm focus:border-ink focus:outline-none focus:ring-[3px] focus:ring-ink/15"
           />
         </label>
       </div>

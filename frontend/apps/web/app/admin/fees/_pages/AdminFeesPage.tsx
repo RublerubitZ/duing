@@ -43,7 +43,7 @@ const SORT_OPTIONS: { label: string; value: AdminFeeClubSort }[] = [
 ];
 
 const inputCls =
-  'w-full rounded-md border border-line bg-paper px-3 py-2 text-sm text-charcoal transition-colors placeholder:text-charcoal-3 focus-visible:border-ink focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring';
+  'w-full rounded-md border border-field bg-paper px-3 py-2 text-sm text-charcoal transition-colors placeholder:text-charcoal-3 focus-visible:border-ink focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring';
 
 export function AdminFeesPage() {
   // 검색어만 컴포넌트 상태다 — 동아리명이 주소에 실리면 방문 기록·referrer·페이지뷰 이벤트로 새어나간다.
@@ -119,7 +119,7 @@ export function AdminFeesPage() {
               aria-label="정렬"
               value={query.sort}
               onChange={(event) => syncQuery({ sort: toSort(event.target.value) })}
-              className="rounded-md border border-line bg-paper px-2.5 py-2 text-[12.5px] text-charcoal focus-visible:border-ink focus-visible:outline-none"
+              className="rounded-md border border-field bg-paper px-2.5 py-2 text-[12.5px] text-charcoal focus-visible:border-ink focus-visible:outline-none"
             >
               {SORT_OPTIONS.map((option) => (
                 <option key={option.value} value={option.value}>

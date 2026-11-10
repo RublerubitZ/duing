@@ -95,7 +95,7 @@ export function AdminUserStatusDialog({ detail, nextStatus, isPending, onConfirm
             aria-describedby="status-reason-hint"
             onChange={(event) => setReason(event.target.value)}
             placeholder="예) 커뮤니티 신고 3건 누적"
-            className="min-h-[72px] w-full rounded-md border border-line bg-paper px-3 py-2 text-sm text-charcoal placeholder:text-charcoal-3 focus-visible:border-ink focus-visible:outline-none"
+            className="min-h-[72px] w-full rounded-md border border-field bg-paper px-3 py-2 text-sm text-charcoal placeholder:text-charcoal-3 focus-visible:border-ink focus-visible:outline-none"
           />
           <div
             id="status-reason-hint"

@@ -30,6 +30,7 @@ Du-ing 의 비주얼 랭귀지는 따뜻한 크림 캔버스(#F6F3EC) 위에서 
 | Charcoal 2 | `#4A504F` | `charcoal-2` / `--charcoal-2` | 보조 텍스트 |
 | Charcoal 3 | `#5C645F` | `charcoal-3` / `--charcoal-3` | 메타·캡션·빈 상태 텍스트 — 텍스트 위계의 바닥 |
 | Line | `#E5E2DA` | `line` / `--gray-line` | 모든 보더의 기본 — 1px 웜그레이 헤어라인. 점선 변형도 이 색 |
+| Field | `#878D89` | `field` | 입력칸·선택칸·글상자의 테두리 — 주변과 3:1 이상(흰 바탕 3.39, 크림 3.06). 카드·표·구분선에는 쓰지 않는다(그쪽은 `line`) |
 | Gray Soft | `#F0EDE5` | `graysoft` / `--gray-soft` | `btn-ghost` hover, 빈 상태 배경 워시 |
 | Warm | `#E8B968` | `warm` / `--warm` | 옐로 액센트 — pill 페어 전용 (`#fbefd7` / `#8e6620`) |
 | Coral | `#D97757` | `coral` / `--coral` | 코랄 액센트 — pill 페어(`#fce2d9` / `#9a3f23`). 흰 글자를 얹는 위험 버튼·긴급 배지는 coral 이 아니라 `danger` |

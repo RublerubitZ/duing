@@ -46,7 +46,7 @@ const KIND_OPTIONS: { label: string; value?: FeeAuditCommentKind }[] = [
 ];
 
 const selectCls =
-  'rounded-md border border-line bg-paper px-2 py-1 text-[11.5px] text-charcoal focus-visible:border-ink focus-visible:outline-none';
+  'rounded-md border border-field bg-paper px-2 py-1 text-[11.5px] text-charcoal focus-visible:border-ink focus-visible:outline-none';
 
 /**
  * 의견·메모 탭(스펙 §8.6). 이 콘솔에서 유일하게 쓰기가 있는 화면이지만, 쓰는 대상은 총동연 자신의
@@ -116,7 +116,7 @@ export function FeeAuditCommentPanel({ clubId }: { clubId: number }) {
               maxLength={CONTENT_MAX_LENGTH}
               rows={3}
               placeholder={meta.placeholder}
-              className="w-full resize-none rounded-lg border border-line px-3 py-2 text-[13px] text-ink-deep focus:border-ink focus:outline-none focus:ring-[3px] focus:ring-ink/15"
+              className="w-full resize-none rounded-lg border border-field px-3 py-2 text-[13px] text-ink-deep focus:border-ink focus:outline-none focus:ring-[3px] focus:ring-ink/15"
             />
           </label>
           <div className="flex items-center justify-between gap-2">

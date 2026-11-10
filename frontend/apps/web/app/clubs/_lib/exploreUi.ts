@@ -28,7 +28,7 @@ export const CATEGORY_TAB_CLASS = (on: boolean): string =>
 /** 찜한 동아리 필터 칩 — 데스크탑 카운트 행의 높이를 정한다(모바일 필터 시트에서도 쓴다). */
 export const FAVORITE_CHIP_CLASS = (on: boolean): string =>
   cn(
-    'tap-pill inline-flex items-center gap-1.5 rounded-full border-[1.5px] px-3.5 py-2 text-[13px] font-semibold',
+    'tap-pill inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border-[1.5px] px-3.5 py-2 text-[13px] font-semibold',
     on ? 'border-ink bg-ink text-white' : 'border-line bg-paper text-charcoal-2',
   );
 
@@ -43,7 +43,7 @@ export const SORT_OPTIONS: ReadonlyArray<{ value: SortKey; label: string }> = [
 ];
 
 export const SORT_SELECT_CLASS = {
-  desktop: 'px-3.5 py-2 bg-paper rounded-[10px] border border-line text-[13.5px] font-semibold text-charcoal-2',
+  desktop: 'px-3.5 py-2 bg-paper rounded-[10px] border border-field text-[13.5px] font-semibold text-charcoal-2',
   mobile: 'appearance-none bg-transparent pr-4 text-[12.5px] font-semibold text-charcoal-2',
 };
 

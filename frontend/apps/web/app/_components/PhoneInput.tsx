@@ -28,7 +28,7 @@ export function PhoneInput({ value, onChange }: Props) {
         value={value}
         onChange={(changeEvent) => onChange(formatPhone(changeEvent.target.value))}
         placeholder="010-1234-5678"
-        className="w-full rounded-md border border-line bg-paper py-3 pl-10 pr-3.5 text-sm text-charcoal outline-none transition focus:border-ink focus:ring-1 focus:ring-ink/20 placeholder:text-charcoal-3/50"
+        className="w-full rounded-md border border-field bg-paper py-3 pl-10 pr-3.5 text-sm text-charcoal outline-none transition focus:border-ink focus:ring-1 focus:ring-ink/20 placeholder:text-charcoal-3/50"
       />
     </div>
   );

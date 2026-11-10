@@ -48,7 +48,7 @@ function statusErrorMessage(error: unknown): string {
 }
 
 const inputCls =
-  'w-full rounded-md border border-line bg-paper px-3 py-2 text-sm text-charcoal transition-colors placeholder:text-charcoal-3 focus-visible:border-ink focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring';
+  'w-full rounded-md border border-field bg-paper px-3 py-2 text-sm text-charcoal transition-colors placeholder:text-charcoal-3 focus-visible:border-ink focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring';
 
 export function AdminUsersPage() {
   // 검색어만 컴포넌트 상태다 — 이름·학번이 주소에 실리면 방문 기록·referrer·페이지뷰 이벤트로 새어나간다.

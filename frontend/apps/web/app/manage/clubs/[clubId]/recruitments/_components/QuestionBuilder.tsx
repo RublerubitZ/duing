@@ -170,7 +170,7 @@ export function QuestionBuilder({ questions, onChange, nextKey }: QuestionBuilde
               value={question.text}
               onChange={(event) => handleChangeText(question.key, event.target.value)}
               placeholder={`질문 ${index + 1}을 입력하세요`}
-              className="min-w-0 flex-1 rounded-[10px] border border-line bg-paper px-3 py-2 text-sm focus:border-ink focus:outline-none focus:ring-[3px] focus:ring-ink/15"
+              className="min-w-0 flex-1 rounded-[10px] border border-field bg-paper px-3 py-2 text-sm focus:border-ink focus:outline-none focus:ring-[3px] focus:ring-ink/15"
             />
             <div className="flex basis-full justify-end gap-1 md:basis-auto">
               <button
@@ -231,7 +231,7 @@ export function QuestionBuilder({ questions, onChange, nextKey }: QuestionBuilde
                         handleChangeChoiceLabel(question.key, choice.key, event.target.value)
                       }
                       placeholder={`선택지 ${choiceIndex + 1}`}
-                      className="min-w-0 flex-1 rounded-[10px] border border-line bg-paper px-3 py-2 text-sm focus:border-ink focus:outline-none focus:ring-[3px] focus:ring-ink/15"
+                      className="min-w-0 flex-1 rounded-[10px] border border-field bg-paper px-3 py-2 text-sm focus:border-ink focus:outline-none focus:ring-[3px] focus:ring-ink/15"
                     />
                     <button
                       type="button"

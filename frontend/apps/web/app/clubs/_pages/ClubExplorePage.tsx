@@ -356,7 +356,7 @@ export function ClubExplorePage() {
 
             <form
               onSubmit={handleSearchSubmit}
-              className="flex items-center gap-2 p-1 w-[360px] bg-paper rounded-[14px] border border-line focus-within:border-ink"
+              className="flex items-center gap-2 p-1 w-[360px] bg-paper rounded-[14px] border border-field focus-within:border-ink"
             >
               <div className="flex-1 flex items-center gap-2.5 px-3.5 py-2.5">
                 <Icon.search className="text-charcoal-3 w-[18px] h-[18px]" />
@@ -706,7 +706,7 @@ export function ClubExplorePage() {
         <div className="sticky top-0 z-40 border-b border-line bg-cream/95 px-4 py-2.5 backdrop-blur sm:px-6">
           <form
             onSubmit={handleSearchSubmit}
-            className="flex items-center gap-2.5 rounded-[14px] border border-line bg-paper px-4 py-3 shadow-1 focus-within:border-ink"
+            className="flex items-center gap-2.5 rounded-[14px] border border-field bg-paper px-4 py-3 shadow-1 focus-within:border-ink"
           >
             <Icon.search className="h-[18px] w-[18px] text-charcoal-3" />
             <input

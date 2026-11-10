@@ -319,13 +319,13 @@ export function SubmissionPrepareTab() {
           <input
             type="date" aria-label="시작일" value={startDate}
             onChange={(event) => applyPeriod(event.target.value, endDate)}
-            className="rounded-[10px] border border-line bg-paper px-3 py-[7px] text-[13px] text-charcoal"
+            className="rounded-[10px] border border-field bg-paper px-3 py-[7px] text-[13px] text-charcoal"
           />
           <span aria-hidden className="text-xs text-charcoal-3">–</span>
           <input
             type="date" aria-label="종료일" value={endDate}
             onChange={(event) => applyPeriod(startDate, event.target.value)}
-            className="rounded-[10px] border border-line bg-paper px-3 py-[7px] text-[13px] text-charcoal"
+            className="rounded-[10px] border border-field bg-paper px-3 py-[7px] text-[13px] text-charcoal"
           />
           <div role="group" aria-label="기간 프리셋" className="flex gap-1">
             {PERIOD_PRESETS.map((preset) => (
@@ -349,7 +349,7 @@ export function SubmissionPrepareTab() {
           />
           <select
             aria-label="제출 상태"
-            className="rounded-[10px] border border-line bg-paper px-3 py-2 text-[13px] font-semibold text-charcoal"
+            className="rounded-[10px] border border-field bg-paper px-3 py-2 text-[13px] font-semibold text-charcoal"
             value={summaryFilter}
             onChange={(event) => setSummaryFilter(toSummaryFilter(event.target.value))}
           >

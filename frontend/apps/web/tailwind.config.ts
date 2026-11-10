@@ -39,6 +39,9 @@ const config: Config = {
           3: '#5C645F',
         },
         line: '#E5E2DA',
+        // field — 입력칸·선택칸·글상자의 테두리. line 은 헤어라인이라 흰 면·크림 위에서 1.2:1 안팎이고,
+        // 입력칸 경계는 주변과 3:1 이상이어야 한다(WCAG 1.4.11). 흰 바탕 3.39:1, 크림 3.06:1 — 더 밝히지 말 것.
+        field: '#878D89',
         graysoft: '#F0EDE5',
         cream: {
           DEFAULT: '#F6F3EC',

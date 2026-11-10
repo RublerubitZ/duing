@@ -326,7 +326,7 @@ export function AdminPromotionForm(props: Props) {
           value={state.title}
           onChange={(event) => update('title', event.target.value)}
           required
-          className="w-full px-3.5 py-2 rounded-md border border-line bg-paper text-[14px]"
+          className="w-full px-3.5 py-2 rounded-md border border-field bg-paper text-[14px]"
         />
         {state.renderMode === 'FULL_BLEED_IMAGE' && (
           <p className="mt-1 text-[12px] text-charcoal-3">
@@ -344,7 +344,7 @@ export function AdminPromotionForm(props: Props) {
               value={state.tag}
               onChange={(event) => update('tag', event.target.value)}
               placeholder="EVENT · 9.25 — 9.27"
-              className="w-full px-3.5 py-2 rounded-md border border-line bg-paper text-[14px]"
+              className="w-full px-3.5 py-2 rounded-md border border-field bg-paper text-[14px]"
             />
           </Field>
 
@@ -355,7 +355,7 @@ export function AdminPromotionForm(props: Props) {
               value={state.subtitle}
               onChange={(event) => update('subtitle', event.target.value)}
               placeholder="67개 동아리 · 80개 부스 · 중앙광장"
-              className="w-full px-3.5 py-2 rounded-md border border-line bg-paper text-[14px]"
+              className="w-full px-3.5 py-2 rounded-md border border-field bg-paper text-[14px]"
             />
           </Field>
 
@@ -367,7 +367,7 @@ export function AdminPromotionForm(props: Props) {
                 value={state.ctaLabel}
                 onChange={(event) => update('ctaLabel', event.target.value)}
                 placeholder="박람회 자세히 보기"
-                className="w-full px-3.5 py-2 rounded-md border border-line bg-paper text-[14px]"
+                className="w-full px-3.5 py-2 rounded-md border border-field bg-paper text-[14px]"
               />
             </Field>
             <Field label="이모지 (선택, 1자 권장)">
@@ -377,7 +377,7 @@ export function AdminPromotionForm(props: Props) {
                 value={state.emoji}
                 onChange={(event) => update('emoji', event.target.value)}
                 placeholder="🍂"
-                className="w-full px-3.5 py-2 rounded-md border border-line bg-paper text-[14px]"
+                className="w-full px-3.5 py-2 rounded-md border border-field bg-paper text-[14px]"
               />
             </Field>
           </div>
@@ -413,7 +413,7 @@ export function AdminPromotionForm(props: Props) {
           value={state.imageAltText}
           onChange={(event) => update('imageAltText', event.target.value)}
           placeholder="2026 AI 학과 해커톤 참가자 모집"
-          className="w-full px-3.5 py-2 rounded-md border border-line bg-paper text-[14px]"
+          className="w-full px-3.5 py-2 rounded-md border border-field bg-paper text-[14px]"
         />
         <p className="mt-1 text-[12px] text-charcoal-3">
           이미지가 보이지 않을 때 대신 보여주거나 읽어주는 설명입니다.
@@ -478,7 +478,7 @@ export function AdminPromotionForm(props: Props) {
             value={state.linkUrl}
             onChange={(event) => update('linkUrl', event.target.value)}
             placeholder="https://..."
-            className="w-full px-3.5 py-2 rounded-md border border-line bg-paper text-[14px]"
+            className="w-full px-3.5 py-2 rounded-md border border-field bg-paper text-[14px]"
           />
         </Field>
       )}
@@ -557,7 +557,7 @@ export function AdminPromotionForm(props: Props) {
                 type="datetime-local"
                 value={state.startAt}
                 onChange={(event) => update('startAt', event.target.value)}
-                className="w-full px-3 py-2 rounded-md border border-line bg-paper text-[13.5px]"
+                className="w-full px-3 py-2 rounded-md border border-field bg-paper text-[13.5px]"
               />
             </label>
             <label className="block">
@@ -566,7 +566,7 @@ export function AdminPromotionForm(props: Props) {
                 type="datetime-local"
                 value={state.endAt}
                 onChange={(event) => update('endAt', event.target.value)}
-                className="w-full px-3 py-2 rounded-md border border-line bg-paper text-[13.5px]"
+                className="w-full px-3 py-2 rounded-md border border-field bg-paper text-[13.5px]"
               />
             </label>
             <p className="col-span-1 text-[12px] text-charcoal-3 sm:col-span-2">
@@ -583,7 +583,7 @@ export function AdminPromotionForm(props: Props) {
           value={state.displayOrder}
           onChange={(event) => update('displayOrder', event.target.value)}
           required
-          className="w-32 px-3.5 py-2 rounded-md border border-line bg-paper text-[14px]"
+          className="w-32 px-3.5 py-2 rounded-md border border-field bg-paper text-[14px]"
         />
       </Field>
 

@@ -7,7 +7,7 @@ import { cn } from '@/app/_lib/cn';
 
 /** 검색줄 컨테이너 — 입력과 검색 버튼을 한 줄에 담는다. */
 export const FAQ_SEARCH_BAR_CLASS =
-  'mb-5 flex items-center gap-2 rounded-[14px] border border-line bg-paper px-4 py-2.5 focus-within:border-ink md:max-w-[420px]';
+  'mb-5 flex items-center gap-2 rounded-[14px] border border-field bg-paper px-4 py-2.5 focus-within:border-ink md:max-w-[420px]';
 
 export const FAQ_SEARCH_INPUT_CLASS = 'min-w-0 flex-1 border-none bg-transparent text-sm outline-none';
 

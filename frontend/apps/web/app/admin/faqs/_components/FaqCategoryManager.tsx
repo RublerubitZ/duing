@@ -136,7 +136,7 @@ export function FaqCategoryManager() {
                   value={editingName}
                   maxLength={50}
                   onChange={(event) => setEditingName(event.target.value)}
-                  className="flex-1 rounded-md border border-line bg-paper px-2.5 py-1.5 text-[13px]"
+                  className="flex-1 rounded-md border border-field bg-paper px-2.5 py-1.5 text-[13px]"
                 />
               ) : (
                 <span className="flex-1 text-[13px] text-charcoal">{category.name}</span>
@@ -194,7 +194,7 @@ export function FaqCategoryManager() {
               maxLength={50}
               onChange={(event) => setNewName(event.target.value)}
               placeholder="새 카테고리 이름"
-              className="flex-1 rounded-md border border-line bg-paper px-2.5 py-1.5 text-[13px]"
+              className="flex-1 rounded-md border border-field bg-paper px-2.5 py-1.5 text-[13px]"
             />
             <button
               type="button"

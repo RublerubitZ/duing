@@ -3,7 +3,7 @@
 import type { ClubFaq } from '@duing/types';
 
 const cardInputCls =
-  'w-full border border-line bg-white rounded-[8px] px-3 py-2 text-[14px] text-ink-deep placeholder:text-charcoal-3 focus:outline-none focus:border-ink focus:ring-[3px] focus:ring-ink/15 transition-[border-color,box-shadow]';
+  'w-full border border-field bg-white rounded-[8px] px-3 py-2 text-[14px] text-ink-deep placeholder:text-charcoal-3 focus:outline-none focus:border-ink focus:ring-[3px] focus:ring-ink/15 transition-[border-color,box-shadow]';
 
 const deleteBtnCls =
   'px-2 py-1 rounded-[6px] text-[12.5px] text-charcoal-3 hover:text-danger hover:bg-danger/5 cursor-pointer transition-colors bg-transparent border-none';

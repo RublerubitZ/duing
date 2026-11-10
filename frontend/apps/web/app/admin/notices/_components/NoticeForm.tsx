@@ -41,7 +41,7 @@ export function NoticeForm({ initialState, submitLabel, isSubmitting, onSubmit, 
           value={state.title}
           onChange={(event) => update('title', event.target.value)}
           required
-          className="w-full px-3.5 py-2 rounded-md border border-line bg-paper text-[14px]"
+          className="w-full px-3.5 py-2 rounded-md border border-field bg-paper text-[14px]"
         />
       </Field>
 
@@ -50,7 +50,7 @@ export function NoticeForm({ initialState, submitLabel, isSubmitting, onSubmit, 
           value={state.summary} maxLength={300} rows={2}
           onChange={(event) => update('summary', event.target.value)}
           required
-          className="w-full px-3.5 py-2 rounded-md border border-line bg-paper text-[14px]"
+          className="w-full px-3.5 py-2 rounded-md border border-field bg-paper text-[14px]"
         />
       </Field>
 
@@ -79,7 +79,7 @@ export function NoticeForm({ initialState, submitLabel, isSubmitting, onSubmit, 
           type="url"
           value={state.linkUrl}
           onChange={(event) => update('linkUrl', event.target.value)}
-          className="w-full px-3.5 py-2 rounded-md border border-line bg-paper text-[14px]"
+          className="w-full px-3.5 py-2 rounded-md border border-field bg-paper text-[14px]"
         />
       </Field>
 
@@ -92,7 +92,7 @@ export function NoticeForm({ initialState, submitLabel, isSubmitting, onSubmit, 
               type="datetime-local"
               value={state.eventStartAt}
               onChange={(event) => update('eventStartAt', event.target.value)}
-              className="w-full px-3 py-2 rounded-md border border-line bg-paper text-[13.5px]"
+              className="w-full px-3 py-2 rounded-md border border-field bg-paper text-[13.5px]"
             />
           </label>
           <label className="block">
@@ -101,7 +101,7 @@ export function NoticeForm({ initialState, submitLabel, isSubmitting, onSubmit, 
               type="datetime-local"
               value={state.eventEndAt}
               onChange={(event) => update('eventEndAt', event.target.value)}
-              className="w-full px-3 py-2 rounded-md border border-line bg-paper text-[13.5px]"
+              className="w-full px-3 py-2 rounded-md border border-field bg-paper text-[13.5px]"
             />
           </label>
         </div>
@@ -111,7 +111,7 @@ export function NoticeForm({ initialState, submitLabel, isSubmitting, onSubmit, 
             type="text" maxLength={200}
             value={state.location}
             onChange={(event) => update('location', event.target.value)}
-            className="w-full px-3.5 py-2 rounded-md border border-line bg-paper text-[14px]"
+            className="w-full px-3.5 py-2 rounded-md border border-field bg-paper text-[14px]"
           />
         </label>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -121,7 +121,7 @@ export function NoticeForm({ initialState, submitLabel, isSubmitting, onSubmit, 
               type="text" maxLength={200}
               value={state.host}
               onChange={(event) => update('host', event.target.value)}
-              className="w-full px-3.5 py-2 rounded-md border border-line bg-paper text-[14px]"
+              className="w-full px-3.5 py-2 rounded-md border border-field bg-paper text-[14px]"
             />
           </label>
           <label className="block">
@@ -130,7 +130,7 @@ export function NoticeForm({ initialState, submitLabel, isSubmitting, onSubmit, 
               type="text" maxLength={200}
               value={state.audience}
               onChange={(event) => update('audience', event.target.value)}
-              className="w-full px-3.5 py-2 rounded-md border border-line bg-paper text-[14px]"
+              className="w-full px-3.5 py-2 rounded-md border border-field bg-paper text-[14px]"
             />
           </label>
         </div>
@@ -145,7 +145,7 @@ export function NoticeForm({ initialState, submitLabel, isSubmitting, onSubmit, 
               update('category', next);
             }
           }}
-          className="px-3 py-2 rounded-md border border-line bg-paper text-[13.5px]"
+          className="px-3 py-2 rounded-md border border-field bg-paper text-[13.5px]"
         >
           {NOTICE_CATEGORY_OPTIONS.filter((opt) => opt.value !== 'ALL').map((opt) => (
             <option key={opt.value} value={opt.value}>{opt.label}</option>
@@ -177,7 +177,7 @@ export function NoticeForm({ initialState, submitLabel, isSubmitting, onSubmit, 
           type="date"
           value={state.expiresAt ? state.expiresAt.slice(0, 10) : ''}
           onChange={(event) => update('expiresAt', event.target.value ? `${event.target.value}T23:59` : null)}
-          className="px-3 py-2 rounded-md border border-line bg-paper text-[13.5px]"
+          className="px-3 py-2 rounded-md border border-field bg-paper text-[13.5px]"
         />
       </Field>
 

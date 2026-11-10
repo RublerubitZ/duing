@@ -80,7 +80,7 @@ function SortableProjectRow({
             maxLength={30}
             onChange={(event) => onPatch({ title: event.target.value })}
             placeholder="프로젝트 제목 (30자 이내)"
-            className="w-full rounded-[8px] border border-line px-3 py-2 text-[13.5px] focus:border-ink focus:outline-none"
+            className="w-full rounded-[8px] border border-field px-3 py-2 text-[13.5px] focus:border-ink focus:outline-none"
           />
           <input
             type="text"
@@ -88,7 +88,7 @@ function SortableProjectRow({
             maxLength={40}
             onChange={(event) => onPatch({ subtitle: event.target.value === '' ? null : event.target.value })}
             placeholder="부제목 (선택, 40자 이내)"
-            className="w-full rounded-[8px] border border-line px-3 py-2 text-[13.5px] focus:border-ink focus:outline-none"
+            className="w-full rounded-[8px] border border-field px-3 py-2 text-[13.5px] focus:border-ink focus:outline-none"
           />
         </div>
       )}

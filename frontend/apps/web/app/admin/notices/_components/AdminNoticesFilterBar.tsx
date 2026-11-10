@@ -31,7 +31,7 @@ export function AdminNoticesFilterBar({
           const next = event.target.value;
           if (isVisibilityOption(next)) onVisibilityChange(next);
         }}
-        className="px-3 py-1.5 rounded-md border border-line bg-paper text-[13px]"
+        className="px-3 py-1.5 rounded-md border border-field bg-paper text-[13px]"
       >
         {OPTIONS.map((opt) => (
           <option key={opt} value={opt}>
@@ -49,7 +49,7 @@ export function AdminNoticesFilterBar({
           value={keyword}
           onChange={(event) => onKeywordChange(event.target.value)}
           placeholder="제목 검색"
-          className="px-3 py-1.5 rounded-md border border-line bg-paper text-[13px]"
+          className="px-3 py-1.5 rounded-md border border-field bg-paper text-[13px]"
         />
         <button type="submit" className="px-3 py-1.5 rounded-md bg-ink text-paper text-[13px] font-semibold">검색</button>
       </form>

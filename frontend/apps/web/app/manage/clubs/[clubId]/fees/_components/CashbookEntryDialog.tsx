@@ -33,7 +33,7 @@ const INCOME_CODES: CashbookCategory[] = ['FEE', 'SPONSOR', 'SUBSIDY', 'OTHER'];
 const EXPENSE_CODES: CashbookCategory[] = ['MT', 'DINING', 'SNACK', 'SUPPLY', 'MARKETING', 'OTHER'];
 
 const inputCls =
-  'w-full rounded-md border border-line px-4 py-3 text-sm outline-none transition-colors placeholder:text-charcoal-3 focus-visible:border-ink focus-visible:ring-1 focus-visible:ring-ink';
+  'w-full rounded-md border border-field px-4 py-3 text-sm outline-none transition-colors placeholder:text-charcoal-3 focus-visible:border-ink focus-visible:ring-1 focus-visible:ring-ink';
 const errorInputCls = 'border-coral focus-visible:border-coral focus-visible:ring-coral';
 
 type CashbookEntryDialogProps = {

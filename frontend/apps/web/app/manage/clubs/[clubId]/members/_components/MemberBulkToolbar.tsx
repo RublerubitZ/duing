@@ -308,7 +308,7 @@ export function MemberBulkToolbar({
               onChange={(event) => setGenerationValue(event.target.value)}
               placeholder="예: 12"
               aria-label="기수"
-              className="w-24 rounded-md border border-line bg-paper px-2.5 py-1.5 text-sm text-charcoal focus-visible:border-ink focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              className="w-24 rounded-md border border-field bg-paper px-2.5 py-1.5 text-sm text-charcoal focus-visible:border-ink focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
             />
             <span className="text-sm text-charcoal-2">기</span>
           </div>

@@ -81,7 +81,7 @@ export function BankMatchingClubs() {
         onChange={(event) => setSearch(event.target.value)}
         placeholder="동아리 이름으로 검색"
         aria-label="동아리 이름 검색"
-        className="w-full rounded-lg border border-line bg-paper px-3.5 py-2.5 text-sm text-ink placeholder:text-charcoal-3 focus:border-ink focus:outline-none focus:ring-[3px] focus:ring-ink/15"
+        className="w-full rounded-lg border border-field bg-paper px-3.5 py-2.5 text-sm text-ink placeholder:text-charcoal-3 focus:border-ink focus:outline-none focus:ring-[3px] focus:ring-ink/15"
       />
 
       {isLoading ? (

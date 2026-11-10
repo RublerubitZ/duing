@@ -180,7 +180,7 @@ export function HeroActivityEditor({
               maxLength={TITLE_MAX}
               onChange={(event) => setTitle(event.target.value)}
               placeholder="활동 제목"
-              className="w-full rounded-md border border-line px-2.5 py-1.5 text-[13px] focus:border-ink focus:outline-none"
+              className="w-full rounded-md border border-field px-2.5 py-1.5 text-[13px] focus:border-ink focus:outline-none"
             />
           </div>
 
@@ -198,7 +198,7 @@ export function HeroActivityEditor({
               rows={2}
               onChange={(event) => setDescription(event.target.value)}
               placeholder="활동 설명"
-              className="w-full resize-none rounded-md border border-line px-2.5 py-1.5 text-[13px] focus:border-ink focus:outline-none"
+              className="w-full resize-none rounded-md border border-field px-2.5 py-1.5 text-[13px] focus:border-ink focus:outline-none"
             />
           </div>
 

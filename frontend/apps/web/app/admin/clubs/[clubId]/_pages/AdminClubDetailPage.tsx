@@ -247,7 +247,7 @@ export function AdminClubDetailPage({ clubId }: Props) {
                   }}
                   placeholder="이름·학번·전공 검색"
                   aria-label="회원 검색"
-                  className="w-full max-w-[240px] rounded-md border border-line bg-white px-3 py-1.5 text-sm focus:border-charcoal-3 focus:outline-none"
+                  className="w-full max-w-[240px] rounded-md border border-field bg-white px-3 py-1.5 text-sm focus:border-charcoal-3 focus:outline-none"
                 />
               </div>
 

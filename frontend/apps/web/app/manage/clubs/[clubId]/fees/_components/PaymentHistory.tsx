@@ -210,7 +210,7 @@ function VoidPaymentConfirm({
             value={reason}
             onChange={(event) => setReason(event.target.value)}
             placeholder="예: 중복 기록"
-            className="w-full rounded-md border border-line px-4 py-2.5 text-sm outline-none transition-colors placeholder:text-charcoal-3 focus-visible:border-ink focus-visible:ring-1 focus-visible:ring-ink"
+            className="w-full rounded-md border border-field px-4 py-2.5 text-sm outline-none transition-colors placeholder:text-charcoal-3 focus-visible:border-ink focus-visible:ring-1 focus-visible:ring-ink"
           />
         </div>
         <div className="mt-4 flex gap-2">

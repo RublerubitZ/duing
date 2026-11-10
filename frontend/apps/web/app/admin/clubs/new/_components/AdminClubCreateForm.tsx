@@ -111,7 +111,7 @@ export function AdminClubCreateForm() {
           onChange={(event) => setName(event.target.value)}
           maxLength={100}
           placeholder="예: 두잉 코딩 동아리"
-          className="border-line bg-paper w-full rounded-md border px-3 py-2 text-sm"
+          className="border-field bg-paper w-full rounded-md border px-3 py-2 text-sm"
         />
       </Field>
 
@@ -119,7 +119,7 @@ export function AdminClubCreateForm() {
         <select
           value={category}
           onChange={(event) => setCategory(event.target.value as ClubCategory)}
-          className="border-line bg-paper w-full rounded-md border px-3 py-2 text-sm"
+          className="border-field bg-paper w-full rounded-md border px-3 py-2 text-sm"
         >
           {CATEGORIES.map((option) => (
             <option key={option} value={option}>
@@ -151,7 +151,7 @@ export function AdminClubCreateForm() {
           <select
             value={division}
             onChange={(event) => setDivision(event.target.value)}
-            className="border-line bg-paper w-full rounded-md border px-3 py-2 text-sm"
+            className="border-field bg-paper w-full rounded-md border px-3 py-2 text-sm"
           >
             <option value="">분과 선택</option>
             {DIVISIONS.map((option) => (
@@ -165,7 +165,7 @@ export function AdminClubCreateForm() {
             <select
               value={college}
               onChange={(event) => setCollege(event.target.value as College | '')}
-              className="border-line bg-paper w-full rounded-md border px-3 py-2 text-sm"
+              className="border-field bg-paper w-full rounded-md border px-3 py-2 text-sm"
             >
               <option value="">단과대학 선택</option>
               {COLLEGE_OPTIONS.map((option) => (
@@ -182,7 +182,7 @@ export function AdminClubCreateForm() {
               onChange={(event) => setDepartment(event.target.value)}
               maxLength={50}
               placeholder="예: 회계학과 (선택)"
-              className="border-line bg-paper w-full rounded-md border px-3 py-2 text-sm"
+              className="border-field bg-paper w-full rounded-md border px-3 py-2 text-sm"
             />
           </Field>
         </>
@@ -194,7 +194,7 @@ export function AdminClubCreateForm() {
           onChange={(event) => setDescription(event.target.value)}
           rows={4}
           placeholder="동아리 소개 (선택)"
-          className="border-line bg-paper w-full rounded-md border px-3 py-2 text-sm"
+          className="border-field bg-paper w-full rounded-md border px-3 py-2 text-sm"
         />
       </Field>
 

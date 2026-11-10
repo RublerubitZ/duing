@@ -28,7 +28,7 @@ type BankSyncDialogProps = {
 };
 
 const inputCls =
-  'w-full rounded-md border px-4 py-3 text-sm outline-none transition-colors border-line placeholder:text-charcoal-3 focus-visible:border-ink focus-visible:ring-1 focus-visible:ring-ink';
+  'w-full rounded-md border px-4 py-3 text-sm outline-none transition-colors border-field placeholder:text-charcoal-3 focus-visible:border-ink focus-visible:ring-1 focus-visible:ring-ink';
 const errorInputCls = 'border-coral focus-visible:border-coral focus-visible:ring-coral';
 
 // 동기화 실패 ApiError → 사용자 안내 메시지. 429(요청 한도)·502/BANK 연동 장애는 정형 문구로,
