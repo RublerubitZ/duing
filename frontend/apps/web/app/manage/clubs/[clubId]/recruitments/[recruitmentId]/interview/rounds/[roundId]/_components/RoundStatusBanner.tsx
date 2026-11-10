@@ -102,7 +102,7 @@ export function RoundStatusBanner({
       {/* ASSIGNING — 배정안은 draft 상태임을 안내 */}
       {status === 'ASSIGNING' && (
         <div className="mt-3 flex items-center gap-2 rounded-md bg-warm/10 px-4 py-2 text-sm text-warm-deep">
-          <span className="rounded-full bg-warm/40 px-2 py-0.5 text-xs font-semibold text-warm-deep">
+          <span className="rounded-full bg-warm/20 px-2 py-0.5 text-xs font-semibold text-warm-deep">
             draft
           </span>
           확정 전까지 지원자에게 통지되지 않습니다

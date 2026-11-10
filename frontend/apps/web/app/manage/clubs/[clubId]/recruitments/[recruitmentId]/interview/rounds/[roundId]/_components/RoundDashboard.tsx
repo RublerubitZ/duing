@@ -410,7 +410,7 @@ export function RoundDashboard({ clubId, recruitmentId, roundId }: Props) {
             <button
               type="button"
               onClick={() => setShowCancelDialog(true)}
-              className="rounded-md border border-coral/40 px-3 py-1.5 text-sm text-coral-deep hover:bg-coral/10"
+              className="rounded-md border border-line px-3 py-1.5 text-sm text-danger hover:bg-danger/5"
             >
               라운드 취소
             </button>

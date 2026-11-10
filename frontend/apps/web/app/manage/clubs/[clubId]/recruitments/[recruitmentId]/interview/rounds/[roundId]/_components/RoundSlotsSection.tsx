@@ -147,7 +147,7 @@ export function RoundSlotsSection({ detail, onSlotsCreated }: RoundSlotsSectionP
                     onClick={() => setDeleteTargetSlot(slot)}
                     disabled={deleteSlotMutation.isPending}
                     aria-label={`${formatSlotRange(slot.startTime, slot.endTime)} 슬롯 삭제`}
-                    className="rounded-md px-2 py-0.5 text-xs text-charcoal-3 hover:bg-coral/10 hover:text-coral-deep disabled:opacity-50"
+                    className="rounded-md px-2 py-0.5 text-xs text-charcoal-3 hover:bg-danger/5 hover:text-danger disabled:opacity-50"
                   >
                     삭제
                   </button>

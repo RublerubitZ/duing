@@ -78,7 +78,7 @@ export function NoSlotSection({ detail, onExclude, onManualAssign }: NoSlotSecti
                 <button
                   type="button"
                   onClick={() => onExclude(member)}
-                  className="rounded-md px-2 py-1 text-xs text-coral-deep hover:bg-coral/10"
+                  className="rounded-md px-2 py-1 text-xs text-danger hover:bg-danger/5"
                 >
                   제외
                 </button>

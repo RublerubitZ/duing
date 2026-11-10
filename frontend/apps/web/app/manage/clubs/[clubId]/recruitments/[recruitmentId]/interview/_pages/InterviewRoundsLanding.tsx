@@ -1,5 +1,6 @@
 'use client';
 
+import { ROUND_STATUS_BADGE_CLASS } from '@/components/interview/interviewRoundStatusLabels';
 import Link from 'next/link';
 import { ApiError } from '@duing/api';
 import type { InterviewRoundSummary, InterviewRoundStatus } from '@duing/types';
@@ -27,14 +28,6 @@ const STATUS_LABEL: Record<InterviewRoundStatus, string> = {
   CANCELLED: '취소',
 };
 
-const STATUS_BADGE_CLASS: Record<InterviewRoundStatus, string> = {
-  DRAFT: 'bg-graysoft text-charcoal',
-  COLLECTING: 'bg-sky/10 text-sky-deep',
-  ASSIGNING: 'bg-warm/20 text-warm-deep',
-  SCHEDULED: 'bg-sage-mist text-ink',
-  CANCELLED: 'bg-coral/20 text-coral-deep',
-};
-
 type RoundCardProps = {
   round: InterviewRoundSummary;
   clubId: number;
@@ -52,7 +45,7 @@ function RoundCard({ round, clubId, recruitmentId }: RoundCardProps) {
             <span
               className={cn(
                 'rounded-full px-2 py-0.5 text-xs font-medium',
-                STATUS_BADGE_CLASS[round.status],
+                ROUND_STATUS_BADGE_CLASS[round.status],
               )}
             >
               {STATUS_LABEL[round.status]}
@@ -83,7 +76,7 @@ function RoundCard({ round, clubId, recruitmentId }: RoundCardProps) {
             href={toRoute(
               `/manage/clubs/${clubId}/recruitments/${recruitmentId}/interview/rounds/${round.roundId}`,
             )}
-            className="shrink-0 rounded-md bg-ink px-3 py-1.5 text-sm font-medium text-white hover:bg-ink-soft"
+            className="btn btn-secondary btn-sm shrink-0"
           >
             현황 보기
           </Link>
@@ -217,7 +210,7 @@ export function InterviewRoundsLanding({ clubId, recruitmentId }: Props) {
 
       {/* 목록 / 빈 상태 */}
       {rounds.length === 0 ? (
-        <div className="flex flex-col items-center gap-4 rounded-xl border border-line bg-cream px-6 py-12 text-center">
+        <div className="flex flex-col items-center gap-4 rounded-xl border border-line bg-paper px-6 py-12 text-center">
           <p className="text-sm text-charcoal-3">아직 면접 라운드가 없습니다</p>
           <Link
             href={toRoute(

@@ -99,7 +99,7 @@ export function RoundMemberTable({ detail, onExclude, onManualAssign }: RoundMem
                   <button
                     type="button"
                     onClick={() => onExclude(member)}
-                    className="rounded-md px-3 py-2 text-[13px] sm:px-2 sm:py-1 sm:text-xs text-coral-deep hover:bg-coral/10"
+                    className="rounded-md px-3 py-2 text-[13px] sm:px-2 sm:py-1 sm:text-xs text-danger hover:bg-danger/5"
                   >
                     제외
                   </button>

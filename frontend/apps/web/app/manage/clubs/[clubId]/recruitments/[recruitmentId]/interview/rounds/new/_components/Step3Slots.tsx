@@ -96,7 +96,7 @@ export function Step3Slots({ roundId, onNext }: Props) {
                   type="button"
                   onClick={() => setDeleteTargetSlot(slot)}
                   aria-label={`${formatSlotRange(slot.startTime, slot.endTime)} 슬롯 삭제`}
-                  className="ml-3 rounded-md px-2 text-charcoal-3 hover:bg-coral/10 hover:text-coral-deep"
+                  className="ml-3 rounded-md px-2 text-charcoal-3 hover:bg-danger/5 hover:text-danger"
                 >
                   삭제
                 </button>

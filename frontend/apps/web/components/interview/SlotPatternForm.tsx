@@ -60,43 +60,43 @@ export function SlotPatternForm({ onGenerate, isPending = false }: Props) {
     <form onSubmit={handleSubmit} className="space-y-3">
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
         <label className="block text-sm">
-          <span className="block text-xs text-slate-500">시작 날짜</span>
+          <span className="block text-xs text-charcoal-3">시작 날짜</span>
           <input
             type="date"
             value={date}
             onChange={(event) => setDate(event.target.value)}
             required
             aria-label="시작 날짜"
-            className="mt-1 w-full rounded-md border border-slate-300 px-2 py-1 text-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
+            className="mt-1 w-full rounded-md border border-line px-2 py-1 text-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
           />
         </label>
 
         <label className="block text-sm">
-          <span className="block text-xs text-slate-500">시작 시각</span>
+          <span className="block text-xs text-charcoal-3">시작 시각</span>
           <input
             type="time"
             value={startTime}
             onChange={(event) => setStartTime(event.target.value)}
             required
             aria-label="시작 시각"
-            className="mt-1 w-full rounded-md border border-slate-300 px-2 py-1 text-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
+            className="mt-1 w-full rounded-md border border-line px-2 py-1 text-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
           />
         </label>
 
         <label className="block text-sm">
-          <span className="block text-xs text-slate-500">종료 시각</span>
+          <span className="block text-xs text-charcoal-3">종료 시각</span>
           <input
             type="time"
             value={endTime}
             onChange={(event) => setEndTime(event.target.value)}
             required
             aria-label="종료 시각"
-            className="mt-1 w-full rounded-md border border-slate-300 px-2 py-1 text-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
+            className="mt-1 w-full rounded-md border border-line px-2 py-1 text-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
           />
         </label>
 
         <label className="block text-sm">
-          <span className="block text-xs text-slate-500">면접 시간 (분)</span>
+          <span className="block text-xs text-charcoal-3">면접 시간 (분)</span>
           <input
             type="number"
             min={5}
@@ -104,12 +104,12 @@ export function SlotPatternForm({ onGenerate, isPending = false }: Props) {
             value={durationMinutes}
             onChange={(event) => setDurationMinutes(readNumberInput(event, 30))}
             aria-label="면접 시간 (분)"
-            className="mt-1 w-full rounded-md border border-slate-300 px-2 py-1 text-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
+            className="mt-1 w-full rounded-md border border-line px-2 py-1 text-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
           />
         </label>
 
         <label className="block text-sm">
-          <span className="block text-xs text-slate-500">슬롯당 정원</span>
+          <span className="block text-xs text-charcoal-3">슬롯당 정원</span>
           <input
             type="number"
             min={1}
@@ -118,7 +118,7 @@ export function SlotPatternForm({ onGenerate, isPending = false }: Props) {
             onChange={(event) => setCapacity(readNumberInput(event, 1))}
             required
             aria-label="정원"
-            className="mt-1 w-full rounded-md border border-slate-300 px-2 py-1 text-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
+            className="mt-1 w-full rounded-md border border-line px-2 py-1 text-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
           />
         </label>
       </div>
@@ -126,7 +126,7 @@ export function SlotPatternForm({ onGenerate, isPending = false }: Props) {
       {errorMessage && (
         <div
           role="alert"
-          className="rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700"
+          className="rounded-md border border-coral/40 bg-coral/10 px-3 py-2 text-sm text-coral-deep"
         >
           {errorMessage}
         </div>
@@ -135,7 +135,7 @@ export function SlotPatternForm({ onGenerate, isPending = false }: Props) {
       <button
         type="submit"
         disabled={isPending}
-        className="inline-flex items-center gap-1.5 rounded-md bg-slate-700 px-4 py-2 text-sm font-medium text-white hover:bg-slate-600 disabled:cursor-not-allowed disabled:opacity-50"
+        className="inline-flex items-center gap-1.5 rounded-md bg-ink px-4 py-2 text-sm font-medium text-white hover:bg-ink-deep disabled:cursor-not-allowed disabled:opacity-50"
       >
         {isPending && <ButtonSpinner />}슬롯 생성
       </button>

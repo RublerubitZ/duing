@@ -256,7 +256,7 @@ export function MemberBulkToolbar({
                   type="button"
                   onClick={onClickRemove}
                   disabled={running !== null}
-                  className="inline-flex items-center justify-center gap-1.5 rounded-md border border-coral/40 px-3 py-2 text-[13px] font-semibold text-coral-deep hover:bg-coral/10 disabled:opacity-50 sm:py-1.5 sm:text-xs"
+                  className="inline-flex items-center justify-center gap-1.5 rounded-md border border-line px-3 py-2 text-[13px] font-semibold text-danger hover:bg-danger/5 disabled:opacity-50 sm:py-1.5 sm:text-xs"
                 >
                   {running === 'remove' && <ButtonSpinner />}
                   탈퇴

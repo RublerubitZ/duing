@@ -63,11 +63,11 @@ export function StatsClient({ params }: StatsClientProps) {
           </Link>
           <h1 className="text-xl font-bold text-ink-deep">{`통계 — ${recruitmentTitle}`}</h1>
         </div>
-        <div className="rounded-xl border border-line bg-cream px-6 py-8 text-center">
+        <div className="rounded-xl border border-line bg-paper px-6 py-8 text-center">
           <p className="text-sm text-charcoal-2">
             외부 폼 모집은 지원서를 두잉에서 받지 않아 통계를 제공하지 않아요.
           </p>
-          <Link href={detailPath} className="mt-3 inline-block text-sm text-sky-600 hover:underline">
+          <Link href={detailPath} className="mt-3 inline-block text-sm text-sky-deep hover:underline">
             모집 상세로 이동
           </Link>
         </div>

@@ -327,7 +327,7 @@ export default function ApplicantsPage({ params }: PageParams) {
           <div className="mt-3 flex flex-wrap justify-center gap-4">
             <Link
               href={toRoute(`/manage/clubs/${clubId}/recruitments/${recruitmentId}`)}
-              className="text-sm text-sky-600 hover:underline"
+              className="text-sm text-sky-deep hover:underline"
             >
               모집 상세로 이동
             </Link>
@@ -339,7 +339,7 @@ export default function ApplicantsPage({ params }: PageParams) {
                   href={safeExternalFormUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-sm text-sky-600 hover:underline"
+                  className="text-sm text-sky-deep hover:underline"
                 >
                   외부 폼 바로가기
                 </a>

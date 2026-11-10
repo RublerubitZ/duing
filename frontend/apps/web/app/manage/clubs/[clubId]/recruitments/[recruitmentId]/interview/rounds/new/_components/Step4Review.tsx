@@ -68,7 +68,7 @@ export function Step4Review({ recruitmentId, roundId, clubId }: Props) {
         </div>
         <Link
           href={toRoute(`/manage/clubs/${clubId}/recruitments/${recruitmentId}/interview`)}
-          className="inline-block rounded-md bg-ink px-4 py-2 text-sm font-medium text-white hover:bg-ink-soft"
+          className="inline-block rounded-md bg-ink px-4 py-2 text-sm font-medium text-white hover:bg-ink-deep"
         >
           면접 관리로
         </Link>

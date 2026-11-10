@@ -257,7 +257,7 @@ export default function RecruitmentDetailPage({
       {/* 지원 현황 요약 — 통계 페이지 진입 전 핵심 지표 미리보기.
           외부 폼은 지원 데이터가 없어 0 만 나오므로 감춘다(조회는 삭제 판정에 필요해 그대로 둔다). */}
       {!isExternal && statsSummary && (
-        <div className="mb-5 flex flex-wrap items-center gap-x-6 gap-y-2 rounded-lg border border-line bg-cream px-4 py-3">
+        <div className="mb-5 flex flex-wrap items-center gap-x-6 gap-y-2 rounded-lg border border-line bg-paper px-4 py-3">
           <div className="flex items-baseline gap-1.5">
             <span className="text-xs text-charcoal-3">지원자</span>
             <span className="text-lg font-bold tabular-nums text-ink-deep">{statsSummary.total}</span>
@@ -334,7 +334,7 @@ export default function RecruitmentDetailPage({
             <button
               type="button"
               onClick={() => setShowCloseConfirm(true)}
-              className="inline-flex items-center gap-2 rounded-md border border-coral/40 bg-white px-4 py-2 text-sm font-medium text-coral-deep shadow-sm transition-colors hover:border-coral hover:bg-coral/10"
+              className="inline-flex items-center gap-2 rounded-md border border-line bg-white px-4 py-2 text-sm font-medium text-danger shadow-sm transition-colors hover:border-danger/40 hover:bg-danger/5"
             >
               모집 마감
             </button>
@@ -346,7 +346,7 @@ export default function RecruitmentDetailPage({
             type="button"
             disabled={isStatsSummaryPending}
             onClick={() => setShowDeleteConfirm(true)}
-            className={`inline-flex items-center gap-2 rounded-md border border-coral/40 bg-white px-4 py-2 text-sm font-medium text-coral-deep shadow-sm transition-colors hover:border-coral hover:bg-coral/10${
+            className={`inline-flex items-center gap-2 rounded-md border border-line bg-white px-4 py-2 text-sm font-medium text-danger shadow-sm transition-colors hover:border-danger/40 hover:bg-danger/5${
               isStatsSummaryPending ? ' invisible' : ''
             }`}
           >

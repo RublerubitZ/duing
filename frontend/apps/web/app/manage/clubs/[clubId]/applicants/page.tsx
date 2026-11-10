@@ -98,7 +98,7 @@ export default function ClubApplicantsEntryPage({
       <h1 className="mb-6 text-xl font-bold text-ink-deep">지원현황</h1>
 
       <div className="rounded-[20px] border border-dashed border-line bg-paper px-6 py-10 text-center">
-        <p className="mt-3 text-[15.5px] font-bold text-ink-deep">{emptyState.title}</p>
+        <p className="text-[15.5px] font-bold text-ink-deep">{emptyState.title}</p>
         <p className="mt-1.5 text-sm leading-relaxed text-charcoal-3">{emptyState.description}</p>
         <Link href={emptyState.ctaHref} className="btn btn-primary mt-5 inline-flex">
           {emptyState.ctaLabel}
