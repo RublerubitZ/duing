@@ -9,5 +9,5 @@ export const PROMOTION_REQUEST_STATUS_LABEL: Record<PromotionRequestStatus, stri
 export const PROMOTION_REQUEST_STATUS_BADGE_CLASS: Record<PromotionRequestStatus, string> = {
   PENDING: 'bg-warm/20 text-warm-deep',
   ACCEPTED: 'bg-sage-mist text-ink',
-  REJECTED: 'bg-coral/20 text-coral-deep',
+  REJECTED: 'bg-coral/10 text-coral-deep',
 };

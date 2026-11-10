@@ -203,7 +203,7 @@ function CrawlGroupRow({ group }: { group: AdminCrawlReservationGroup }) {
           </span>
         )}
         {group.facilitySecuredTimeTarget === true && (
-          <span className="rounded-full bg-ink px-1.5 py-0.5 text-[11px] font-semibold text-white">
+          <span className="rounded-full border border-ink bg-paper px-1.5 py-0.5 text-[11px] font-semibold text-ink">
             기본 확보 대상
           </span>
         )}

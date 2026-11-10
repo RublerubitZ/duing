@@ -98,7 +98,7 @@ export function AdminClubsTable({
                       {club.facilitySecuredTimeTarget && (
                         <span
                           aria-label="기본 확보 시간 대상"
-                          className="whitespace-nowrap rounded-full bg-ink px-1.5 py-0.5 text-[11px] font-semibold text-white"
+                          className="whitespace-nowrap rounded-full border border-ink bg-paper px-1.5 py-0.5 text-[11px] font-semibold text-ink"
                         >
                           확보 대상
                         </span>

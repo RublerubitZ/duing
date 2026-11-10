@@ -18,7 +18,7 @@ export const JOIN_CODE_STATUS_BADGE_CLASS: Record<AdminJoinCodeStatus, string> =
   ACTIVE: 'bg-sage-mist text-ink',
   EXPIRED: 'bg-line text-charcoal',
   EXHAUSTED: 'bg-warm/20 text-warm-deep',
-  REVOKED: 'bg-coral/20 text-coral-deep',
+  REVOKED: 'bg-coral/10 text-coral-deep',
 };
 
 /**
