@@ -11,6 +11,7 @@ import {
   SUCCESSION_STATUS_LABEL,
   SUCCESSION_STATUS_BADGE_CLASS,
 } from '../_lib/successionLabels';
+import { ArrowLeft } from '@/components/duing/Icon';
 
 type Props = {
   requestId: number;
@@ -61,8 +62,9 @@ export function AdminSuccessionDetailPage({ requestId }: Props) {
   return (
     <main className="max-w-layout mx-auto px-4 sm:px-6 md:px-10 py-10">
       <header className="mb-6 flex items-center gap-3">
-        <Link href="/admin/leader-succession" className="text-[13px] text-charcoal-2 hover:text-ink">
-          ← 목록으로
+        <Link href="/admin/leader-succession" className="inline-flex items-center gap-1 text-[13px] text-charcoal-2 hover:text-ink">
+          <ArrowLeft size={14} aria-hidden />
+          목록으로
         </Link>
         <h1 className="text-[22px] font-bold text-ink">승계 요청 상세</h1>
       </header>

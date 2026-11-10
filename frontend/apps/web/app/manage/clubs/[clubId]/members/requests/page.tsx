@@ -21,6 +21,7 @@ import {
   joinRequestEmptyMessage,
   joinRequestStatusLabel,
 } from './_lib/joinRequestStatus';
+import { ArrowLeft } from '@/components/duing/Icon';
 
 // 권한 가드는 [clubId]/layout.tsx 의 ManageGuard 공통이라 이 페이지에는 두지 않는다.
 export default function JoinRequestsPage({
@@ -121,9 +122,10 @@ function JoinRequestsView({ clubId }: { clubId: number }) {
       <header>
         <Link
           href={toRoute(`/manage/clubs/${clubId}/members`)}
-          className="text-sm font-medium text-charcoal-3 hover:text-ink"
+          className="inline-flex items-center gap-1 text-sm font-medium text-charcoal-3 hover:text-ink"
         >
-          ← 부원 관리
+          <ArrowLeft size={14} aria-hidden />
+          부원 관리
         </Link>
         <h1 className="mt-2 text-xl font-bold">가입 요청</h1>
         <p className="mt-1 text-sm text-charcoal-3">

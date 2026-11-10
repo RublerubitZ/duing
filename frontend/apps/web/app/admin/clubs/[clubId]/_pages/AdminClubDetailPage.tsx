@@ -22,6 +22,7 @@ import { cn } from '../../../../_lib/cn';
 import { ClubLogo } from '../../../../_components/ClubLogo';
 import { STATUS_BADGE_CLASS, STATUS_LABEL } from '../../_lib/clubStatus';
 import { AdminAssignLeaderCard } from '../_components/AdminAssignLeaderCard';
+import { ArrowLeft } from '@/components/duing/Icon';
 
 type Props = {
   clubId: number;
@@ -107,8 +108,9 @@ export function AdminClubDetailPage({ clubId }: Props) {
   return (
     <main className="max-w-layout mx-auto px-4 sm:px-6 md:px-10 py-10">
       <header className="mb-6 flex flex-wrap items-center gap-3">
-        <Link href="/admin/clubs" className="text-[13px] text-charcoal-2 hover:text-ink">
-          ← 동아리 목록
+        <Link href="/admin/clubs" className="inline-flex items-center gap-1 text-[13px] text-charcoal-2 hover:text-ink">
+          <ArrowLeft size={14} aria-hidden />
+          동아리 목록
         </Link>
         {club && (
           <>
@@ -124,7 +126,7 @@ export function AdminClubDetailPage({ clubId }: Props) {
               </span>
               {club.centralClub && (
                 <span className="rounded-full bg-ink-deep px-1.5 py-0.5 text-[11px] font-semibold text-white">
-                  🏛️ 중앙
+                  중앙
                 </span>
               )}
             </div>
@@ -133,19 +135,19 @@ export function AdminClubDetailPage({ clubId }: Props) {
                 href={`/admin/clubs/${clubId}/activity-log`}
                 className="text-[13px] text-ink hover:underline"
               >
-                활동 이력 →
+                활동 이력
               </Link>
               <Link
                 href={`/admin/clubs/${clubId}/join-codes`}
                 className="text-[13px] text-ink hover:underline"
               >
-                가입 링크 →
+                가입 링크
               </Link>
               <Link
                 href={`/admin/clubs/${clubId}/member-history`}
                 className="text-[13px] text-ink hover:underline"
               >
-                권한 변경 이력 →
+                권한 변경 이력
               </Link>
             </div>
           </>
@@ -182,18 +184,18 @@ export function AdminClubDetailPage({ clubId }: Props) {
               </div>
               <dl className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm sm:grid-cols-3">
                 <div>
-                  <dt className="text-[11px] font-semibold uppercase text-charcoal-3">카테고리</dt>
+                  <dt className="text-[11px] font-semibold text-charcoal-3">카테고리</dt>
                   <dd className="text-charcoal">{CATEGORY_LABEL[club.category] ?? club.category}</dd>
                 </div>
                 {club.division && (
                   <div>
-                    <dt className="text-[11px] font-semibold uppercase text-charcoal-3">분류</dt>
+                    <dt className="text-[11px] font-semibold text-charcoal-3">분류</dt>
                     <dd className="text-charcoal">{club.division}</dd>
                   </div>
                 )}
                 {club.tags.length > 0 && (
                   <div className="col-span-2 sm:col-span-3">
-                    <dt className="text-[11px] font-semibold uppercase text-charcoal-3">태그</dt>
+                    <dt className="text-[11px] font-semibold text-charcoal-3">태그</dt>
                     <dd className="flex flex-wrap gap-1 mt-0.5">
                       {club.tags.map((tag) => (
                         <span
@@ -208,7 +210,7 @@ export function AdminClubDetailPage({ clubId }: Props) {
                 )}
                 {club.description && (
                   <div className="col-span-2 sm:col-span-3">
-                    <dt className="text-[11px] font-semibold uppercase text-charcoal-3">설명</dt>
+                    <dt className="text-[11px] font-semibold text-charcoal-3">설명</dt>
                     <dd>
                       <ClubDescription description={club.description} />
                     </dd>
@@ -216,7 +218,7 @@ export function AdminClubDetailPage({ clubId }: Props) {
                 )}
                 {club.logoUrl && (
                   <div>
-                    <dt className="text-[11px] font-semibold uppercase text-charcoal-3">로고</dt>
+                    <dt className="text-[11px] font-semibold text-charcoal-3">로고</dt>
                     <dd>
                       <div className="relative mt-0.5 h-10 w-10 overflow-hidden rounded-md bg-graysoft">
                         <ClubLogo logoUrl={club.logoUrl} alt={`${club.name} 로고`} />

@@ -10,6 +10,7 @@ import {
   APPLICATION_STATUS_LABEL,
 } from '../../../../../../../../_constants/application-status';
 import { toRoute } from '../../../../../../../../_lib/route';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 type Props = {
   clubId: number;
@@ -64,7 +65,8 @@ export function ApplicantNavBar({
         }}
         className={cn(NAV_BUTTON_CLASS, 'ml-3')}
       >
-        <span aria-hidden="true">‹</span> 이전
+        <ChevronLeft size={14} aria-hidden="true" />
+        이전
       </button>
       <button
         type="button"
@@ -76,7 +78,8 @@ export function ApplicantNavBar({
         }}
         className={NAV_BUTTON_CLASS}
       >
-        다음 <span aria-hidden="true">›</span>
+        다음
+        <ChevronRight size={14} aria-hidden="true" />
       </button>
       <span
         className={cn(

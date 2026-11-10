@@ -53,7 +53,7 @@ export function AdminClubsTable({
   return (
     <div className="border-line overflow-x-auto rounded-md border bg-white">
       <table className="w-full text-sm">
-        <thead className="border-line bg-graysoft border-b text-[12px] uppercase text-charcoal-3">
+        <thead className="border-line bg-graysoft border-b text-[12px] text-charcoal-3">
           <tr>
             <th className={cn('whitespace-nowrap px-4 py-3 text-left', isSignalView && 'min-w-[16rem]')}>이름</th>
             {isSignalView ? null : <th className="whitespace-nowrap px-4 py-3 text-left">분류</th>}
@@ -92,7 +92,7 @@ export function AdminClubsTable({
                           aria-label="중앙동아리"
                           className="whitespace-nowrap rounded-full bg-ink-deep px-1.5 py-0.5 text-[11px] font-semibold text-white"
                         >
-                          🏛️ 중앙
+                          중앙
                         </span>
                       )}
                       {club.facilitySecuredTimeTarget && (

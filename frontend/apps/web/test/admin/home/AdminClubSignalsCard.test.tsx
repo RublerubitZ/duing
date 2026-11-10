@@ -57,13 +57,13 @@ describe('AdminClubSignalsCard', () => {
     expect(screen.getByText('46 / 165곳')).toBeInTheDocument();
   });
 
-  it('① 행 전체가 신호 목록 링크이고 › 는 읽지 않는다, ② 는 보조 줄 아래 글자 링크다', () => {
+  it('① 행 전체가 신호 목록 링크이고 화살표 아이콘은 읽지 않는다, ② 는 보조 줄 아래 글자 링크다', () => {
     render(<AdminClubSignalsCard />);
     expect(screen.getByRole('link', { name: /^지원 결과 미확정/ })).toHaveAttribute('href', '/admin/clubs?signal=RESULT_WAITING');
     expect(screen.getByRole('link', { name: /^가입 신청 7일 넘게 대기/ })).toHaveAttribute('href', '/admin/clubs?signal=JOIN_REQUEST_WAITING');
     expect(screen.getByRole('link', { name: '기록 없는 110곳 보기' })).toHaveAttribute('href', '/admin/clubs?signal=NO_RECORD');
     expect(screen.getByRole('link', { name: '30일 넘게 안 들어온 119곳 보기' })).toHaveAttribute('href', '/admin/clubs?signal=OPERATOR_INACTIVE');
-    const arrows = screen.getAllByText('›');
+    const arrows = document.querySelectorAll('a svg.lucide-chevron-right');
     expect(arrows).toHaveLength(2);
     for (const arrow of arrows) expect(arrow).toHaveAttribute('aria-hidden', 'true');
     for (const link of screen.getAllByRole('link')) expect(link).toHaveClass('min-h-11');

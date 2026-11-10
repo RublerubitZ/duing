@@ -111,7 +111,7 @@ export function AdminGlobalEventForm({
         </select>
         {state.category === 'OTHER' && (
           <p className="mt-1 text-xs text-coral-deep">
-            ⚠️ 5개 카테고리 중 적합한 것이 없는 경우에만 사용해주세요.
+            5개 카테고리 중 적합한 것이 없는 경우에만 사용해주세요.
           </p>
         )}
       </Field>

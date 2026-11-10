@@ -29,6 +29,7 @@ import { RoundCountCards } from './RoundCountCards';
 import { RoundMemberTable } from './RoundMemberTable';
 import { NoSlotSection } from './NoSlotSection';
 import { RoundSlotsSection } from './RoundSlotsSection';
+import { ArrowLeft } from '@/components/duing/Icon';
 
 // 라운드 dashboard 컨테이너 — detail 단일 쿼리를 섹션 5종에 분배하고
 // 액션 mutation·모달 상태·피드백을 관장한다. 섹션·모달은 같은 _components/ 개별 파일.
@@ -319,9 +320,10 @@ export function RoundDashboard({ clubId, recruitmentId, roundId }: Props) {
       <div className="mb-6">
         <Link
           href={toRoute(`/manage/clubs/${clubId}/recruitments/${recruitmentId}/interview`)}
-          className="text-sm text-charcoal-3 hover:text-charcoal"
+          className="inline-flex items-center gap-1 text-sm text-charcoal-3 hover:text-charcoal"
         >
-          ← 면접 관리로 돌아가기
+          <ArrowLeft size={14} aria-hidden />
+          면접 관리로 돌아가기
         </Link>
       </div>
 

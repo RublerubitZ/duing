@@ -33,6 +33,7 @@ import {
 import { useSubmissionBatchActions } from '../../_lib/useSubmissionBatchActions';
 import { SUBMISSION_STATUS_LABELS, submissionBlockVisual } from '../../_lib/submissionTimetable';
 import { bookingTimeLabel } from '@/app/_lib/bookingDisplay';
+import { ArrowLeft } from '@/components/duing/Icon';
 
 // 진행 중(REVIEWING) 배치는 '제출 대기' 탭에서 들어오므로 그리로, 완료·취소는 '제출 이력' 탭으로 돌아간다(감사 #5).
 // 상태를 모르는 로딩 전·404 와 취소 직후(취소됐으므로 이력)는 archive 폴백.
@@ -79,7 +80,7 @@ export function SubmissionBatchDetailPage({ batchId }: Props) {
   const detail = detailQuery.data;
   const backToReady = detail !== undefined && deriveBatchStatus(detail.batch) === 'REVIEWING';
   const backRoute = backToReady ? READY_ROUTE : ARCHIVE_ROUTE;
-  const backLabel = backToReady ? '← 제출 대기' : '← 제출 이력';
+  const backLabel = backToReady ? '제출 대기' : '제출 이력';
 
   // 완료 결과 Dialog(제외 목록)의 예약일·동아리 라벨 소스 — 페이지 레벨에서 유지한다(데이터 없으면 null → 예약번호 폴백).
   const bookingsById = useMemo<ReadonlyMap<number, SubmissionCandidateBooking> | null>(
@@ -105,7 +106,8 @@ export function SubmissionBatchDetailPage({ batchId }: Props) {
   return (
     <main className="max-w-layout mx-auto px-4 py-10 sm:px-6 md:px-10">
       <div className="mb-6">
-        <Link href={backRoute} className="text-[13px] text-charcoal-2 hover:text-ink">
+        <Link href={backRoute} className="inline-flex items-center gap-1 text-[13px] text-charcoal-2 hover:text-ink">
+          <ArrowLeft size={14} aria-hidden />
           {backLabel}
         </Link>
       </div>

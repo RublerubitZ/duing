@@ -153,7 +153,7 @@ export function FeeAnomalyList({
                           href={auditLogHref(clubId, searchParams.toString(), auditGroup)}
                           className="mt-2 inline-block text-[12px] font-semibold text-ink underline underline-offset-2"
                         >
-                          관련 감사 로그 보기 →
+                          관련 감사 로그 보기
                         </Link>
                       )}
                     </details>

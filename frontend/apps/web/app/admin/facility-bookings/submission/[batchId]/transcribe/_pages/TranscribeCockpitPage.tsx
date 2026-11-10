@@ -296,7 +296,7 @@ export function TranscribeCockpitPage({ batchId }: { batchId: number }) {
               </div>
               <div className="mx-1.5 mb-2.5 h-[5px] overflow-hidden rounded-full bg-graysoft">
                 <div
-                  className="h-full bg-ink motion-safe:transition-[width]"
+                  className="h-full bg-ink"
                   style={{
                     width: `${(group.items.filter((item) => written.has(item.bookingId)).length / group.items.length) * 100}%`,
                   }}

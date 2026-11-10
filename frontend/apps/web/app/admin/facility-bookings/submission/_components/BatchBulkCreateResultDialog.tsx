@@ -16,6 +16,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { submissionCsvFileName } from '../_lib/submissionBatches';
+import { Check, TriangleAlert } from 'lucide-react';
 
 export type BulkCreateOutcome = {
   clubId: number;
@@ -81,7 +82,7 @@ export function BatchBulkCreateResultDialog({ outcomes, onClose }: Props) {
               }`}
             >
               <span aria-hidden className={outcome.batch !== null ? 'text-ink' : 'text-coral'}>
-                {outcome.batch !== null ? '✓' : '!'}
+                {outcome.batch !== null ? <Check size={14} /> : <TriangleAlert size={14} />}
               </span>
               {/* 아이콘·배경색은 장식 — 스크린리더용 성공/실패 라벨을 텍스트로 남긴다. */}
               <span className="sr-only">{outcome.batch !== null ? '생성 성공' : '생성 실패'}</span>

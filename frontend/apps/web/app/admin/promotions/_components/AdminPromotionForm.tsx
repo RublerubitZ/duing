@@ -15,6 +15,8 @@ import { ButtonSpinner } from '@/components/loading/Spinner';
 import { PALETTE_OPTIONS, PROMOTION_PALETTE } from '../../../_lib/promotionPalette';
 import { ClubSelector } from './ClubSelector';
 import { NoticeSelector } from './NoticeSelector';
+import { Check } from 'lucide-react';
+import { ArrowRight } from '@/components/duing/Icon';
 
 type CreateMode = {
   mode: 'create';
@@ -437,7 +439,7 @@ export function AdminPromotionForm(props: Props) {
                 >
                   {option.label}
                   {selected && (
-                    <span className="absolute top-1 right-1.5 text-[10px] font-bold">✓</span>
+                    <Check size={11} strokeWidth={3} aria-hidden className="absolute right-1.5 top-1.5" />
                   )}
                 </button>
               );
@@ -609,7 +611,7 @@ export function AdminPromotionForm(props: Props) {
             )}
             {state.bannerImageUrl && state.imageAltText.trim() === '' && (
               <span className="absolute right-2 top-2 rounded bg-danger px-2 py-1 text-[11px] font-bold text-paper">
-                ⚠ Alt 미입력
+                Alt 미입력
               </span>
             )}
           </div>
@@ -671,13 +673,14 @@ export function AdminPromotionForm(props: Props) {
               )}
               {state.ctaLabel && (
                 <div
-                  className="mt-3 inline-block rounded-md px-3 py-1.5 text-[12px] font-bold"
+                  className="mt-3 inline-flex items-center gap-1 rounded-md px-3 py-1.5 text-[12px] font-bold"
                   style={{
                     background: hasBannerImage ? 'var(--sage)' : previewStyle.accent,
                     color: hasBannerImage ? 'var(--ink-deep)' : 'var(--paper)',
                   }}
                 >
-                  {state.ctaLabel} →
+                  {state.ctaLabel}
+                  <ArrowRight size={12} aria-hidden />
                 </div>
               )}
             </div>

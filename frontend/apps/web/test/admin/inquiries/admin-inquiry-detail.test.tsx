@@ -281,7 +281,7 @@ describe('AdminInquiryDetailPage', () => {
     render(<AdminInquiryDetailPage inquiryId={INQUIRY_ID} />);
 
     expect(screen.getByText('작성자가 삭제한 문의입니다')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: '← 목록으로' })).toHaveAttribute('href', '/admin/inquiries');
+    expect(screen.getByRole('link', { name: '목록으로' })).toHaveAttribute('href', '/admin/inquiries');
   });
 
   it('attachments 가 있는 detail 이면 첨부 이미지 그리드가 렌더된다', () => {

@@ -13,6 +13,7 @@ import { cn } from '@/app/_lib/cn';
 import { ROUND_STATUS_BADGE_CLASS, ROUND_STATUS_LABEL } from '@/components/interview/interviewRoundStatusLabels';
 import { LoadingGate } from '@/components/loading/LoadingGate';
 import { Spinner } from '@/components/loading/Spinner';
+import { ArrowLeft } from '@/components/duing/Icon';
 
 type Props = {
   clubId: number;
@@ -177,9 +178,10 @@ export function InterviewRoundsLanding({ clubId, recruitmentId }: Props) {
       <div className="mb-6 flex flex-col gap-1">
         <Link
           href={toRoute(`/manage/clubs/${clubId}/recruitments/${recruitmentId}`)}
-          className="text-sm text-charcoal-3 hover:text-charcoal"
+          className="inline-flex items-center gap-1 text-sm text-charcoal-3 hover:text-charcoal"
         >
-          ← 모집 상세로 돌아가기
+          <ArrowLeft size={14} aria-hidden />
+          모집 상세로 돌아가기
         </Link>
         <div className="flex items-center justify-between gap-2">
           <h1 className="text-xl font-bold text-ink-deep">면접 관리</h1>

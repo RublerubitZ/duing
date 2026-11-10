@@ -38,6 +38,7 @@ import {
 } from './_lib/applicantSelection';
 import { cn } from '@/app/_lib/cn';
 import { LoadingGate } from '@/components/loading/LoadingGate';
+import { ArrowLeft } from '@/components/duing/Icon';
 
 /** URL 값이 알려진 enum 일 때만 필터로 인정한다 — 상세 화면(ApplicantDetailPage)과 같은 방식. */
 function readStatusParam(raw: string | null): ApplicationStatus | undefined {
@@ -291,9 +292,10 @@ export default function ApplicantsPage({ params }: PageParams) {
       <div className="mb-6 flex flex-col gap-1">
         <Link
           href={toRoute(`/manage/clubs/${clubId}/recruitments/${recruitmentId}`)}
-          className="text-sm text-charcoal-3 hover:text-charcoal"
+          className="inline-flex items-center gap-1 text-sm text-charcoal-3 hover:text-charcoal"
         >
-          ← 모집 상세로 돌아가기
+          <ArrowLeft size={14} aria-hidden />
+          모집 상세로 돌아가기
         </Link>
         {/* 모집 제목은 전환 드롭다운이 현재 선택값으로 들고 있다 — 제목을 h1 에 겹쳐 쓰지 않는다.
             드롭다운이 걷히는 경우(외부 폼·목록 조회 실패)에도 제목은 폴백으로 남는다. */}

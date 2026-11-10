@@ -143,11 +143,7 @@ export function AdminFacilityBookingsPage() {
     <main className="max-w-layout mx-auto space-y-5 px-4 py-10 sm:px-6 md:px-10">
       <div className="flex flex-wrap items-end justify-between gap-2">
         <div>
-          {/* 목업 CAdmin 헤더 — eyebrow 서브타이틀 + 큰 타이틀 */}
-          <p className="text-[11px] font-bold uppercase tracking-[0.08em] text-charcoal-3">
-            FACILITY BOOKINGS · 학교 제출 워크플로
-          </p>
-          <h1 className="mt-1 text-2xl text-ink-deep">시설 예약 관리</h1>
+          <h1 className="text-2xl text-ink-deep">시설 예약 관리</h1>
         </div>
         <CrawlFreshnessChip crawledAt={summaryQuery.data?.crawledAt} />
       </div>

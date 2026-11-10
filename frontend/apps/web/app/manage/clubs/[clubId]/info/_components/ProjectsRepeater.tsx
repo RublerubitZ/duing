@@ -10,7 +10,7 @@ import {
   useSortable, verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { GripVertical } from 'lucide-react';
+import { GripVertical, X } from 'lucide-react';
 import type { ClubProject } from '@duing/types';
 import { projectCardTone, projectIconComponentOf } from '@/app/_lib/projectIcons';
 import { ProjectIconPicker } from './ProjectIconPicker';
@@ -66,7 +66,7 @@ function SortableProjectRow({
               {editing ? '접기' : '편집'}
             </button>
             <button type="button" onClick={onRemove} aria-label="프로젝트 삭제" className="shrink-0 text-[12.5px] text-charcoal-3 hover:text-danger">
-              ✕
+              <X size={14} aria-hidden />
             </button>
           </>
         )}

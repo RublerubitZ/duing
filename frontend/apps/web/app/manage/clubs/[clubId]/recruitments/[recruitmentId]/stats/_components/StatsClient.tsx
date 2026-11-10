@@ -13,6 +13,7 @@ import { SummaryCards } from './SummaryCards';
 import { DailyLineChart } from './DailyLineChart';
 import { FunnelChart } from './FunnelChart';
 import { LoadingGate } from '@/components/loading/LoadingGate';
+import { ArrowLeft } from '@/components/duing/Icon';
 
 type StatsClientProps = {
   params: Promise<{ clubId: string; recruitmentId: string }>;
@@ -58,8 +59,9 @@ export function StatsClient({ params }: StatsClientProps) {
     return (
       <div className="mx-auto max-w-3xl px-6 py-10">
         <div className="mb-8 flex flex-col gap-1">
-          <Link href={detailPath} className="text-sm text-charcoal-3 hover:text-charcoal">
-            ← 모집 상세로 돌아가기
+          <Link href={detailPath} className="inline-flex items-center gap-1 text-sm text-charcoal-3 hover:text-charcoal">
+            <ArrowLeft size={14} aria-hidden />
+            모집 상세로 돌아가기
           </Link>
           <h1 className="text-xl font-bold text-ink-deep">{`통계 — ${recruitmentTitle}`}</h1>
         </div>
@@ -81,9 +83,10 @@ export function StatsClient({ params }: StatsClientProps) {
       <div className="mb-8 flex flex-col gap-1">
         <Link
           href={toRoute(`/manage/clubs/${clubId}/recruitments/${recruitmentId}`)}
-          className="text-sm text-charcoal-3 hover:text-charcoal"
+          className="inline-flex items-center gap-1 text-sm text-charcoal-3 hover:text-charcoal"
         >
-          ← 모집 상세로 돌아가기
+          <ArrowLeft size={14} aria-hidden />
+          모집 상세로 돌아가기
         </Link>
         <h1 className="text-xl font-bold text-ink-deep">
           {isHeaderLoading ? '통계' : `통계 — ${recruitmentTitle}`}
