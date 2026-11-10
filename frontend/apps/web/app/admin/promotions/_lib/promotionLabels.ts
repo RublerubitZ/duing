@@ -46,7 +46,7 @@ export const DISPLAY_STATUS_LABEL: Record<PromotionDisplayStatus, string> = {
 
 export const DISPLAY_STATUS_BADGE_CLASS: Record<PromotionDisplayStatus, string> = {
   LIVE: 'bg-sage/10 text-sage-deep',
-  UPCOMING: 'bg-sky-100 text-sky-700',
+  UPCOMING: 'bg-sky/10 text-sky-deep',
   EXPIRED: 'bg-graysoft text-charcoal-3',
   INACTIVE: 'bg-graysoft text-charcoal-3',
 };

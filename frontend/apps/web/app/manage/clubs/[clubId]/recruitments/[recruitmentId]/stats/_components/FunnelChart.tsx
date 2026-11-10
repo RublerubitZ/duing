@@ -22,7 +22,7 @@ type FunnelStage = {
   color: string;
 };
 
-const STAGE_COLORS: [string, string, string] = ['var(--charcoal-2)', 'var(--sky)', 'var(--ink)'];
+const STAGE_COLORS: [string, string, string] = ['var(--charcoal-2)', 'var(--sky-deep)', 'var(--ink)'];
 
 export function FunnelChart({ funnelData }: FunnelChartProps) {
   const allStages: FunnelStage[] = [
