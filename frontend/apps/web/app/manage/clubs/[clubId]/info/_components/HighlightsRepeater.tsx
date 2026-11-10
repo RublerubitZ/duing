@@ -56,7 +56,7 @@ function SortableHighlightRow({
         placeholder="예: 사이드 프로젝트 동료가 필요한 사람"
         maxLength={MAX_LENGTH}
         disabled={readOnly}
-        className="min-w-0 flex-1 bg-transparent text-[14px] text-ink-deep placeholder:text-charcoal-3 focus:outline-none"
+        className="min-w-0 flex-1 bg-transparent text-[14px] text-ink-deep placeholder:text-charcoal-3"
       />
       {!readOnly && (
         <button

@@ -118,7 +118,7 @@ export function Step2RoundForm({
       <h2 className="text-base font-semibold text-ink-deep">라운드 정보</h2>
 
       {isResumeMode && (
-        <div className="rounded-md border border-sky-200 bg-sky-50 px-3 py-2 text-sm text-sky-700">
+        <div className="rounded-md border border-sky/30 bg-sky/10 px-3 py-2 text-sm text-sky-deep">
           이어하기 모드입니다. 라운드 정보를 수정하고 다음으로 진행하세요.
         </div>
       )}

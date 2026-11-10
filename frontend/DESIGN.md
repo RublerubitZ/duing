@@ -177,11 +177,12 @@ Secondary: `bg-paper text-ink border border-line hover:border-sage` — 보더�
 | 중립(종료·해당 없음) | `bg-paper text-charcoal-2 ring-1 ring-inset ring-line` |
 | 긍정(납부·완료·면접) | `bg-sage/10 text-sage-deep` |
 | 대기·주의 | `bg-warm/10 text-warm-deep` |
-| 경고(미납·충돌) | `bg-coral/10 text-coral-deep` (+ 테두리 `border-coral/30`) |
+| 경고(미납·충돌) | `bg-coral/10 text-coral-deep` (+ 상자 테두리 `border-coral/50`) |
 | 정보(행사 등) | `bg-sky/10 text-sky-deep` |
 | 긴급 — 흰 글자 솔리드 | `bg-danger text-paper` |
 
-- 배경은 `/10` 까지만 — `/20` 이상은 크림 위에서 `*-deep` 글자 대비가 4.5:1 근처로 떨어진다(`warm-deep` 은 `/20` 최악 4.52 라 값을 밝히지 않는다).
+- 배경 농도: 기본은 `/10`. sage·warm 은 `/20` 까지 쓸 수 있고(`warm-deep` 은 `/20` 최악 4.52 라 값을 밝히지 않는다), coral·sky 는 `/10` 까지 — `/20` 은 크림 위에서 4.5:1 에 못 미친다. `coral/15` 는 흰 바탕에서만 쓴다.
+- 바탕이 옅어 경고가 묻히는 상자는 테두리로 보강한다 — 경고 `border-coral/50`, 주의 `border-warm/60`. 테두리는 글자를 얹지 않아 `/10` 상한과 무관하다.
 - `*-deep` 은 흰·크림·크림2 바탕의 `/10` 합성 위에서 WCAG AA 를 넘도록 고른 값이다. 기본 색(`text-sage`·`text-coral` …)을 글자로 쓰지 않는다.
 - 위험·종료 동작(버튼·링크)은 배지가 아니라 `text-danger hover:bg-danger/5`(+ `border-danger/30`).
 - 입력칸 포커스는 `focus:border-ink focus:outline-none focus:ring-[3px] focus:ring-ink/15`. 밝은 바탕에서 `ring-sage` 는 대비가 모자라 쓰지 않는다(진한 콘솔 사이드바 안에서만 쓴다).

@@ -89,7 +89,7 @@ function ValidationCards({
           <div
             key={check.label}
             className={`rounded-[12px] border px-3.5 py-3 ${
-              check.count > 0 ? 'border-coral/30 bg-coral/10' : 'border-line bg-paper'
+              check.count > 0 ? 'border-coral/50 bg-coral/10' : 'border-line bg-paper'
             }`}
           >
             <p className="text-[11.5px] text-charcoal-3">{check.label}</p>
@@ -396,7 +396,7 @@ export function AdminBookingDetailModal({ bookingId, onClose, neighborIds, onNav
                 {conflictPayload && (
                   <div
                     role="alert"
-                    className="rounded-[14px] border-[1.5px] border-coral/30 bg-coral/10 px-[18px] py-4"
+                    className="rounded-[14px] border-[1.5px] border-coral/50 bg-coral/10 px-[18px] py-4"
                   >
                     <p className="flex items-center gap-2 text-[13.5px] font-extrabold text-coral-deep">
                       <span className="rounded-md bg-danger px-[7px] py-0.5 tabular-nums text-[11px] font-bold text-paper">
@@ -508,7 +508,7 @@ export function AdminBookingDetailModal({ bookingId, onClose, neighborIds, onNav
                     type="button"
                     className={`btn btn-sm ${
                       ACTION_META[kind].destructive
-                        ? 'btn-secondary border-coral/30 text-danger hover:border-danger'
+                        ? 'btn-secondary border-danger/30 text-danger hover:border-danger'
                         : 'btn-primary bg-ink-deep hover:bg-ink'
                     }`}
                     disabled={isActionPending}

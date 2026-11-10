@@ -19,7 +19,7 @@ export function WizardStepper({ currentStep }: Props) {
         const isActive = step === currentStep;
         const isPast = step < currentStep;
         const tone = isActive
-          ? 'bg-sky-100 text-sky-800 font-semibold'
+          ? 'bg-sky/10 text-sky-deep font-semibold'
           : isPast
             ? 'bg-graysoft text-charcoal-2'
             : 'bg-white text-charcoal-3';
