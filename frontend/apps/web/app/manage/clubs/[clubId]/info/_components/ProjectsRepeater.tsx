@@ -151,7 +151,7 @@ export function ProjectsRepeater({ value, onChange, readOnly }: Props) {
           type="button"
           onClick={add}
           disabled={value.length >= MAX_PROJECTS}
-          className="text-[13px] font-medium text-ink hover:underline disabled:cursor-not-allowed disabled:text-charcoal-3 disabled:no-underline"
+          className="text-[13px] font-medium text-ink hover:underline disabled:cursor-not-allowed disabled:opacity-50 disabled:no-underline"
         >
           ＋ 프로젝트 추가 ({value.length}/{MAX_PROJECTS})
         </button>

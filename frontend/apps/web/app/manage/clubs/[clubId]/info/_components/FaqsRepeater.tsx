@@ -75,7 +75,7 @@ export function FaqsRepeater({
         <button
           type="button"
           onClick={add}
-          className="inline-flex items-center gap-1.5 mt-1 bg-transparent border-none text-[13px] font-medium text-ink hover:text-ink hover:underline cursor-pointer px-0 py-1"
+          className="inline-flex items-center gap-1.5 mt-1 bg-transparent border-none text-[13px] font-medium text-ink hover:underline cursor-pointer px-0 py-1"
         >
           + FAQ 추가
         </button>

@@ -22,7 +22,7 @@ export function ProjectIconPicker({ value, onChange }: Props) {
             className={`grid h-9 w-9 place-items-center rounded-[8px] border transition-colors ${
               selected
                 ? 'border-ink bg-sage-mist text-ink-deep'
-                : 'border-line bg-white text-charcoal-3 hover:border-line hover:text-charcoal-2'
+                : 'border-line bg-white text-charcoal-3 hover:border-sage hover:text-charcoal-2'
             }`}
           >
             <IconComponent className="h-[18px] w-[18px]" />

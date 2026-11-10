@@ -126,7 +126,7 @@ export function HighlightsRepeater({ value, onChange, readOnly = false }: Highli
           type="button"
           onClick={add}
           disabled={value.length >= MAX_ADD}
-          className="text-[13px] font-medium text-ink hover:underline disabled:cursor-not-allowed disabled:text-charcoal-3 disabled:no-underline"
+          className="text-[13px] font-medium text-ink hover:underline disabled:cursor-not-allowed disabled:opacity-50 disabled:no-underline"
         >
           ＋ 항목 추가 ({value.length}/{MAX_ADD})
         </button>
