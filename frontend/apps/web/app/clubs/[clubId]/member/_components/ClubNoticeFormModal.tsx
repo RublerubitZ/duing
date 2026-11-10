@@ -110,7 +110,7 @@ export function ClubNoticeFormModal(props: Props) {
     <div
       ref={overlayRef}
       onClick={handleOverlayClick}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-ink/35 p-4 backdrop-blur-sm"
       role="dialog"
       aria-modal="true"
       aria-label={props.mode === 'create' ? '공지 작성' : '공지 수정'}

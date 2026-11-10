@@ -92,7 +92,7 @@ export function ClubEventFormModal(props: Props) {
     <div
       ref={overlayRef}
       onClick={handleOverlayClick}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-ink/35 p-4 backdrop-blur-sm"
       role="dialog"
       aria-modal="true"
       aria-label={props.mode === 'create' ? '일정 추가' : '일정 수정'}

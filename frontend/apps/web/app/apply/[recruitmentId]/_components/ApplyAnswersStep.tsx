@@ -11,7 +11,7 @@ type Props = {
 };
 
 const TEXTAREA_CLASS =
-  'w-full resize-y rounded-[12px] border border-charcoal-3/40 bg-white px-4 py-3.5 text-sm leading-[1.55] text-charcoal shadow-[0_1px_0_rgba(47,58,46,0.04),_0_1px_2px_rgba(47,58,46,0.05)] transition-[border-color,box-shadow] placeholder:text-charcoal-3 focus:border-ink focus:outline-none focus:ring-[3px] focus:ring-ink/[.15] disabled:bg-[#f5f3ef] disabled:text-charcoal-3';
+  'w-full resize-y rounded-[12px] border border-charcoal-3/40 bg-white px-4 py-3.5 text-sm leading-[1.55] text-charcoal shadow-[0_1px_0_rgba(47,58,46,0.04),_0_1px_2px_rgba(47,58,46,0.05)] transition-[border-color,box-shadow] placeholder:text-charcoal-3 focus:border-ink focus:outline-none focus:ring-[3px] focus:ring-ink/[.15] disabled:bg-graysoft disabled:text-charcoal-3';
 
 const CHOICE_LABEL_CLASS =
   'flex cursor-pointer items-center gap-2.5 rounded-[10px] border border-charcoal-3/40 bg-white px-4 py-3 text-sm leading-[1.55] text-charcoal transition-colors hover:border-ink/40 has-[:disabled]:cursor-not-allowed has-[:disabled]:bg-graysoft has-[:disabled]:text-charcoal-3';

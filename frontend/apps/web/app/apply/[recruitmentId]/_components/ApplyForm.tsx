@@ -205,11 +205,11 @@ export function ApplyForm({ recruitment, recruitmentId, questionItems, initialAn
 
           {/* 자동저장 상태 */}
           {isClosed ? (
-            <span className="tabular-nums text-[12.5px] tracking-wide text-coral-deep">
-              {isNotStarted ? '모집 시작 전' : '모집 마감'}, 임시저장 및 제출 불가
+            <span className="tabular-nums text-[12.5px] text-coral-deep">
+              {isNotStarted ? '모집 시작 전' : '모집 마감'} — 임시저장 및 제출 불가
             </span>
           ) : (
-            <span className="inline-flex items-center gap-1.5 tabular-nums text-[12.5px] tracking-wide text-charcoal-3">
+            <span className="inline-flex items-center gap-1.5 tabular-nums text-[12.5px] text-charcoal-3">
               {autosaveStatus.kind === 'saved' && (
                 <>
                   <span className="h-1.5 w-1.5 rounded-full bg-ink-soft ring-[3px] ring-ink-soft/20" />

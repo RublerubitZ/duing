@@ -57,10 +57,12 @@ function ClubMemberEventDetail({ clubId, eventId }: Props) {
       <p className="mt-2 text-sm text-charcoal-2">
         {formatDateTimeKst(data.startAt)} ~ {formatDateTimeKst(data.endAt)}
       </p>
-      {data.location && <p className="mt-1 flex items-center gap-1 text-sm text-charcoal-3">
+      {data.location && (
+        <p className="mt-1 flex items-center gap-1 text-sm text-charcoal-3">
           <MapPin size={14} aria-hidden className="shrink-0" />
           {data.location}
-        </p>}
+        </p>
+      )}
       {data.description && (
         <div className="mt-6 whitespace-pre-wrap text-sm text-charcoal-2">{data.description}</div>
       )}
