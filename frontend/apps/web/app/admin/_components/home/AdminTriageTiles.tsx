@@ -15,8 +15,10 @@ export function AdminTriageTiles() {
 
   return (
     <section aria-label="영역별 대기">
-      {/* 8칸이 같은 폭 — 2열이면 4줄, 4열이면 2줄로 외톨이 칸 없이 찬다. 신고 칸은 맨 앞이고 건수가 있으면 경고색이라 폭을 넓히지 않아도 먼저 보인다. */}
-      <ul className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      {/* 한 장의 띠 — 칸 사이 1px 선은 gap-px 자리에서 겹치는 칸 테두리(ring)다. 옛 백엔드라 칸이 7개여도 빈 자리는 흰색으로 남는다. 8칸이 2·4·8열 어디서도 외톨이 칸 없이 찬다(8열은 사이드바 옆 본문이 넓어지는 xl 부터).
+          신고 칸은 맨 앞이고 건수가 있으면 경고색이라 폭을 넓히지 않아도 먼저 보인다. 0건은 숫자를 흐리게 해 남은 일이 있는 칸만 눈에 걸린다.
+          포커스 링은 띠의 안쪽 모서리(12px − 테두리 1px)와 같은 11px 로 둥글린다 — 각진 링은 네 귀퉁이 칸에서 띠의 둥근 모서리에 잘린다. */}
+      <ul className="grid grid-cols-2 gap-px overflow-hidden rounded-xl border border-line bg-paper lg:grid-cols-4 xl:grid-cols-8">
         {tiles.map((tile) => {
           const count = pendingCounts?.[tile.countKey];
           // 0건에 경고색을 칠하면 경고가 배경이 된다 — 위험 칸도 건수가 있을 때만.
@@ -28,18 +30,22 @@ export function AdminTriageTiles() {
             tile.todayLabel,
           );
           return (
-            <li key={tile.key}>
+            <li key={tile.key} className="ring-1 ring-line">
               <Link
                 href={toRoute(triageTileHref(tile.key, queue.inquiryTotals))}
-                className={cn(
-                  'flex h-full min-h-11 flex-col gap-1 rounded-xl border bg-paper p-3 transition hover:shadow-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink',
-                  isAlert ? 'border-coral/40' : 'border-line',
-                )}
+                className="flex h-full min-h-11 flex-col gap-1 p-3 transition-colors hover:bg-sage-tint focus-visible:outline-none focus-visible:rounded-[11px] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ink"
               >
                 <span className={cn('break-keep text-xs font-semibold', isAlert ? 'text-coral-deep' : 'text-charcoal-2')}>
                   {tile.label}
                 </span>
-                <span className="min-h-7 text-xl font-bold tabular-nums text-ink">{count === undefined ? null : `${count}건`}</span>
+                <span
+                  className={cn(
+                    'min-h-7 text-xl font-bold tabular-nums',
+                    isAlert ? 'text-coral-deep' : count === 0 ? 'text-charcoal-3' : 'text-ink',
+                  )}
+                >
+                  {count === undefined ? null : `${count}건`}
+                </span>
                 <span className="min-h-4 break-keep text-xs text-charcoal-3">
                   {/* 스크린 리더가 대시 하나는 흔히 건너뛴다 — 목록을 받지 못했을 때도, 건수와 받은 목록이 어긋날 때도 가장 오래된 건을 알 수 없다고 말로 읽힌다. */}
                   {subline === '—' ? (

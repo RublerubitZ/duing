@@ -235,7 +235,7 @@ describe('AdminSidebar', () => {
     );
   });
 
-  it('대시보드 바로 아래에 주간 브리핑이 뱃지 없는 단독 메뉴로 있고, 홈 전체 메뉴(ADMIN_SECTIONS)에는 없다', async () => {
+  it('대시보드 바로 아래에 주간 브리핑이 뱃지 없는 단독 메뉴로 있고, ADMIN_SECTIONS 에는 없다', async () => {
     renderSidebar();
 
     const navLinks = within(screen.getByRole('navigation', { name: '관리 영역' })).getAllByRole('link');
