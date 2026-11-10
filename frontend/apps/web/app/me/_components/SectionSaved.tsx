@@ -9,17 +9,6 @@ import { ListRowsSkeleton } from '@/components/loading/Skeleton';
 
 import { SectionHeader } from './SectionHeader';
 
-const CATEGORY_EMOJI: Record<string, string> = {
-  ACADEMIC: '📚',
-  CREATION: '🎨',
-  ART: '🎭',
-  SPORTS: '⚽',
-  VOLUNTEER: '🤝',
-  RELIGION: '🙏',
-  HOBBY: '🎮',
-  OTHER: '✨',
-};
-
 type Props = {
   favorites: FavoriteClub[];
   /** 조회 중 — 빈 상태 대신 스켈레톤(정적 HTML·조회 전에 거짓 "없어요"를 그리지 않는다, #1500). */
@@ -45,7 +34,7 @@ export function SectionSaved({ favorites, isPending = false }: Props) {
           <div className="bg-paper border border-line rounded-lg px-8 py-12 text-center text-charcoal-3 text-sm">
             아직 찜한 동아리가 없어요.{' '}
             <Link href="/clubs" className="text-ink font-semibold hover:underline">
-              동아리 탐색하러 가기 →
+              동아리 탐색하러 가기
             </Link>
           </div>
         ) : (
@@ -70,7 +59,7 @@ export function SectionSaved({ favorites, isPending = false }: Props) {
                       className="w-11 h-11 rounded-[12px] grid place-items-center text-[22px] bg-sage-mist text-ink-deep overflow-hidden relative"
                     >
                       <ClubLogo logoUrl={club.logoUrl} alt={club.name}>
-                        <span>{CATEGORY_EMOJI[club.category] ?? '✨'}</span>
+                        <span aria-hidden className="font-bold">{(club.name || '?').trim().charAt(0)}</span>
                       </ClubLogo>
                     </div>
                     {/* heart icon */}
@@ -78,8 +67,8 @@ export function SectionSaved({ favorites, isPending = false }: Props) {
                       width="18"
                       height="18"
                       viewBox="0 0 24 24"
-                      fill="#D97757"
-                      stroke="#D97757"
+                      fill="var(--coral)"
+                      stroke="var(--coral)"
                       strokeWidth="1.5"
                       strokeLinecap="round"
                       strokeLinejoin="round"
@@ -99,7 +88,7 @@ export function SectionSaved({ favorites, isPending = false }: Props) {
 
                   {/* Footer */}
                   <div className="flex items-center justify-between text-[11px] pt-2">
-                    <span className="pill text-[10px]">{clubCategoryLabel(club.category)}</span>
+                    <span className="pill text-[11px]">{clubCategoryLabel(club.category)}</span>
                     <span
                       className={cn(
                         'font-semibold tabular-nums',

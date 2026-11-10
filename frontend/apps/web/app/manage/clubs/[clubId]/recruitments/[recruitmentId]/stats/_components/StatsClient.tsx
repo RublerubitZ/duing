@@ -58,17 +58,17 @@ export function StatsClient({ params }: StatsClientProps) {
     return (
       <div className="mx-auto max-w-3xl px-6 py-10">
         <div className="mb-8 flex flex-col gap-1">
-          <Link href={detailPath} className="text-sm text-slate-500 hover:text-slate-700">
+          <Link href={detailPath} className="text-sm text-charcoal-3 hover:text-charcoal">
             ← 모집 상세로 돌아가기
           </Link>
-          <h1 className="text-xl font-bold text-slate-900">{`통계 — ${recruitmentTitle}`}</h1>
+          <h1 className="text-xl font-bold text-ink-deep">{`통계 — ${recruitmentTitle}`}</h1>
         </div>
-        <div className="rounded-xl border border-slate-200 bg-slate-50 px-6 py-8 text-center">
-          <p className="text-sm text-slate-600">
+        <div className="rounded-xl border border-line bg-paper px-6 py-8 text-center">
+          <p className="text-sm text-charcoal-2">
             외부 폼 모집은 지원서를 두잉에서 받지 않아 통계를 제공하지 않아요.
           </p>
-          <Link href={detailPath} className="mt-3 inline-block text-sm text-sky-600 hover:underline">
-            모집 상세로 이동 →
+          <Link href={detailPath} className="mt-3 inline-block text-sm text-sky-deep hover:underline">
+            모집 상세로 이동
           </Link>
         </div>
       </div>
@@ -81,23 +81,23 @@ export function StatsClient({ params }: StatsClientProps) {
       <div className="mb-8 flex flex-col gap-1">
         <Link
           href={toRoute(`/manage/clubs/${clubId}/recruitments/${recruitmentId}`)}
-          className="text-sm text-slate-500 hover:text-slate-700"
+          className="text-sm text-charcoal-3 hover:text-charcoal"
         >
           ← 모집 상세로 돌아가기
         </Link>
-        <h1 className="text-xl font-bold text-slate-900">
+        <h1 className="text-xl font-bold text-ink-deep">
           {isHeaderLoading ? '통계' : `통계 — ${recruitmentTitle}`}
         </h1>
       </div>
 
       {/* Summary 카드 */}
       <section className="mb-8">
-        <h2 className="mb-3 text-sm font-semibold text-slate-700">지원 현황</h2>
+        <h2 className="mb-3 text-sm font-semibold text-charcoal">지원 현황</h2>
         {isSummaryLoading && (
           <LoadingGate label="지원 현황 불러오는 중" className="min-h-0 py-8" />
         )}
         {isSummaryError && (
-          <p className="text-sm text-rose-500">지원 현황 데이터를 불러올 수 없습니다.</p>
+          <p className="text-sm text-coral-deep">지원 현황 데이터를 불러올 수 없습니다.</p>
         )}
         {statsSummary && (
           <SummaryCards statsSummary={statsSummary} />
@@ -106,13 +106,13 @@ export function StatsClient({ params }: StatsClientProps) {
 
       {/* 일자별 라인 차트 */}
       <section className="mb-8">
-        <h2 className="mb-3 text-sm font-semibold text-slate-700">일자별 지원 추이</h2>
-        <div className="rounded-xl border border-slate-200 bg-white p-4">
+        <h2 className="mb-3 text-sm font-semibold text-charcoal">일자별 지원 추이</h2>
+        <div className="rounded-xl border border-line bg-white p-4">
           {isDailyLoading && (
             <LoadingGate label="일자별 지원 추이 불러오는 중" className="min-h-0 py-8" />
           )}
           {isDailyError && (
-            <p className="py-6 text-center text-sm text-rose-500">
+            <p className="py-6 text-center text-sm text-coral-deep">
               일자별 데이터를 불러올 수 없습니다.
             </p>
           )}
@@ -124,13 +124,13 @@ export function StatsClient({ params }: StatsClientProps) {
 
       {/* Funnel 차트 */}
       <section className="mb-8">
-        <h2 className="mb-3 text-sm font-semibold text-slate-700">전형 단계별 현황</h2>
-        <div className="rounded-xl border border-slate-200 bg-white p-4">
+        <h2 className="mb-3 text-sm font-semibold text-charcoal">전형 단계별 현황</h2>
+        <div className="rounded-xl border border-line bg-white p-4">
           {isFunnelLoading && (
             <LoadingGate label="전형 단계별 현황 불러오는 중" className="min-h-0 py-8" />
           )}
           {isFunnelError && (
-            <p className="py-6 text-center text-sm text-rose-500">
+            <p className="py-6 text-center text-sm text-coral-deep">
               전형 데이터를 불러올 수 없습니다.
             </p>
           )}

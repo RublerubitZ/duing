@@ -194,16 +194,16 @@ export function ApplicationStepper({ detail, phase }: Props) {
           const isPast = index < activeIndex;
           // 마지막 마디의 강조색 — 불합격은 경고색, 결과 없이 종료·운영 중단으로 선발 종료는 중립 회색.
           // 진행 초록을 그대로 쓰면 "여기까지 잘 진행됨"으로 읽혀 종료 사실이 흐려진다(isFinalReject 가 거짓이면 null → 초록).
-          const finalAccent = isFinalReject ? '#D9523A' : closedWithoutResult || endedByDeactivation ? '#8A8F98' : null;
+          const finalAccent = isFinalReject ? 'var(--danger)' : closedWithoutResult || endedByDeactivation ? 'var(--neutral-mid)' : null;
           const isAccentedFinal = step.key === 'finalized' && isActive && finalAccent !== null;
 
           const dotColor = isAccentedFinal
             ? finalAccent
             : isPast || isActive
-            ? '#2E6149'
-            : '#D9D6CC';
-          const dotBackground = isActive ? '#fff' : dotColor;
-          const dotBorder = isAccentedFinal ? finalAccent : isPast || isActive ? '#2E6149' : '#D9D6CC';
+            ? 'var(--ink-soft)'
+            : 'var(--gray-line)';
+          const dotBackground = isActive ? 'var(--paper)' : dotColor;
+          const dotBorder = isAccentedFinal ? finalAccent : isPast || isActive ? 'var(--ink-soft)' : 'var(--gray-line)';
           const labelColor = isPast || isActive ? 'var(--ink-deep)' : 'var(--charcoal-3)';
 
           return (
@@ -237,7 +237,7 @@ export function ApplicationStepper({ detail, phase }: Props) {
                       width: 7,
                       height: 7,
                       borderRadius: '50%',
-                      background: '#2E6149',
+                      background: 'var(--ink-soft)',
                     }}
                   />
                 )}
@@ -247,7 +247,7 @@ export function ApplicationStepper({ detail, phase }: Props) {
                       width: 7,
                       height: 7,
                       borderRadius: '50%',
-                      background: finalAccent ?? '#D9523A',
+                      background: finalAccent ?? 'var(--danger)',
                     }}
                   />
                 )}
@@ -277,7 +277,7 @@ export function ApplicationStepper({ detail, phase }: Props) {
             marginBottom: 0,
             padding: '10px 12px',
             borderRadius: 10,
-            background: 'var(--sage-tint, #E8EEE8)',
+            background: 'var(--sage-tint)',
             color: 'var(--ink-deep)',
             fontSize: 12.5,
             lineHeight: 1.5,

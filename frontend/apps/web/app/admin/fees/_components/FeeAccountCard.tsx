@@ -40,7 +40,6 @@ export function FeeAccountCard({ clubId }: { clubId: number }) {
     return (
       <ConsoleCard>
         <EmptyState
-          icon="🏦"
           title="등록된 회비 계좌가 없습니다"
           body={'이 동아리는 아직 회비 계좌를 등록하지 않았어요.\n계좌 등록은 동아리 운영진만 할 수 있습니다.'}
         />

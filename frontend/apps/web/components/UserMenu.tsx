@@ -98,7 +98,7 @@ export function UserMenu({
             asChild
             className="rounded-none border-b border-line px-4 py-3 text-[13.5px] font-semibold text-ink-deep"
           >
-            <Link href={toRoute('/admin/clubs')}>총동연 콘솔</Link>
+            <Link href={toRoute('/admin')}>총동연 콘솔</Link>
           </DropdownMenuItem>
         )}
         <DropdownMenuItem

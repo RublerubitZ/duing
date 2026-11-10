@@ -27,7 +27,7 @@ type ManageShellProps = {
 const SIDEBAR_WIDTH = { expanded: 280, collapsed: 84 } as const;
 const COLLAPSED_STORAGE_KEY = 'duing:manage:sidebar-collapsed';
 /** 다크 그린 그라데이션 표면 — 데스크탑 aside 와 모바일 Sheet 드로어가 공유한다. */
-const SIDEBAR_SURFACE_CLASS = 'bg-[linear-gradient(180deg,#34463E_0%,#2A382F_100%)]';
+const SIDEBAR_SURFACE_CLASS = 'bg-gradient-to-b from-console to-console-deep';
 
 // 사이드바 내용(로고·클럽 전환·내비·푸터) — 데스크탑 aside 와 모바일 Sheet 드로어가 공유한다.
 // 접기 토글은 데스크탑 전용(onToggleCollapse 미전달 시 숨김), 드로어는 항상 펼침 구성.
@@ -237,7 +237,6 @@ export function ManageShell({ currentClubId, children }: ManageShellProps) {
             'sticky top-0 hidden h-[calc(100dvh-1.5rem)] shrink-0 flex-col self-start overflow-hidden md:flex',
             'm-3 rounded-xl shadow-4',
             SIDEBAR_SURFACE_CLASS,
-            'motion-safe:transition-[width] motion-safe:duration-200 motion-safe:ease-out',
           )}
         >
           <ManageSidebarContent
@@ -252,7 +251,7 @@ export function ManageShell({ currentClubId, children }: ManageShellProps) {
             sticky 기준만 가로채 하위 sticky(미리보기·모바일 상단바)를 죽인다 */}
         <main className="min-w-0 flex-1 bg-cream">
           {/* 모바일 상단바 — 햄버거로 드로어 열기 */}
-          <div className="sticky top-0 z-30 flex items-center gap-3 bg-[#34463E] px-4 py-2.5 md:hidden">
+          <div className="sticky top-0 z-30 flex items-center gap-3 bg-console px-4 py-2.5 md:hidden">
             <button
               type="button"
               onClick={() => setDrawerOpen(true)}
@@ -273,7 +272,7 @@ export function ManageShell({ currentClubId, children }: ManageShellProps) {
               </svg>
             </button>
             <div className="min-w-0 leading-tight">
-              <div className="text-[10.5px] text-cream/50">운영진 콘솔</div>
+              <div className="text-xs text-cream/65">운영진 콘솔</div>
               <div className="truncate text-[14px] font-semibold text-cream">{currentClubName ?? 'Du·ing'}</div>
             </div>
           </div>

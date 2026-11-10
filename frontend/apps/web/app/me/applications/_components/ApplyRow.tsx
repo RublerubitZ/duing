@@ -14,7 +14,7 @@ type Props = {
 };
 
 export function ApplyRow({ app, onOpen, isActive }: Props) {
-  const labelColor = CAT_LABEL_COLOR[app.cat] ?? '#5C8268';
+  const labelColor = CAT_LABEL_COLOR[app.cat] ?? 'var(--sage-deep)';
   return (
     <div
       onClick={() => onOpen(app.id)}
@@ -47,7 +47,7 @@ export function ApplyRow({ app, onOpen, isActive }: Props) {
       <div className="ar-info">
         <div style={{
           display: 'inline-block',
-          fontSize: 10.5, fontWeight: 700,
+          fontSize: 11, fontWeight: 700,
           color: labelColor,
           background: 'var(--sage-tint)',
           padding: '2px 7px', borderRadius: 999,
@@ -66,7 +66,7 @@ export function ApplyRow({ app, onOpen, isActive }: Props) {
           whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
         }}>{app.tag}</div>
         <div style={{
-          fontSize: 10.5, color: 'var(--charcoal-3)',
+          fontSize: 11, color: 'var(--charcoal-3)',
           fontVariantNumeric: 'tabular-nums',
         }}>
           지원일 {app.appliedDate}
@@ -87,7 +87,7 @@ export function ApplyRow({ app, onOpen, isActive }: Props) {
         )}
         {app.right && (
           <>
-            <div style={{ fontSize: 10.5, color: 'var(--charcoal-3)', marginBottom: 1 }}>
+            <div style={{ fontSize: 11, color: 'var(--charcoal-3)', marginBottom: 1 }}>
               {app.right.eyebrow}
             </div>
             <div style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--ink-deep)', fontVariantNumeric: 'tabular-nums' }}>
@@ -104,7 +104,7 @@ export function ApplyRow({ app, onOpen, isActive }: Props) {
 
       {/* 5. 화살표 (lg+ 전용 — 그 아래는 카드 전체가 탭 영역) */}
       <div className="ar-arrow hidden place-items-center lg:grid" style={{ color: 'var(--charcoal-3)' }}>
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
           <path d="m9 6 6 6-6 6" />
         </svg>
       </div>

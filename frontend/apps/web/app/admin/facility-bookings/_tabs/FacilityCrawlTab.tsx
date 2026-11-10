@@ -151,7 +151,7 @@ export function FacilityCrawlTab() {
           />
         )}
         {reservationsQuery.data && reservationsQuery.data.content.length === 0 && (
-          <EmptyState icon="🗓️" title="크롤 예약이 없어요" body="이 조건에 수집된 학교 예약이 없습니다." />
+          <EmptyState title="크롤 예약이 없어요" body="이 조건에 수집된 학교 예약이 없습니다." />
         )}
         {reservationsQuery.data && reservationsQuery.data.content.length > 0 && (
           <ul className="divide-y divide-line">
@@ -193,17 +193,17 @@ function CrawlGroupRow({ group }: { group: AdminCrawlReservationGroup }) {
       <div className="flex flex-wrap items-center gap-2">
         <p className="text-sm font-bold text-ink-deep">{group.title}</p>
         {group.groupType === 'CLUB' && (
-          <span className="rounded-full bg-slate-900 px-1.5 py-0.5 text-[10px] font-semibold text-white">
+          <span className="rounded-full bg-ink-deep px-1.5 py-0.5 text-[11px] font-semibold text-white">
             매칭 동아리
           </span>
         )}
         {group.groupType === 'EXTERNAL' && (
-          <span className="rounded-full bg-graysoft px-1.5 py-0.5 text-[10px] font-semibold text-charcoal-2">
+          <span className="rounded-full bg-graysoft px-1.5 py-0.5 text-[11px] font-semibold text-charcoal-2">
             매칭 없음
           </span>
         )}
         {group.facilitySecuredTimeTarget === true && (
-          <span className="rounded-full bg-emerald-700 px-1.5 py-0.5 text-[10px] font-semibold text-white">
+          <span className="rounded-full bg-paper px-1.5 py-0.5 text-[11px] font-semibold text-ink ring-1 ring-inset ring-ink">
             기본 확보 대상
           </span>
         )}

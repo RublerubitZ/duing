@@ -43,7 +43,7 @@ const ClubDescription = memo(function ClubDescription({ description }: { descrip
       />
     );
   }
-  return <div className="whitespace-pre-wrap text-slate-700 text-[13px]">{description}</div>;
+  return <div className="whitespace-pre-wrap text-charcoal text-[13px]">{description}</div>;
 });
 
 const CATEGORY_LABEL: Record<string, string> = {
@@ -64,11 +64,11 @@ function MemberRow({ member }: { member: AdminClubMember }) {
   return (
     <div className="flex items-center justify-between gap-3 rounded-md border border-line bg-white px-3 py-2 text-sm">
       <div className="min-w-0">
-        <span className="font-medium text-slate-900">{member.name}</span>
-        <span className="ml-2 text-xs text-slate-500">{member.studentId}</span>
-        {affiliation && <p className="mt-0.5 truncate text-xs text-slate-500">{affiliation}</p>}
+        <span className="font-medium text-ink-deep">{member.name}</span>
+        <span className="ml-2 text-xs text-charcoal-3">{member.studentId}</span>
+        {affiliation && <p className="mt-0.5 truncate text-xs text-charcoal-3">{affiliation}</p>}
       </div>
-      <span className="shrink-0 text-xs text-slate-400">{clubMemberRoleLabel(member.role)}</span>
+      <span className="shrink-0 text-xs text-charcoal-3">{clubMemberRoleLabel(member.role)}</span>
     </div>
   );
 }
@@ -123,7 +123,7 @@ export function AdminClubDetailPage({ clubId }: Props) {
                 {STATUS_LABEL[club.status]}
               </span>
               {club.centralClub && (
-                <span className="rounded-full bg-slate-900 px-1.5 py-0.5 text-[10px] font-semibold text-white">
+                <span className="rounded-full bg-ink-deep px-1.5 py-0.5 text-[11px] font-semibold text-white">
                   🏛️ 중앙
                 </span>
               )}
@@ -131,19 +131,19 @@ export function AdminClubDetailPage({ clubId }: Props) {
             <div className="ml-auto flex items-center gap-3">
               <Link
                 href={`/admin/clubs/${clubId}/activity-log`}
-                className="text-[13px] text-indigo-600 hover:underline"
+                className="text-[13px] text-ink hover:underline"
               >
                 활동 이력 →
               </Link>
               <Link
                 href={`/admin/clubs/${clubId}/join-codes`}
-                className="text-[13px] text-indigo-600 hover:underline"
+                className="text-[13px] text-ink hover:underline"
               >
                 가입 링크 →
               </Link>
               <Link
                 href={`/admin/clubs/${clubId}/member-history`}
-                className="text-[13px] text-indigo-600 hover:underline"
+                className="text-[13px] text-ink hover:underline"
               >
                 권한 변경 이력 →
               </Link>
@@ -182,23 +182,23 @@ export function AdminClubDetailPage({ clubId }: Props) {
               </div>
               <dl className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm sm:grid-cols-3">
                 <div>
-                  <dt className="text-[11px] font-semibold uppercase text-slate-400">카테고리</dt>
-                  <dd className="text-slate-800">{CATEGORY_LABEL[club.category] ?? club.category}</dd>
+                  <dt className="text-[11px] font-semibold uppercase text-charcoal-3">카테고리</dt>
+                  <dd className="text-charcoal">{CATEGORY_LABEL[club.category] ?? club.category}</dd>
                 </div>
                 {club.division && (
                   <div>
-                    <dt className="text-[11px] font-semibold uppercase text-slate-400">분류</dt>
-                    <dd className="text-slate-800">{club.division}</dd>
+                    <dt className="text-[11px] font-semibold uppercase text-charcoal-3">분류</dt>
+                    <dd className="text-charcoal">{club.division}</dd>
                   </div>
                 )}
                 {club.tags.length > 0 && (
                   <div className="col-span-2 sm:col-span-3">
-                    <dt className="text-[11px] font-semibold uppercase text-slate-400">태그</dt>
+                    <dt className="text-[11px] font-semibold uppercase text-charcoal-3">태그</dt>
                     <dd className="flex flex-wrap gap-1 mt-0.5">
                       {club.tags.map((tag) => (
                         <span
                           key={tag}
-                          className="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-600"
+                          className="rounded-full bg-graysoft px-2 py-0.5 text-xs text-charcoal-2"
                         >
                           {tagLabel(tag)}
                         </span>
@@ -208,7 +208,7 @@ export function AdminClubDetailPage({ clubId }: Props) {
                 )}
                 {club.description && (
                   <div className="col-span-2 sm:col-span-3">
-                    <dt className="text-[11px] font-semibold uppercase text-slate-400">설명</dt>
+                    <dt className="text-[11px] font-semibold uppercase text-charcoal-3">설명</dt>
                     <dd>
                       <ClubDescription description={club.description} />
                     </dd>
@@ -216,7 +216,7 @@ export function AdminClubDetailPage({ clubId }: Props) {
                 )}
                 {club.logoUrl && (
                   <div>
-                    <dt className="text-[11px] font-semibold uppercase text-slate-400">로고</dt>
+                    <dt className="text-[11px] font-semibold uppercase text-charcoal-3">로고</dt>
                     <dd>
                       <div className="relative mt-0.5 h-10 w-10 overflow-hidden rounded-md bg-graysoft">
                         <ClubLogo logoUrl={club.logoUrl} alt={`${club.name} 로고`} />
@@ -233,7 +233,7 @@ export function AdminClubDetailPage({ clubId }: Props) {
                 <h2 className="text-[15px] font-semibold text-ink">
                   회원 {members.length}명
                   {isSearching && filteredMembers.length !== members.length && (
-                    <span className="ml-2 text-[13px] font-normal text-slate-500">
+                    <span className="ml-2 text-[13px] font-normal text-charcoal-3">
                       · {filteredMembers.length}명 검색됨
                     </span>
                   )}
@@ -247,7 +247,7 @@ export function AdminClubDetailPage({ clubId }: Props) {
                   }}
                   placeholder="이름·학번·전공 검색"
                   aria-label="회원 검색"
-                  className="w-full max-w-[240px] rounded-md border border-line bg-white px-3 py-1.5 text-sm focus:border-slate-400 focus:outline-none"
+                  className="w-full max-w-[240px] rounded-md border border-line bg-white px-3 py-1.5 text-sm focus:border-charcoal-3 focus:outline-none"
                 />
               </div>
 
@@ -256,9 +256,9 @@ export function AdminClubDetailPage({ clubId }: Props) {
               ) : membersQuery.isError ? (
                 <p className="text-[13px] text-coral-deep">회원 목록을 불러오지 못했습니다.</p>
               ) : members.length === 0 ? (
-                <p className="text-[13px] text-slate-400 italic">등록된 회원이 없습니다.</p>
+                <p className="text-[13px] text-charcoal-3 italic">등록된 회원이 없습니다.</p>
               ) : filteredMembers.length === 0 ? (
-                <p className="text-[13px] text-slate-400 italic">검색 결과가 없습니다.</p>
+                <p className="text-[13px] text-charcoal-3 italic">검색 결과가 없습니다.</p>
               ) : (
                 <div className="space-y-3">
                   <div className="space-y-1">

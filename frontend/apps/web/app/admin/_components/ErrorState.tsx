@@ -34,9 +34,6 @@ export function ErrorState({
 
   return (
     <div role="alert" className="px-6 py-14 text-center">
-      <p aria-hidden className="mb-3.5 text-[40px] leading-none opacity-90">
-        ⚠️
-      </p>
       <p className="text-[15.5px] font-bold text-ink-deep">{message}</p>
       {onRetry && (
         <div className="mt-5 flex justify-center">

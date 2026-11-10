@@ -18,25 +18,25 @@ export function ApplySummaryCard({ counts }: Props) {
   const total = counts ? counts.all ?? 0 : '—';
   return (
     <div style={{
-      background: 'linear-gradient(160deg, #1F4A36 0%, #143025 100%)',
-      color: '#fff',
+      background: 'linear-gradient(160deg, var(--ink) 0%, var(--ink-deep) 100%)',
+      color: 'var(--paper)',
       borderRadius: 16,
       padding: '18px 20px 16px',
       position: 'relative',
       overflow: 'hidden',
     }}>
-      <SparkleFull size={28} color="rgba(157,182,160,0.30)" style={{ position: 'absolute', top: 12, right: 12 }} />
+      <SparkleFull size={28} color="var(--sage)" style={{ position: 'absolute', top: 12, right: 12, opacity: 0.3 }} />
       <div style={{ fontSize: 12, fontWeight: 700, color: 'rgba(255,255,255,0.92)', marginBottom: 6 }}>
         나의 지원 요약
       </div>
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 4, marginBottom: 12 }}>
         <span style={{
-          fontSize: 42, fontWeight: 700, color: '#fff',
+          fontSize: 42, fontWeight: 700, color: 'var(--paper)',
           lineHeight: 1,
           letterSpacing: '-0.02em',
         }}>{total}</span>
         {counts && <span style={{ fontSize: 15, fontWeight: 700, color: 'rgba(255,255,255,0.9)' }}>건</span>}
-        <SparkleFull size={14} color="#C9D8CC" style={{ marginLeft: 4, transform: 'translateY(-16px)' }} />
+        <SparkleFull size={14} color="var(--sage-soft)" style={{ marginLeft: 4, transform: 'translateY(-16px)' }} />
       </div>
       <div style={{
         display: 'grid', gridTemplateColumns: '1fr 1fr 1fr',
@@ -52,10 +52,10 @@ export function ApplySummaryCard({ counts }: Props) {
             textAlign: 'center',
             borderLeft: i === 0 ? 'none' : '1px solid rgba(255,255,255,0.10)',
           }}>
-            <div style={{ fontSize: 10.5, color: 'rgba(255,255,255,0.62)', marginBottom: 2 }}>
+            <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.62)', marginBottom: 2 }}>
               {summaryItem.label}
             </div>
-            <div style={{ fontSize: 16, fontWeight: 700, color: '#fff' }}>
+            <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--paper)' }}>
               {summaryItem.value}
             </div>
           </div>

@@ -128,7 +128,7 @@ describe('UserMenu', () => {
     expect(mockLogout).toHaveBeenCalledTimes(2);
   });
 
-  it('ADMIN 이면 총동연 콘솔 항목이 노출되고 /admin/clubs 로 연결된다', async () => {
+  it('ADMIN 이면 총동연 콘솔 항목이 노출되고 대시보드(/admin)로 연결된다', async () => {
     setStatus('authenticated');
     mockMeData.mockReturnValue({ name: '홍길동', role: 'ADMIN' });
     const user = userEvent.setup();
@@ -138,7 +138,7 @@ describe('UserMenu', () => {
 
     const consoleItem = screen.getByRole('menuitem', { name: '총동연 콘솔' });
     expect(consoleItem).toBeInTheDocument();
-    expect(consoleItem).toHaveAttribute('href', '/admin/clubs');
+    expect(consoleItem).toHaveAttribute('href', '/admin');
   });
 
   it('비ADMIN 이면 총동연 콘솔 항목이 노출되지 않는다', async () => {
