@@ -24,6 +24,7 @@ Tailwind 토큰과 `.duing` 스코프 CSS 변수(`var(--ink)` 등)가 1:1 동일
 | Cream | `#F6F3EC` | `cream` / `--cream` | 페이지 캔버스 — 모든 것이 올라가는 따뜻한 종이 |
 | Cream 2 | `#EFEBE0` | `cream-2` / `--cream-2` | 한 톤 어두운 크림 — 푸터 배경 |
 | Paper | `#FFFFFF` | `paper` / `--paper` | 카드·서피스 흰색, 반전 텍스트 |
+| Paper Warm | `#FBFAF6` | `paper-warm` | 총동연 콘솔 사이드바 표면 |
 | Charcoal | `#2F3433` | `charcoal` / `--charcoal` | 본문 기본 텍스트 (`.duing` 기본값) |
 | Charcoal 2 | `#4A504F` | `charcoal-2` / `--charcoal-2` | 보조 텍스트 |
 | Charcoal 3 | `#6F7574` | `charcoal-3` / `--charcoal-3` | 메타·캡션·빈 상태 텍스트 — 텍스트 위계의 바닥 |
@@ -32,10 +33,9 @@ Tailwind 토큰과 `.duing` 스코프 CSS 변수(`var(--ink)` 등)가 1:1 동일
 | Warm | `#E8B968` | `warm` / `--warm` | 옐로 액센트 — pill 페어 전용 (`#fbefd7` / `#8e6620`) |
 | Coral | `#D97757` | `coral` / `--coral` | 코랄 액센트 — pill 페어(`#fce2d9` / `#9a3f23`). 흰 글자를 얹는 위험 버튼·긴급 배지는 coral 이 아니라 `danger` |
 | Berry | `#B65672` | `berry` / `--berry` | 베리 액센트 — pill 페어 (`#f6dce3` / `#7e2a45`) |
-| Danger | `#B04A28` | `danger` | 파괴적 액션(정지·삭제·강제 로그아웃)과 긴급 상태 배지 — 흰 글자를 얹는 솔리드(5.45:1). hover 는 `#9A3F23` |
-| Paper Warm | `#FBFAF6` | `paper-warm` | 총동연 콘솔 사이드바 표면 |
-| Console | `#34463E` → `#2A382F` | `console` / `console-deep` | 운영진 콘솔 사이드바·모바일 상단바·동아리 전환 메뉴의 진한 초록 표면(위 → 아래 그라디언트) |
 | Sky | `#6A95B8` | `sky` / `--sky` | 블루 액센트 — pill 페어 (`#dde8f1` / `#2f557a`). 유일하게 50~950 풀 스케일 보유 |
+| Danger | `#B04A28` | `danger` | 파괴적 액션(정지·삭제·강제 로그아웃)과 긴급 상태 배지 — 흰 글자를 얹는 솔리드(5.45:1). hover 는 `#9A3F23` |
+| Console | `#34463E` → `#2A382F` | `console` / `console-deep` | 운영진 콘솔 사이드바·모바일 상단바·동아리 전환 메뉴의 진한 초록 표면(위 → 아래 그라디언트) |
 
 액센트 4색(warm·coral·berry·sky)은 포인트 전용 — 파스텔 배경 + 딥톤 텍스트 pill 페어로만 쓰고 큰 면적에 깔지 않는다. 카테고리/도메인 틴트 배경은 `linear-gradient(135deg, ${color}22 0%, ${color}11 100%)` (hex 알파 13%/7%) 공식.
 
@@ -81,7 +81,7 @@ Tailwind 토큰과 `.duing` 스코프 CSS 변수(`var(--ink)` 등)가 1:1 동일
 ### Pretendard — 기능하는 모든 것: 본문·버튼·카드·네비. 디스플레이가 외칠 수 있도록 조용히 받친다 · `font-body`
 - **Substitute:** system-ui, -apple-system
 - **Weights:** 400, 600, 700, 800 (Font Guide 스케일 — 500 은 쓰지 않는다)
-- **Sizes:** 11(칩·배지 한정), 11.5, 12(text-xs), 12.5, 13, 13.5, 14, 15, 16(text-base), 18(text-lg) — 표준 스케일 대신 **픽셀 임의값이 기본** (`text-[13.5px]` 등)
+- **Sizes:** 11(콘솔에서는 칩·배지 한정 — 공개 화면의 탭바 라벨·사전식 주석은 예외), 11.5, 12(text-xs), 12.5, 13, 13.5, 14, 15, 16(text-base), 18(text-lg) — 표준 스케일 대신 **픽셀 임의값이 기본** (`text-[13.5px]` 등)
 - **Line height:** 1.5 (`.duing` 기본), 히어로 서브카피 1.6
 - **Letter spacing:** -0.005em (`.duing` 기본), `font-feature-settings: 'ss01' 'ss02' 'cv11'`
 - **Role:** 본문·UI 전부. 위계는 크기보다 **색 3단**(charcoal-3 → charcoal-2 → ink/ink-deep+bold)으로 만든다.
@@ -454,8 +454,8 @@ shadcn(Radix) 프리미티브는 **동작·접근성이 중요한 컴포넌트**
 
 | 영역 | 패턴 |
 |------|------|
-| 운영진(`/manage/*`) | `ManageShell` 사이드바(펼침 280px / 접힘 84px, 총동연 `AdminSidebar` 는 248px / 84px) → 모바일 상단바 + **Sheet 드로어**(ClubSwitcher + ManageNav 수용) |
-| 관리자(`/admin/*`) | `AdminSidebar`(`hidden md:block`) 유지 + 상단바 햄버거 → **Sheet 드로어** |
+| 운영진(`/manage/*`) | `ManageShell` 사이드바(펼침 280px / 접힘 84px) → 모바일 상단바 + **Sheet 드로어**(ClubSwitcher + ManageNav 수용) |
+| 관리자(`/admin/*`) | `AdminSidebar`(`hidden md:block`, 펼침 248px / 접힘 84px) 유지 + 상단바 햄버거 → **Sheet 드로어** |
 
 공개 영역은 하단 탭바가 네비를 대체하므로 **별도 드로어를 두지 않는다**. 무한 마퀴·과한 스프링 금지(Motion 원칙 준수).
 
