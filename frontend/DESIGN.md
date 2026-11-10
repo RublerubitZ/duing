@@ -10,7 +10,7 @@ Du-ing 의 비주얼 랭귀지는 따뜻한 크림 캔버스(#F6F3EC) 위에서 
 
 ## Tokens — Colors
 
-Tailwind 토큰과 `.duing` 스코프 CSS 변수(`var(--ink)` 등)가 1:1 동일 값.
+이름이 같은 Tailwind 토큰과 `.duing` 스코프 CSS 변수(`var(--ink)` 등)는 값이 같다. 변수는 인라인 스타일·SVG 속성처럼 클래스를 쓸 수 없는 자리에서만 쓰고, 표의 Token 칸에 변수명이 적힌 색만 변수가 있다(`test/lint/css-variable-defined.test.ts` 가 정의 없는 `var(--…)` 사용을 막는다).
 
 | Name | Value | Token | Role |
 |------|-------|-------|------|
@@ -18,7 +18,7 @@ Tailwind 토큰과 `.duing` 스코프 CSS 변수(`var(--ink)` 등)가 1:1 동일
 | Ink Deep | `#143025` | `ink-deep` / `--ink-deep` | 헤딩 텍스트(h1~h4 자동), `btn-primary` hover, 다크 띠 배경 — 페이지에서 가장 어두운 잉크 |
 | Ink Soft | `#2E6149` | `ink-soft` / `--ink-soft` | ink 의 밝은 변형 — 저빈도 보조 |
 | Sage | `#9DB6A0` | `sage` / `--sage` | **장식 전용** — Sparkle, 형광펜 밑줄(`border-sage`), 라이브 도트. 텍스트 컬러로 승격 금지 |
-| Sage Deep | `#4D6850` | `sage-deep` | 밝은 바탕 위 세이지 톤 글자 — `bg-sage/10` 배지 글자·아이콘(AA 4.5:1 이상) |
+| Sage Deep | `#4D6850` | `sage-deep` / `--sage-deep` | 밝은 바탕 위 세이지 톤 글자 — `bg-sage/10` 배지 글자·아이콘(AA 4.5:1 이상) |
 | Sage Soft | `#C9D8CC` | `sage-soft` / `--sage-soft` | 연한 보더, 히어로 블러 원 그라디언트 |
 | Sage Mist | `#E8EEE8` | `sage-mist` / `--sage-mist` | `.pill` 기본 배경, CTA 패널 서피스 |
 | Sage Tint | `#F1F5F1` | `sage-tint` / `--sage-tint` | hover·선택 상태 배경 (드롭다운 항목 등 인터랙션 피드백) |
@@ -34,11 +34,12 @@ Tailwind 토큰과 `.duing` 스코프 CSS 변수(`var(--ink)` 등)가 1:1 동일
 | Warm | `#E8B968` | `warm` / `--warm` | 옐로 액센트 — pill 페어 전용 (`#fbefd7` / `#8e6620`) |
 | Coral | `#D97757` | `coral` / `--coral` | 코랄 액센트 — pill 페어(`#fce2d9` / `#9a3f23`). 흰 글자를 얹는 위험 버튼·긴급 배지는 coral 이 아니라 `danger` |
 | Berry | `#B65672` | `berry` / `--berry` | 베리 액센트 — pill 페어 (`#f6dce3` / `#7e2a45`) |
-| Sky | `#6A95B8` | `sky` / `--sky` | 블루 액센트 — pill 페어 (`#dde8f1` / `#2f557a`). 유일하게 50~950 풀 스케일 보유 |
+| Sky | `#6A95B8` | `sky` / `--sky` | 블루 액센트 — pill 페어 (`#dde8f1` / `#2f557a`). 숫자 스케일(`sky-100` 등)은 Tailwind 기본 하늘색이라 쓰지 않는다 |
 | Warm Deep | `#865D14` | `warm-deep` | `bg-warm/10` 배지·안내 글자 — 대기·주의 |
-| Coral Deep | `#A54525` | `coral-deep` | `bg-coral/10` 배지·경고 글자 — 미납·충돌·오류. 흰 글자를 얹는 솔리드는 `danger` |
+| Coral Deep | `#A54525` | `coral-deep` / `--coral-deep` | `bg-coral/10` 배지·경고 글자 — 미납·충돌·오류. 흰 글자를 얹는 솔리드는 `danger` |
 | Sky Deep | `#406786` | `sky-deep` / `--sky-deep` | `bg-sky/10` 배지 글자, 차트 보조 계열 — 정보 |
-| Danger | `#B04A28` | `danger` | 파괴적 액션(정지·삭제·강제 로그아웃)과 긴급 상태 배지 — 흰 글자를 얹는 솔리드(5.45:1). hover 는 `#9A3F23` |
+| Danger | `#B04A28` | `danger` / `--danger` | 파괴적 액션(정지·삭제·강제 로그아웃)과 긴급 상태 배지 — 흰 글자를 얹는 솔리드(5.45:1). hover 는 `#9A3F23` |
+| Neutral Mid | `#8A8F98` | `--neutral-mid` | 결과 없이 끝난 지원의 스테퍼 마디 — 진행 초록과 밝기로 구분되는 중간 회색(흰 바탕 3.25:1). 변수만 있고 Tailwind 토큰은 없다 |
 | Console | `#34463E` → `#2A382F` | `console` / `console-deep` | 운영진 콘솔 사이드바·모바일 상단바·동아리 전환 메뉴의 진한 초록 표면(위 → 아래 그라디언트) |
 
 액센트 4색(warm·coral·berry·sky)은 포인트 전용 — 파스텔 배경 + 딥톤 텍스트 pill 페어로만 쓰고 큰 면적에 깔지 않는다. 카테고리/도메인 틴트 배경은 `linear-gradient(135deg, ${color}22 0%, ${color}11 100%)` (hex 알파 13%/7%) 공식.
@@ -392,6 +393,10 @@ Secondary: `bg-paper text-ink border border-line hover:border-sage` — 보더�
   --berry:      #B65672;
   --sky:        #6A95B8;
   --sky-deep:   #406786;
+  --sage-deep:  #4D6850;
+  --coral-deep: #A54525;
+  --danger:     #B04A28;
+  --neutral-mid: #8A8F98;
   --font-body:    Pretendard, system-ui, sans-serif;
   --shadow-1: 0 1px 2px rgba(31,74,54,.04), 0 2px 8px rgba(31,74,54,.04);
   --shadow-2: 0 2px 6px rgba(31,74,54,.05), 0 12px 32px rgba(31,74,54,.08);
@@ -410,7 +415,7 @@ colors: {
   cream: { DEFAULT: '#F6F3EC', 2: '#EFEBE0' }, paper: { DEFAULT: '#FFFFFF', warm: '#FBFAF6' },
   console: { DEFAULT: '#34463E', deep: '#2A382F' }, danger: { DEFAULT: '#B04A28', hover: '#9A3F23' },
   warm: { DEFAULT: '#E8B968', deep: '#865D14' }, coral: { DEFAULT: '#D97757', deep: '#A54525' }, berry: '#B65672',
-  sky: { DEFAULT: '#6A95B8', deep: '#406786' /* +50~950 */ },
+  sky: { DEFAULT: '#6A95B8', deep: '#406786' },
 },
 fontFamily: {
   body: ['Pretendard', 'system-ui', 'sans-serif'],
