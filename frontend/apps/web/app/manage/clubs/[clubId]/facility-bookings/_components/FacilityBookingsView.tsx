@@ -3,7 +3,7 @@
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import type { FacilityBookingSummary } from '@duing/types';
-import { useClubFacilityBookingsQuery } from '@duing/hooks';
+import { useClubFacilityBookingsQuery, useManagedClubsQuery } from '@duing/hooks';
 import { toRoute } from '@/app/_lib/route';
 import { MANAGE_TAB_KEYS, MANAGE_TAB_LABELS, manageTabOf, type ManageTabKey } from '../_lib/bookingTabs';
 import { BookingDetailModal } from './BookingDetailModal';
@@ -37,6 +37,9 @@ export function FacilityBookingsView({
   // clubId 유효성(운영 권한·NaN)은 [clubId]/layout.tsx 의 ManageGuard 가 403 으로 처리하므로,
   // 여기서는 항상 유효한 clubId 만 받는다.
   const bookingsQuery = useClubFacilityBookingsQuery(clubId);
+  // 중앙동아리만 신청할 수 있다 — 알려진 비중앙에는 "예약하러 가기" 대신 그 사실을 알린다(모르면 평소대로).
+  const { data: managedClubs } = useManagedClubsQuery();
+  const isKnownNonCentral = managedClubs?.find((club) => club.clubId === clubId)?.centralClub === false;
 
   const bookings = bookingsQuery.data ?? EMPTY_BOOKINGS;
   const grouped = useMemo(() => {
@@ -52,10 +55,16 @@ export function FacilityBookingsView({
   const displayedBookings = activeTab === 'ACTIVE' ? grouped.active : grouped.past;
 
   return (
-    <section>
+    // 대시보드와 같은 컨테이너 — 이 화면만 폭 제한·여백 없이 화면 끝까지 붙어 있었다.
+    <section className="mx-auto max-w-5xl px-6 py-8">
       <header>
-        <p className="text-[11px] font-bold tracking-wide08 text-ink">MY RESERVATIONS · 동아리 예약</p>
-        <h1 className="mt-1 text-2xl tracking-tightx text-ink-deep">시설 예약 현황</h1>
+        <h1 className="text-2xl tracking-tightx text-ink-deep">시설 예약 현황</h1>
+        {isKnownNonCentral && (
+          <p className="mt-2 text-sm text-charcoal-2">
+            시설 예약은 중앙동아리만 신청할 수 있어요.
+            {bookings.length > 0 && ' 이전에 신청한 예약은 여기서 계속 확인할 수 있어요.'}
+          </p>
+        )}
       </header>
 
       <div className="mt-5 flex gap-1" role="tablist" aria-label="예약 상태 필터">
@@ -107,10 +116,12 @@ export function FacilityBookingsView({
         {bookingsQuery.isSuccess && bookings.length === 0 && (
           <div>
             <p className="text-sm text-charcoal-3">아직 신청한 예약이 없어요.</p>
-            {/* §9.8 빈 상태 → 예약 홈으로 유도(신청 진입점 제공) */}
-            <Link href={toRoute('/facilities')} className="btn btn-secondary mt-3 inline-flex">
-              예약하러 가기
-            </Link>
+            {/* §9.8 빈 상태 → 예약 홈으로 유도(신청 진입점 제공). 비중앙은 신청할 수 없어 막다른 길이라 두지 않는다. */}
+            {!isKnownNonCentral && (
+              <Link href={toRoute('/facilities')} className="btn btn-secondary mt-3 inline-flex">
+                예약하러 가기
+              </Link>
+            )}
           </div>
         )}
         {bookingsQuery.isSuccess && bookings.length > 0 && displayedBookings.length === 0 && (
