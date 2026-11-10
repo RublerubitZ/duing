@@ -113,9 +113,9 @@ export default function RecruitmentDetailPage({
   // 액션 버튼 시각 위계: "지원자 관리"가 1차 액션(채움), 나머지는 명확히 클릭 가능한 보조 액션(그림자+테두리 강조).
   // 기존엔 "수정"만 채워진 버튼이라 회색 아웃라인인 지원자/통계가 비활성처럼 보이던 문제를 해소한다.
   const primaryActionClass =
-    'inline-flex items-center gap-2 rounded-md bg-slate-900 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-slate-700';
+    'inline-flex items-center gap-2 rounded-md bg-ink-deep px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-ink';
   const secondaryActionClass =
-    'inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm transition-colors hover:border-slate-400 hover:bg-slate-50';
+    'inline-flex items-center gap-2 rounded-md border border-line bg-white px-4 py-2 text-sm font-medium text-charcoal shadow-sm transition-colors hover:border-charcoal-3 hover:bg-cream';
 
   async function handleClose() {
     setCloseError(null);
@@ -141,13 +141,13 @@ export default function RecruitmentDetailPage({
     <div className="mx-auto max-w-2xl px-6 py-10">
       {/* 상태 배너 — 실제 마감과 '마감일만 경과'를 구분해 안내한다 */}
       {isClosed && (
-        <div className="mb-6 rounded-md bg-slate-100 px-4 py-3 text-sm text-slate-600">
+        <div className="mb-6 rounded-md bg-graysoft px-4 py-3 text-sm text-charcoal-2">
           이미 마감된 모집입니다.
         </div>
       )}
       {/* 데이터 로드 후 나타나는 행동 요청이라 라이브 리전으로 알린다 */}
       {isExpiredOpen && (
-        <div role="status" className="mb-6 rounded-md bg-amber-50 px-4 py-3 text-sm text-amber-800">
+        <div role="status" className="mb-6 rounded-md bg-warm/10 px-4 py-3 text-sm text-warm-deep">
           {/* 요약을 받기 전·다시 받는 동안에는 첫 문장만 낭독 없이 자리를 잡고, 받으면 완성 문장을 한 번 채운다(#1572). */}
           {expiredOpenNoticeText(recruitment.applicationMode, statsSummaryQuery) ?? (
             <span aria-hidden="true">{EXPIRED_OPEN_LEAD}</span>
@@ -158,21 +158,21 @@ export default function RecruitmentDetailPage({
       {/* 헤더 */}
       <div className="mb-6 flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-xl font-bold text-slate-900">{recruitment.title}</h1>
+          <h1 className="text-xl font-bold text-ink-deep">{recruitment.title}</h1>
           {/* 외부 폼 모집은 지원서·면접 없이 코드로 회원을 등록한다 — 화면 첫 줄에서 모드를 알린다(§5). */}
           {isExternal && (
             <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-              <span className="rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-semibold text-amber-800">
+              <span className="rounded-full bg-warm/20 px-2.5 py-0.5 text-xs font-semibold text-warm-deep">
                 외부 폼 모집
               </span>
               {externalFormPlatform && (
-                <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-600">
+                <span className="rounded-full bg-graysoft px-2.5 py-0.5 text-xs font-medium text-charcoal-2">
                   {externalFormPlatform}
                 </span>
               )}
             </div>
           )}
-          <p className="mt-1 text-sm text-slate-500">
+          <p className="mt-1 text-sm text-charcoal-3">
             {recruitmentPeriodLabel(recruitment.startDate, recruitment.endDate)}
           </p>
         </div>
@@ -195,32 +195,32 @@ export default function RecruitmentDetailPage({
       {!isExternal && <RecruitmentTodoCard clubId={clubId} recruitment={recruitment} />}
 
       {/* 상세 정보 */}
-      <dl className="mb-8 space-y-3 rounded-lg border border-slate-200 p-4">
+      <dl className="mb-8 space-y-3 rounded-lg border border-line p-4">
         <div className="flex gap-4">
-          <dt className="w-24 shrink-0 text-sm text-slate-500">지원 방식</dt>
-          <dd className="text-sm text-slate-900">{applicationModeLabel}</dd>
+          <dt className="w-24 shrink-0 text-sm text-charcoal-3">지원 방식</dt>
+          <dd className="text-sm text-ink-deep">{applicationModeLabel}</dd>
         </div>
         {recruitment.applicationMode === 'EXTERNAL' && recruitment.externalFormUrl && (
           <div className="flex gap-4">
-            <dt className="w-24 shrink-0 text-sm text-slate-500">외부 폼 URL</dt>
-            <dd className="text-sm text-slate-900 break-all">{recruitment.externalFormUrl}</dd>
+            <dt className="w-24 shrink-0 text-sm text-charcoal-3">외부 폼 URL</dt>
+            <dd className="text-sm text-ink-deep break-all">{recruitment.externalFormUrl}</dd>
           </div>
         )}
         <div className="flex gap-4">
-          <dt className="w-24 shrink-0 text-sm text-slate-500">모집 대상</dt>
-          <dd className="text-sm text-slate-900">{targetRoleLabel}</dd>
+          <dt className="w-24 shrink-0 text-sm text-charcoal-3">모집 대상</dt>
+          <dd className="text-sm text-ink-deep">{targetRoleLabel}</dd>
         </div>
         <div className="flex gap-4">
-          <dt className="w-24 shrink-0 text-sm text-slate-500">모집 인원</dt>
-          <dd className="text-sm text-slate-900">{recruitment.capacity}명</dd>
+          <dt className="w-24 shrink-0 text-sm text-charcoal-3">모집 인원</dt>
+          <dd className="text-sm text-ink-deep">{recruitment.capacity}명</dd>
         </div>
         <div className="flex gap-4">
-          <dt className="w-24 shrink-0 text-sm text-slate-500">면접 여부</dt>
-          <dd className="text-sm text-slate-900">{recruitment.useInterview ? '있음' : '없음'}</dd>
+          <dt className="w-24 shrink-0 text-sm text-charcoal-3">면접 여부</dt>
+          <dd className="text-sm text-ink-deep">{recruitment.useInterview ? '있음' : '없음'}</dd>
         </div>
         {recruitment.useInterview && (
           <div className="flex gap-4">
-            <dt className="w-24 shrink-0 text-sm text-slate-500">면접 단계</dt>
+            <dt className="w-24 shrink-0 text-sm text-charcoal-3">면접 단계</dt>
             <dd>
               <InterviewStageChip clubId={clubId} recruitmentId={recruitmentId} />
             </dd>
@@ -231,7 +231,7 @@ export default function RecruitmentDetailPage({
       {/* 내용 */}
       {recruitment.content && (
         <div className="mb-8">
-          <h2 className="mb-2 text-sm font-medium text-slate-700">모집 내용</h2>
+          <h2 className="mb-2 text-sm font-medium text-charcoal">모집 내용</h2>
           <MarkdownProse content={recruitment.content} />
         </div>
       )}
@@ -239,13 +239,13 @@ export default function RecruitmentDetailPage({
       {/* 질문 목록 — questionItems 가 있으면 유형·필수 여부·선택지까지, 없으면(구 BE 시차) 텍스트만 */}
       {showQuestions && (
         <div className="mb-8">
-          <h2 className="mb-2 text-sm font-medium text-slate-700">지원 질문</h2>
+          <h2 className="mb-2 text-sm font-medium text-charcoal">지원 질문</h2>
           {hasQuestionItems ? (
             <RecruitmentQuestionItemList items={questionItems} />
           ) : (
             <ol className="list-decimal pl-5 space-y-1">
               {recruitment.questions.map((question, index) => (
-                <li key={index} className="text-sm text-slate-600">
+                <li key={index} className="text-sm text-charcoal-2">
                   {question}
                 </li>
               ))}
@@ -257,24 +257,24 @@ export default function RecruitmentDetailPage({
       {/* 지원 현황 요약 — 통계 페이지 진입 전 핵심 지표 미리보기.
           외부 폼은 지원 데이터가 없어 0 만 나오므로 감춘다(조회는 삭제 판정에 필요해 그대로 둔다). */}
       {!isExternal && statsSummary && (
-        <div className="mb-5 flex flex-wrap items-center gap-x-6 gap-y-2 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3">
+        <div className="mb-5 flex flex-wrap items-center gap-x-6 gap-y-2 rounded-lg border border-line bg-cream px-4 py-3">
           <div className="flex items-baseline gap-1.5">
-            <span className="text-xs text-slate-500">지원자</span>
-            <span className="text-lg font-bold tabular-nums text-slate-900">{statsSummary.total}</span>
+            <span className="text-xs text-charcoal-3">지원자</span>
+            <span className="text-lg font-bold tabular-nums text-ink-deep">{statsSummary.total}</span>
           </div>
           <div className="flex items-baseline gap-1.5">
-            <span className="text-xs text-slate-500">합격</span>
-            <span className="text-lg font-bold tabular-nums text-slate-900">{statsSummary.accepted}</span>
+            <span className="text-xs text-charcoal-3">합격</span>
+            <span className="text-lg font-bold tabular-nums text-ink-deep">{statsSummary.accepted}</span>
           </div>
           {statsSummary.capacity > 0 && (
             <div className="flex items-baseline gap-1.5">
-              <span className="text-xs text-slate-500">합격률</span>
-              <span className="text-lg font-bold tabular-nums text-slate-900">
+              <span className="text-xs text-charcoal-3">합격률</span>
+              <span className="text-lg font-bold tabular-nums text-ink-deep">
                 {(statsSummary.ratio * 100).toFixed(1)}%
               </span>
             </div>
           )}
-          <span className="ml-auto text-xs text-slate-400">모집 인원 {statsSummary.capacity}명</span>
+          <span className="ml-auto text-xs text-charcoal-3">모집 인원 {statsSummary.capacity}명</span>
         </div>
       )}
 
@@ -326,7 +326,7 @@ export default function RecruitmentDetailPage({
                 disabled={!stopIntakeAction.enabled}
                 aria-describedby={stopIntakeAction.enabled ? undefined : 'stop-intake-too-early'}
                 onClick={() => setShowStopIntakeConfirm(true)}
-                className="inline-flex items-center gap-2 rounded-md border border-amber-300 bg-white px-4 py-2 text-sm font-medium text-amber-700 shadow-sm transition-colors hover:border-amber-400 hover:bg-amber-50 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-amber-300 disabled:hover:bg-white"
+                className="inline-flex items-center gap-2 rounded-md border border-warm/40 bg-white px-4 py-2 text-sm font-medium text-warm-deep shadow-sm transition-colors hover:border-warm hover:bg-warm/10 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-warm/40 disabled:hover:bg-white"
               >
                 접수 마감
               </button>
@@ -334,7 +334,7 @@ export default function RecruitmentDetailPage({
             <button
               type="button"
               onClick={() => setShowCloseConfirm(true)}
-              className="inline-flex items-center gap-2 rounded-md border border-rose-300 bg-white px-4 py-2 text-sm font-medium text-rose-600 shadow-sm transition-colors hover:border-rose-400 hover:bg-rose-50"
+              className="inline-flex items-center gap-2 rounded-md border border-coral/40 bg-white px-4 py-2 text-sm font-medium text-coral-deep shadow-sm transition-colors hover:border-coral hover:bg-coral/10"
             >
               모집 마감
             </button>
@@ -346,7 +346,7 @@ export default function RecruitmentDetailPage({
             type="button"
             disabled={isStatsSummaryPending}
             onClick={() => setShowDeleteConfirm(true)}
-            className={`inline-flex items-center gap-2 rounded-md border border-rose-300 bg-white px-4 py-2 text-sm font-medium text-rose-600 shadow-sm transition-colors hover:border-rose-400 hover:bg-rose-50${
+            className={`inline-flex items-center gap-2 rounded-md border border-coral/40 bg-white px-4 py-2 text-sm font-medium text-coral-deep shadow-sm transition-colors hover:border-coral hover:bg-coral/10${
               isStatsSummaryPending ? ' invisible' : ''
             }`}
           >
@@ -356,7 +356,7 @@ export default function RecruitmentDetailPage({
       </div>
 
       {stopIntakeAction.visible && !stopIntakeAction.enabled && (
-        <p id="stop-intake-too-early" className="mt-2 text-xs text-slate-500">
+        <p id="stop-intake-too-early" className="mt-2 text-xs text-charcoal-3">
           모집 시작일 다음 날부터 접수를 마감할 수 있습니다. 오늘 바로 끝내야 한다면 모집 마감을
           이용해주세요.
         </p>

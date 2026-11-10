@@ -125,7 +125,7 @@ export function RoundDashboard({ clubId, recruitmentId, roundId }: Props) {
       detailQuery.error instanceof ApiError
         ? detailQuery.error.message
         : '라운드 정보를 불러오지 못했습니다.';
-    return <p className="p-6 text-sm text-rose-700">{message}</p>;
+    return <p className="p-6 text-sm text-coral-deep">{message}</p>;
   }
 
   const detail = detailQuery.data;
@@ -319,7 +319,7 @@ export function RoundDashboard({ clubId, recruitmentId, roundId }: Props) {
       <div className="mb-6">
         <Link
           href={toRoute(`/manage/clubs/${clubId}/recruitments/${recruitmentId}/interview`)}
-          className="text-sm text-slate-500 hover:text-slate-700"
+          className="text-sm text-charcoal-3 hover:text-charcoal"
         >
           ← 면접 관리로 돌아가기
         </Link>
@@ -332,8 +332,8 @@ export function RoundDashboard({ clubId, recruitmentId, roundId }: Props) {
           className={cn(
             'mb-4 rounded-md px-4 py-2 text-sm',
             feedbackMessage.kind === 'error'
-              ? 'bg-rose-50 text-rose-700'
-              : 'bg-emerald-50 text-emerald-700',
+              ? 'bg-coral/10 text-coral-deep'
+              : 'bg-sage-mist text-ink',
           )}
         >
           {feedbackMessage.text}
@@ -379,14 +379,14 @@ export function RoundDashboard({ clubId, recruitmentId, roundId }: Props) {
 
         {/* 액션 바 — 비터미널 상태 */}
         {isNonTerminal && (
-          <div className="flex flex-wrap gap-2 rounded-xl border border-slate-200 bg-white px-5 py-4">
+          <div className="flex flex-wrap gap-2 rounded-xl border border-line bg-white px-5 py-4">
             {/* 재알림 — COLLECTING */}
             {status === 'COLLECTING' && (
               <button
                 type="button"
                 onClick={handleRemind}
                 disabled={remindMutation.isPending}
-                className="inline-flex items-center gap-1.5 rounded-md border border-slate-300 px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                className="inline-flex items-center gap-1.5 rounded-md border border-line px-3 py-1.5 text-sm text-charcoal hover:bg-cream disabled:opacity-50"
               >
                 {remindMutation.isPending && <ButtonSpinner />}재알림
               </button>
@@ -400,7 +400,7 @@ export function RoundDashboard({ clubId, recruitmentId, roundId }: Props) {
                   setExtendDeadlineError(null);
                   setShowExtendDeadlineModal(true);
                 }}
-                className="rounded-md border border-slate-300 px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50"
+                className="rounded-md border border-line px-3 py-1.5 text-sm text-charcoal hover:bg-cream"
               >
                 마감 연장
               </button>
@@ -410,7 +410,7 @@ export function RoundDashboard({ clubId, recruitmentId, roundId }: Props) {
             <button
               type="button"
               onClick={() => setShowCancelDialog(true)}
-              className="rounded-md border border-rose-200 px-3 py-1.5 text-sm text-rose-600 hover:bg-rose-50"
+              className="rounded-md border border-coral/40 px-3 py-1.5 text-sm text-coral-deep hover:bg-coral/10"
             >
               라운드 취소
             </button>

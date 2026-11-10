@@ -61,17 +61,17 @@ export function Step3Slots({ roundId, onNext }: Props) {
 
   return (
     <div className="space-y-6">
-      <h2 className="text-base font-semibold text-slate-900">슬롯 등록</h2>
+      <h2 className="text-base font-semibold text-ink-deep">슬롯 등록</h2>
 
-      <div className="rounded-lg border border-slate-200 bg-white p-4">
-        <p className="mb-3 text-xs text-slate-500">
+      <div className="rounded-lg border border-line bg-white p-4">
+        <p className="mb-3 text-xs text-charcoal-3">
           날짜와 시간 범위를 입력하면 면접 시간 단위로 슬롯을 자동 생성합니다.
         </p>
         <SlotPatternForm onGenerate={handleGenerate} isPending={createSlotsMutation.isPending} />
         {createSlotsMutation.isError && (
           <div
             role="alert"
-            className="mt-2 rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700"
+            className="mt-2 rounded-md border border-coral/40 bg-coral/10 px-3 py-2 text-sm text-coral-deep"
           >
             {createSlotsMutation.error instanceof ApiError
               ? createSlotsMutation.error.message
@@ -82,21 +82,21 @@ export function Step3Slots({ roundId, onNext }: Props) {
 
       {slots.length > 0 && (
         <div className="space-y-2">
-          <h3 className="text-sm font-medium text-slate-700">등록된 슬롯 ({slots.length}개)</h3>
+          <h3 className="text-sm font-medium text-charcoal">등록된 슬롯 ({slots.length}개)</h3>
           <ul className="space-y-1">
             {slots.map((slot) => (
               <li
                 key={slot.slotId}
-                className="flex items-center justify-between rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm"
+                className="flex items-center justify-between rounded-md border border-line bg-cream px-3 py-2 text-sm"
               >
-                <span className="text-slate-700">
+                <span className="text-charcoal">
                   {formatSlotRange(slot.startTime, slot.endTime)} · 정원 {slot.capacity}명
                 </span>
                 <button
                   type="button"
                   onClick={() => setDeleteTargetSlot(slot)}
                   aria-label={`${formatSlotRange(slot.startTime, slot.endTime)} 슬롯 삭제`}
-                  className="ml-3 rounded-md px-2 text-slate-400 hover:bg-rose-50 hover:text-rose-600"
+                  className="ml-3 rounded-md px-2 text-charcoal-3 hover:bg-coral/10 hover:text-coral-deep"
                 >
                   삭제
                 </button>
@@ -110,7 +110,7 @@ export function Step3Slots({ roundId, onNext }: Props) {
         <button
           type="button"
           onClick={onNext}
-          className="rounded-md bg-purple-600 px-4 py-2 text-sm font-medium text-white hover:bg-purple-700"
+          className="rounded-md bg-ink px-4 py-2 text-sm font-medium text-white hover:bg-ink-deep"
         >
           다음
         </button>

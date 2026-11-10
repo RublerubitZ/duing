@@ -19,24 +19,24 @@ export function RecruitmentQuestionItemList({ items }: Props) {
   return (
     <ol className="list-decimal space-y-3 pl-5">
       {items.map((question) => (
-        <li key={question.id} className="text-sm text-slate-600">
+        <li key={question.id} className="text-sm text-charcoal-2">
           <div className="flex flex-wrap items-center gap-2">
-            <span className="text-slate-700">{question.text}</span>
-            <span className={`${BADGE_CLASS} bg-slate-100 text-slate-600`}>
+            <span className="text-charcoal">{question.text}</span>
+            <span className={`${BADGE_CLASS} bg-graysoft text-charcoal-2`}>
               {QUESTION_TYPE_LABEL[question.type]}
             </span>
             <span
               className={
                 question.required
-                  ? `${BADGE_CLASS} bg-rose-50 text-rose-700`
-                  : `${BADGE_CLASS} bg-slate-100 text-slate-600`
+                  ? `${BADGE_CLASS} bg-coral/10 text-coral-deep`
+                  : `${BADGE_CLASS} bg-graysoft text-charcoal-2`
               }
             >
               {question.required ? '필수' : '선택'}
             </span>
           </div>
           {question.choices.length > 0 && (
-            <ul className="mt-1.5 list-disc space-y-0.5 pl-5 text-xs text-slate-500">
+            <ul className="mt-1.5 list-disc space-y-0.5 pl-5 text-xs text-charcoal-3">
               {question.choices.map((choice) => (
                 <li key={choice.id}>{choice.label}</li>
               ))}

@@ -329,7 +329,7 @@ export default function ApplicantsPage({ params }: PageParams) {
               href={toRoute(`/manage/clubs/${clubId}/recruitments/${recruitmentId}`)}
               className="text-sm text-sky-600 hover:underline"
             >
-              모집 상세로 이동 →
+              모집 상세로 이동
             </Link>
             {(() => {
               const safeExternalFormUrl = safeExternalHref(recruitment.externalFormUrl);
@@ -341,7 +341,7 @@ export default function ApplicantsPage({ params }: PageParams) {
                   rel="noopener noreferrer"
                   className="text-sm text-sky-600 hover:underline"
                 >
-                  외부 폼 바로가기 →
+                  외부 폼 바로가기
                 </a>
               );
             })()}
@@ -365,8 +365,8 @@ export default function ApplicantsPage({ params }: PageParams) {
             <div
               className={
                 lastBulkResult.failures.length === 0
-                  ? 'mt-4 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800'
-                  : 'mt-4 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800'
+                  ? 'mt-4 rounded-md border border-sage-soft bg-sage-mist px-3 py-2 text-sm text-ink'
+                  : 'mt-4 rounded-md border border-warm/40 bg-warm/10 px-3 py-2 text-sm text-warm-deep'
               }
             >
               <div className="flex items-start justify-between gap-3">
@@ -402,7 +402,7 @@ export default function ApplicantsPage({ params }: PageParams) {
 
           {/* 오류 메시지 */}
           {bulkError && (
-            <p className="mt-4 rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+            <p className="mt-4 rounded-md border border-coral/40 bg-coral/10 px-3 py-2 text-sm text-coral-deep">
               {bulkError}
             </p>
           )}

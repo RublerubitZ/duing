@@ -29,9 +29,9 @@ export function NoSlotSection({ detail, onExclude, onManualAssign }: NoSlotSecti
   };
 
   return (
-    <div className="rounded-xl border border-orange-200 bg-orange-50 px-5 py-4">
+    <div className="rounded-xl border border-warm/40 bg-warm/10 px-5 py-4">
       <div className="mb-3 flex items-center justify-between gap-2">
-        <h2 className="text-sm font-semibold text-orange-800">
+        <h2 className="text-sm font-semibold text-warm-deep">
           가능한 시간이 없는 지원자 ({noSlotMembers.length}명)
         </h2>
         {/* 새 폼을 중복 배치하지 않고 슬롯 섹션으로 이동시키는 앵커 버튼 */}
@@ -39,7 +39,7 @@ export function NoSlotSection({ detail, onExclude, onManualAssign }: NoSlotSecti
           <button
             type="button"
             onClick={handleScrollToSlots}
-            className="shrink-0 rounded-md border border-orange-300 px-2 py-1 text-xs text-orange-700 hover:bg-orange-100"
+            className="shrink-0 rounded-md border border-warm/40 px-2 py-1 text-xs text-warm-deep hover:bg-warm/20"
           >
             추가 슬롯 생성
           </button>
@@ -53,11 +53,11 @@ export function NoSlotSection({ detail, onExclude, onManualAssign }: NoSlotSecti
           >
             <div className="min-w-0">
               <div className="flex items-center gap-2">
-                <span className="text-sm font-medium text-slate-900">{member.userName}</span>
-                <span className="text-xs text-slate-400">{member.studentId}</span>
+                <span className="text-sm font-medium text-ink-deep">{member.userName}</span>
+                <span className="text-xs text-charcoal-3">{member.studentId}</span>
               </div>
               {member.alternativeAvailabilityText && (
-                <p className="mt-1 text-sm text-slate-600">
+                <p className="mt-1 text-sm text-charcoal-2">
                   {member.alternativeAvailabilityText}
                 </p>
               )}
@@ -68,7 +68,7 @@ export function NoSlotSection({ detail, onExclude, onManualAssign }: NoSlotSecti
                 <button
                   type="button"
                   onClick={() => onManualAssign(member)}
-                  className="rounded-md px-2 py-1 text-xs text-purple-600 hover:bg-purple-50"
+                  className="rounded-md px-2 py-1 text-xs text-ink hover:bg-sage-tint"
                 >
                   수동 배정
                 </button>
@@ -78,7 +78,7 @@ export function NoSlotSection({ detail, onExclude, onManualAssign }: NoSlotSecti
                 <button
                   type="button"
                   onClick={() => onExclude(member)}
-                  className="rounded-md px-2 py-1 text-xs text-rose-500 hover:bg-rose-50"
+                  className="rounded-md px-2 py-1 text-xs text-coral-deep hover:bg-coral/10"
                 >
                   제외
                 </button>

@@ -99,12 +99,12 @@ export function Step1Candidates({
               type="checkbox"
               checked={allSelected}
               onChange={(event) => toggleAll(groupCandidates, event.target.checked)}
-              className="h-4 w-4 rounded border-slate-300"
+              className="h-4 w-4 rounded border-line"
               aria-label={`${groupLabel} 전체 선택`}
             />
           </label>
-          <h3 className="text-sm font-semibold text-slate-700">{groupLabel}</h3>
-          <span className="text-xs text-slate-400">({groupCandidates.length}명)</span>
+          <h3 className="text-sm font-semibold text-charcoal">{groupLabel}</h3>
+          <span className="text-xs text-charcoal-3">({groupCandidates.length}명)</span>
         </div>
         <ul className="space-y-1">
           {groupCandidates.map((candidate) => {
@@ -120,8 +120,8 @@ export function Step1Candidates({
                     라벨 클릭은 click 이 두 번 오므로 라벨에 부수효과 핸들러를 달지 않는다 */}
                 <label
                   className={cn(
-                    'flex min-h-11 w-full cursor-pointer items-center gap-3 rounded-md px-3 py-2 text-sm hover:bg-slate-50 lg:min-h-0',
-                    isSelected && 'bg-slate-50',
+                    'flex min-h-11 w-full cursor-pointer items-center gap-3 rounded-md px-3 py-2 text-sm hover:bg-cream lg:min-h-0',
+                    isSelected && 'bg-cream',
                   )}
                 >
                   <input
@@ -129,16 +129,16 @@ export function Step1Candidates({
                     checked={isSelected}
                     onChange={() => toggleCandidate(candidate)}
                     aria-label={`${candidate.userName} 선택`}
-                    className="h-4 w-4 shrink-0 rounded border-slate-300"
+                    className="h-4 w-4 shrink-0 rounded border-line"
                   />
                   {/* lg 미만은 이름 아래 학과·학년을 글줄로 잇는다(한 줄에 다 넣으면 이름·학년이 글자 단위로 꺾였다).
                       PC(lg)는 lg:contents 로 감싼 칸이 사라져 기존 한 줄 배치 그대로 — 사이 공백은 flex 에서 그려지지 않는다 */}
                   <span className="min-w-0 break-keep [overflow-wrap:anywhere] lg:contents">
-                    <span className="block font-medium text-slate-900">{candidate.userName}</span>
-                    <span className="text-slate-500">
+                    <span className="block font-medium text-ink-deep">{candidate.userName}</span>
+                    <span className="text-charcoal-3">
                       {COLLEGE_DISPLAY_NAME[candidate.college]} · {candidate.major}
                     </span>{' '}
-                    <span className="text-slate-400">{GRADE_DISPLAY_NAME[candidate.grade]}</span>
+                    <span className="text-charcoal-3">{GRADE_DISPLAY_NAME[candidate.grade]}</span>
                   </span>
                   <span className={cn(badgeClass, 'ml-auto shrink-0 px-2 py-0.5 text-[11px]')}>
                     {statusLabel}
@@ -158,7 +158,7 @@ export function Step1Candidates({
 
   if (candidatesQuery.isError) {
     return (
-      <p role="alert" className="p-4 text-sm text-rose-600">
+      <p role="alert" className="p-4 text-sm text-coral-deep">
         후보 목록을 불러오지 못했습니다.
       </p>
     );
@@ -167,21 +167,21 @@ export function Step1Candidates({
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h2 className="text-base font-semibold text-slate-900">대상 선정</h2>
-        <label className="flex cursor-pointer items-center gap-2 text-sm text-slate-600">
+        <h2 className="text-base font-semibold text-ink-deep">대상 선정</h2>
+        <label className="flex cursor-pointer items-center gap-2 text-sm text-charcoal-2">
           <input
             type="checkbox"
             aria-label="미결정 포함"
             checked={includeUndecided}
             onChange={(event) => setIncludeUndecided(event.target.checked)}
-            className="h-4 w-4 rounded border-slate-300"
+            className="h-4 w-4 rounded border-line"
           />
           미결정 포함
         </label>
       </div>
 
       {candidates.length === 0 ? (
-        <p className="text-sm text-slate-500">후보가 없습니다.</p>
+        <p className="text-sm text-charcoal-3">후보가 없습니다.</p>
       ) : (
         <div className="space-y-4">
           {renderGroup(
@@ -194,8 +194,8 @@ export function Step1Candidates({
 
       {/* 토글 off 상태에서 화면에 안 보이지만 이미 선택된 미결정 후보 안내 */}
       {hiddenSelectedUndecided.length > 0 && (
-        <div className="space-y-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2">
-          <p className="text-xs text-amber-700">
+        <div className="space-y-2 rounded-md border border-warm/40 bg-warm/10 px-3 py-2">
+          <p className="text-xs text-warm-deep">
             화면에 표시되지 않지만 선택된 미결정 후보 {hiddenSelectedUndecided.length}명:
           </p>
           <ul className="flex flex-wrap gap-1">
@@ -205,7 +205,7 @@ export function Step1Candidates({
                   type="button"
                   onClick={() => toggleCandidate(candidate)}
                   aria-label={`${candidate.userName} 선택 해제`}
-                  className="flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-800 hover:bg-amber-200"
+                  className="flex items-center gap-1 rounded-full bg-warm/20 px-2 py-0.5 text-xs text-warm-deep hover:bg-warm/40"
                 >
                   {candidate.userName}
                   <span aria-hidden="true">×</span>
@@ -217,12 +217,12 @@ export function Step1Candidates({
       )}
 
       <div className="flex items-center justify-between pt-4">
-        <span className="text-sm text-slate-600">
+        <span className="text-sm text-charcoal-2">
           {selectedMap.size > 0 ? (
             <>
               {selectedMap.size}명 선택
               {hiddenSelectedUndecided.length > 0 && (
-                <span className="ml-1 text-amber-600">
+                <span className="ml-1 text-warm-deep">
                   (미결정 {hiddenSelectedUndecided.length}명 포함)
                 </span>
               )}
@@ -235,7 +235,7 @@ export function Step1Candidates({
           type="button"
           onClick={onNext}
           disabled={!canProceed}
-          className="rounded-md bg-purple-600 px-4 py-2 text-sm font-medium text-white hover:bg-purple-700 disabled:cursor-not-allowed disabled:opacity-40"
+          className="rounded-md bg-ink px-4 py-2 text-sm font-medium text-white hover:bg-ink-deep disabled:cursor-not-allowed disabled:opacity-40"
         >
           다음
         </button>

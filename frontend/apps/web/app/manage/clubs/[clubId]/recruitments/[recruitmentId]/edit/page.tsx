@@ -36,7 +36,7 @@ export default function EditRecruitmentPage({
   if (recruitment.status === 'CLOSED') {
     return (
       <div className="mx-auto max-w-2xl px-6 py-10">
-        <div className="rounded-md bg-slate-100 px-4 py-3 text-sm text-slate-600">
+        <div className="rounded-md bg-graysoft px-4 py-3 text-sm text-charcoal-2">
           마감된 모집은 수정할 수 없습니다.
         </div>
       </div>

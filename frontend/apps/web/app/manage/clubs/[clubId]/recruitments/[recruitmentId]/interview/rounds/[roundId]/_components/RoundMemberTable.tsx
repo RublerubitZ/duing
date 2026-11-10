@@ -24,11 +24,11 @@ export function RoundMemberTable({ detail, onExclude, onManualAssign }: RoundMem
   const slotById = new Map(slots.map((slot) => [slot.slotId, slot]));
 
   return (
-    <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
+    <div className="rounded-xl border border-line bg-white overflow-hidden">
       <div className="px-5 py-3">
-        <h2 className="text-sm font-semibold text-slate-700">면접 대상 지원자</h2>
+        <h2 className="text-sm font-semibold text-charcoal">면접 대상 지원자</h2>
       </div>
-      <div className="divide-y divide-slate-100">
+      <div className="divide-y divide-line">
         {displayMembers.map((member) => {
           const assignedSlot =
             member.assignedSlotId !== null ? slotById.get(member.assignedSlotId) : undefined;
@@ -38,16 +38,16 @@ export function RoundMemberTable({ detail, onExclude, onManualAssign }: RoundMem
               key={member.memberId}
               className={cn(
                 'flex flex-col items-stretch gap-2.5 px-5 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-3',
-                member.unresponded && 'bg-amber-50',
+                member.unresponded && 'bg-warm/10',
               )}
             >
               <div className="flex items-center gap-3 min-w-0">
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium text-slate-900">{member.userName}</span>
-                    <span className="text-xs text-slate-400">{member.studentId}</span>
+                    <span className="text-sm font-medium text-ink-deep">{member.userName}</span>
+                    <span className="text-xs text-charcoal-3">{member.studentId}</span>
                     {member.unresponded && (
-                      <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-700">
+                      <span className="rounded-full bg-warm/20 px-2 py-0.5 text-xs text-warm-deep">
                         미응답
                       </span>
                     )}
@@ -56,15 +56,15 @@ export function RoundMemberTable({ detail, onExclude, onManualAssign }: RoundMem
                     <span
                       className={cn(
                         'rounded-full px-2 py-0.5 text-xs',
-                        MEMBER_STATUS_CLASS[member.status] ?? 'bg-slate-100 text-slate-600',
+                        MEMBER_STATUS_CLASS[member.status] ?? 'bg-graysoft text-charcoal-2',
                       )}
                     >
                       {MEMBER_STATUS_LABEL[member.status] ?? member.status}
                     </span>
-                    <span className="text-xs text-slate-400">
+                    <span className="text-xs text-charcoal-3">
                       선택 {member.selectedSlotCount}개
                     </span>
-                    <span className="text-xs text-slate-400">
+                    <span className="text-xs text-charcoal-3">
                       배정 슬롯{' '}
                       {assignedSlot
                         ? formatSlotRange(assignedSlot.startTime, assignedSlot.endTime)
@@ -79,7 +79,7 @@ export function RoundMemberTable({ detail, onExclude, onManualAssign }: RoundMem
                   <button
                     type="button"
                     onClick={() => onManualAssign(member)}
-                    className="rounded-md px-3 py-2 text-[13px] sm:px-2 sm:py-1 sm:text-xs text-purple-600 hover:bg-purple-50"
+                    className="rounded-md px-3 py-2 text-[13px] sm:px-2 sm:py-1 sm:text-xs text-ink hover:bg-sage-tint"
                   >
                     수동 배정
                   </button>
@@ -99,7 +99,7 @@ export function RoundMemberTable({ detail, onExclude, onManualAssign }: RoundMem
                   <button
                     type="button"
                     onClick={() => onExclude(member)}
-                    className="rounded-md px-3 py-2 text-[13px] sm:px-2 sm:py-1 sm:text-xs text-rose-500 hover:bg-rose-50"
+                    className="rounded-md px-3 py-2 text-[13px] sm:px-2 sm:py-1 sm:text-xs text-coral-deep hover:bg-coral/10"
                   >
                     제외
                   </button>

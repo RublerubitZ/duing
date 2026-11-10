@@ -178,7 +178,7 @@ export function MemberBulkToolbar({
               <p className="font-medium text-charcoal">
                 {summary.label} — {summary.succeeded}명 처리
                 {summary.failed.length > 0 && (
-                  <span className="text-rose-700">, {summary.failed.length}명 실패</span>
+                  <span className="text-coral-deep">, {summary.failed.length}명 실패</span>
                 )}
               </p>
               <button
@@ -201,7 +201,7 @@ export function MemberBulkToolbar({
               </p>
             )}
             {summary.failed.length > 0 && (
-              <ul className="list-disc pl-4 text-xs text-rose-700">
+              <ul className="list-disc pl-4 text-xs text-coral-deep">
                 {summary.failed.map((failure) => (
                   <li key={failure.id}>
                     {nameFor(failure.id)}: {failure.message}
@@ -214,8 +214,8 @@ export function MemberBulkToolbar({
 
         {selectedMembers.length > 0 && (
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
-            <div className="text-sm font-medium text-slate-700">
-              선택 <span className="font-bold text-slate-900">{selectedMembers.length}</span>명
+            <div className="text-sm font-medium text-charcoal">
+              선택 <span className="font-bold text-ink-deep">{selectedMembers.length}</span>명
             </div>
             <div className="grid grid-cols-2 gap-2 sm:flex sm:items-center">
               {permissions.canChangeRole && (
@@ -224,7 +224,7 @@ export function MemberBulkToolbar({
                     type="button"
                     onClick={() => runRoleChange('promote')}
                     disabled={running !== null}
-                    className="inline-flex items-center justify-center gap-1.5 rounded-md border border-line px-3 py-2 text-[13px] font-semibold text-slate-700 hover:bg-slate-100 disabled:opacity-50 sm:py-1.5 sm:text-xs"
+                    className="inline-flex items-center justify-center gap-1.5 rounded-md border border-line px-3 py-2 text-[13px] font-semibold text-charcoal hover:bg-graysoft disabled:opacity-50 sm:py-1.5 sm:text-xs"
                   >
                     {running === 'promote' && <ButtonSpinner />}
                     {clubMemberRoleLabel('OFFICER')} 승급
@@ -233,7 +233,7 @@ export function MemberBulkToolbar({
                     type="button"
                     onClick={() => runRoleChange('demote')}
                     disabled={running !== null}
-                    className="inline-flex items-center justify-center gap-1.5 rounded-md border border-line px-3 py-2 text-[13px] font-semibold text-slate-700 hover:bg-slate-100 disabled:opacity-50 sm:py-1.5 sm:text-xs"
+                    className="inline-flex items-center justify-center gap-1.5 rounded-md border border-line px-3 py-2 text-[13px] font-semibold text-charcoal hover:bg-graysoft disabled:opacity-50 sm:py-1.5 sm:text-xs"
                   >
                     {running === 'demote' && <ButtonSpinner />}
                     {clubMemberRoleLabel('MEMBER')} 강등
@@ -245,7 +245,7 @@ export function MemberBulkToolbar({
                   type="button"
                   onClick={onClickGeneration}
                   disabled={running !== null}
-                  className="inline-flex items-center justify-center gap-1.5 rounded-md border border-line px-3 py-2 text-[13px] font-semibold text-slate-700 hover:bg-slate-100 disabled:opacity-50 sm:py-1.5 sm:text-xs"
+                  className="inline-flex items-center justify-center gap-1.5 rounded-md border border-line px-3 py-2 text-[13px] font-semibold text-charcoal hover:bg-graysoft disabled:opacity-50 sm:py-1.5 sm:text-xs"
                 >
                   {running === 'generation' && <ButtonSpinner />}
                   기수 변경
@@ -256,7 +256,7 @@ export function MemberBulkToolbar({
                   type="button"
                   onClick={onClickRemove}
                   disabled={running !== null}
-                  className="inline-flex items-center justify-center gap-1.5 rounded-md border border-rose-200 px-3 py-2 text-[13px] font-semibold text-rose-700 hover:bg-rose-50 disabled:opacity-50 sm:py-1.5 sm:text-xs"
+                  className="inline-flex items-center justify-center gap-1.5 rounded-md border border-coral/40 px-3 py-2 text-[13px] font-semibold text-coral-deep hover:bg-coral/10 disabled:opacity-50 sm:py-1.5 sm:text-xs"
                 >
                   {running === 'remove' && <ButtonSpinner />}
                   탈퇴
@@ -313,7 +313,7 @@ export function MemberBulkToolbar({
             <span className="text-sm text-charcoal-2">기</span>
           </div>
           {generationError && (
-            <p role="alert" className="text-xs text-rose-600">
+            <p role="alert" className="text-xs text-coral-deep">
               {generationError}
             </p>
           )}
