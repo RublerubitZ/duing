@@ -29,7 +29,7 @@ const PASTEL_BLOCK_CLASSES = [
 
 // 대기(warm) 고정색 블록 클래스(§8.2) — 파스텔과 달리 상태 고정색이라 라벨 무관 단일.
 // bg /20: 흰 격자 위 구분감(명도 대비) 보강 — /15 는 가용 셀(sage-mist)과 톤이 붙어 흐릿했다.
-const PENDING_BLOCK_CLASS = { bg: 'bg-warm/20', border: 'border-warm/60', accent: 'border-l-warm', name: 'text-[#8E6620]' } as const;
+const PENDING_BLOCK_CLASS = { bg: 'bg-warm/20', border: 'border-warm/60', accent: 'border-l-warm', name: 'text-warm-deep' } as const;
 
 type Props = {
   selectedDate: string;

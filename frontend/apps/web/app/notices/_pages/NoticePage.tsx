@@ -79,7 +79,7 @@ function NewBadge() {
       display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
       padding: '2px 7px', borderRadius: 5,
       background: 'var(--danger)', color: 'var(--paper)',
-      fontSize: 12, fontWeight: 800,
+      fontSize: 12, fontWeight: 800, letterSpacing: '0.06em',
       marginLeft: 8, transform: 'translateY(-1px)',
     }}>NEW</span>
   );
@@ -645,7 +645,6 @@ export function NoticePage() {
                   padding: '12px 22px', gap: 14, alignItems: 'center',
                   borderBottom: '1px solid var(--gray-line)',
                   fontSize: 11.5, fontWeight: 700, color: 'var(--charcoal-3)',
-                 
                 }}>
                   <span>NO.</span>
                   <span />
@@ -736,6 +735,7 @@ export function NoticePage() {
                       setPage((prev) => Math.max(0, prev - 1));
                       scrollToPaginatedListStart(event.currentTarget);
                     }}
+                    aria-label="이전 페이지"
                     disabled={page === 0}
                     style={{
                       width: 32, height: 32, borderRadius: 8, border: 'none',
@@ -771,6 +771,7 @@ export function NoticePage() {
                       setPage((prev) => Math.min(totalPages - 1, prev + 1));
                       scrollToPaginatedListStart(event.currentTarget);
                     }}
+                    aria-label="다음 페이지"
                     disabled={page === totalPages - 1}
                     style={{
                       width: 32, height: 32, borderRadius: 8, border: 'none',

@@ -79,7 +79,7 @@ export function NoticeArticleHeader({
           </>
         ) : (
           <>
-            <span className="grid place-items-center w-9 h-9 rounded-full bg-ink text-paper text-[11px] font-bold shrink-0">DU</span>
+            <span className="grid place-items-center w-9 h-9 rounded-full bg-ink text-paper text-[11px] font-bold shrink-0 tabular-nums tracking-[0.08em]" aria-hidden>DU</span>
             <div className="flex flex-col">
               <span className="text-[13.5px] font-bold text-ink-deep">두잉 공지</span>
               <span className="text-[12px] text-charcoal-3">{noticeCategoryLabelOf(category)} 채널</span>

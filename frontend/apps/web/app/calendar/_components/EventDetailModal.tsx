@@ -2,7 +2,7 @@
 
 import * as DialogPrimitive from '@radix-ui/react-dialog';
 import Link from 'next/link';
-import { MapPin, Tag } from 'lucide-react';
+import { ArrowUpRight, MapPin, Tag } from 'lucide-react';
 import { useGlobalEventDetailQuery } from '@duing/hooks';
 import type { CalEvent, EventSource } from '@duing/types';
 import { useBackDismiss } from '@/app/_lib/backDismiss';
@@ -153,7 +153,8 @@ function GlobalDetailSection({ eventId }: { eventId: number }) {
           rel="noreferrer noopener"
           className="inline-flex items-center gap-1 text-[13px] text-ink font-semibold underline"
         >
-          자세히 보기 ↗
+          자세히 보기
+          <ArrowUpRight size={13} aria-hidden />
         </a>
       )}
     </div>

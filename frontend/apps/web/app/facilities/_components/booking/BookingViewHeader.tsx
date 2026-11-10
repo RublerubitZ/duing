@@ -73,7 +73,7 @@ export function BookingViewHeader({ view, onChangeView, periodLabel, onPrev, onN
             onClick={onPrev}
             disabled={!canPrev}
           >
-            <ChevronLeft size={18} aria-hidden />
+            <ChevronLeft size={16} aria-hidden />
           </button>
           <h2 className="min-w-[7.5rem] text-center text-lg text-ink-deep">{periodLabel}</h2>
           <button
@@ -83,7 +83,7 @@ export function BookingViewHeader({ view, onChangeView, periodLabel, onPrev, onN
             onClick={onNext}
             disabled={!canNext}
           >
-            <ChevronRight size={18} aria-hidden />
+            <ChevronRight size={16} aria-hidden />
           </button>
         </div>
       </div>

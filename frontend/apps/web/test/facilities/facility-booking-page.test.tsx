@@ -394,7 +394,7 @@ describe('FacilityBookingPage — 월↔주 뷰 전환(시설 오픈일 창)', (
     expect(screen.getByText('예약 신청 가능')).toBeInTheDocument();
     expect(screen.getByText(FACILITY_B_CARD_LABEL)).toBeInTheDocument();
     expect(screen.getByText('예약 준비 중')).toBeInTheDocument();
-    expect(await screen.findAllByText('날짜 보기 →')).toHaveLength(3);
+    expect(await screen.findAllByText('날짜 보기')).toHaveLength(3);
 
     // 커뮤니티룸 카드 클릭(카드 버튼 접근성 이름 = 시설명 … 날짜 보기) → 다시 창 월 월간 캘린더.
     fireEvent.click(screen.getByRole('button', { name: /커뮤니티룸\(1\).*날짜 보기/ }));
@@ -570,7 +570,7 @@ describe('FacilityBookingPage — 월↔주 뷰 전환(시설 오픈일 창)', (
 
     // "다른 시설 예약하기" → 홈 뷰 복귀(홈 카드 재노출로 확인).
     fireEvent.click(screen.getByRole('button', { name: '다른 시설 예약하기' }));
-    expect(await screen.findAllByText('날짜 보기 →')).toHaveLength(3);
+    expect(await screen.findAllByText('날짜 보기')).toHaveLength(3);
   });
 
   it('시나리오 6: 오픈 전 시설(창 앞) 셀을 탭하면 주간으로 전환하지 않고 그 시설의 기간이 담긴 토스트로 안내한다', async () => {
@@ -630,7 +630,7 @@ describe('FacilityBookingPage — 월↔주 뷰 전환(시설 오픈일 창)', (
 
       // 월간 직행 → 전체 보기로 홈 뷰 진입. 홈 카드가 뜬 뒤 칩 부재·조회 미발사를 단언한다.
       fireEvent.click(await screen.findByRole('button', { name: '전체 보기' }));
-      expect(await screen.findAllByText('날짜 보기 →')).toHaveLength(3);
+      expect(await screen.findAllByText('날짜 보기')).toHaveLength(3);
       expect(screen.queryByRole('link', { name: /내 신청/ })).not.toBeInTheDocument();
       expect(screen.queryByRole('link', { name: /내 예약 관리/ })).not.toBeInTheDocument();
       expect(managedRequests).toHaveLength(0);
