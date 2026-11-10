@@ -21,8 +21,8 @@ export function ProjectIconPicker({ value, onChange }: Props) {
             onClick={() => onChange(icon)}
             className={`grid h-9 w-9 place-items-center rounded-[8px] border transition-colors ${
               selected
-                ? 'border-[#4a6b3f] bg-[#e3e9e1] text-[#1f3a2e]'
-                : 'border-[#e2ddcb] bg-white text-[#8a8f83] hover:border-[#cfcab8] hover:text-[#4a5247]'
+                ? 'border-ink bg-sage-mist text-ink-deep'
+                : 'border-line bg-white text-charcoal-3 hover:border-line hover:text-charcoal-2'
             }`}
           >
             <IconComponent className="h-[18px] w-[18px]" />

@@ -37,14 +37,14 @@ function SortableProjectRow({
     <li
       ref={setNodeRef}
       style={{ transform: CSS.Transform.toString(transform), transition }}
-      className="rounded-[12px] border border-[#e2ddcb] bg-white"
+      className="rounded-[12px] border border-line bg-white"
     >
       <div className="flex items-center gap-3 px-3 py-2.5">
         {!readOnly && (
           <button
             type="button"
             aria-label="순서 변경"
-            className="cursor-grab touch-none text-[#b8b8ac] hover:text-[#4a5247]"
+            className="cursor-grab touch-none text-charcoal-3 hover:text-charcoal-2"
             {...attributes}
             {...listeners}
           >
@@ -52,20 +52,20 @@ function SortableProjectRow({
           </button>
         )}
         <span className={`grid h-[42px] w-[42px] shrink-0 place-items-center rounded-[10px] ${projectCardTone(index)}`}>
-          <IconComponent aria-hidden className="h-5 w-5 text-[#1f3a2e]" />
+          <IconComponent aria-hidden className="h-5 w-5 text-ink-deep" />
         </span>
         <span className="min-w-0 flex-1">
-          <span className="block truncate text-[13.5px] font-bold text-[#2a2f27]">{project.title || '제목 없음'}</span>
+          <span className="block truncate text-[13.5px] font-bold text-ink-deep">{project.title || '제목 없음'}</span>
           {project.subtitle !== null && project.subtitle !== '' && (
-            <span className="mt-0.5 block truncate text-[11.5px] text-[#8a8f83]">{project.subtitle}</span>
+            <span className="mt-0.5 block truncate text-[11.5px] text-charcoal-3">{project.subtitle}</span>
           )}
         </span>
         {!readOnly && (
           <>
-            <button type="button" onClick={onEdit} className="shrink-0 text-[12.5px] font-medium text-[#3e5b34] hover:underline">
+            <button type="button" onClick={onEdit} className="shrink-0 text-[12.5px] font-medium text-ink hover:underline">
               {editing ? '접기' : '편집'}
             </button>
-            <button type="button" onClick={onRemove} aria-label="프로젝트 삭제" className="shrink-0 text-[12.5px] text-[#8a8f83] hover:text-[#b35a3a]">
+            <button type="button" onClick={onRemove} aria-label="프로젝트 삭제" className="shrink-0 text-[12.5px] text-charcoal-3 hover:text-danger">
               ✕
             </button>
           </>
@@ -80,7 +80,7 @@ function SortableProjectRow({
             maxLength={30}
             onChange={(event) => onPatch({ title: event.target.value })}
             placeholder="프로젝트 제목 (30자 이내)"
-            className="w-full rounded-[8px] border border-[#cfcab8] px-3 py-2 text-[13.5px] focus:border-[#4a6b3f] focus:outline-none"
+            className="w-full rounded-[8px] border border-line px-3 py-2 text-[13.5px] focus:border-ink focus:outline-none"
           />
           <input
             type="text"
@@ -88,7 +88,7 @@ function SortableProjectRow({
             maxLength={40}
             onChange={(event) => onPatch({ subtitle: event.target.value === '' ? null : event.target.value })}
             placeholder="부제목 (선택, 40자 이내)"
-            className="w-full rounded-[8px] border border-[#cfcab8] px-3 py-2 text-[13.5px] focus:border-[#4a6b3f] focus:outline-none"
+            className="w-full rounded-[8px] border border-line px-3 py-2 text-[13.5px] focus:border-ink focus:outline-none"
           />
         </div>
       )}
@@ -151,7 +151,7 @@ export function ProjectsRepeater({ value, onChange, readOnly }: Props) {
           type="button"
           onClick={add}
           disabled={value.length >= MAX_PROJECTS}
-          className="text-[13px] font-medium text-[#3e5b34] hover:underline disabled:cursor-not-allowed disabled:text-[#b8b8ac] disabled:no-underline"
+          className="text-[13px] font-medium text-ink hover:underline disabled:cursor-not-allowed disabled:text-charcoal-3 disabled:no-underline"
         >
           ＋ 프로젝트 추가 ({value.length}/{MAX_PROJECTS})
         </button>

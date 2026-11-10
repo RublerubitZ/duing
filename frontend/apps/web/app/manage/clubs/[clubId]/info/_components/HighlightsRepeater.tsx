@@ -35,20 +35,20 @@ function SortableHighlightRow({
     <li
       ref={setNodeRef}
       style={{ transform: CSS.Transform.toString(transform), transition }}
-      className="flex items-center gap-2.5 rounded-[12px] border border-[#e2ddcb] bg-white px-3 py-2"
+      className="flex items-center gap-2.5 rounded-[12px] border border-line bg-white px-3 py-2"
     >
       {!readOnly && (
         <button
           type="button"
           aria-label="순서 변경"
-          className="cursor-grab touch-none text-[#b8b8ac] hover:text-[#4a5247]"
+          className="cursor-grab touch-none text-charcoal-3 hover:text-charcoal-2"
           {...attributes}
           {...listeners}
         >
           <GripVertical className="h-4 w-4" />
         </button>
       )}
-      <Check aria-hidden className="h-4 w-4 shrink-0 text-[#4a6b3f]" />
+      <Check aria-hidden className="h-4 w-4 shrink-0 text-ink" />
       <input
         type="text"
         value={item}
@@ -56,14 +56,14 @@ function SortableHighlightRow({
         placeholder="예: 사이드 프로젝트 동료가 필요한 사람"
         maxLength={MAX_LENGTH}
         disabled={readOnly}
-        className="min-w-0 flex-1 bg-transparent text-[14px] text-[#2a2f27] placeholder:text-[#b8b8ac] focus:outline-none"
+        className="min-w-0 flex-1 bg-transparent text-[14px] text-ink-deep placeholder:text-charcoal-3 focus:outline-none"
       />
       {!readOnly && (
         <button
           type="button"
           onClick={onRemove}
           aria-label="강조 항목 삭제"
-          className="shrink-0 rounded-[6px] px-1.5 py-1 text-[13px] text-[#8a8f83] hover:bg-[rgba(179,90,58,0.06)] hover:text-[#b35a3a]"
+          className="shrink-0 rounded-[6px] px-1.5 py-1 text-[13px] text-charcoal-3 hover:bg-danger/5 hover:text-danger"
         >
           ✕
         </button>
@@ -126,7 +126,7 @@ export function HighlightsRepeater({ value, onChange, readOnly = false }: Highli
           type="button"
           onClick={add}
           disabled={value.length >= MAX_ADD}
-          className="text-[13px] font-medium text-[#3e5b34] hover:underline disabled:cursor-not-allowed disabled:text-[#b8b8ac] disabled:no-underline"
+          className="text-[13px] font-medium text-ink hover:underline disabled:cursor-not-allowed disabled:text-charcoal-3 disabled:no-underline"
         >
           ＋ 항목 추가 ({value.length}/{MAX_ADD})
         </button>
