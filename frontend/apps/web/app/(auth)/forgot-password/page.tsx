@@ -45,7 +45,7 @@ export default function ForgotPasswordPage() {
 
         {/* Footer */}
         <div className="relative z-10 px-8 pb-6">
-          <div className="text-[11px] text-cream/35">
+          <div className="text-[11px] text-cream/60">
             <span>© DUING</span>
           </div>
         </div>

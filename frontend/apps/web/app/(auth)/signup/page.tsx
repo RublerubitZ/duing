@@ -101,8 +101,8 @@ export default async function SignupPage() {
           </p>
 
           {/* Benefits list */}
-          <div className="rounded-lg bg-white/8 p-4">
-            <p className="mb-3 text-xs font-semibold text-cream/50">
+          <div className="rounded-lg bg-white/10 p-4">
+            <p className="mb-3 text-xs font-semibold text-cream/70">
               가입하면 바로 누리는 혜택
             </p>
             <ul className="space-y-2.5">
@@ -124,7 +124,7 @@ export default async function SignupPage() {
         </div>
 
         {/* Footer */}
-        <div className="relative z-10 px-8 pb-6 text-[11px] text-cream/35">
+        <div className="relative z-10 px-8 pb-6 text-[11px] text-cream/60">
           <span>© DUING</span>
         </div>
       </aside>

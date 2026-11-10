@@ -1,7 +1,7 @@
-import { Check, Code } from 'lucide-react';
+import { Code } from 'lucide-react';
 import Link from 'next/link';
 import { toRoute } from '@/app/_lib/route';
-import { ArrowRight } from '@/components/duing/Icon';
+import { ArrowRight, Check } from '@/components/duing/Icon';
 import { SparkleFull } from '@/components/duing/Sparkle';
 import { CategoryIcon } from '../CategoryIcon';
 import { HeroBackdrop } from '../motion/HeroBackdrop';

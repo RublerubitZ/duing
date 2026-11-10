@@ -1,4 +1,5 @@
-import { ArrowRight, Check } from 'lucide-react';
+import { Check } from 'lucide-react';
+import { ArrowRight } from '@/components/duing/Icon';
 import { FadeIn } from '@/components/motion/FadeIn';
 import { Reveal } from '../motion/Reveal';
 
