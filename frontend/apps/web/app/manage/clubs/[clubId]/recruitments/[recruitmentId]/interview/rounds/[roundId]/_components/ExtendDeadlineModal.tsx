@@ -47,7 +47,7 @@ export function ExtendDeadlineModal({
           <DialogTitle>마감 연장</DialogTitle>
         </DialogHeader>
 
-        <p className="rounded-md border border-warm/40 bg-warm/10 px-3 py-2 text-sm text-[#8e6620]">
+        <p className="rounded-md border border-warm/40 bg-warm/10 px-3 py-2 text-sm text-warm-deep">
           마감 일시는 현재보다 연장만 가능합니다.
         </p>
         <div>

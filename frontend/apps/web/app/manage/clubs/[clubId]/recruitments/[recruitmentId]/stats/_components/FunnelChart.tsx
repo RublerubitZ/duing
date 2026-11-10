@@ -38,7 +38,7 @@ export function FunnelChart({ funnelData }: FunnelChartProps) {
   return (
     <div className="space-y-2">
       {funnelData.interviewEntered === null && (
-        <p className="text-xs text-slate-400">면접 없는 모집 — 2단계 표시</p>
+        <p className="text-xs text-charcoal-3">면접 없는 모집 — 2단계 표시</p>
       )}
       <ResponsiveContainer width="100%" height={200}>
         <BarChart
@@ -46,7 +46,7 @@ export function FunnelChart({ funnelData }: FunnelChartProps) {
           layout="vertical"
           margin={{ top: 4, right: 40, left: 0, bottom: 4 }}
         >
-          <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#e2e8f0" />
+          <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="var(--gray-line)" />
           <XAxis
             type="number"
             domain={[0, maxValue]}
@@ -66,7 +66,7 @@ export function FunnelChart({ funnelData }: FunnelChartProps) {
           <Tooltip
             contentStyle={{
               borderRadius: '8px',
-              border: '1px solid #e2e8f0',
+              border: '1px solid var(--gray-line)',
               fontSize: '12px',
             }}
             formatter={(value) => [value, '인원']}

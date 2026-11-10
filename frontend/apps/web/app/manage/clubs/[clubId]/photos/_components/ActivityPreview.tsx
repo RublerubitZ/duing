@@ -53,7 +53,7 @@ export function ActivityPreviewHero({ heroActivities }: { heroActivities: ClubHe
             key={hero.id}
             aria-hidden
             className={cn(
-              'h-1.5 rounded-full transition-all',
+              'h-1.5 rounded-full',
               index === 0 ? 'w-4 bg-ink' : 'w-1.5 bg-charcoal-3/40',
             )}
           />

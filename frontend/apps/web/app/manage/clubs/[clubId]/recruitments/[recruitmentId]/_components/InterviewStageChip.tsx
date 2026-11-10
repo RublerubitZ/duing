@@ -21,10 +21,10 @@ type StageLabel =
   | '면접 확정';
 
 const STAGE_CHIP_CLASS: Record<string, string> = {
-  '면접 대상 선정 전': 'bg-slate-100 text-slate-600',
-  '라운드 작성 중': 'bg-slate-100 text-slate-700',
-  '배정 검토 중': 'bg-amber-100 text-amber-700',
-  '면접 확정': 'bg-emerald-100 text-emerald-700',
+  '면접 대상 선정 전': 'bg-paper text-charcoal-2 ring-1 ring-inset ring-line',
+  '라운드 작성 중': 'bg-paper text-charcoal-2 ring-1 ring-inset ring-line',
+  '배정 검토 중': 'bg-warm/10 text-warm-deep',
+  '면접 확정': 'bg-sage/10 text-sage-deep',
 };
 
 /** 라운드 목록 → 단계 라벨 (§10.5) */
@@ -77,8 +77,8 @@ export function InterviewStageChip({ clubId, recruitmentId }: InterviewStageChip
   // COLLECTING 라운드에는 "응답 대기" 칩을 파란 톤으로
   const isCollecting = stageLabel.startsWith('응답 대기');
   const chipClass = isCollecting
-    ? 'bg-blue-100 text-blue-700'
-    : (STAGE_CHIP_CLASS[stageLabel] ?? 'bg-slate-100 text-slate-600');
+    ? 'bg-sky/10 text-sky-deep'
+    : (STAGE_CHIP_CLASS[stageLabel] ?? 'bg-graysoft text-charcoal-2');
 
   return (
     <div className="flex items-center gap-2">
@@ -91,7 +91,7 @@ export function InterviewStageChip({ clubId, recruitmentId }: InterviewStageChip
         href={toRoute(
           `/manage/clubs/${clubId}/recruitments/${recruitmentId}/interview`,
         )}
-        className="rounded-md border border-slate-300 px-2 py-0.5 text-xs font-medium text-slate-600 hover:bg-slate-50"
+        className="rounded-md border border-line px-2 py-0.5 text-xs font-medium text-charcoal-2 hover:bg-graysoft"
       >
         면접 관리
       </Link>

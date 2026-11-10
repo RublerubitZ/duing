@@ -36,6 +36,7 @@ describe('deep 토큰 글자 대비(WCAG AA 4.5:1) — 밝은 바탕 4종', () =
     ['text-warm-deep', 'bg-warm/20'],
     ['text-coral-deep', 'bg-coral/5'],
     ['text-coral-deep', 'bg-coral/10'],
+    ['text-sky-deep', 'bg-sky/10'],
   ] as const)('%s 는 바탕 4종 위 %s 합성에서 4.5:1 이상이다', (textClass, tintClass) => {
     expect(worstContrast(textClass, tintClass)).toBeGreaterThanOrEqual(SMALL_TEXT_AA);
   });

@@ -107,7 +107,7 @@ export function RoundWizard({ clubId, recruitmentId }: Props) {
   return (
     <div className="mx-auto max-w-3xl px-6 py-10">
       <div className="mb-6">
-        <h1 className="text-xl font-bold text-slate-900">새 면접 라운드 만들기</h1>
+        <h1 className="text-xl font-bold text-ink-deep">새 면접 라운드 만들기</h1>
       </div>
 
       <div className="mb-6">
@@ -124,7 +124,7 @@ export function RoundWizard({ clubId, recruitmentId }: Props) {
         />
       )}
 
-      <div className="rounded-lg border border-slate-200 bg-white p-6">
+      <div className="rounded-lg border border-line bg-white p-6">
         {step === 1 && (
           <Step1Candidates
             recruitmentId={recruitmentId}

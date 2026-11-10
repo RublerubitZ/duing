@@ -21,13 +21,13 @@ export function WizardStepper({ currentStep }: Props) {
         const tone = isActive
           ? 'bg-sky-100 text-sky-800 font-semibold'
           : isPast
-            ? 'bg-slate-100 text-slate-600'
-            : 'bg-white text-slate-400';
+            ? 'bg-graysoft text-charcoal-2'
+            : 'bg-white text-charcoal-3';
         return (
           <li
             key={step}
             aria-current={isActive ? 'step' : undefined}
-            className={`flex items-center gap-2 rounded-full border border-slate-200 px-3 py-1 text-sm ${tone}`}
+            className={`flex items-center gap-2 rounded-full border border-line px-3 py-1 text-sm ${tone}`}
           >
             <span className="text-xs">{step}</span>
             <span>{label}</span>

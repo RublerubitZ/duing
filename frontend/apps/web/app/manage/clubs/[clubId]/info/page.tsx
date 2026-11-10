@@ -24,7 +24,7 @@ export default function ClubInfoPage({
   }
 
   if (!detail) {
-    return <p className="p-6 text-sm text-slate-500">동아리 정보를 불러올 수 없습니다.</p>;
+    return <p className="p-6 text-sm text-charcoal-3">동아리 정보를 불러올 수 없습니다.</p>;
   }
 
   // 동아리 정보 수정은 운영진(LEADER/OFFICER) 공통 권한 — 역할별 읽기 전용 분기를 두지 않는다.

@@ -77,7 +77,7 @@ export function ConfirmRoundDialog({
 
         {unresolvedPayload.respondedUnassigned.length > 0 && (
           <div>
-            <p className="mb-1 text-xs font-semibold text-[#8e6620]">응답했으나 미배정</p>
+            <p className="mb-1 text-xs font-semibold text-warm-deep">응답했으나 미배정</p>
             <ul className="space-y-1">
               {unresolvedPayload.respondedUnassigned.map((member) => (
                 <li
@@ -85,7 +85,7 @@ export function ConfirmRoundDialog({
                   className="flex items-center justify-between rounded-md border border-warm/40 bg-warm/10 px-3 py-1.5 text-sm"
                 >
                   <span className="font-medium text-charcoal">{member.applicantName}</span>
-                  <span className="text-xs text-[#8e6620]">선택 슬롯 {member.selectedSlotIds.length}개</span>
+                  <span className="text-xs text-warm-deep">선택 슬롯 {member.selectedSlotIds.length}개</span>
                 </li>
               ))}
             </ul>

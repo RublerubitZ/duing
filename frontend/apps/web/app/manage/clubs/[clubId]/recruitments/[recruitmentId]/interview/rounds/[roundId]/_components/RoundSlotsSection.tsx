@@ -83,18 +83,18 @@ export function RoundSlotsSection({ detail, onSlotsCreated }: RoundSlotsSectionP
   return (
     <div
       id={ROUND_SLOTS_SECTION_ID}
-      className="rounded-xl border border-slate-200 bg-white px-5 py-4"
+      className="rounded-xl border border-line bg-white px-5 py-4"
     >
-      <h2 className="mb-3 text-sm font-semibold text-slate-700">면접 슬롯</h2>
+      <h2 className="mb-3 text-sm font-semibold text-charcoal">면접 슬롯</h2>
 
       {slots.length > 0 && (
         <div className="mb-4 space-y-1">
           {slots.map((slot) => (
             <div
               key={slot.slotId}
-              className="flex items-center justify-between rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm"
+              className="flex items-center justify-between rounded-md border border-line bg-cream px-3 py-2 text-sm"
             >
-              <span className="text-slate-700">
+              <span className="text-charcoal">
                 {formatSlotRange(slot.startTime, slot.endTime)} · 정원 {slot.capacity}명 ·
                 선택 {slot.selectedCount} / 배정 {slot.assignedCount}
               </span>
@@ -112,14 +112,14 @@ export function RoundSlotsSection({ detail, onSlotsCreated }: RoundSlotsSectionP
                           setCapacityInput(Number.isFinite(nextCapacity) ? nextCapacity : 1);
                         }}
                         aria-label="새 정원"
-                        className="w-16 rounded-md border border-slate-300 px-2 py-0.5 text-xs focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
+                        className="w-16 rounded-md border border-line px-2 py-0.5 text-xs focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
                       />
                       <button
                         type="button"
                         onClick={handleCapacitySave}
                         disabled={updateSlotMutation.isPending || capacityInput < 1}
                         aria-label="정원 저장"
-                        className="inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 text-xs font-medium text-purple-600 hover:bg-purple-50 disabled:opacity-50"
+                        className="inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 text-xs font-medium text-ink hover:bg-sage-tint disabled:opacity-50"
                       >
                         {updateSlotMutation.isPending && <ButtonSpinner />}저장
                       </button>
@@ -127,7 +127,7 @@ export function RoundSlotsSection({ detail, onSlotsCreated }: RoundSlotsSectionP
                         type="button"
                         onClick={() => setCapacityEditSlotId(null)}
                         disabled={updateSlotMutation.isPending}
-                        className="rounded-md px-2 py-0.5 text-xs text-slate-400 hover:bg-slate-100 disabled:opacity-50"
+                        className="rounded-md px-2 py-0.5 text-xs text-charcoal-3 hover:bg-graysoft disabled:opacity-50"
                       >
                         취소
                       </button>
@@ -137,7 +137,7 @@ export function RoundSlotsSection({ detail, onSlotsCreated }: RoundSlotsSectionP
                       type="button"
                       onClick={() => handleCapacityEditStart(slot)}
                       aria-label={`${formatSlotRange(slot.startTime, slot.endTime)} 정원 수정`}
-                      className="rounded-md px-2 py-0.5 text-xs text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+                      className="rounded-md px-2 py-0.5 text-xs text-charcoal-3 hover:bg-graysoft hover:text-charcoal-2"
                     >
                       정원 수정
                     </button>
@@ -147,7 +147,7 @@ export function RoundSlotsSection({ detail, onSlotsCreated }: RoundSlotsSectionP
                     onClick={() => setDeleteTargetSlot(slot)}
                     disabled={deleteSlotMutation.isPending}
                     aria-label={`${formatSlotRange(slot.startTime, slot.endTime)} 슬롯 삭제`}
-                    className="rounded-md px-2 py-0.5 text-xs text-slate-400 hover:bg-rose-50 hover:text-rose-600 disabled:opacity-50"
+                    className="rounded-md px-2 py-0.5 text-xs text-charcoal-3 hover:bg-danger/5 hover:text-danger disabled:opacity-50"
                   >
                     삭제
                   </button>
@@ -161,7 +161,7 @@ export function RoundSlotsSection({ detail, onSlotsCreated }: RoundSlotsSectionP
       {deleteError !== null && (
         <div
           role="alert"
-          className="mb-4 rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700"
+          className="mb-4 rounded-md border border-coral/40 bg-coral/10 px-3 py-2 text-sm text-coral-deep"
         >
           {deleteError}
         </div>
@@ -170,7 +170,7 @@ export function RoundSlotsSection({ detail, onSlotsCreated }: RoundSlotsSectionP
       {updateSlotMutation.isError && (
         <div
           role="alert"
-          className="mb-4 rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700"
+          className="mb-4 rounded-md border border-coral/40 bg-coral/10 px-3 py-2 text-sm text-coral-deep"
         >
           {updateSlotMutation.error instanceof ApiError
             ? updateSlotMutation.error.message
@@ -180,7 +180,7 @@ export function RoundSlotsSection({ detail, onSlotsCreated }: RoundSlotsSectionP
 
       {canEdit && (
         <div>
-          <p className="mb-2 text-xs text-slate-500">슬롯 패턴으로 추가 생성</p>
+          <p className="mb-2 text-xs text-charcoal-3">슬롯 패턴으로 추가 생성</p>
           <SlotPatternForm
             onGenerate={handleGenerate}
             isPending={createSlotsMutation.isPending}
@@ -188,7 +188,7 @@ export function RoundSlotsSection({ detail, onSlotsCreated }: RoundSlotsSectionP
           {createSlotsMutation.isError && (
             <div
               role="alert"
-              className="mt-2 rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700"
+              className="mt-2 rounded-md border border-coral/40 bg-coral/10 px-3 py-2 text-sm text-coral-deep"
             >
               {createSlotsMutation.error instanceof ApiError
                 ? createSlotsMutation.error.message
