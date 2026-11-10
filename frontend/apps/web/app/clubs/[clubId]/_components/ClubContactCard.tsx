@@ -82,7 +82,7 @@ export function ClubContactCard({ clubName, snsLinks, location, contactPhone, co
   if (!hasAny) return null;
   return (
     <div className="rounded-[18px] bg-sage-mist p-5">
-      <div className="mb-3 text-xs font-bold tracking-wide06 text-ink-deep">CONTACT</div>
+      <div className="mb-3 text-xs font-bold text-ink-deep">연락처</div>
       {/* 행마다 py-1.5 를 갖고 있어 ul 간격은 최소로 둔다 — gap-2.5 를 겹치면 카드가 성기게 벌어진다. */}
       <ul className="flex flex-col gap-0.5 text-charcoal">
         {location !== null && (

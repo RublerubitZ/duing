@@ -69,42 +69,42 @@ type StaggerGate = { firstSettledCondition: string | null; locked: boolean };
 
 const Icon = {
   search: (props: React.SVGProps<SVGSVGElement>) => (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" {...props}>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" {...props} aria-hidden>
       <circle cx="11" cy="11" r="7" />
       <path d="m20 20-3.5-3.5" />
     </svg>
   ),
   chev: (props: React.SVGProps<SVGSVGElement>) => (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props} aria-hidden>
       <polyline points="6 9 12 15 18 9" />
     </svg>
   ),
   arrowLeft: (props: React.SVGProps<SVGSVGElement>) => (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props} aria-hidden>
       <line x1="19" y1="12" x2="5" y2="12" />
       <polyline points="12 19 5 12 12 5" />
     </svg>
   ),
   arrowRight: (props: React.SVGProps<SVGSVGElement>) => (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props} aria-hidden>
       <line x1="5" y1="12" x2="19" y2="12" />
       <polyline points="12 5 19 12 12 19" />
     </svg>
   ),
   check: (props: React.SVGProps<SVGSVGElement>) => (
-    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" {...props}>
+    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" {...props} aria-hidden>
       <polyline points="20 6 9 17 4 12" />
     </svg>
   ),
   sliders: (props: React.SVGProps<SVGSVGElement>) => (
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props} aria-hidden>
       <line x1="4" y1="7" x2="20" y2="7" />
       <line x1="7" y1="12" x2="17" y2="12" />
       <line x1="10" y1="17" x2="14" y2="17" />
     </svg>
   ),
   heart: (props: React.SVGProps<SVGSVGElement>) => (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props} aria-hidden>
       <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
     </svg>
   ),
@@ -341,14 +341,11 @@ export function ClubExplorePage() {
         <div className="max-w-layout mx-auto px-4 sm:px-6 md:px-10">
           <div className="flex items-end justify-between mb-7">
             <div>
-              <div className="text-[13px] font-semibold text-ink tracking-wide08 mb-2.5">
-                EXPLORE · 동아리 탐색
-              </div>
               <h1 className="text-[48px] mb-3">
                 {totalElements > 0 ? `${totalElements}개 동아리를 둘러보세요` : '동아리를 둘러보세요'}
                 <SparkleFull
                   size={28}
-                  color="#9DB6A0"
+                  color="var(--sage)"
                   className="inline-block ml-2.5 align-middle"
                 />
               </h1>
@@ -389,7 +386,7 @@ export function ClubExplorePage() {
                 >
                   {segment.key === '전체' ? '전체' : SCOPE_CLUB_LABEL[segment.key]}
                   {on && (
-                    <span className="text-[11px] text-sage font-medium tracking-wide04">
+                    <span className="text-[11px] text-sage font-medium">
                       · {segment.hint}
                     </span>
                   )}
@@ -400,7 +397,7 @@ export function ClubExplorePage() {
 
           {params.scope === '중앙' ? (
             <div className="flex gap-2 flex-wrap items-center">
-              <span className="text-[11.5px] font-bold text-charcoal-3 tracking-wide08 mr-1">분과</span>
+              <span className="text-[11.5px] font-bold text-charcoal-3 mr-1">분과</span>
               {(['전체', ...DIVISIONS] as DivisionFilter[]).map((option) => {
                 const on = option === params.division;
                 return (
@@ -411,14 +408,14 @@ export function ClubExplorePage() {
                     className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-[13.5px] font-semibold border ${on ? 'bg-sage-mist text-ink-deep border-ink-deep' : 'bg-paper text-charcoal-2 border-line'}`}
                   >
                     {option}{option !== '전체' && '분과'}
-                    {on && <Sparkle size={11} color="#143025" />}
+                    {on && <Sparkle size={11} color="var(--ink-deep)" />}
                   </button>
                 );
               })}
             </div>
           ) : params.scope === '학과' ? (
             <div className="flex gap-2 flex-wrap items-center">
-              <span className="text-[11.5px] font-bold text-charcoal-3 tracking-wide08 mr-1">단과대학</span>
+              <span className="text-[11.5px] font-bold text-charcoal-3 mr-1">단과대학</span>
               {COLLEGE_OPTIONS.map((option) => {
                 const on = option.code === params.college;
                 return (
@@ -699,8 +696,7 @@ export function ClubExplorePage() {
       {/* ─── 모바일 (<md) — 단일 컬럼 리스트 + 바텀시트 필터 ─── */}
       <div className="md:hidden">
         <section className="bg-cream px-4 pt-page-top pb-4 sm:px-6">
-          <div className="text-[11px] font-bold tracking-wide08 text-ink">EXPLORE</div>
-          <h1 className="mt-1 text-[27px] tracking-tightx">동아리 탐색</h1>
+          <h1 className="text-[27px] tracking-tightx">동아리 탐색</h1>
         </section>
 
         {/* 검색은 목록을 훑는 내내 닿을 수 있어야 해 상단에 고정한다(홈의 검색 바와 동일한 래퍼).
@@ -1054,7 +1050,7 @@ type FilterGroupProps = {
 function FilterGroup({ title, last, children }: FilterGroupProps) {
   return (
     <div className={`pt-[18px] ${last ? '' : 'pb-[18px] border-b border-line'}`}>
-      <div className="text-[12.5px] font-bold text-charcoal-2 tracking-wide04 mb-3">{title}</div>
+      <div className="text-[12.5px] font-bold text-charcoal-2 mb-3">{title}</div>
       {children}
     </div>
   );

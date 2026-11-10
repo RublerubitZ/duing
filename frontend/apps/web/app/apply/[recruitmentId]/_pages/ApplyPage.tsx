@@ -57,8 +57,7 @@ export function ApplyPage() {
   if (detail.isError && detail.error instanceof ApiError && detail.error.status === 404) {
     return (
       <div
-        className="duing min-h-dvh"
-        style={{ background: 'linear-gradient(180deg, #ece6d3 0%, #f3efe4 8%, #f3efe4 92%, #ece6d3 100%)' }}
+        className="apply-paper duing min-h-dvh"
       >
         <ResourceNotFound
           title="이 모집은 찾을 수 없어요"
@@ -80,8 +79,7 @@ export function ApplyPage() {
         : '모집 정보를 불러오지 못했습니다. 잠시 후 다시 시도해주세요.';
     return (
       <div
-        className="flex min-h-dvh flex-col items-center justify-center gap-5 px-6"
-        style={{ background: 'linear-gradient(180deg, #ece6d3 0%, #f3efe4 8%, #f3efe4 92%, #ece6d3 100%)' }}
+        className="apply-paper flex min-h-dvh flex-col items-center justify-center gap-5 px-6"
       >
         <p role="alert" className="rounded-[10px] bg-coral/5 px-4 py-3 text-center text-sm text-coral-deep">
           {detailErrorMessage}
@@ -101,8 +99,7 @@ export function ApplyPage() {
   ) {
     return (
       <div
-        className="min-h-dvh"
-        style={{ background: 'linear-gradient(180deg, #ece6d3 0%, #f3efe4 8%, #f3efe4 92%, #ece6d3 100%)' }}
+        className="apply-paper min-h-dvh"
       >
         <LoadingGate label="불러오는 중" className="min-h-dvh" />
       </div>
@@ -112,8 +109,7 @@ export function ApplyPage() {
   if (isExternal) {
     return (
       <div
-        className="min-h-dvh"
-        style={{ background: 'linear-gradient(180deg, #ece6d3 0%, #f3efe4 8%, #f3efe4 92%, #ece6d3 100%)' }}
+        className="apply-paper min-h-dvh"
       >
         <LoadingGate label="이동 중" className="min-h-dvh" />
       </div>
@@ -133,8 +129,7 @@ export function ApplyPage() {
         : '지원 가능 여부를 확인하지 못했습니다. 잠시 후 다시 시도해주세요.';
     return (
       <div
-        className="flex min-h-dvh flex-col items-center justify-center gap-5 px-6"
-        style={{ background: 'linear-gradient(180deg, #ece6d3 0%, #f3efe4 8%, #f3efe4 92%, #ece6d3 100%)' }}
+        className="apply-paper flex min-h-dvh flex-col items-center justify-center gap-5 px-6"
       >
         <p role="alert" className="rounded-[10px] bg-coral/5 px-4 py-3 text-center text-sm text-coral-deep">
           {blockedMessage}
@@ -153,8 +148,7 @@ export function ApplyPage() {
   if (draftQuery.isError && draftQuery.data === undefined) {
     return (
       <div
-        className="flex min-h-dvh flex-col items-center justify-center gap-5 px-6"
-        style={{ background: 'linear-gradient(180deg, #ece6d3 0%, #f3efe4 8%, #f3efe4 92%, #ece6d3 100%)' }}
+        className="apply-paper flex min-h-dvh flex-col items-center justify-center gap-5 px-6"
       >
         <p role="alert" className="rounded-[10px] bg-coral/5 px-4 py-3 text-center text-sm text-coral-deep">
           임시저장한 답변을 불러오지 못했습니다. 잠시 후 다시 시도해주세요.

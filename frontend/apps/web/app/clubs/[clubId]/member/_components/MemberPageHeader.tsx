@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/app/_lib/cn';
 import { toRoute } from '@/app/_lib/route';
+import { ArrowLeft } from '@/components/duing/Icon';
 
 type Props = { clubId: number; clubName: string };
 
@@ -20,9 +21,10 @@ export function MemberPageHeader({ clubId, clubName }: Props) {
         <h1 className="text-xl font-bold text-ink">{clubName} 회원 페이지</h1>
         <Link
           href={toRoute(`/clubs/${clubId}`)}
-          className="text-sm text-charcoal-2 hover:text-ink"
+          className="inline-flex items-center gap-1 text-sm text-charcoal-2 hover:text-ink"
         >
-          ← 동아리 소개 보기
+          <ArrowLeft size={14} aria-hidden />
+          동아리 소개 보기
         </Link>
       </div>
       <nav className="flex gap-2">

@@ -90,6 +90,10 @@ body {
 
 /* Duing 디자인 토큰은 .duing 스코프 안에서만 적용되어 다른 라우트에 영향을 주지 않는다 */
 @layer components {
+  /* 지원서 화면의 종이 바탕 — 래퍼 대부분이 .duing 밖이라 CSS 변수 대신 theme() 으로 토큰을 읽는다. */
+  .apply-paper {
+    background: linear-gradient(180deg, theme('colors.cream.2') 0%, theme('colors.cream.DEFAULT') 8%, theme('colors.cream.DEFAULT') 92%, theme('colors.cream.2') 100%);
+  }
   .duing {
     @apply bg-cream text-charcoal font-body;
     font-feature-settings: 'ss01' on, 'ss02' on, 'cv11' on;
