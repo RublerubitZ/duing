@@ -232,6 +232,63 @@ const DETAIL_ASSIGNING = {
   slots: [SLOT_A, SLOT_B],
 };
 
+const FREED_SLOT_20 = { slotId: 20, startTime: '2026-07-15T13:00:00', endTime: '2026-07-15T13:30:00', capacity: 1, selectedCount: 1, assignedCount: 0 };
+const FULL_SLOT_21 = { slotId: 21, startTime: '2026-07-15T14:00:00', endTime: '2026-07-15T14:30:00', capacity: 1, selectedCount: 3, assignedCount: 1 };
+const OPEN_SLOT_22 = { slotId: 22, startTime: '2026-07-15T15:00:00', endTime: '2026-07-15T15:30:00', capacity: 2, selectedCount: 1, assignedCount: 0 };
+
+const MEMBER_DECIDED = { memberId: 101, applicationId: 101, userName: '정하늘', studentId: '20230101', status: 'EXCLUDED', unresponded: false, alternativeAvailabilityText: null, selectedSlotCount: 0, assignedSlotId: null };
+const MEMBER_WANTS_20 = { memberId: 102, applicationId: 102, userName: '최유리', studentId: '20230102', status: 'RESPONDED', unresponded: false, alternativeAvailabilityText: null, selectedSlotCount: 3, assignedSlotId: null };
+const MEMBER_WANTS_21 = { memberId: 103, applicationId: 103, userName: '한지민', studentId: '20230103', status: 'RESPONDED', unresponded: false, alternativeAvailabilityText: null, selectedSlotCount: 1, assignedSlotId: null };
+const MEMBER_HOLDS_21 = { memberId: 104, applicationId: 104, userName: '오세훈', studentId: '20230104', status: 'RESPONDED', unresponded: false, alternativeAvailabilityText: null, selectedSlotCount: 1, assignedSlotId: 21 };
+
+/** ASSIGNING — X(정하늘)의 결과를 정한 뒤: 가능 시간·초안 배정이 지워져 슬롯 20 이 빈다. 배정받지 못한 응답자 2명(최유리·한지민)·빈 자리 3개(슬롯 20 의 1 + 22 의 2) */
+const DETAIL_ASSIGNING_FREED_SEAT = {
+  roundId: ROUND_ID,
+  title: '1차 면접',
+  status: 'ASSIGNING',
+  availabilityDeadline: '2026-07-10T18:00:00',
+  location: '공학관',
+  requestSequence: 1,
+  deadlinePassed: true,
+  counts: {
+    totalMemberCount: 3,
+    invitedCount: 0,
+    respondedCount: 3,
+    noAvailableSlotCount: 0,
+    assignedCount: 0,
+    excludedCount: 1,
+    unrespondedCount: 0,
+  },
+  members: [MEMBER_DECIDED, MEMBER_WANTS_20, MEMBER_WANTS_21, MEMBER_HOLDS_21],
+  slots: [FREED_SLOT_20, FULL_SLOT_21, OPEN_SLOT_22],
+};
+
+/**
+ * 같은 라운드의 낡은 상세 — X 의 결과를 정하기 전이라 X 가 슬롯 20 을 쥐어 최유리가 고른 20 이 꽉 찼고,
+ * 오세훈이 21 에 배정되기 전이라 최유리·한지민이 고른 21 은 비어 보인다(이 상세로 판정하면 둘에게 거짓 표시).
+ */
+const DETAIL_ASSIGNING_BEFORE_RELEASE = {
+  ...DETAIL_ASSIGNING_FREED_SEAT,
+  counts: { ...DETAIL_ASSIGNING_FREED_SEAT.counts, totalMemberCount: 4, respondedCount: 4, excludedCount: 0 },
+  members: [
+    { ...MEMBER_DECIDED, status: 'RESPONDED', selectedSlotCount: 1, assignedSlotId: 20 },
+    MEMBER_WANTS_20,
+    MEMBER_WANTS_21,
+    { ...MEMBER_HOLDS_21, assignedSlotId: null },
+  ],
+  slots: [{ ...FREED_SLOT_20, selectedCount: 2, assignedCount: 1 }, { ...FULL_SLOT_21, assignedCount: 0 }, OPEN_SLOT_22],
+};
+
+/** 확정 409 명단 — 최유리는 21(꽉 참)·22·20(빈 자리 있음 — 고른 순서와 시간순이 다르다), 한지민은 21(꽉 참)을 골랐다 */
+const FREED_SEAT_UNRESOLVED_PAYLOAD = {
+  code: 'INTERVIEW_ROUND_HAS_UNRESOLVED_MEMBERS',
+  unresponded: [],
+  respondedUnassigned: [
+    { applicationId: 102, applicantName: '최유리', selectedSlotIds: [21, 22, 20] },
+    { applicationId: 103, applicantName: '한지민', selectedSlotIds: [21] },
+  ],
+};
+
 // ── 테스트 설정 ──────────────────────────────────────────────────────────────
 
 beforeAll(() => server.listen({ onUnhandledRequest: 'error' }));
@@ -929,6 +986,77 @@ describe('RoundDashboard — 면접 라운드 dashboard', () => {
     // 해제·제외 버튼이 없어야 한다
     expect(screen.queryByRole('button', { name: /해제/ })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /^제외$/ })).not.toBeInTheDocument();
+  });
+});
+
+// ── 배정 검토 — 빈 자리 안내 ────────────────────────────────────────────────
+
+const CONFIRM_REJECTED_FREED_SEAT_HANDLER = http.post(`*/interview-rounds/${ROUND_ID}/confirm`, () =>
+  HttpResponse.json(
+    { ok: false, data: FREED_SEAT_UNRESOLVED_PAYLOAD, message: '미처리 멤버가 있습니다.' },
+    { status: 409 },
+  ),
+);
+
+describe('배정 검토 — 빈 자리 안내', () => {
+  it('확정이 거부되면 고른 시간에 빈 자리가 있는 미배정 응답자에게만 빈 자리 표시가 보인다', async () => {
+    server.use(
+      http.get(`*/interview-rounds/${ROUND_ID}`, () =>
+        HttpResponse.json({ ok: true, data: DETAIL_ASSIGNING_FREED_SEAT, message: null }),
+      ),
+      CONFIRM_REJECTED_FREED_SEAT_HANDLER,
+    );
+
+    renderDashboard();
+    await screen.findByText('배정 검토 중');
+    await userEvent.click(screen.getByRole('button', { name: /^확정$/ }));
+    const dialog = await screen.findByRole('dialog');
+
+    await waitFor(() =>
+      expect(within(dialog).getByText('최유리').closest('li')).toHaveTextContent('선택 슬롯 3개 · 고른 시간에 빈 자리 있음(7월 15일 13:00 ~ 13:30, 7월 15일 15:00 ~ 15:30)'),
+    );
+    expect(within(dialog).getByText('한지민').closest('li')).toHaveTextContent('선택 슬롯 1개');
+    expect(within(dialog).getByText('한지민').closest('li')).not.toHaveTextContent('고른 시간에 빈 자리 있음');
+  });
+
+  it('확정이 거부되면 창은 바로 열리고, 빈 자리 표시는 라운드 상세를 다시 받은 뒤에 보인다', async () => {
+    let releaseRefetch: () => void = () => {};
+    const refetchGate = new Promise<void>((resolve) => {
+      releaseRefetch = resolve;
+    });
+    let detailGetCount = 0;
+    server.use(
+      http.get(`*/interview-rounds/${ROUND_ID}`, async () => {
+        detailGetCount += 1;
+        if (detailGetCount === 1) {
+          return HttpResponse.json({ ok: true, data: DETAIL_ASSIGNING_BEFORE_RELEASE, message: null });
+        }
+        await refetchGate;
+        return HttpResponse.json({ ok: true, data: DETAIL_ASSIGNING_FREED_SEAT, message: null });
+      }),
+      CONFIRM_REJECTED_FREED_SEAT_HANDLER,
+    );
+
+    try {
+      renderDashboard();
+      await screen.findByText('배정 검토 중');
+      await userEvent.click(screen.getByRole('button', { name: /^확정$/ }));
+
+      // 재조회를 붙잡은 동안 — 창과 [강제 확정]은 기다리지 않고, 낡은 상세로는 표시하지 않는다
+      const dialog = await screen.findByRole('dialog');
+      expect(within(dialog).getByRole('button', { name: /강제 확정/ })).toBeEnabled();
+      expect(within(dialog).getByText('최유리').closest('li')).not.toHaveTextContent('고른 시간에 빈 자리 있음');
+      expect(within(dialog).getByText('한지민').closest('li')).not.toHaveTextContent('고른 시간에 빈 자리 있음');
+
+      releaseRefetch();
+      await waitFor(() =>
+        expect(within(dialog).getByText('최유리').closest('li')).toHaveTextContent('고른 시간에 빈 자리 있음(7월 15일 13:00 ~ 13:30, 7월 15일 15:00 ~ 15:30)'),
+      );
+      expect(within(dialog).getByText('한지민').closest('li')).not.toHaveTextContent('고른 시간에 빈 자리 있음');
+      expect(detailGetCount).toBe(2);
+    } finally {
+      releaseRefetch();
+    }
   });
 });
 

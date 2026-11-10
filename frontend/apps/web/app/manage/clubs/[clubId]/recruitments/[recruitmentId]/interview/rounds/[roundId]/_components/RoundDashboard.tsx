@@ -433,6 +433,8 @@ export function RoundDashboard({ clubId, recruitmentId, roundId }: Props) {
       {confirmDialogPayload && (
         <ConfirmRoundDialog
           unresolvedPayload={confirmDialogPayload}
+          // 409 뒤 상세를 다시 받는 동안엔 낡은 정원·배정으로 빈 자리를 판정하지 않는다(null = 보류) — 다 받은 뒤 표시
+          slots={detailQuery.isFetching ? null : detail.slots}
           onForceConfirm={handleForceConfirm}
           onCancel={() => {
             setConfirmDialogPayload(null);
