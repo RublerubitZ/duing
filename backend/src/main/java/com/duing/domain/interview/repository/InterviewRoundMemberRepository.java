@@ -54,7 +54,9 @@ public interface InterviewRoundMemberRepository
     List<InterviewRoundMember> findAllOfUserInUncancelledRoundsForUpdate(@Param("userId") Long userId);
 
     /**
-     * 결과 확정 정리 대상 — 이 지원서의 멤버 가운데 아직 제외·확정되지 않은 것(INVITED·RESPONDED·NO_AVAILABLE_SLOT), 넘긴 상태의 라운드에서.
+     * 결과 확정 정리 대상 — 이 지원서의 멤버 가운데 아직 제외·확정되지 않은 것
+     * ({@link RoundMemberStatus#excludableSet()} — exclude() 와 같은 판정), 넘긴 상태의 라운드에서.
+     * memberStatuses 에는 excludableSet() 만 넘긴다 — 더 넓으면 exclude() 가 409, 더 좁으면 결과를 정한 사람이 진행 중 라운드에 남는다.
      * 멤버 상태 조건을 빼면 안 된다 — 운영진이 먼저 제외한 멤버십(EXCLUDED)이 진행 중 라운드에 남을 수 있고, 그 행을 잡으면 exclude() 가
      * 409 를 던져 결과를 정할 수 없다. 라운드 조건은 서브쿼리로 둬 FOR UPDATE 가 라운드 행을 잠그지 않는다.
      * 멤버 상태는 잠금 행의 술어라 먼저 커밋된 동시 확정이 ASSIGNED·EXCLUDED 로 바꾼 행은 다시 확인돼 빠진다. 라운드 조건은 문장 스냅샷이라
@@ -63,13 +65,12 @@ public interface InterviewRoundMemberRepository
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT m FROM InterviewRoundMember m "
             + "WHERE m.applicationId = :applicationId "
-            + "AND m.status IN (com.duing.domain.interview.entity.RoundMemberStatus.INVITED, "
-            + "com.duing.domain.interview.entity.RoundMemberStatus.RESPONDED, "
-            + "com.duing.domain.interview.entity.RoundMemberStatus.NO_AVAILABLE_SLOT) "
+            + "AND m.status IN :memberStatuses "
             + "AND m.roundId IN (SELECT r.id FROM InterviewRound r WHERE r.status IN :roundStatuses) "
             + "ORDER BY m.id ASC")
     List<InterviewRoundMember> findAllExcludableOfApplicationInRoundsForUpdate(
             @Param("applicationId") Long applicationId,
+            @Param("memberStatuses") Collection<RoundMemberStatus> memberStatuses,
             @Param("roundStatuses") Collection<RoundStatus> roundStatuses);
 
     /**

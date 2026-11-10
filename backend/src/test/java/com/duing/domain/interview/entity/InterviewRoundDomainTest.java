@@ -8,6 +8,8 @@ import java.time.Instant;
 import java.time.LocalDateTime;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.springframework.test.util.ReflectionTestUtils;
 
 class InterviewRoundDomainTest {
@@ -236,6 +238,30 @@ class InterviewRoundDomainTest {
                 .isInstanceOf(InterviewException.MemberTransitionNotAllowed.class);
         assertThatThrownBy(assigned::exclude)
                 .isInstanceOf(InterviewException.MemberTransitionNotAllowed.class);
+    }
+
+    @Test
+    @DisplayName("제외할 수 있는 멤버 상태는 초대·응답·가능없음뿐이다 — 상태가 늘면 이 기대값을 정해야 한다")
+    void excludableSetIsFixed() {
+        assertThat(RoundMemberStatus.excludableSet())
+                .containsExactlyInAnyOrder(
+                        RoundMemberStatus.INVITED, RoundMemberStatus.RESPONDED, RoundMemberStatus.NO_AVAILABLE_SLOT);
+    }
+
+    @ParameterizedTest
+    @EnumSource(RoundMemberStatus.class)
+    @DisplayName("모든 멤버 상태에서 exclude() 가드와 제외 가능 상태 집합이 같은 판정을 낸다")
+    void excludeGuardMatchesExcludableSet(RoundMemberStatus status) {
+        InterviewRoundMember member = InterviewRoundMember.invite(1L, 10L);
+        ReflectionTestUtils.setField(member, "status", status);
+
+        if (RoundMemberStatus.excludableSet().contains(status)) {
+            member.exclude();
+            assertThat(member.getStatus()).isEqualTo(RoundMemberStatus.EXCLUDED);
+        } else {
+            assertThatThrownBy(member::exclude)
+                    .isInstanceOf(InterviewException.MemberTransitionNotAllowed.class);
+        }
     }
 
     @Test

@@ -109,7 +109,7 @@ public class InterviewRoundMember extends BaseEntity {
      * 이미 종결이라 대기열로 가지 않는다. 가능없음 텍스트는 운영 기록으로 보존한다.
      */
     public void exclude() {
-        if (this.status == RoundMemberStatus.ASSIGNED || this.status == RoundMemberStatus.EXCLUDED) {
+        if (!this.status.isExcludable()) {
             throw new InterviewException.MemberTransitionNotAllowed();
         }
         this.status = RoundMemberStatus.EXCLUDED;
