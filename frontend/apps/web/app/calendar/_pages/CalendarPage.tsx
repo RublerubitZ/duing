@@ -677,7 +677,7 @@ export function CalendarPage({ renderedTodayIso }: Props) {
                 position: 'relative', overflow: 'hidden',
               }}>
                 <SparkleFull size={36} color="var(--sage)" style={{ position: 'absolute', top: 18, right: 22, opacity: 0.9 }} />
-                <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.55)', fontWeight: 700, marginBottom: 10 }}>
+                <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.7)', fontWeight: 700, marginBottom: 10 }}>
                   {selectedDate === todayIso ? '오늘' : '선택한 날짜'}
                 </div>
                 <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>

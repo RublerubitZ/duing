@@ -29,7 +29,7 @@ export function NoticeEventCard({ eventInfo, linkUrl }: Props) {
           <div key={row.label} className="flex items-start gap-3">
             <span className="grid place-items-center w-7 h-7 rounded-md bg-white/10 text-sage shrink-0">{ROW_ICON[row.label]}</span>
             <div className="flex flex-col">
-              <dt className="text-[11.5px] font-semibold text-white/50">{row.label}</dt>
+              <dt className="text-[11.5px] font-semibold text-white/70">{row.label}</dt>
               <dd className="text-[14px] font-semibold">{row.value}</dd>
             </div>
           </div>

@@ -39,6 +39,21 @@ describe('ClubCard — 모집 상태 뱃지/기간 렌더링', () => {
     expect(screen.getByText('3.15 - 4.20')).toBeInTheDocument();
   });
 
+  // 후광을 색 값 뒤에 알파를 이어 붙여 그리면 색이 CSS 변수로 바뀔 때 조용히 사라진다(#1678) — 클래스로 그린다.
+  it('모집중 칩의 점은 후광(ring)을 갖고, 모집 없음의 점은 후광이 없다', () => {
+    const { unmount } = render(<ClubCard club={{
+      ...baseClub,
+      activeRecruitment: { recruitmentId: 10, displayStatus: 'OPEN', startDate: '2026-03-15', endDate: '2026-04-20' },
+    }} />);
+    expect(screen.getByText('모집중').querySelector('span')).toHaveClass('bg-sage', 'ring-[3px]', 'ring-sage/20');
+    unmount();
+
+    render(<ClubCard club={baseClub} />);
+    const idleDot = screen.getByText('모집 없음').querySelector('span');
+    expect(idleDot).toHaveClass('bg-charcoal-3');
+    expect(idleDot?.className).not.toMatch(/ring-/);
+  });
+
   it('ALWAYS_OPEN: 칩은 "모집중", 기간 영역만 "상시모집" — 같은 라벨 중복 표기 없음', () => {
     render(<ClubCard club={{
       ...baseClub,
