@@ -31,12 +31,19 @@ export function useInterviewRoundCandidatesQuery(
   });
 }
 
-/** 면접 라운드 목록 조회 (BE#6) */
-export function useInterviewRoundsQuery(recruitmentId: number) {
+/**
+ * 면접 라운드 목록 조회 (BE#6)
+ * refetchOnMount 옵션: 라운드 마법사가 신선한 캐시여도 마운트 때 다시 받도록 'always' 를 넘긴다.
+ */
+export function useInterviewRoundsQuery(
+  recruitmentId: number,
+  options: { refetchOnMount?: boolean | 'always' } = {},
+) {
   const client = useApiClient();
   return useQuery({
     queryKey: interviewRoundKeys.list(recruitmentId),
     queryFn: () => client.interviewRounds.list(recruitmentId),
+    refetchOnMount: options.refetchOnMount ?? true,
   });
 }
 
