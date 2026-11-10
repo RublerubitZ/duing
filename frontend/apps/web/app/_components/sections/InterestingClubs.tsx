@@ -111,12 +111,12 @@ function InterestCard({ club }: { club: ClubSummary }) {
 
   return (
     // 카드 안 치수는 전부 em — 기준 글자 16px(=1280 의 카드 폭 285 × 5.614%)에서 로고 82·제목 30·배지 14·
-    // 패딩 22·최소 높이 290 이 나온다. lg 부터 루트 글자를 cqw 로 잡아 폭에 비례해 전체가 같이 줄고,
+    // 패딩 22 가 나온다(고정 최소 높이는 두지 않는다 — "이번 주에 N명" 줄이 없는 날 카드 아래 절반이 비었다. 같은 줄의 카드 높이는 격자가 맞춘다). lg 부터 루트 글자를 cqw 로 잡아 폭에 비례해 전체가 같이 줄고,
     // md(2열)는 16px 고정이라 예전 px 값과 동일하다. 글자 크기를 바꾸는 요소(로고·배지·제목)는 자기 크기
     // 기준으로 다시 환산했다(로고 82/30 = 2.733em).
     <Link
       href={`/clubs/${club.id}`}
-      className="group flex h-full min-h-[290px] flex-col rounded-[1.5em] bg-paper p-[1.375em] forced-colors:border text-[16px] transition duration-250 ease-duing hover:-translate-y-1 hover:shadow-3 motion-reduce:transition-none lg:min-h-[101.75cqw] lg:text-[5.614cqw]"
+      className="group flex h-full flex-col rounded-[1.5em] bg-paper p-[1.375em] forced-colors:border text-[16px] transition duration-250 ease-duing hover:-translate-y-1 hover:shadow-3 motion-reduce:transition-none lg:min-h-[101.75cqw] lg:text-[5.614cqw]"
     >
       <div className="flex items-start justify-between gap-[0.75em]">
         <ClubCardLogo club={club} className="h-[2.733em] w-[2.733em] rounded-[0.6em] text-[1.875em]" />

@@ -20,7 +20,7 @@ function TickerChip({ item, duplicate = false }: { item: ClosingSoonItem; duplic
       )}
       aria-hidden={duplicate || undefined}
     >
-      <span className="text-[#E1E1E1]">{item.name}</span>
+      <span className="text-line">{item.name}</span>
       <span
         className={cn(
           'flex h-[18px] items-center rounded-full px-2 text-[12px] font-medium leading-none text-ink-deep sm:text-[13px]',
