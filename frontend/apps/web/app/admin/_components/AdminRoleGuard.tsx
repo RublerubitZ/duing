@@ -34,7 +34,7 @@ export function AdminRoleGuard({ children }: { children: React.ReactNode }) {
       <div className="px-4 sm:px-6 md:px-10 py-12 text-sm">
         <p className="text-danger">총동아리연합회(총동연) 관리자 권한이 필요해요.</p>
         {/* 콘솔에는 사이트 상단바가 없다 — 여기서 나갈 길을 직접 둔다. */}
-        <Link href="/" className="btn btn-ghost btn-sm mt-4">
+        <Link href="/" className="btn btn-secondary btn-sm mt-4">
           홈으로
         </Link>
       </div>

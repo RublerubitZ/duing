@@ -133,7 +133,8 @@ export function AdminSidebarActions({ collapsed = false }: { collapsed?: boolean
 
   // 한 줄 — 왼쪽에 내 이름(마이페이지), 오른쪽에 홈으로·로그아웃 아이콘. 세 줄로 쌓으면 900px 높이에서 메뉴가 사이드바 안에서 스크롤된다.
   const iconActionClass = cn(
-    'grid h-10 w-10 shrink-0 place-items-center rounded-md text-charcoal-2 outline-none',
+    // 모바일 드로어에서는 44px(단독 터치 대상), 사이드바가 보이는 md 부터 40px.
+    'grid h-11 w-11 shrink-0 place-items-center rounded-md text-charcoal-2 outline-none md:h-10 md:w-10',
     'hover:bg-sage-tint hover:text-ink-deep focus-visible:ring-2 focus-visible:ring-ink motion-safe:transition-colors',
   );
 
@@ -147,9 +148,9 @@ export function AdminSidebarActions({ collapsed = false }: { collapsed?: boolean
           href="/me"
           title={collapsed ? `${myName} — 마이페이지` : '마이페이지'}
           className={cn(
-            'flex min-h-10 min-w-0 items-center gap-2.5 rounded-md text-[13.5px] font-semibold text-charcoal-2 outline-none',
+            'flex min-h-11 min-w-0 items-center gap-2.5 rounded-md md:min-h-10 text-[13.5px] font-semibold text-charcoal-2 outline-none',
             'hover:bg-sage-tint hover:text-ink-deep focus-visible:ring-2 focus-visible:ring-ink motion-safe:transition-colors',
-            collapsed ? 'w-10 justify-center' : 'flex-1 px-2',
+            collapsed ? 'w-11 justify-center md:w-10' : 'flex-1 px-2',
           )}
         >
           <span
@@ -175,7 +176,7 @@ export function AdminSidebarActions({ collapsed = false }: { collapsed?: boolean
         type="button"
         onClick={handleLogout}
         disabled={loggingOut}
-        aria-label={loggingOut ? '로그아웃 중' : '로그아웃'}
+        aria-label="로그아웃"
         title="로그아웃"
         className={cn(iconActionClass, 'hover:bg-danger/10 hover:text-danger disabled:opacity-60')}
       >

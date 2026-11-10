@@ -81,7 +81,8 @@ export function AdminMobileBar() {
           {/* 내비 링크(앵커) 클릭 시 드로어를 닫는다. */}
           <div
             onClick={(event) => {
-              if (event.target instanceof HTMLElement && event.target.closest('a')) {
+              // 아이콘(svg)을 정확히 눌러도 닫히도록 Element 로 본다 — SVGElement 는 HTMLElement 가 아니다.
+              if (event.target instanceof Element && event.target.closest('a')) {
                 // 링크 이동과 겹치는 닫힘 — 뒤로가기 흡수 엔트리 회수를 건너뛰어 이동이 삼켜지지 않게 한다.
                 // 수정자 키 클릭(새 탭)은 이 탭에 이동이 없으므로 평소처럼 회수한다.
                 if (!event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey) {

@@ -206,7 +206,7 @@ describe('AdminSidebar', () => {
     expect(screen.getByRole('button', { name: '알림 3개' })).toBeInTheDocument();
   });
 
-  it('로그인 전·프로필을 받기 전에는 이름 줄과 알림 종 없이 홈으로·로그아웃만 둔다', () => {
+  it('로그인 전에는 이름 줄과 알림 종 없이 홈으로·로그아웃만 둔다', () => {
     renderSidebar();
     expect(screen.queryByRole('link', { name: /마이페이지/ })).toBeNull();
     expect(screen.queryByRole('button', { name: /^알림/ })).toBeNull();
