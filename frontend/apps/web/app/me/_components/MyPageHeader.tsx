@@ -25,7 +25,7 @@ export function MyPageHeader({
   return (
     <section className="pt-page-top pb-6">
       <div className="max-w-layout mx-auto px-4 sm:px-6 md:px-10">
-        {/* 모바일은 슬림 밴드(라벨+회비 링크 / 인사 / 신분) ≈120px — 숫자 3개는 바로 아래 탭 카운트와 중복이라 PC 에서만. */}
+        {/* 모바일은 슬림 밴드(회비 링크 / 인사 / 신분) ≈120px — 숫자 3개는 바로 아래 탭 카운트와 중복이라 PC 에서만. */}
         <div
           className="relative overflow-hidden rounded-xl px-5 py-5 sm:px-10 sm:py-8 grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-6 sm:gap-8 items-start sm:items-center"
           style={{

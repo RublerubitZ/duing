@@ -100,7 +100,7 @@ export function SectionArchived({ applications, isPending = false }: Props) {
                     className="w-14 h-14 rounded-[14px] grid place-items-center text-[26px] shrink-0 bg-sage-mist text-ink-deep relative overflow-hidden"
                   >
                     <ClubLogo logoUrl={app.logoUrl} alt={app.clubName}>
-                      <span className="font-bold">{app.clubName.charAt(0)}</span>
+                      <span aria-hidden className="font-bold">{(app.clubName || '?').trim().charAt(0)}</span>
                     </ClubLogo>
                   </div>
 

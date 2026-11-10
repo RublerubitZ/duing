@@ -186,7 +186,7 @@ export function InquiryImageUploader({
         onChange={handleFileChange}
         className="hidden"
       />
-      <p className="text-[12px] text-charcoal-3">JPG, PNG, WEBP 파일을 장당 5MB 이하로 최대 5장</p>
+      <p className="text-[12px] text-charcoal-3">JPG, PNG, WEBP 파일을 장당 5MB 이하로 최대 5장까지 올릴 수 있어요.</p>
     </div>
   );
 }

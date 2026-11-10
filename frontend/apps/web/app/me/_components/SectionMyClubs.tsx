@@ -106,7 +106,7 @@ export function SectionMyClubs({ myClubs, isPending = false }: Props) {
                     )}
                   >
                     <ClubLogo logoUrl={club.logoUrl} alt={club.clubName}>
-                      <span className="font-bold">{club.clubName.charAt(0)}</span>
+                      <span aria-hidden className="font-bold">{(club.clubName || '?').trim().charAt(0)}</span>
                     </ClubLogo>
                   </div>
 

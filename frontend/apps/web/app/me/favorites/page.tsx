@@ -39,7 +39,7 @@ export default function MyFavoritesPage() {
           </p>
           <Link
             href="/clubs"
-            className="btn btn-primary rounded-full"
+            className="btn btn-primary h-10 rounded-full py-0"
           >
             동아리 탐색
           </Link>

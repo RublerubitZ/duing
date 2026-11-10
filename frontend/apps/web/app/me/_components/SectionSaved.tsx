@@ -59,7 +59,7 @@ export function SectionSaved({ favorites, isPending = false }: Props) {
                       className="w-11 h-11 rounded-[12px] grid place-items-center text-[22px] bg-sage-mist text-ink-deep overflow-hidden relative"
                     >
                       <ClubLogo logoUrl={club.logoUrl} alt={club.name}>
-                        <span className="font-bold">{club.name.charAt(0)}</span>
+                        <span aria-hidden className="font-bold">{(club.name || '?').trim().charAt(0)}</span>
                       </ClubLogo>
                     </div>
                     {/* heart icon */}

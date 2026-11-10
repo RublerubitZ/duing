@@ -15,6 +15,7 @@ import {
 import { HomeNav } from '@/app/_components/HomeNav';
 import { cn } from '@/app/_lib/cn';
 import { ButtonSpinner } from '@/components/loading/Spinner';
+import { ArrowLeft } from '@/components/duing/Icon';
 import { TextLinesSkeleton } from '@/components/loading/Skeleton';
 import { toRoute } from '@/app/_lib/route';
 import { ConfirmDialog } from '@/app/_components/ConfirmDialog';
@@ -25,7 +26,6 @@ import {
   INQUIRY_STATUS_LABEL,
 } from '@/app/_lib/federationInquiryLabels';
 import { InquiryImageUploader } from '../../_components/InquiryImageUploader';
-import { ArrowLeft } from '@/components/duing/Icon';
 
 const TITLE_MAX_LENGTH = 120;
 const CONTENT_MAX_LENGTH = 2000;

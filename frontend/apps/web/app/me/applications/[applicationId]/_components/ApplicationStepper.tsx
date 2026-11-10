@@ -194,7 +194,7 @@ export function ApplicationStepper({ detail, phase }: Props) {
           const isPast = index < activeIndex;
           // 마지막 마디의 강조색 — 불합격은 경고색, 결과 없이 종료·운영 중단으로 선발 종료는 중립 회색.
           // 진행 초록을 그대로 쓰면 "여기까지 잘 진행됨"으로 읽혀 종료 사실이 흐려진다(isFinalReject 가 거짓이면 null → 초록).
-          const finalAccent = isFinalReject ? 'var(--danger)' : closedWithoutResult || endedByDeactivation ? 'var(--charcoal-3)' : null;
+          const finalAccent = isFinalReject ? 'var(--danger)' : closedWithoutResult || endedByDeactivation ? 'var(--neutral-mid)' : null;
           const isAccentedFinal = step.key === 'finalized' && isActive && finalAccent !== null;
 
           const dotColor = isAccentedFinal

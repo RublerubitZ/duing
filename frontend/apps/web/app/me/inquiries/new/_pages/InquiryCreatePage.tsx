@@ -12,9 +12,9 @@ import { HomeNav } from '@/app/_components/HomeNav';
 import { captureEvent } from '@/app/_lib/analytics';
 import { toRoute } from '@/app/_lib/route';
 import { useToast } from '@/app/_components/toast/ToastProvider';
+import { ArrowLeft } from '@/components/duing/Icon';
 import { ButtonSpinner } from '@/components/loading/Spinner';
 import { InquiryImageUploader } from '../../_components/InquiryImageUploader';
-import { ArrowLeft } from '@/components/duing/Icon';
 
 const TITLE_MAX_LENGTH = 120;
 const CONTENT_MAX_LENGTH = 2000;

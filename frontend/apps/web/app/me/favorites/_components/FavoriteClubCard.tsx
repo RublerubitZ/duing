@@ -16,8 +16,8 @@ export function FavoriteClubCard({ favorite }: Props) {
         className="flex items-center gap-3 rounded-lg border border-line bg-paper p-4 transition-shadow hover:shadow-2"
       >
         <div className="relative h-12 w-12 flex-shrink-0 overflow-hidden rounded-full bg-sage-mist">
-          <ClubLogo logoUrl={favorite.logoUrl} alt={favorite.name}>
-            <span className="grid h-full w-full place-items-center text-lg font-bold text-ink-deep">{favorite.name.charAt(0)}</span>
+          <ClubLogo logoUrl={favorite.logoUrl}>
+            <span aria-hidden className="grid h-full w-full place-items-center text-lg font-bold text-ink-deep">{(favorite.name || '?').trim().charAt(0)}</span>
           </ClubLogo>
         </div>
 

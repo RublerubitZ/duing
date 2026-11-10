@@ -25,7 +25,7 @@ export function ApplySummaryCard({ counts }: Props) {
       position: 'relative',
       overflow: 'hidden',
     }}>
-      <SparkleFull size={28} color="rgba(157,182,160,0.30)" style={{ position: 'absolute', top: 12, right: 12 }} />
+      <SparkleFull size={28} color="var(--sage)" style={{ position: 'absolute', top: 12, right: 12, opacity: 0.3 }} />
       <div style={{ fontSize: 12, fontWeight: 700, color: 'rgba(255,255,255,0.92)', marginBottom: 6 }}>
         나의 지원 요약
       </div>

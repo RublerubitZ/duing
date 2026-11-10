@@ -123,9 +123,10 @@ export function SectionApply({ applications, isPending = false }: Props) {
 
                 {/* Club avatar */}
                 <div
+                  aria-hidden
                   className="w-14 h-14 rounded-[14px] grid place-items-center text-[26px] font-bold bg-ink/[0.08] text-ink"
                 >
-                  {app.clubName.charAt(0)}
+                  {(app.clubName || '?').trim().charAt(0)}
                 </div>
 
                 {/* Club info */}
