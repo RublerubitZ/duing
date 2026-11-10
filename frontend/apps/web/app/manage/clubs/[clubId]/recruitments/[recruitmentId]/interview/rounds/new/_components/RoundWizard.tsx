@@ -117,6 +117,8 @@ export function RoundWizard({ clubId, recruitmentId }: Props) {
       {showDraftDialog && draftRound && (
         <DraftResumeDialog
           draftRound={draftRound}
+          clubId={clubId}
+          recruitmentId={recruitmentId}
           isPending={cancelMutation.isPending}
           onResume={handleResume}
           onDiscard={handleDiscard}

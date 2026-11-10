@@ -1,9 +1,11 @@
 'use client';
 
+import Link from 'next/link';
 import { useRef } from 'react';
 
 import type { InterviewRoundSummary } from '@duing/types';
 
+import { toRoute } from '@/app/_lib/route';
 import {
   Dialog,
   DialogContent,
@@ -17,9 +19,12 @@ import { ButtonSpinner } from '@/components/loading/Spinner';
 // DRAFT 감지 시 이어하기/폐기 선택 다이얼로그.
 // 이어하기 → roundId 세팅 후 Step2 진입. 폐기 → cancel mutation → Step1.
 // ESC·바깥 클릭은 no-op — 명시적 버튼 선택을 강제한다 (양자택일 구조).
+// 인원 0 이면 '이어하기' 대신 '면접 관리로'(나가기만, 비파괴, 자동 포커스) — 이어가도 발송할 수 없고 사람을 더할 길이 없다.
 
 type Props = {
   draftRound: InterviewRoundSummary;
+  clubId: number;
+  recruitmentId: number;
   isPending: boolean;
   onResume: () => void;
   onDiscard: () => void;
@@ -27,27 +32,62 @@ type Props = {
   discardError?: string | null;
 };
 
-export function DraftResumeDialog({ draftRound, isPending, onResume, onDiscard, discardError }: Props) {
+export function DraftResumeDialog({
+  draftRound,
+  clubId,
+  recruitmentId,
+  isPending,
+  onResume,
+  onDiscard,
+  discardError,
+}: Props) {
   const resumeRef = useRef<HTMLButtonElement | null>(null);
+  const landingLinkRef = useRef<HTMLAnchorElement | null>(null);
+  const hasNoMembers = draftRound.totalMemberCount === 0;
+
+  const discardButton = (
+    <button
+      type="button"
+      onClick={onDiscard}
+      disabled={isPending}
+      className={hasNoMembers ? 'btn btn-danger btn-sm' : 'btn btn-danger-quiet btn-sm'}
+    >
+      {isPending && <ButtonSpinner />}폐기하고 새로 만들기
+    </button>
+  );
 
   return (
     <Dialog open>
       <DialogContent
         className="max-w-sm"
-        // ESC·바깥 클릭 no-op — 양자택일(이어하기/폐기)을 강제한다.
+        // ESC·바깥 클릭 no-op — 명시적 버튼 선택을 강제한다(인원 0 이면 폐기·면접 관리로).
         onPointerDownOutside={(event) => event.preventDefault()}
         onEscapeKeyDown={(event) => event.preventDefault()}
         onOpenAutoFocus={(event) => {
           event.preventDefault();
-          resumeRef.current?.focus();
+          // 안전한 쪽에서 시작한다(ConfirmDialog 관례) — 인원 0 판에서 Enter 한 번에 폐기되지 않게.
+          (hasNoMembers ? landingLinkRef.current : resumeRef.current)?.focus();
         }}
       >
         <DialogHeader>
           <DialogTitle>작성 중인 라운드가 있습니다</DialogTitle>
           <DialogDescription className="space-y-2 text-sm">
             <span className="block font-medium text-charcoal">{draftRound.title}</span>
-            <span className="block text-charcoal-2">이어서 작성하거나, 폐기하고 새로운 라운드를 만들 수 있습니다.</span>
-            <span className="block text-xs text-charcoal-3">폐기 시 해당 라운드의 면접 대상자들이 대기열로 돌아갑니다.</span>
+            {hasNoMembers ? (
+              <>
+                <span className="block text-charcoal-2">
+                  남은 면접 대상자가 없어 이 라운드는 발송할 수 없습니다. 폐기해주세요.
+                </span>
+                <span className="block text-xs text-charcoal-3">
+                  이 라운드의 면접 대상자는 모두 합격·불합격이 정해졌거나 라운드에서 빠졌습니다.
+                </span>
+              </>
+            ) : (
+              <>
+                <span className="block text-charcoal-2">이어서 작성하거나, 폐기하고 새로운 라운드를 만들 수 있습니다.</span>
+                <span className="block text-xs text-charcoal-3">폐기 시 해당 라운드의 면접 대상자들이 대기열로 돌아갑니다.</span>
+              </>
+            )}
           </DialogDescription>
         </DialogHeader>
 
@@ -58,23 +98,37 @@ export function DraftResumeDialog({ draftRound, isPending, onResume, onDiscard, 
         )}
 
         <DialogFooter>
-          <button
-            type="button"
-            onClick={onDiscard}
-            disabled={isPending}
-            className="inline-flex items-center justify-center gap-1.5 rounded-sm px-3.5 py-2 text-[13px] font-semibold text-danger transition-colors hover:bg-danger/5 disabled:opacity-50"
-          >
-            {isPending && <ButtonSpinner />}폐기하고 새로 만들기
-          </button>
-          <button
-            ref={resumeRef}
-            type="button"
-            onClick={onResume}
-            disabled={isPending}
-            className="btn btn-primary btn-sm disabled:opacity-50"
-          >
-            이어하기
-          </button>
+          {hasNoMembers ? (
+            // 폐기가 유일한 할 일이라 ConfirmDialog 관례대로 [안전 ghost][핵심 solid danger] 로 둔다.
+            <>
+              <Link
+                ref={landingLinkRef}
+                href={toRoute(`/manage/clubs/${clubId}/recruitments/${recruitmentId}/interview`)}
+                // 폐기 요청 중에는 나가지 않는다 — 진행 중 파괴 동작의 닫힘 차단과 같은 규칙.
+                onClick={(event) => {
+                  if (isPending) event.preventDefault();
+                }}
+                aria-disabled={isPending || undefined}
+                className="btn btn-ghost btn-sm aria-disabled:cursor-not-allowed aria-disabled:opacity-50 aria-disabled:hover:bg-transparent aria-disabled:hover:text-charcoal-2"
+              >
+                면접 관리로
+              </Link>
+              {discardButton}
+            </>
+          ) : (
+            <>
+              {discardButton}
+              <button
+                ref={resumeRef}
+                type="button"
+                onClick={onResume}
+                disabled={isPending}
+                className="btn btn-primary btn-sm disabled:opacity-50"
+              >
+                이어하기
+              </button>
+            </>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>

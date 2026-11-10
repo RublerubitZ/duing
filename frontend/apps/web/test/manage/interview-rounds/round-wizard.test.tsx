@@ -72,6 +72,18 @@ const DRAFT_ROUND_SUMMARY = {
   respondedMemberCount: 0,
 };
 
+/** 남은 면접 대상이 없는 DRAFT 라운드 요약(전원 제외·탈퇴·결과 확정) */
+const EMPTY_DRAFT_ROUND_SUMMARY = { ...DRAFT_ROUND_SUMMARY, totalMemberCount: 0 };
+
+const INTERVIEW_LANDING_HREF = `/manage/clubs/${CLUB_ID}/recruitments/${RECRUITMENT_ID}/interview`;
+const EMPTY_DRAFT_BODY_TEXT = '남은 면접 대상자가 없어 이 라운드는 발송할 수 없습니다. 폐기해주세요.';
+const EMPTY_DRAFT_NOTE_TEXT = '이 라운드의 면접 대상자는 모두 합격·불합격이 정해졌거나 라운드에서 빠졌습니다.';
+
+function handleCandidatesRequest({ request }: { request: Request }) {
+  const url = new URL(request.url);
+  return handleCandidates(url.searchParams.get('includeUndecided') === 'true');
+}
+
 /** 슬롯 없는 라운드 상세 (발송 조건 미충족) */
 const ROUND_DETAIL_NO_SLOTS = {
   roundId: ROUND_ID,
@@ -481,6 +493,15 @@ describe('RoundWizard — 면접 라운드 생성 wizard', () => {
       expect(screen.getByText(/2차 면접/)).toBeInTheDocument();
     });
 
+    await waitFor(() => expect(screen.getByRole('button', { name: /이어하기/ })).toHaveFocus());
+    const resumeDiscardButton = screen.getByRole('button', { name: /폐기하고 새로 만들기/ });
+    expect(resumeDiscardButton).toHaveClass('btn', 'btn-danger-quiet', 'btn-sm');
+    expect(resumeDiscardButton.nextElementSibling).toBe(screen.getByRole('button', { name: /이어하기/ }));
+    expect(screen.getByText('이어서 작성하거나, 폐기하고 새로운 라운드를 만들 수 있습니다.')).toBeInTheDocument();
+    expect(screen.getByText('폐기 시 해당 라운드의 면접 대상자들이 대기열로 돌아갑니다.')).toBeInTheDocument();
+    expect(screen.queryByText(EMPTY_DRAFT_BODY_TEXT)).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: '면접 관리로' })).not.toBeInTheDocument();
+
     // [이어하기] → Step2 이동 (제목 표시 + 프리필 값 확인)
     await userEvent.click(screen.getByRole('button', { name: /이어하기/ }));
 
@@ -700,5 +721,88 @@ describe('RoundWizard — 면접 라운드 생성 wizard', () => {
     // 다른 그룹(면접 대상)은 건드리지 않는다
     expect(screen.getByRole('checkbox', { name: '이면접 선택' })).not.toBeChecked();
     expect(screen.getByText(/2명 선택/)).toBeInTheDocument();
+  });
+
+  it('14. 인원 0 초안이면 이어하기 대신 면접 관리로가 보이고, 폐기 진행 중에는 이동이 막히고, 폐기하면 후보 선정부터 시작한다', async () => {
+    let releaseCancel: () => void = () => {};
+    const cancelResponseGate = new Promise<void>((resolve) => {
+      releaseCancel = resolve;
+    });
+    server.use(
+      http.get(`*/recruitments/${RECRUITMENT_ID}/interview-rounds`, () =>
+        HttpResponse.json({ ok: true, data: [EMPTY_DRAFT_ROUND_SUMMARY], message: null }),
+      ),
+      http.post(`*/interview-rounds/${ROUND_ID}/cancel`, async () => {
+        await cancelResponseGate;
+        return HttpResponse.json({ ok: true, data: null, message: null });
+      }),
+      http.get(`*/recruitments/${RECRUITMENT_ID}/interview-round-candidates`, handleCandidatesRequest),
+    );
+
+    renderWizard();
+
+    await waitFor(() => expect(screen.getByRole('dialog')).toBeInTheDocument());
+    expect(screen.getByText(EMPTY_DRAFT_BODY_TEXT)).toBeInTheDocument();
+    expect(screen.getByText(EMPTY_DRAFT_NOTE_TEXT)).toBeInTheDocument();
+    expect(screen.queryByText(/대기열로 돌아갑니다/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/이어서 작성하거나/)).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /이어하기/ })).not.toBeInTheDocument();
+
+    const landingLink = screen.getByRole('link', { name: '면접 관리로' });
+    const discardButton = screen.getByRole('button', { name: /폐기하고 새로 만들기/ });
+    // ConfirmDialog 관례 — [안전 ghost][핵심 solid danger] 순서.
+    expect(landingLink).toHaveClass('btn', 'btn-ghost', 'btn-sm');
+    expect(discardButton).toHaveClass('btn', 'btn-danger', 'btn-sm');
+    expect(landingLink.nextElementSibling).toBe(discardButton);
+
+    // 안전한 쪽에서 시작하고(ConfirmDialog 관례) 두 동작 사이를 Tab 으로 돈다.
+    await waitFor(() => expect(landingLink).toHaveFocus());
+    await userEvent.tab();
+    expect(discardButton).toHaveFocus();
+    await userEvent.tab();
+    expect(landingLink).toHaveFocus();
+
+    await userEvent.click(discardButton);
+    await waitFor(() => expect(landingLink).toHaveAttribute('aria-disabled', 'true'));
+    expect(fireEvent.click(landingLink)).toBe(false);
+
+    releaseCancel();
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    expect(screen.getByText('미결정(지원 완료·보류)', { selector: 'h3' })).toBeInTheDocument();
+  });
+
+  it('15. 인원 0 초안 창의 면접 관리로는 href 가 면접 관리 랜딩이고 이동을 막지 않는다', async () => {
+    server.use(
+      http.get(`*/recruitments/${RECRUITMENT_ID}/interview-rounds`, () =>
+        HttpResponse.json({ ok: true, data: [EMPTY_DRAFT_ROUND_SUMMARY], message: null }),
+      ),
+      http.get(`*/recruitments/${RECRUITMENT_ID}/interview-round-candidates`, handleCandidatesRequest),
+    );
+
+    renderWizard();
+
+    const landingLink = await screen.findByRole('link', { name: '면접 관리로' });
+    expect(landingLink).toHaveAttribute('href', INTERVIEW_LANDING_HREF);
+    expect(landingLink).not.toHaveAttribute('aria-disabled');
+    // 평소에는 막지 않는다 — 라우터 문맥 없는 next/link 클릭은 기본 동작을 그대로 둔다(applicant-card-list 테스트 선례).
+    expect(fireEvent.click(landingLink)).toBe(true);
+  });
+
+  it('20. 인원 0 초안 창에서 폐기가 실패하면 오류 문구가 뜨고 면접 관리로가 다시 열린다', async () => {
+    server.use(
+      http.get(`*/recruitments/${RECRUITMENT_ID}/interview-rounds`, () =>
+        HttpResponse.json({ ok: true, data: [EMPTY_DRAFT_ROUND_SUMMARY], message: null }),
+      ),
+      http.post(`*/interview-rounds/${ROUND_ID}/cancel`, () =>
+        HttpResponse.json({ ok: false, data: null, message: '서버 오류' }, { status: 500 }),
+      ),
+      http.get(`*/recruitments/${RECRUITMENT_ID}/interview-round-candidates`, handleCandidatesRequest),
+    );
+
+    renderWizard();
+
+    await userEvent.click(await screen.findByRole('button', { name: /폐기하고 새로 만들기/ }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('라운드 폐기 중 오류가 발생했습니다. 다시 시도해주세요.');
+    expect(screen.getByRole('link', { name: '면접 관리로' })).not.toHaveAttribute('aria-disabled');
   });
 });
