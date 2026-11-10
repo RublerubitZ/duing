@@ -75,7 +75,7 @@ function collegeLabel(code: College | null): string {
 }
 
 const inputCls =
-  'w-full border border-line bg-white rounded-[8px] px-3 py-2.5 text-[14px] text-ink-deep placeholder:text-charcoal-3 transition-[border-color,box-shadow] focus:outline-none focus:border-ink focus:shadow-[0_0_0_3px_rgba(74,107,63,0.15)]';
+  'w-full border border-line bg-white rounded-[8px] px-3 py-2.5 text-[14px] text-ink-deep placeholder:text-charcoal-3 transition-[border-color,box-shadow] focus:outline-none focus:border-ink focus:shadow-[0_0_0_3px_rgba(31,74,54,0.15)]';
 
 const selectCls =
   'w-full border border-line bg-white rounded-[8px] px-3 py-2.5 text-[14px] text-ink-deep appearance-none transition-[border-color] focus:outline-none focus:border-ink';
@@ -84,7 +84,7 @@ const labelCls = 'block text-[13px] font-medium text-charcoal-2';
 
 const chevronStyle = {
   backgroundImage:
-    "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'><path d='M2 4l4 4 4-4' fill='none' stroke='%234a5247' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/></svg>\")",
+    "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'><path d='M2 4l4 4 4-4' fill='none' stroke='%234A504F' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/></svg>\")",
   backgroundRepeat: 'no-repeat',
   backgroundPosition: 'right 12px center',
   backgroundSize: '12px',

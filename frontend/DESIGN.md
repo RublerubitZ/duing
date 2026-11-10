@@ -27,7 +27,7 @@ Tailwind 토큰과 `.duing` 스코프 CSS 변수(`var(--ink)` 등)가 1:1 동일
 | Paper Warm | `#FBFAF6` | `paper-warm` | 총동연 콘솔 사이드바 표면 |
 | Charcoal | `#2F3433` | `charcoal` / `--charcoal` | 본문 기본 텍스트 (`.duing` 기본값) |
 | Charcoal 2 | `#4A504F` | `charcoal-2` / `--charcoal-2` | 보조 텍스트 |
-| Charcoal 3 | `#6F7574` | `charcoal-3` / `--charcoal-3` | 메타·캡션·빈 상태 텍스트 — 텍스트 위계의 바닥 |
+| Charcoal 3 | `#5C645F` | `charcoal-3` / `--charcoal-3` | 메타·캡션·빈 상태 텍스트 — 텍스트 위계의 바닥 |
 | Line | `#E5E2DA` | `line` / `--gray-line` | 모든 보더의 기본 — 1px 웜그레이 헤어라인. 점선 변형도 이 색 |
 | Gray Soft | `#F0EDE5` | `graysoft` / `--gray-soft` | `btn-ghost` hover, 빈 상태 배경 워시 |
 | Warm | `#E8B968` | `warm` / `--warm` | 옐로 액센트 — pill 페어 전용 (`#fbefd7` / `#8e6620`) |
@@ -362,7 +362,7 @@ Secondary: `bg-paper text-ink border border-line hover:border-sage` — 보더�
   --sage-tint:  #F1F5F1;
   --charcoal:   #2F3433;
   --charcoal-2: #4A504F;
-  --charcoal-3: #6F7574;
+  --charcoal-3: #5C645F;
   --gray-line:  #E5E2DA;
   --gray-soft:  #F0EDE5;
   --warm:       #E8B968;
@@ -382,7 +382,7 @@ Secondary: `bg-paper text-ink border border-line hover:border-sage` — 보더�
 colors: {
   ink: { DEFAULT: '#1F4A36', deep: '#143025', soft: '#2E6149' },
   sage: { DEFAULT: '#9DB6A0', soft: '#C9D8CC', mist: '#E8EEE8', tint: '#F1F5F1' },
-  charcoal: { DEFAULT: '#2F3433', 2: '#4A504F', 3: '#6F7574' },
+  charcoal: { DEFAULT: '#2F3433', 2: '#4A504F', 3: '#5C645F' },
   line: '#E5E2DA', graysoft: '#F0EDE5',
   cream: { DEFAULT: '#F6F3EC', 2: '#EFEBE0' }, paper: { DEFAULT: '#FFFFFF', warm: '#FBFAF6' },
   console: { DEFAULT: '#34463E', deep: '#2A382F' }, danger: { DEFAULT: '#B04A28', hover: '#9A3F23' },

@@ -28,8 +28,6 @@ type AllowedMatch = { file: string; count: number; reason: string };
 
 const ICON_ONLY = '아이콘만';
 const DARK_SURFACE = '어두운 바탕';
-// 흰 글자를 얹은 솔리드 코랄 배지(span) — 배지 색 결정이 따로 필요하다.
-const BADGE = '배지(범위 밖)';
 const DOT_OR_BAR = '점·막대(글자 없음)';
 const CLOSING_SOON_TICKER = '마감 임박 티커(범위 밖)';
 
