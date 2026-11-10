@@ -115,7 +115,7 @@ export function SystemComposedSlide({ slide, priority = false }: Props) {
               : isDarkText
                 ? 'rgba(255,255,255,0.14)'
                 : 'rgba(0,0,0,0.08)',
-            color: hasImage ? '#143025' : isDarkText ? '#9DB6A0' : slide.accent,
+            color: hasImage ? 'var(--ink-deep)' : isDarkText ? 'var(--sage)' : slide.accent,
           }}
         >
           <span className="min-w-0 truncate">{slide.tag}</span>
@@ -160,8 +160,8 @@ export function SystemComposedSlide({ slide, priority = false }: Props) {
             // 띠(44px)에 들어간다(12+27+23+4+36 = 102 > 79). 슬라이드 전체가 링크라 CTA 가 없어도 진입 경로는 남는다.
             className="btn hidden max-w-full rounded-md px-4 py-2 text-[13px] sm:px-[22px] sm:py-3 sm:text-[15px] md:inline-flex md:max-w-[calc(100%-7rem)]"
             style={{
-              background: isDarkText ? '#9DB6A0' : slide.accent,
-              color: isDarkText ? '#143025' : '#fff',
+              background: isDarkText ? 'var(--sage)' : slide.accent,
+              color: isDarkText ? 'var(--ink-deep)' : 'var(--paper)',
             }}
           >
             <span className="min-w-0 truncate">{slide.cta}</span>

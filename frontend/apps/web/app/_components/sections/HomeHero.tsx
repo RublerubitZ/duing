@@ -25,7 +25,7 @@ export async function HomeHero() {
       <div
         className="absolute -right-40 -top-32 hidden h-[520px] w-[520px] rounded-full opacity-70 blur-[8px] md:block"
         style={{
-          background: 'radial-gradient(circle at 40% 40%, #C9D8CC 0%, #F6F3EC 70%)',
+          background: 'radial-gradient(circle at 40% 40%, var(--sage-soft) 0%, var(--cream) 70%)',
         }}
       />
 
