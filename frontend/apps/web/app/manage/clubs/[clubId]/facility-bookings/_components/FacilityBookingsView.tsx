@@ -61,7 +61,8 @@ export function FacilityBookingsView({
         <h1 className="text-2xl tracking-tightx text-ink-deep">시설 예약 현황</h1>
         {isKnownNonCentral && (
           <p className="mt-2 text-sm text-charcoal-2">
-            시설 예약은 중앙동아리만 신청할 수 있어요. 이전에 신청한 예약은 여기서 계속 확인할 수 있어요.
+            시설 예약은 중앙동아리만 신청할 수 있어요.
+            {bookings.length > 0 && ' 이전에 신청한 예약은 여기서 계속 확인할 수 있어요.'}
           </p>
         )}
       </header>
