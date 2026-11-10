@@ -62,7 +62,7 @@ export function AdminAssignLeaderCard({ clubId, currentLeaderName }: Props) {
   }
 
   return (
-    <section className="rounded-lg border border-coral/40 bg-coral/10 p-5 space-y-4">
+    <section className="rounded-lg border border-coral/40 bg-coral/5 p-5 space-y-4">
       <header>
         <h2 className="text-[15px] font-semibold text-coral-deep">
           {isReplacing ? `회장 강제 교체 — 현재 회장 ${currentLeaderName}` : '회장 없는 동아리 — 강제 지정'}
