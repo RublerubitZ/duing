@@ -98,7 +98,7 @@ export function AdminClubsTable({
                       {club.facilitySecuredTimeTarget && (
                         <span
                           aria-label="기본 확보 시간 대상"
-                          className="whitespace-nowrap rounded-full border border-ink bg-paper px-1.5 py-0.5 text-[11px] font-semibold text-ink"
+                          className="whitespace-nowrap rounded-full bg-paper px-1.5 py-0.5 text-[11px] font-semibold text-ink ring-1 ring-inset ring-ink"
                         >
                           확보 대상
                         </span>
@@ -160,7 +160,7 @@ export function AdminClubsTable({
                             <button
                               type="button"
                               onClick={() => onPendingCleanupClick(club, cleanupCounts)}
-                              className="whitespace-nowrap rounded-md border border-coral/40 px-2.5 py-1 text-xs font-semibold text-coral-deep hover:bg-coral/10"
+                              className="whitespace-nowrap rounded-md border border-danger/30 px-2.5 py-1 text-xs font-semibold text-danger hover:bg-danger/5"
                             >
                               {PENDING_CLEANUP_ACTION_LABEL}
                             </button>
@@ -173,7 +173,7 @@ export function AdminClubsTable({
                               className={cn(
                                 'whitespace-nowrap rounded-md border px-2.5 py-1 text-xs font-semibold',
                                 action.tone === 'danger'
-                                  ? 'border-coral/40 text-coral-deep hover:bg-coral/10'
+                                  ? 'border-danger/30 text-danger hover:bg-danger/5'
                                   : 'border-sage-soft text-ink hover:bg-sage-mist',
                               )}
                             >
@@ -184,7 +184,7 @@ export function AdminClubsTable({
                             <button
                               type="button"
                               onClick={() => onCloseClick(club)}
-                              className="whitespace-nowrap rounded-md border border-coral/40 bg-coral/10 px-2.5 py-1 text-xs font-semibold text-coral-deep hover:bg-coral/20"
+                              className="whitespace-nowrap rounded-md border border-danger/30 bg-danger/5 px-2.5 py-1 text-xs font-semibold text-danger hover:bg-danger/10"
                             >
                               삭제
                             </button>
