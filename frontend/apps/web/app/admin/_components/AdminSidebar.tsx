@@ -4,12 +4,14 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Home, LogOut, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 
-import { useLogout } from '@duing/hooks';
+import { useLogout, useMeQuery } from '@duing/hooks';
 
+import { NotificationBell } from '@/app/_components/NotificationBell';
 import { useToast } from '@/app/_components/toast/ToastProvider';
 import { skipNextOverlayReclaim } from '@/app/_lib/backDismiss';
 import { cn } from '@/app/_lib/cn';
 import { clearOperatorLocalState } from '@/app/_lib/operatorLocalState';
+import { useHydrated } from '@/app/_lib/useHydrated';
 import { BrandMark } from '@/components/duing/BrandMark';
 import { AdminNavContent } from './AdminNavContent';
 
@@ -48,7 +50,8 @@ export function AdminSidebar() {
     <aside
       aria-label="관리자 메뉴"
       className={cn(
-        'no-print sticky top-0 hidden max-h-dvh shrink-0 flex-col self-start overflow-hidden md:flex',
+        // 사이트 상단바 없이 화면 맨 위에서 시작한다 — 위아래 여백(m-3)만큼 띄워 붙이고 그만큼 높이를 뺀다.
+        'no-print sticky top-3 hidden max-h-[calc(100dvh-1.5rem)] shrink-0 flex-col self-start overflow-hidden md:flex',
         'm-3 rounded-lg border border-line bg-paper-warm shadow-1',
         collapsed ? 'w-[84px]' : 'w-[248px]',
       )}
@@ -66,33 +69,44 @@ export function AdminSidebar() {
         >
           <BrandMark size={collapsed ? 20 : 24} />
         </Link>
-        <button
-          type="button"
-          onClick={() => applyCollapsed(!collapsed)}
-          aria-label={collapsed ? '사이드바 펼치기' : '사이드바 접기'}
-          aria-pressed={collapsed}
-          className={cn(
-            'grid h-8 w-8 shrink-0 place-items-center rounded-sm border border-line bg-cream text-charcoal-2',
-            'outline-none hover:bg-sage-tint hover:text-ink-deep focus-visible:ring-2 focus-visible:ring-ink',
-            'motion-safe:transition-colors',
-          )}
-        >
-          {collapsed ? <PanelLeftOpen size={17} /> : <PanelLeftClose size={17} />}
-        </button>
+        {/* 알림 — 상단바가 맡던 자리. 접힌 폭에서는 로고 아래로 내려간다. */}
+        <div className={cn('flex items-center', collapsed ? 'flex-col gap-2' : 'gap-1')}>
+          <NotificationBell />
+          <button
+            type="button"
+            onClick={() => applyCollapsed(!collapsed)}
+            aria-label={collapsed ? '사이드바 펼치기' : '사이드바 접기'}
+            aria-pressed={collapsed}
+            className={cn(
+              'grid h-8 w-8 shrink-0 place-items-center rounded-sm border border-line bg-cream text-charcoal-2',
+              'outline-none hover:bg-sage-tint hover:text-ink-deep focus-visible:ring-2 focus-visible:ring-ink',
+              'motion-safe:transition-colors',
+            )}
+          >
+            {collapsed ? <PanelLeftOpen size={17} /> : <PanelLeftClose size={17} />}
+          </button>
+        </div>
       </div>
 
       <nav aria-label="관리 영역" className="min-h-0 flex-1 overflow-y-auto px-3 pb-2">
         <AdminNavContent collapsed={collapsed} onRequestExpand={() => applyCollapsed(false)} />
       </nav>
 
-      <SidebarActions collapsed={collapsed} />
+      <AdminSidebarActions collapsed={collapsed} />
     </aside>
   );
 }
 
-/** 콘솔을 벗어나는 두 동작을 한 영역으로 묶는다 — 서비스로 돌아가기와 세션 종료. */
-function SidebarActions({ collapsed }: { collapsed: boolean }) {
+/**
+ * 콘솔을 벗어나는 동작을 한 영역으로 묶는다 — 내 페이지, 서비스로 돌아가기, 세션 종료.
+ * 데스크탑 사이드바와 모바일 드로어(AdminMobileBar)가 같이 쓴다.
+ */
+export function AdminSidebarActions({ collapsed = false }: { collapsed?: boolean }) {
   const logout = useLogout();
+  // 서버 렌더는 me 없이 그려진다 — 하이드레이션 전에는 이름 줄을 그리지 않아 불일치를 피한다.
+  const hydrated = useHydrated();
+  const { data: me } = useMeQuery();
+  const myName = hydrated ? me?.name : undefined;
   const { addToast } = useToast();
   const [loggingOut, setLoggingOut] = useState(false);
 
@@ -117,35 +131,56 @@ function SidebarActions({ collapsed }: { collapsed: boolean }) {
     }
   };
 
-  const actionClass = cn(
-    'flex items-center gap-3 rounded-md px-3 py-2.5 text-[13.5px] font-semibold text-charcoal-2 outline-none',
-    'hover:bg-sage-tint hover:text-ink-deep focus-visible:ring-2 focus-visible:ring-ink',
-    'motion-safe:transition-colors',
-    collapsed && 'justify-center px-0',
+  // 한 줄 — 왼쪽에 내 이름(마이페이지), 오른쪽에 홈으로·로그아웃 아이콘. 세 줄로 쌓으면 900px 높이에서 메뉴가 사이드바 안에서 스크롤된다.
+  const iconActionClass = cn(
+    // 모바일 드로어에서는 44px(단독 터치 대상), 사이드바가 보이는 md 부터 40px.
+    'grid h-11 w-11 shrink-0 place-items-center rounded-md text-charcoal-2 outline-none md:h-10 md:w-10',
+    'hover:bg-sage-tint hover:text-ink-deep focus-visible:ring-2 focus-visible:ring-ink motion-safe:transition-colors',
   );
 
   return (
-    <div className="shrink-0 px-3 pb-4 pt-3">
-      <Link href="/" title={collapsed ? '홈으로' : undefined} className={actionClass}>
-        <Home size={19} className="shrink-0" />
-        {collapsed ? <span className="sr-only">홈으로</span> : <span>홈으로</span>}
+    <div className={cn('flex shrink-0 items-center gap-1 px-3 pb-3 pt-2', collapsed && 'flex-col')}>
+      {/* me 로딩·실패면 이름 없이 나머지만 남긴다(fail-soft). */}
+      {myName === undefined ? (
+        <span aria-hidden className="flex-1" />
+      ) : (
+        <Link
+          href="/me"
+          title={collapsed ? `${myName} — 마이페이지` : '마이페이지'}
+          className={cn(
+            'flex min-h-11 min-w-0 items-center gap-2.5 rounded-md md:min-h-10 text-[13.5px] font-semibold text-charcoal-2 outline-none',
+            'hover:bg-sage-tint hover:text-ink-deep focus-visible:ring-2 focus-visible:ring-ink motion-safe:transition-colors',
+            collapsed ? 'w-11 justify-center md:w-10' : 'flex-1 px-2',
+          )}
+        >
+          <span
+            aria-hidden
+            className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-ink text-xs font-bold text-paper"
+          >
+            {myName.charAt(0)}
+          </span>
+          {collapsed ? (
+            <span className="sr-only">{`${myName} — 마이페이지`}</span>
+          ) : (
+            <>
+              <span className="min-w-0 flex-1 truncate">{myName}</span>
+              <span className="sr-only"> — 마이페이지</span>
+            </>
+          )}
+        </Link>
+      )}
+      <Link href="/" aria-label="홈으로" title="홈으로" className={iconActionClass}>
+        <Home size={19} />
       </Link>
       <button
         type="button"
         onClick={handleLogout}
         disabled={loggingOut}
-        title={collapsed ? '로그아웃' : undefined}
-        className={cn(
-          actionClass,
-          'w-full text-left hover:bg-danger/10 hover:text-danger disabled:opacity-60',
-        )}
+        aria-label="로그아웃"
+        title="로그아웃"
+        className={cn(iconActionClass, 'hover:bg-danger/10 hover:text-danger disabled:opacity-60')}
       >
-        <LogOut size={19} className="shrink-0" />
-        {collapsed ? (
-          <span className="sr-only">로그아웃</span>
-        ) : (
-          <span>{loggingOut ? '로그아웃 중' : '로그아웃'}</span>
-        )}
+        <LogOut size={19} />
       </button>
     </div>
   );

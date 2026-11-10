@@ -182,6 +182,8 @@ describe('AdminRoleGuard — 프로필이 도착하기 전에는 권한을 판�
     );
 
     expect(await screen.findByText(adminDenied)).toBeInTheDocument();
+    // 콘솔에는 사이트 상단바가 없다 — 거부 화면이 나갈 길을 직접 준다.
+    expect(screen.getByRole('link', { name: '홈으로' })).toHaveAttribute('href', '/');
     expect(screen.queryByText('관리자 콘텐츠')).not.toBeInTheDocument();
   });
 
