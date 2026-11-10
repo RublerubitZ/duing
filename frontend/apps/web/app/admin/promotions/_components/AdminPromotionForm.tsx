@@ -399,7 +399,7 @@ export function AdminPromotionForm(props: Props) {
             : '이미지 없이 텍스트+팔레트만으로도 배너 등록이 가능합니다.'}
         </p>
         {imageSizeWarning && (
-          <p className="mt-1 text-[12px] text-amber-600">
+          <p className="mt-1 text-[12px] text-warm-deep">
             {imageSizeWarning}
           </p>
         )}
@@ -497,7 +497,7 @@ export function AdminPromotionForm(props: Props) {
             && state.noticeId !== null
             && props.initialValues.notice?.id === state.noticeId
             && props.initialValues.notice?.isAccessible === false && (
-              <p className="mt-1 text-[12px] text-amber-600">
+              <p className="mt-1 text-[12px] text-warm-deep">
                 연결된 공지가 비공개/삭제 상태입니다. 다시 선택하거나 다른 연결을 골라주세요.
               </p>
           )}

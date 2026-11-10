@@ -7,7 +7,7 @@ export const PROMOTION_REQUEST_STATUS_LABEL: Record<PromotionRequestStatus, stri
 };
 
 export const PROMOTION_REQUEST_STATUS_BADGE_CLASS: Record<PromotionRequestStatus, string> = {
-  PENDING: 'bg-amber-100 text-amber-800',
-  ACCEPTED: 'bg-emerald-100 text-emerald-800',
-  REJECTED: 'bg-rose-100 text-rose-700',
+  PENDING: 'bg-warm/20 text-warm-deep',
+  ACCEPTED: 'bg-sage-mist text-ink',
+  REJECTED: 'bg-coral/10 text-coral-deep',
 };

@@ -115,7 +115,7 @@ export function AdminClubActivityLogList({ clubId }: { clubId: number }) {
                             href={toRoute(
                               `/admin/clubs/${clubId}/join-codes?joinCodeId=${event.joinCodeId}`,
                             )}
-                            className="text-[12.5px] text-indigo-600 hover:underline"
+                            className="text-[12.5px] text-ink hover:underline"
                           >
                             링크 보기 →
                           </Link>
