@@ -89,7 +89,7 @@ export function MobileDaySheet({
         <div className="mx-auto mb-3 h-[4.5px] w-10 rounded-full bg-line" />
         <SheetHeader className="mb-3">
           <SheetTitle>{shownDay !== null ? bookingDateLabel(shownDay.date) : dateIso !== null ? bookingDateLabel(dateIso) : '날짜 선택'}</SheetTitle>
-          <SheetDescription className="sr-only">빠른 예약 — 날짜의 시간대를 골라 신청해요.</SheetDescription>
+          <SheetDescription className="sr-only">빠른 예약. 날짜의 시간대를 골라 신청해요.</SheetDescription>
         </SheetHeader>
 
         {shownDay === null || shownFacility === null ? (

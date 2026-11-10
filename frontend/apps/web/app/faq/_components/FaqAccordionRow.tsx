@@ -34,7 +34,7 @@ export function FaqAccordionRow({ faq, index, withFeedback = true }: Props) {
         onClick={() => setOpen((prev) => !prev)}
         className="flex w-full cursor-pointer items-center gap-3.5 py-4 text-left md:py-5"
       >
-        <span className="shrink-0 tabular-nums text-[12px] font-semibold tracking-[0.12em] text-ink">
+        <span className="shrink-0 tabular-nums text-[12px] font-semibold text-ink">
           Q.{String(index + 1).padStart(2, '0')}
         </span>
         <span className="flex-1">

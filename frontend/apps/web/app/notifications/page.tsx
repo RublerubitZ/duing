@@ -171,7 +171,7 @@ function NotificationGroup({ title, items, onClick }: GroupProps) {
   return (
     <section>
       {/* .duing 스코프가 h2 색·자간을 덮으므로(특이도) 그룹 라벨 스타일은 ! 로 지킨다 — MyPageHeader 전례. */}
-      <h2 className="mb-2 px-1 text-xs font-bold !tracking-[0.04em] !text-charcoal-3">{title}</h2>
+      <h2 className="mb-2 px-1 text-xs font-bold !tracking-normal !text-charcoal-3">{title}</h2>
       <ul className="space-y-1.5">
         {items.map((notification) => (
           <li key={notification.id}>

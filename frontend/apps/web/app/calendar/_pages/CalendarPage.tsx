@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
+import { ChevronRight } from 'lucide-react';
 import {
   addDaysIso,
   monthsInRange,
@@ -342,7 +343,7 @@ export function CalendarPage({ renderedTodayIso }: Props) {
                   display: 'inline-flex', alignItems: 'center', gap: 8,
                   padding: '14px 22px', borderRadius: 999,
                   background: 'var(--ink)', border: 'none',
-                  color: '#fff', fontFamily: 'inherit',
+                  color: 'var(--paper)', fontFamily: 'inherit',
                   fontSize: 14, fontWeight: 700, cursor: 'pointer',
                   boxShadow: '0 8px 20px rgba(31,74,54,0.18)',
                   flexShrink: 0,
@@ -358,8 +359,8 @@ export function CalendarPage({ renderedTodayIso }: Props) {
           <div className="cal-stats" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16, marginBottom: 24 }}>
             {[
               { label: '이번 달 전체 일정', num: stats.total,    color: 'var(--ink)',      dot: 'var(--sage)' },
-              { label: '행사·일정',         num: stats.system,   color: '#8E6620',         dot: '#E8B968'     },
-              { label: '모집 마감',         num: stats.deadline, color: '#9A3F23',         dot: '#D97757'     },
+              { label: '행사·일정',         num: stats.system,   color: 'var(--pill-warm-ink)',         dot: 'var(--warm)'     },
+              { label: '모집 마감',         num: stats.deadline, color: 'var(--pill-coral-ink)',         dot: 'var(--coral)'     },
               // 총동연은 전 동아리 일정을 보므로 '내' 가 붙으면 거짓이 된다.
               { label: isAdmin ? '동아리 일정' : '내 동아리 일정', num: stats.event, color: 'var(--ink-deep)', dot: 'var(--sage)' },
             ].map((card) => (
@@ -496,7 +497,7 @@ export function CalendarPage({ renderedTodayIso }: Props) {
                   <div key={label} className="cal-weekhead" style={{
                     padding: detailOpen ? '10px 10px' : '12px 16px',
                     fontSize: detailOpen ? 11.5 : 12, fontWeight: 700, letterSpacing: '0.06em',
-                    color: i === 0 ? '#9A3F23' : i === 6 ? '#2F557A' : 'var(--charcoal-2)',
+                    color: i === 0 ? 'var(--pill-coral-ink)' : i === 6 ? 'var(--pill-sky-ink)' : 'var(--charcoal-2)',
                   }}>{label}</div>
                 ))}
               </div>
@@ -538,8 +539,8 @@ export function CalendarPage({ renderedTodayIso }: Props) {
                           padding: isToday ? '0 8px' : 0,
                           borderRadius: 999,
                           background: isToday ? 'var(--ink)' : 'transparent',
-                          color: isToday ? '#fff' :
-                            isSun ? '#9A3F23' : isSat ? '#2F557A' : 'var(--charcoal)',
+                          color: isToday ? 'var(--paper)' :
+                            isSun ? 'var(--pill-coral-ink)' : isSat ? 'var(--pill-sky-ink)' : 'var(--charcoal)',
                           fontWeight: 700,
                           fontSize: detailOpen ? 12.5 : 13.5,
                           fontVariantNumeric: 'tabular-nums',
@@ -625,7 +626,7 @@ export function CalendarPage({ renderedTodayIso }: Props) {
                   zIndex: 2,
                 }}
               >
-                ›
+                <ChevronRight size={16} aria-hidden />
               </button>
             </div>
 
@@ -674,7 +675,7 @@ export function CalendarPage({ renderedTodayIso }: Props) {
               </button>
               {/* Day header card */}
               <div style={{
-                background: 'var(--ink)', color: '#fff',
+                background: 'var(--ink)', color: 'var(--paper)',
                 borderRadius: 24, padding: '24px 24px 22px',
                 position: 'relative', overflow: 'hidden',
               }}>
@@ -683,7 +684,7 @@ export function CalendarPage({ renderedTodayIso }: Props) {
                   {selectedDate === todayIso ? 'TODAY · 오늘' : 'SELECTED · 선택한 날짜'}
                 </div>
                 <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
-                  <span style={{ fontSize: 56, fontWeight: 700, lineHeight: 1, color: '#fff' }}>
+                  <span style={{ fontSize: 56, fontWeight: 700, lineHeight: 1, color: 'var(--paper)' }}>
                     {parseInt(selectedDate.slice(8), 10)}
                   </span>
                   <span style={{ fontSize: 16, color: 'rgba(255,255,255,0.7)', fontWeight: 600 }}>

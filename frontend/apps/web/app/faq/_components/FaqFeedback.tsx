@@ -5,6 +5,7 @@
 // 이 기기에서 이미 제출한 선택은 localStorage 로 복원하고, 반대 버튼을 누르면 값을 갱신(재제출)한다.
 
 import { useEffect, useRef, useState } from 'react';
+import { ThumbsDown, ThumbsUp } from 'lucide-react';
 import { useSubmitFaqFeedbackMutation } from '@duing/hooks';
 
 import { cn } from '@/app/_lib/cn';
@@ -62,13 +63,14 @@ export function FaqFeedback({ faqId }: Props) {
           onClick={() => handleSubmit(true)}
           aria-pressed={selectedHelpful === true}
           className={cn(
-            'rounded-full border px-3.5 py-1.5 text-[13px] font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50',
+            'inline-flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-[13px] font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50',
             selectedHelpful === true
               ? 'border-ink bg-ink text-paper'
               : 'border-line bg-paper text-charcoal-2 hover:border-ink',
           )}
         >
-          👍 도움됐어요
+          <ThumbsUp size={14} aria-hidden />
+          도움됐어요
         </button>
         <button
           type="button"
@@ -76,13 +78,14 @@ export function FaqFeedback({ faqId }: Props) {
           onClick={() => handleSubmit(false)}
           aria-pressed={selectedHelpful === false}
           className={cn(
-            'rounded-full border px-3.5 py-1.5 text-[13px] font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50',
+            'inline-flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-[13px] font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50',
             selectedHelpful === false
               ? 'border-ink bg-ink text-paper'
               : 'border-line bg-paper text-charcoal-2 hover:border-ink',
           )}
         >
-          👎 아쉬워요
+          <ThumbsDown size={14} aria-hidden />
+          아쉬워요
         </button>
       </div>
       {selectedHelpful !== null && (

@@ -35,7 +35,7 @@ export function BookingSuccess({
         <p className="mt-1 text-charcoal-2">예약 신청이 접수됐어요.</p>
         {overlappingPendingCount > 0 && (
           <p className="mt-1 text-xs text-coral-deep">
-            같은 시간에 다른 신청 {overlappingPendingCount}건이 함께 대기 중이에요 — 승인은 한 건에만 돼요.
+            같은 시간에 다른 신청 {overlappingPendingCount}건이 함께 대기 중이에요. 승인은 한 건에만 돼요.
           </p>
         )}
       </div>
@@ -49,7 +49,7 @@ export function BookingSuccess({
                 <span
                   className={`grid h-6 w-6 shrink-0 place-items-center rounded-full text-[11px] font-bold ${
                     item.state === 'done' ? 'bg-ink text-cream'
-                    : item.state === 'current' ? 'border-2 border-warm bg-[#FBEFD7] text-[#8E6620]'
+                    : item.state === 'current' ? 'border-2 border-warm bg-[var(--pill-warm-bg)] text-[var(--pill-warm-ink)]'
                     : 'bg-graysoft text-charcoal-3'
                   }`}
                 >

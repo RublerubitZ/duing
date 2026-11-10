@@ -41,7 +41,7 @@ export function UpcomingCards({ events, todayIso }: Props) {
               <span style={{
                 padding: '5px 10px', borderRadius: 999,
                 background: view.daysLeft === 0 ? 'var(--ink)' : 'var(--gray-soft)',
-                color: view.daysLeft === 0 ? '#fff' : 'var(--charcoal-2)',
+                color: view.daysLeft === 0 ? 'var(--paper)' : 'var(--charcoal-2)',
                 fontVariantNumeric: 'tabular-nums',
                 fontSize: 11, fontWeight: 700, letterSpacing: '0.04em',
               }}>{view.dday}</span>

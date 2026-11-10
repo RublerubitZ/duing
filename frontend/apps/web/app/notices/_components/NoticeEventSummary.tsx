@@ -16,7 +16,7 @@ export function NoticeEventSummary({ eventInfo, className }: Props) {
 
   return (
     <section className={cn('rounded-2xl border border-line bg-paper p-5', className)} aria-label="한눈에 보기">
-      <div className="mb-2.5 text-[12px] font-bold tracking-[0.08em] text-ink">한눈에 보기</div>
+      <div className="mb-2.5 text-[12px] font-bold text-ink">한눈에 보기</div>
       <dl>
         {rows.map((row) => (
           <div key={row.label} className="flex gap-3 border-b border-dashed border-line py-2.5 last:border-0">

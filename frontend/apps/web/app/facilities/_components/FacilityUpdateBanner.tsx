@@ -8,8 +8,7 @@ export function FacilityStaleNotice({ stale }: { stale: boolean }) {
   return (
     <p
       role="status"
-      className="inline-flex rounded-[12px] px-3.5 py-2 text-[13px] font-semibold"
-      style={{ background: '#FBEFD7', color: '#8E6620' }}
+      className="inline-flex rounded-[12px] bg-[var(--pill-warm-bg)] px-3.5 py-2 text-[13px] font-semibold text-[var(--pill-warm-ink)]"
     >
       현재 최신 캐시 데이터를 표시하고 있습니다
     </p>

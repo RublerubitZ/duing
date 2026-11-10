@@ -23,7 +23,7 @@ export function NoticeEventCard({ eventInfo, linkUrl }: Props) {
   return (
     <div className="relative overflow-hidden rounded-lg bg-ink text-paper p-6">
       <SparkleFull size={24} color="var(--sage)" className="absolute top-4 right-4 opacity-80" />
-      <div className="text-[12px] font-bold tracking-[0.08em] text-sage mb-5">한눈에 보기</div>
+      <div className="text-[12px] font-bold text-sage mb-5">한눈에 보기</div>
       <dl className="flex flex-col gap-4">
         {rows.map((row) => (
           <div key={row.label} className="flex items-start gap-3">

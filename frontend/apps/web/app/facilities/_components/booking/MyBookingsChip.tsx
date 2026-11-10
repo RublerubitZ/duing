@@ -28,7 +28,7 @@ export function MyBookingsChip() {
         href={toRoute(`/manage/clubs/${singleClubId}/facility-bookings`)}
         className="inline-flex items-center gap-1 rounded-full border border-line bg-paper px-3 py-1.5 text-xs text-charcoal-2 hover:border-sage"
       >
-        내 신청 <span className="font-bold text-ink">{activeCount}건</span> 진행 중 →
+        내 신청 <span className="font-bold text-ink">{activeCount}건</span> 진행 중
       </Link>
     );
   }
@@ -39,7 +39,7 @@ export function MyBookingsChip() {
       href={toRoute('/manage')}
       className="inline-flex items-center rounded-full border border-line bg-paper px-3 py-1.5 text-xs text-charcoal-2 hover:border-sage"
     >
-      내 예약 관리 →
+      내 예약 관리
     </Link>
   );
 }
