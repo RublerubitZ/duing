@@ -103,9 +103,9 @@ export const STATUS_META: Record<AppStatus, StatusMetaEntry> = {
   // SUBMITTED·ON_HOLD 는 지원자에게 같은 표기라 어느 쪽을 참조해도 동일하다 (스펙 §1-1).
   'applied':             { label: APPLICATION_STATUS_APPLICANT_LABEL.SUBMITTED,         pill: 'muted', textColor: '#4A504F', bg: '#EDEAE0' },
   // 모집 마감 × 미결 — 진행도 결과도 아니므로 중립 회색으로 둔다.
-  'closed-unresolved':   { label: APPLICATION_CLOSED_WITHOUT_RESULT_LABEL,              pill: 'muted', textColor: '#4B5563', bg: '#E9E7E1' },
+  'closed-unresolved':   { label: APPLICATION_CLOSED_WITHOUT_RESULT_LABEL,              pill: 'muted', textColor: '#4A504F', bg: '#EDEAE0' },
   // 운영 중단으로 선발이 끝남 — 결과 미발표와 같은 중립 회색. 목록 카드는 알약만, 안내 문장은 상세(ApplicationStepper)에서.
-  'deactivation-ended':  { label: APPLICATION_ENDED_BY_CLUB_DEACTIVATION_LABEL,         pill: 'muted', textColor: '#4B5563', bg: '#E9E7E1' },
+  'deactivation-ended':  { label: APPLICATION_ENDED_BY_CLUB_DEACTIVATION_LABEL,         pill: 'muted', textColor: '#4A504F', bg: '#EDEAE0' },
 };
 
 
@@ -124,12 +124,12 @@ export const STATUS_TO_FILTER: Record<AppStatus, FilterKey> = {
 
 /* 카테고리 → 작은 라벨 색상 */
 export const CAT_LABEL_COLOR: Record<string, string> = {
-  '학술': '#5C8268',
-  '봉사': '#5C8268',
-  '예술': '#5C8268',
-  '연합': '#5C8268',
-  '환경': '#5C8268',
-  'IT':   '#5C8268',
+  '학술': 'var(--sage-deep)',
+  '봉사': 'var(--sage-deep)',
+  '예술': 'var(--sage-deep)',
+  '연합': 'var(--sage-deep)',
+  '환경': 'var(--sage-deep)',
+  'IT':   'var(--sage-deep)',
 };
 
 /* 통합 필터 — 상단 pill 탭과 우측 체크박스 모두 동일하게 사용.

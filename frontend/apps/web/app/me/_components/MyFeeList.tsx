@@ -197,7 +197,7 @@ function MyFeeRow({ bill }: MyFeeRowProps) {
           </p>
           <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-graysoft">
             <div
-              className="h-full rounded-full bg-sage transition-[width]"
+              className="h-full rounded-full bg-sage"
               style={{ width: `${progressPercent}%` }}
             />
           </div>

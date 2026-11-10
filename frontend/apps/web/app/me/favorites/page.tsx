@@ -34,14 +34,14 @@ export default function MyFavoritesPage() {
         <HomeNav slimOnMobile />
         <main className="mx-auto max-w-3xl px-6 py-16 text-center">
           <h1 className="mb-2 text-xl font-semibold">아직 찜한 동아리가 없어요</h1>
-          <p className="mb-6 text-sm text-slate-500">
+          <p className="mb-6 text-sm text-charcoal-3">
             관심 가는 동아리를 찜해두면 모집 시작·마감 임박을 알려드려요.
           </p>
           <Link
             href="/clubs"
-            className="inline-flex h-10 items-center rounded-full bg-slate-900 px-5 text-sm text-white"
+            className="btn btn-primary rounded-full"
           >
-            동아리 탐색 →
+            동아리 탐색
           </Link>
         </main>
       </div>

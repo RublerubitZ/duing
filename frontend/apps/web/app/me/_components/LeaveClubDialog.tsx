@@ -67,7 +67,7 @@ export function LeaveClubDialog({ club, onClose }: Props) {
           disabled={isPending}
           placeholder="동아리명을 정확히 입력하세요"
           aria-label="탈퇴 확인 동아리명 입력"
-          className="w-full rounded-[10px] border border-line bg-paper px-3 py-2 text-[14px] text-ink outline-none focus:border-ink disabled:opacity-50"
+          className="w-full rounded-[10px] border border-line bg-paper px-3 py-2 text-[14px] text-ink outline-none focus:border-ink focus:ring-[3px] focus:ring-ink/15 disabled:opacity-50"
         />
         {serverError ? (
           <p className="text-[12.5px] text-coral-deep">{serverError}</p>

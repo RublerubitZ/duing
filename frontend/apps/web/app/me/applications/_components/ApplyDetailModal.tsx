@@ -211,8 +211,8 @@ export function ApplyDetailModal({ app, detail, onClose }: ApplyDetailModalProps
                 <div>
                   <div style={{
                     display: 'inline-block',
-                    fontSize: 10.5, fontWeight: 700,
-                    color: '#5C8268',
+                    fontSize: 11, fontWeight: 700,
+                    color: 'var(--sage-deep)',
                     background: 'var(--sage-tint)',
                     padding: '2px 7px', borderRadius: 999,
                     marginBottom: 4,
@@ -221,7 +221,7 @@ export function ApplyDetailModal({ app, detail, onClose }: ApplyDetailModalProps
                   <div style={{ fontSize: 14.5, fontWeight: 700, color: 'var(--ink-deep)', lineHeight: 1.2 }}>
                     {app.name}
                   </div>
-                  <div style={{ fontSize: 10.5, color: 'var(--charcoal-3)', marginTop: 2 }}>{app.tag}</div>
+                  <div style={{ fontSize: 11, color: 'var(--charcoal-3)', marginTop: 2 }}>{app.tag}</div>
                 </div>
               </div>
 
@@ -233,7 +233,7 @@ export function ApplyDetailModal({ app, detail, onClose }: ApplyDetailModalProps
                   display: 'inline-block', marginBottom: 16,
                   whiteSpace: 'nowrap',
                 }}>
-                  동아리 소개 바로가기 →
+                  동아리 소개 바로가기
                 </Link>
               )}
               {/* mock data 기반 StepTimeline 은 상단 ApplicationStepper 와 중복 노출되어 제거.
@@ -301,7 +301,7 @@ export function ApplyDetailModal({ app, detail, onClose }: ApplyDetailModalProps
                   disabled={withdrawMutation.isPending}
                   style={{
                     fontSize: 13, fontWeight: 700, padding: '8px 16px', borderRadius: 10,
-                    border: 'none', background: 'var(--coral)', color: '#fff',
+                    border: 'none', background: 'var(--danger)', color: 'var(--paper)',
                     cursor: withdrawMutation.isPending ? 'not-allowed' : 'pointer',
                     opacity: withdrawMutation.isPending ? 0.6 : 1,
                   }}

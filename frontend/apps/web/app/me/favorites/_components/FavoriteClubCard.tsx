@@ -13,15 +13,15 @@ export function FavoriteClubCard({ favorite }: Props) {
     <li className="relative">
       <Link
         href={`/clubs/${favorite.clubId}`}
-        className="flex items-center gap-3 rounded-xl border border-slate-200 p-4 transition hover:border-slate-400 hover:shadow-sm"
+        className="flex items-center gap-3 rounded-lg border border-line bg-paper p-4 transition-shadow hover:shadow-2"
       >
-        <div className="relative h-12 w-12 flex-shrink-0 overflow-hidden rounded-full bg-slate-200">
+        <div className="relative h-12 w-12 flex-shrink-0 overflow-hidden rounded-full bg-sage-mist">
           <ClubLogo logoUrl={favorite.logoUrl} />
         </div>
 
         <div className="min-w-0 flex-1">
           <p className="truncate font-semibold">{favorite.name}</p>
-          <p className="text-xs text-slate-500">
+          <p className="text-xs text-charcoal-3">
             {clubCategoryLabel(favorite.category)}
             {favorite.division ? ` · ${favorite.division}` : ''}
           </p>
@@ -30,8 +30,8 @@ export function FavoriteClubCard({ favorite }: Props) {
           <span
             className={`mt-1 inline-block rounded-full px-2 py-0.5 text-xs font-medium ${
               favorite.openRecruitmentCount > 0
-                ? 'bg-emerald-100 text-emerald-700'
-                : 'bg-slate-100 text-slate-600'
+                ? 'bg-sage/10 text-sage-deep'
+                : 'bg-paper text-charcoal-2 ring-1 ring-inset ring-line'
             }`}
           >
             {favorite.openRecruitmentCount > 0

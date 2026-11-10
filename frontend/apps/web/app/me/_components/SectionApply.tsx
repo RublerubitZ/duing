@@ -77,7 +77,7 @@ export function SectionApply({ applications, isPending = false }: Props) {
             <div className="bg-paper border border-line rounded-lg px-8 py-12 text-center text-charcoal-3 text-sm">
               진행 중인 지원이 없어요.{' '}
               <Link href="/clubs" className="text-ink font-semibold hover:underline">
-                동아리 탐색하러 가기 →
+                동아리 탐색하러 가기
               </Link>
             </div>
           )}
@@ -117,16 +117,15 @@ export function SectionApply({ applications, isPending = false }: Props) {
               >
                 {isInterview && (
                   <div className="absolute -top-2.5 left-5 px-2.5 py-0.5 rounded-full bg-ink text-white text-[11px] font-bold">
-                    📌 다음 일정
+                    다음 일정
                   </div>
                 )}
 
                 {/* Club avatar */}
                 <div
-                  className="w-14 h-14 rounded-[14px] grid place-items-center text-[26px] tabular-nums font-bold"
-                  style={{ background: 'rgba(31,74,54,0.08)', color: '#1F4A36' }}
+                  className="w-14 h-14 rounded-[14px] grid place-items-center text-[26px] font-bold bg-ink/[0.08] text-ink"
                 >
-                  🏛
+                  {app.clubName.charAt(0)}
                 </div>
 
                 {/* Club info */}

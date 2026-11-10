@@ -22,11 +22,11 @@ type PillMeta = { label: string; className: string };
 
 const PILL: Record<TerminalApplicationStatus, PillMeta> = {
   ACCEPTED: {
-    label: `🎉 ${APPLICATION_STATUS_APPLICANT_LABEL.ACCEPTED}`,
+    label: APPLICATION_STATUS_APPLICANT_LABEL.ACCEPTED,
     className: 'bg-sage-mist text-ink-deep border-sage-mist',
   },
   REJECTED: {
-    label: `📝 ${APPLICATION_STATUS_APPLICANT_LABEL.REJECTED}`,
+    label: APPLICATION_STATUS_APPLICANT_LABEL.REJECTED,
     className: 'bg-paper text-charcoal-3 border-line',
   },
 };
@@ -34,13 +34,13 @@ const PILL: Record<TerminalApplicationStatus, PillMeta> = {
 // 결과 없이 종료된 지원 — 합격/불합격 어느 쪽도 아니라 별도 표기를 쓴다. 여기서 걸러내면
 // 진행 중에서도 빠진 항목이 어디에도 안 보이므로(카운트만 남는 유령 항목) 반드시 렌더한다.
 const CLOSED_WITHOUT_RESULT_PILL: PillMeta = {
-  label: `🗂 ${APPLICATION_CLOSED_WITHOUT_RESULT_LABEL}`,
+  label: APPLICATION_CLOSED_WITHOUT_RESULT_LABEL,
   className: 'bg-graysoft text-charcoal-2 border-line',
 };
 
 // 운영 중단 정리로 끝난 불합격 — 합불이 아니라 결과 없이 끝났으므로 결과 미발표 알약과 같은 색.
 const ENDED_BY_CLUB_DEACTIVATION_PILL: PillMeta = {
-  label: `🗂 ${APPLICATION_ENDED_BY_CLUB_DEACTIVATION_LABEL}`,
+  label: APPLICATION_ENDED_BY_CLUB_DEACTIVATION_LABEL,
   className: CLOSED_WITHOUT_RESULT_PILL.className,
 };
 
@@ -76,7 +76,7 @@ export function SectionArchived({ applications, isPending = false }: Props) {
           <div className="bg-paper border border-line rounded-lg px-8 py-12 text-center text-charcoal-3 text-sm">
             지난 지원 내역이 없어요.{' '}
             <Link href="/clubs" className="text-ink font-semibold hover:underline">
-              동아리 탐색하러 가기 →
+              동아리 탐색하러 가기
             </Link>
           </div>
         ) : (
@@ -100,7 +100,7 @@ export function SectionArchived({ applications, isPending = false }: Props) {
                     className="w-14 h-14 rounded-[14px] grid place-items-center text-[26px] shrink-0 bg-sage-mist text-ink-deep relative overflow-hidden"
                   >
                     <ClubLogo logoUrl={app.logoUrl} alt={app.clubName}>
-                      <span>🏛</span>
+                      <span className="font-bold">{app.clubName.charAt(0)}</span>
                     </ClubLogo>
                   </div>
 
@@ -114,7 +114,7 @@ export function SectionArchived({ applications, isPending = false }: Props) {
                     </div>
                   </div>
 
-                  <span className={cn('pill text-[10.5px] border', pill.className)}>
+                  <span className={cn('pill text-[11px] border', pill.className)}>
                     {pill.label}
                   </span>
 
