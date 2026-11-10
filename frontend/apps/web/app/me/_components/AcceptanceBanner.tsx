@@ -58,7 +58,6 @@ export function AcceptanceBanner({ myClubs }: Props) {
       className="max-w-layout mx-auto mt-4 mb-2 px-4 sm:px-6 md:px-10"
     >
       <div className="flex items-center gap-3 rounded-[14px] border border-ink bg-ink/[0.04] px-5 py-3">
-        <span className="text-[18px]">🎉</span>
         <div className="flex-1 text-[14px] text-ink-deep">
           <b>{candidate.clubName}</b> 동아리에 합류했어요!
         </div>

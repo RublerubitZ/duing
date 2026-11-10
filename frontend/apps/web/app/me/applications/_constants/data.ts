@@ -124,12 +124,12 @@ export const STATUS_TO_FILTER: Record<AppStatus, FilterKey> = {
 
 /* 카테고리 → 작은 라벨 색상 */
 export const CAT_LABEL_COLOR: Record<string, string> = {
-  '학술': '#5C8268',
-  '봉사': '#5C8268',
-  '예술': '#5C8268',
-  '연합': '#5C8268',
-  '환경': '#5C8268',
-  'IT':   '#5C8268',
+  '학술': 'var(--sage-deep)',
+  '봉사': 'var(--sage-deep)',
+  '예술': 'var(--sage-deep)',
+  '연합': 'var(--sage-deep)',
+  '환경': 'var(--sage-deep)',
+  'IT':   'var(--sage-deep)',
 };
 
 /* 통합 필터 — 상단 pill 탭과 우측 체크박스 모두 동일하게 사용.

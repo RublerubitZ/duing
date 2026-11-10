@@ -250,13 +250,11 @@ export function RespondAvailabilityModal({
         {inlineError && (
           <p
             role="alert"
+            className="border border-coral/30 bg-coral/10 text-coral-deep"
             style={{
               marginTop: 12,
               padding: '8px 12px',
               borderRadius: 8,
-              border: '1px solid var(--error-line, #F5C2C2)',
-              background: 'var(--error-bg, #FFF0F0)',
-              color: 'var(--error-text, #C0392B)',
               fontSize: 12.5,
               margin: '12px 0 0',
             }}
@@ -298,8 +296,8 @@ export function RespondAvailabilityModal({
               padding: '8px 16px',
               borderRadius: 8,
               border: 'none',
-              background: isSaveDisabled ? 'var(--charcoal-3)' : '#2E6149',
-              color: '#fff',
+              background: isSaveDisabled ? 'var(--charcoal-3)' : 'var(--ink-soft)',
+              color: 'var(--paper)',
               fontSize: 13,
               cursor: isSaveDisabled ? 'not-allowed' : 'pointer',
               opacity: isSaveDisabled ? 0.55 : 1,

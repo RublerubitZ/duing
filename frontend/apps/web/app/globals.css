@@ -118,6 +118,11 @@ body {
     --berry:      #B65672;
     --sky:        #6A95B8;
     --sky-deep:   #406786;
+    --sage-deep:  #4D6850;
+    --coral-deep: #A54525;
+    --danger:     #B04A28;
+    /* 결과 없이 끝난 지원의 스테퍼 마디 — 진행 초록(ink-soft)과 밝기로 구분되는 중간 회색(흰 바탕 3.25:1) */
+    --neutral-mid: #8A8F98;
     --font-body:    Pretendard, system-ui, sans-serif;
     --shadow-1: 0 1px 2px rgba(31,74,54,.04), 0 2px 8px rgba(31,74,54,.04);
     --shadow-2: 0 2px 6px rgba(31,74,54,.05), 0 12px 32px rgba(31,74,54,.08);

@@ -92,8 +92,8 @@ export function ApplicantInterviewCard({ applicationId }: Props) {
                 padding: '7px 14px',
                 borderRadius: 8,
                 border: 'none',
-                background: '#2E6149',
-                color: '#fff',
+                background: 'var(--ink-soft)',
+                color: 'var(--paper)',
                 fontSize: 13,
                 cursor: 'pointer',
               }}
@@ -174,7 +174,7 @@ export function ApplicantInterviewCard({ applicationId }: Props) {
                 color: 'var(--charcoal-3)',
                 marginBottom: 8,
                 padding: '8px 10px',
-                background: 'var(--sage-tint, #E8EEE8)',
+                background: 'var(--sage-tint)',
                 borderRadius: 8,
               }}
             >

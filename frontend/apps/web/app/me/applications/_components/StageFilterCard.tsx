@@ -47,7 +47,7 @@ export function StageFilterCard({ checked, onToggle, counts }: Props) {
                     transition: 'all .15s',
                   }}>
                   {isChecked && (
-                    <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round">
+                    <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="var(--paper)" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
                       <path d="M5 12 L10 17 L19 7" />
                     </svg>
                   )}

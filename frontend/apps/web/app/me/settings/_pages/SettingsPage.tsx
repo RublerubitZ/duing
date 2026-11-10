@@ -22,7 +22,7 @@ import { ConfirmDialog } from '@/app/_components/ConfirmDialog';
 import { HomeNav } from '@/app/_components/HomeNav';
 import { ProfileEditDialog } from '@/app/_components/ProfileEditDialog';
 import { useToast } from '@/app/_components/toast/ToastProvider';
-import { ArrowRight } from '@/components/duing/Icon';
+import { ArrowLeft, ArrowRight } from '@/components/duing/Icon';
 import { SparkleFull } from '@/components/duing/Sparkle';
 
 import { MyPageHeader } from '../../_components/MyPageHeader';
@@ -62,8 +62,7 @@ function SettingsCard({ title, hint, children, danger = false, id }: SettingsCar
   return (
     <section id={id} className="bg-paper rounded-lg border border-line mb-4 overflow-hidden scroll-mt-24">
       <div
-        className="px-7 py-5"
-        style={danger ? { background: 'rgba(217,119,87,0.05)' } : undefined}
+        className={danger ? 'px-7 py-5 bg-coral/5' : 'px-7 py-5'}
       >
         <h3 className="text-[17px] font-body font-bold text-ink-deep">{title}</h3>
         {hint && <p className="text-[12.5px] text-charcoal-3 mt-1">{hint}</p>}
@@ -94,7 +93,8 @@ function SettingsPageTabs() {
           href="/me"
           className="btn btn-ghost btn-sm px-2.5 py-1.5 text-[13px] flex items-center gap-1"
         >
-          ← 마이페이지로
+          <ArrowLeft size={14} aria-hidden />
+          마이페이지로
         </Link>
         {TAB_LABELS.map((tab) => {
           const isActive = tab === activeTab;
@@ -293,8 +293,7 @@ export function SettingsPage() {
               <button
                 type="button"
                 onClick={() => setWithdrawOpen(true)}
-                className="btn btn-big rounded-[14px] btn-danger-quiet"
-                style={{ border: '1px solid rgba(217,119,87,0.3)' }}
+                className="btn btn-big rounded-[14px] btn-danger-quiet border border-danger/30"
               >
                 회원 탈퇴
               </button>
@@ -304,10 +303,9 @@ export function SettingsPage() {
           {/* 1:1 문의 CTA */}
           <div
             className="relative overflow-hidden rounded-[24px] px-6 py-6 sm:px-8 sm:py-7 flex flex-wrap items-center gap-5 justify-between"
-            style={{ background: 'linear-gradient(120deg, #1F4A36 0%, #143025 100%)' }}
+            style={{ background: 'linear-gradient(120deg, var(--ink) 0%, var(--ink-deep) 100%)' }}
           >
             <div className="relative z-[1] min-w-0">
-              <div className="text-[11.5px] font-bold text-sage tracking-wide16 mb-1.5">SUPPORT</div>
               <div className="text-[19px] font-bold text-white mb-1">
                 궁금한 점이나 불편한 점이 있나요?
               </div>
@@ -318,8 +316,8 @@ export function SettingsPage() {
             <div className="relative z-[1] flex items-center gap-3">
               <SparkleFull
                 size={44}
-                color="rgba(157,182,160,0.35)"
-                className="pointer-events-none hidden sm:block"
+                color="var(--sage)"
+                className="opacity-[0.35] pointer-events-none hidden sm:block"
               />
               <Link
                 href={toRoute('/me/inquiries/new')}

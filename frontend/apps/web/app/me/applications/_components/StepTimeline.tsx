@@ -22,10 +22,10 @@ type NodeColor = {
 export function StepNode({ step, showDate = false, dim = false }: StepNodeProps) {
   const stepState: StepState = step.state;
   const colorMap: Record<StepState, NodeColor> = {
-    done:    { bg: '#2E6149', border: '#2E6149', icon: 'check', iconColor: '#fff' },
-    current: { bg: '#fff',   border: '#2E6149', icon: null,    iconColor: '#2E6149', inner: '#2E6149' },
-    pending: { bg: '#fff',   border: '#D9D6CC', icon: null,    iconColor: 'transparent' },
-    failed:  { bg: '#D9523A', border: '#D9523A', icon: 'x',    iconColor: '#fff' },
+    done:    { bg: 'var(--ink-soft)', border: 'var(--ink-soft)', icon: 'check', iconColor: 'var(--paper)' },
+    current: { bg: 'var(--paper)',   border: 'var(--ink-soft)', icon: null,    iconColor: 'var(--ink-soft)', inner: 'var(--ink-soft)' },
+    pending: { bg: 'var(--paper)',   border: 'var(--gray-line)', icon: null,    iconColor: 'transparent' },
+    failed:  { bg: 'var(--danger)', border: 'var(--danger)', icon: 'x',    iconColor: 'var(--paper)' },
   };
   const nodeColor = colorMap[stepState] ?? colorMap.pending;
 
@@ -39,12 +39,12 @@ export function StepNode({ step, showDate = false, dim = false }: StepNodeProps)
         position: 'relative',
       }}>
         {nodeColor.icon === 'check' && (
-          <svg width="11" height="11" viewBox="0 0 24 24" fill="none">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" aria-hidden>
             <path d="M5 12 L10 17 L19 7" stroke={nodeColor.iconColor} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
         )}
         {nodeColor.icon === 'x' && (
-          <svg width="10" height="10" viewBox="0 0 24 24" fill="none">
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" aria-hidden>
             <path d="M6 6 L18 18 M18 6 L6 18" stroke={nodeColor.iconColor} strokeWidth="3" strokeLinecap="round" />
           </svg>
         )}
@@ -56,10 +56,10 @@ export function StepNode({ step, showDate = false, dim = false }: StepNodeProps)
         )}
       </div>
       <div style={{
-        fontSize: 10, fontWeight: 600,
+        fontSize: 11, fontWeight: 600,
         color: dim ? 'var(--charcoal-3)'
               : stepState === 'done' || stepState === 'current' ? 'var(--ink-deep)'
-              : stepState === 'failed' ? '#9A3F23'
+              : stepState === 'failed' ? 'var(--coral-deep)'
               : 'var(--charcoal-3)',
         whiteSpace: 'nowrap',
         textAlign: 'center',
@@ -69,7 +69,7 @@ export function StepNode({ step, showDate = false, dim = false }: StepNodeProps)
       </div>
       {showDate && (
         <div style={{
-          fontSize: 9.5,
+          fontSize: 11,
           color: 'var(--charcoal-3)',
           fontVariantNumeric: 'tabular-nums',
           whiteSpace: 'nowrap',
@@ -108,9 +108,9 @@ export function StepTimeline({ steps, showDate = false, width = '100%' }: StepTi
         if (!nextStep) return null;
         const bothDone = step.state === 'done' && (nextStep.state === 'done' || nextStep.state === 'failed');
         const halfDone = step.state === 'done' && nextStep.state === 'current';
-        const lineColor = bothDone ? '#2E6149'
-                        : halfDone ? '#2E6149'
-                        : '#D9D6CC';
+        const lineColor = bothDone ? 'var(--ink-soft)'
+                        : halfDone ? 'var(--ink-soft)'
+                        : 'var(--gray-line)';
         return (
           <div key={i} style={{
             position: 'absolute',
