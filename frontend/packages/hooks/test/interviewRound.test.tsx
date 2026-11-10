@@ -191,6 +191,27 @@ describe('useConfirmRoundMutation (스펙 §10.1 — 확정 시 재큐잉 포함
     expect(queryClient.getQueryState(interviewRoundKeys.candidates(10))?.isInvalidated).toBe(true);
     expect(queryClient.getQueryState(statsQueryKeys.summary(10))?.isInvalidated).toBe(true);
   });
+
+  it.each<[number, string, boolean]>([
+    [409, 'detail queryKey 가 invalidate 된다 — 화면의 상세가 낡았다는 신호', true],
+    [500, 'detail queryKey 는 유지된다', false],
+  ])('%i 응답으로 실패하면 %s', async (status, _label, invalidated) => {
+    const queryClient = newQueryClient();
+    server.use(
+      http.post('*/leader/interview-rounds/42/confirm', () =>
+        HttpResponse.json({ ok: false, data: null, message: '확정할 수 없습니다.' }, { status }),
+      ),
+    );
+    queryClient.setQueryData(interviewRoundKeys.detail(42), null);
+
+    const { result } = renderHook(() => useConfirmRoundMutation(10, 42), {
+      wrapper: makeWrapper(queryClient),
+    });
+    result.current.mutate(false);
+    await waitFor(() => expect(result.current.isError).toBe(true));
+
+    expect(queryClient.getQueryState(interviewRoundKeys.detail(42))?.isInvalidated).toBe(invalidated);
+  });
 });
 
 describe('useExcludeMemberMutation (스펙 §10.1 — 제외 시 재큐잉)', () => {
