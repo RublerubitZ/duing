@@ -60,8 +60,10 @@ describe('CSS 변수 정의 가드', () => {
 
   // /apply·/join 은 레이아웃이 없어 래퍼 대부분이 .duing 밖이다 — 거기서는 :root 에 있는 변수만 풀린다(#1678 에서 지원서 바탕이 사라졌다).
   it('.duing 밖에서 그려지는 /apply·/join 은 :root 변수(--pill-*·--page-top)만 쓴다', () => {
-    const scopedUses = sources
-      .filter(({ file }) => file.startsWith('app/apply/') || file.startsWith('app/join/'))
+    const scoped = sources.filter(({ file }) => file.startsWith('app/apply/') || file.startsWith('app/join/'));
+    // 경로가 바뀌어 대상이 0개가 되면 빈 목록으로 통과한다 — 실제로 읽었는지 먼저 본다.
+    expect(scoped.length).toBeGreaterThan(0);
+    const scopedUses = scoped
       .flatMap(({ file, text }) =>
         [...text.matchAll(VARIABLE_USE)]
           .flatMap((match) => (match[1] === undefined ? [] : [match[1]]))

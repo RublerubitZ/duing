@@ -560,7 +560,7 @@ export function NoticePage() {
                             )}
                             <span style={{
                               fontSize: 12, fontVariantNumeric: 'tabular-nums',
-                              color: isDark ? 'rgba(255,255,255,0.7)' : 'var(--charcoal-3)',
+                              color: isDark ? 'rgba(255,255,255,0.6)' : 'var(--charcoal-3)',
                             }}>{formatDate(n.createdAt)}</span>
                             {hydrated && isNewItem(n.createdAt) && (
                               <span style={{ marginLeft: 'auto' }}>
@@ -591,7 +591,7 @@ export function NoticePage() {
                           <div style={{
                             marginTop: 'auto', paddingTop: 10,
                             display: 'flex', alignItems: 'center', justifyContent: 'flex-end',
-                            fontSize: 12, color: isDark ? 'rgba(255,255,255,0.7)' : 'var(--charcoal-3)',
+                            fontSize: 12, color: isDark ? 'rgba(255,255,255,0.6)' : 'var(--charcoal-3)',
                           }}>
                             <span style={{
                               display: 'inline-flex', alignItems: 'center', gap: 4,
