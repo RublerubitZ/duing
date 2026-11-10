@@ -241,7 +241,7 @@ const MEMBER_WANTS_20 = { memberId: 102, applicationId: 102, userName: '최유�
 const MEMBER_WANTS_21 = { memberId: 103, applicationId: 103, userName: '한지민', studentId: '20230103', status: 'RESPONDED', unresponded: false, alternativeAvailabilityText: null, selectedSlotCount: 1, assignedSlotId: null };
 const MEMBER_HOLDS_21 = { memberId: 104, applicationId: 104, userName: '오세훈', studentId: '20230104', status: 'RESPONDED', unresponded: false, alternativeAvailabilityText: null, selectedSlotCount: 1, assignedSlotId: 21 };
 
-/** ASSIGNING — X(정하늘)의 결과를 정한 뒤: 가능 시간·초안 배정이 지워져 슬롯 20 이 빈다. 배정받지 못한 응답자 2명(최유리·한지민)·빈 자리 3개(슬롯 20 의 1 + 22 의 2) */
+/** ASSIGNING — X(정하늘)의 결과를 정한 뒤: 가능 시간·초안 배정이 지워져 슬롯 20 이 빈다. 배정받지 못한 응답자 2명(최유리·한지민)·남은 자리 3개(슬롯 20 의 1 + 22 의 2) */
 const DETAIL_ASSIGNING_FREED_SEAT = {
   roundId: ROUND_ID,
   title: '1차 면접',
@@ -287,6 +287,35 @@ const FREED_SEAT_UNRESOLVED_PAYLOAD = {
     { applicationId: 102, applicantName: '최유리', selectedSlotIds: [21, 22, 20] },
     { applicationId: 103, applicantName: '한지민', selectedSlotIds: [21] },
   ],
+};
+
+/** 남은 자리 0개 — 오세훈이 21 을 쥐고, 한지민은 21 만 골라 못 받았다 */
+const DETAIL_ASSIGNING_NO_FREE_SEAT = {
+  ...DETAIL_ASSIGNING_FREED_SEAT,
+  counts: { ...DETAIL_ASSIGNING_FREED_SEAT.counts, totalMemberCount: 2, respondedCount: 2, excludedCount: 0 },
+  members: [MEMBER_WANTS_21, MEMBER_HOLDS_21],
+  slots: [{ ...FULL_SLOT_21, selectedCount: 2 }],
+};
+
+/** 배정받지 못한 응답자 0명 — 남은 자리는 있지만 제외·가능없음·미응답뿐: 셋 다 세지 않는다 */
+const DETAIL_ASSIGNING_NO_UNASSIGNED_RESPONDED = {
+  ...DETAIL_ASSIGNING_FREED_SEAT,
+  counts: { totalMemberCount: 2, invitedCount: 1, respondedCount: 0, noAvailableSlotCount: 1, assignedCount: 0, excludedCount: 1, unrespondedCount: 1 },
+  members: [
+    MEMBER_DECIDED,
+    { memberId: 105, applicationId: 105, userName: '윤가람', studentId: '20230105', status: 'NO_AVAILABLE_SLOT', unresponded: false, alternativeAvailabilityText: '주말만 가능합니다', selectedSlotCount: 0, assignedSlotId: null },
+    { memberId: 106, applicationId: 106, userName: '서도윤', studentId: '20230106', status: 'INVITED', unresponded: true, alternativeAvailabilityText: null, selectedSlotCount: 0, assignedSlotId: null },
+  ],
+  slots: [{ ...FREED_SLOT_20, selectedCount: 0 }],
+};
+
+/** 응답 수집 중 — 초안 배정이 없어 응답자 전원이 배정 없음 */
+const DETAIL_COLLECTING_WITH_FREE_SEAT = {
+  ...DETAIL_ASSIGNING_FREED_SEAT,
+  status: 'COLLECTING',
+  deadlinePassed: false,
+  members: DETAIL_ASSIGNING_FREED_SEAT.members.map((member) => ({ ...member, assignedSlotId: null })),
+  slots: DETAIL_ASSIGNING_FREED_SEAT.slots.map((slot) => ({ ...slot, assignedCount: 0 })),
 };
 
 // ── 테스트 설정 ──────────────────────────────────────────────────────────────
@@ -1057,6 +1086,60 @@ describe('배정 검토 — 빈 자리 안내', () => {
     } finally {
       releaseRefetch();
     }
+  });
+
+  it('배정 검토 중 배정받지 못한 응답자와 남은 자리가 함께 있으면 남은 자리 안내 띠가 보인다', async () => {
+    server.use(
+      http.get(`*/interview-rounds/${ROUND_ID}`, () =>
+        HttpResponse.json({ ok: true, data: DETAIL_ASSIGNING_FREED_SEAT, message: null }),
+      ),
+    );
+
+    renderDashboard();
+    await screen.findByText('배정 검토 중');
+
+    expect(
+      screen.getByText('응답했으나 배정받지 못한 지원자 2명 · 남은 자리 3개 — 고른 시간이 아닐 수 있습니다'),
+    ).toBeInTheDocument();
+  });
+
+  it.each([
+    { name: '남은 자리 0', detail: DETAIL_ASSIGNING_NO_FREE_SEAT, statusLabel: '배정 검토 중' },
+    { name: '배정받지 못한 응답자 0', detail: DETAIL_ASSIGNING_NO_UNASSIGNED_RESPONDED, statusLabel: '배정 검토 중' },
+    { name: '응답 수집 중', detail: DETAIL_COLLECTING_WITH_FREE_SEAT, statusLabel: '응답 수집 중' },
+  ])('$name 이면 남은 자리 안내 띠가 보이지 않는다', async ({ detail, statusLabel }) => {
+    server.use(
+      http.get(`*/interview-rounds/${ROUND_ID}`, () =>
+        HttpResponse.json({ ok: true, data: detail, message: null }),
+      ),
+    );
+
+    renderDashboard();
+    await screen.findByText(statusLabel);
+
+    expect(screen.queryByText(/배정받지 못한 지원자/)).not.toBeInTheDocument();
+  });
+
+  it.each([
+    { unassignedMemberCount: 1, expected: '자동배정이 완료되었습니다 — 응답자 1명은 고른 시간이 모두 차 배정받지 못했습니다.' },
+    { unassignedMemberCount: 0, expected: '자동배정이 완료되었습니다.' },
+  ])('자동배정을 다시 실행하면 못 받은 인원에 맞춰 완료 메시지 $expected 가 보인다', async ({ unassignedMemberCount, expected }) => {
+    server.use(
+      http.get(`*/interview-rounds/${ROUND_ID}`, () =>
+        HttpResponse.json({ ok: true, data: DETAIL_ASSIGNING_FREED_SEAT, message: null }),
+      ),
+      http.post(`*/interview-rounds/${ROUND_ID}/auto-assign`, () =>
+        HttpResponse.json({ ok: true, data: { assignedMemberCount: 1, unassignedMemberCount }, message: null }),
+      ),
+    );
+
+    renderDashboard();
+    await screen.findByText('배정 검토 중');
+    await userEvent.click(screen.getByRole('button', { name: /자동배정/ }));
+    const dialog = await screen.findByRole('dialog');
+    await userEvent.click(within(dialog).getByRole('button', { name: /재실행/ }));
+
+    expect(await screen.findByText(expected)).toBeInTheDocument();
   });
 });
 

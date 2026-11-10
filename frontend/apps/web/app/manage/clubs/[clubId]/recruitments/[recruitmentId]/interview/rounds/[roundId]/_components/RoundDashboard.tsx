@@ -140,9 +140,16 @@ export function RoundDashboard({ clubId, recruitmentId, roundId }: Props) {
 
   const handleAutoAssignConfirm = () => {
     autoAssignMutation.mutate(undefined, {
-      onSuccess: () => {
+      onSuccess: (autoAssignResult) => {
         setShowAutoAssignDialog(false);
-        setFeedbackMessage({ kind: 'success', text: '자동배정이 완료되었습니다.' });
+        // unassignedMemberCount = 매칭 입력(RESPONDED) 중 고른 슬롯이 모두 차 못 받은 사람 수
+        setFeedbackMessage({
+          kind: 'success',
+          text:
+            autoAssignResult.unassignedMemberCount > 0
+              ? `자동배정이 완료되었습니다 — 응답자 ${autoAssignResult.unassignedMemberCount}명은 고른 시간이 모두 차 배정받지 못했습니다.`
+              : '자동배정이 완료되었습니다.',
+        });
       },
       onError: (mutationError) => {
         setShowAutoAssignDialog(false);

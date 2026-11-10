@@ -11,7 +11,7 @@ import {
 import { ButtonSpinner } from '@/components/loading/Spinner';
 
 // 상태 배너 — 상태 뱃지 + 단일 next action (DRAFT→이어서 작성 / COLLECTING·ASSIGNING→자동배정 /
-// ASSIGNING→확정) + 조기 배정 UX ① 전원 응답 배너 + ASSIGNING draft 안내.
+// ASSIGNING→확정) + 조기 배정 UX ① 전원 응답 배너 + ASSIGNING draft 안내·남은 자리 안내.
 
 type RoundStatusBannerProps = {
   detail: InterviewRoundDetail;
@@ -37,6 +37,16 @@ export function RoundStatusBanner({
     status === 'COLLECTING' &&
     counts.invitedCount === 0 &&
     detail.members.some((member) => member.status !== 'EXCLUDED');
+  // 결과 확정·제외로 빠진 자리뿐 아니라 자동배정 뒤 미배정 응답자도 함께 알린다 — 남은 자리는 그들이 고른 시간이 아닐 수 있다(사람별 판정은 확정 창).
+  const unassignedRespondedCount = detail.members.filter(
+    (member) => member.status === 'RESPONDED' && member.assignedSlotId === null,
+  ).length;
+  const freeSeatCount = detail.slots.reduce(
+    (seatSum, slot) => seatSum + Math.max(0, slot.capacity - slot.assignedCount),
+    0,
+  );
+  const showFreedSeatNotice =
+    status === 'ASSIGNING' && unassignedRespondedCount > 0 && freeSeatCount > 0;
 
   return (
     <div className="rounded-xl border border-line bg-white px-5 py-4">
@@ -107,6 +117,13 @@ export function RoundStatusBanner({
           </span>
           확정 전까지 지원자에게 통지되지 않습니다
         </div>
+      )}
+
+      {/* ASSIGNING — 응답했으나 배정이 없는 사람과 남은 자리가 함께 있으면 알린다(고른 시간인지는 확정 창이 본다) */}
+      {showFreedSeatNotice && (
+        <p className="mt-3 rounded-md border border-warm/60 bg-warm/10 px-4 py-2 text-sm text-warm-deep">
+          {`응답했으나 배정받지 못한 지원자 ${unassignedRespondedCount}명 · 남은 자리 ${freeSeatCount}개 — 고른 시간이 아닐 수 있습니다`}
+        </p>
       )}
 
       {/* SCHEDULED — 일정 변경 가능 안내 */}
