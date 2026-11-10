@@ -98,7 +98,7 @@ export function CurrentRecruitmentCard({ clubId, recruitment }: Props) {
 
       {/* 데이터 로드 후 나타나는 행동 요청이라 라이브 리전으로 알린다 */}
       {isExpiredOpen && (
-        <p role="status" className="mt-2 rounded-md bg-amber-50 px-3 py-2 text-xs leading-relaxed text-amber-800">
+        <p role="status" className="mt-2 rounded-md bg-warm/10 px-3 py-2 text-xs leading-relaxed text-warm-deep">
           {expiredOpenNotice ?? <span aria-hidden="true">{EXPIRED_OPEN_LEAD}</span>}
         </p>
       )}

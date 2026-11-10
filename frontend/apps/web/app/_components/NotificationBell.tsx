@@ -8,9 +8,11 @@ import { NotificationSheet } from './NotificationSheet';
 
 // 모바일·태블릿 Link / 데스크탑 button 두 트리거가 공유하는 원형 히트 영역 스타일.
 // 가시성(inline-flex lg:hidden / hidden lg:inline-flex)만 각자 덧붙인다.
-// 히트 영역은 40px 원을 유지한다(시안 슬롯은 PC 34·모바일 24 로 터치 최소 크기에 못 미친다) — 글리프만 시안 크기다.
+// 히트 영역은 원으로 유지한다(시안 슬롯은 PC 34·모바일 24 로 터치 최소 크기에 못 미친다) — 글리프만 시안 크기다.
+// 보이는 원은 40px 로 두고(상단바 높이가 변하지 않게), 터치로 누르는 좁은 폭 링크만 가상 요소로 누르는 영역을 44px 로 넓힌다.
+// 포커스 링은 옆 콘솔 버튼들과 같은 ink 링이다.
 const bellButtonClass =
-  'relative h-10 w-10 items-center justify-center rounded-full text-ink-deep hover:bg-graysoft';
+  'relative items-center justify-center rounded-full text-ink-deep outline-none hover:bg-graysoft focus-visible:ring-2 focus-visible:ring-ink';
 
 export function NotificationBell({
   initialAuthenticated = null,
@@ -31,7 +33,7 @@ export function NotificationBell({
       <Link
         href="/notifications"
         aria-label={`알림 ${unreadCount}개`}
-        className={`${bellButtonClass} inline-flex lg:hidden`}
+        className={`${bellButtonClass} inline-flex h-10 w-10 before:absolute before:-inset-0.5 before:content-[''] lg:hidden`}
       >
         <BellGlyph unreadCount={unreadCount} />
       </Link>
@@ -43,7 +45,7 @@ export function NotificationBell({
         aria-label={`알림 ${unreadCount}개`}
         aria-haspopup="dialog"
         aria-expanded={open}
-        className={`${bellButtonClass} hidden lg:inline-flex`}
+        className={`${bellButtonClass} hidden h-10 w-10 lg:inline-flex`}
       >
         <BellGlyph unreadCount={unreadCount} />
       </button>
@@ -58,7 +60,7 @@ function BellGlyph({ unreadCount }: { unreadCount: number }) {
     <>
       <BellIcon />
       {unreadCount > 0 && (
-        <span className="absolute right-1 top-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-bold text-white">
+        <span className="absolute right-1 top-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-danger px-1 text-[11px] font-bold leading-none text-paper">
           {unreadCount > 99 ? '99+' : unreadCount}
         </span>
       )}

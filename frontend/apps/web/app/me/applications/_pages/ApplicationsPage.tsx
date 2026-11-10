@@ -122,10 +122,10 @@ function deriveRight(
 
 function toLogo(logoUrl: string | null, clubName: string): Logo {
   if (logoUrl) {
-    return { kind: 'img', url: logoUrl, bg: '#E8EEE8', fg: '#1F3D2C' };
+    return { kind: 'img', url: logoUrl, bg: 'var(--sage-mist)', fg: 'var(--ink-deep)' };
   }
   const initial = clubName.charAt(0).toUpperCase();
-  return { kind: 'wordmark', text: initial, bg: '#2A3828', fg: '#E8EEE8' };
+  return { kind: 'wordmark', text: initial, bg: 'var(--ink-deep)', fg: 'var(--sage-mist)' };
 }
 
 // KST 요일 — "YYYY.MM.DD (요일) HH:mm" 구조 유지용.

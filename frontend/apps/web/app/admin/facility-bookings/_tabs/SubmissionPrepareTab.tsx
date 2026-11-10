@@ -375,10 +375,9 @@ export function SubmissionPrepareTab() {
         )}
         {!candidatesQuery.isLoading && candidatesQuery.isSuccess && visibleBookings.length === 0 && (
           summaryFilter !== 'ALL' || keyword !== '' ? (
-            <EmptyState icon="🔍" title="조건에 맞는 예약이 없어요" body="검색어나 필터를 바꿔보세요." />
+            <EmptyState title="조건에 맞는 예약이 없어요" body="검색어나 필터를 바꿔보세요." />
           ) : (
             <EmptyState
-              icon="✅"
               title="미제출 예약이 없어요"
               body={'예약을 승인하면 여기에 자동으로 표시돼요.\n대기 중인 신청은 예약 검토 탭에서 처리할 수 있어요.'}
               action={

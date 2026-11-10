@@ -116,7 +116,7 @@ export function FeeAuditCommentPanel({ clubId }: { clubId: number }) {
               maxLength={CONTENT_MAX_LENGTH}
               rows={3}
               placeholder={meta.placeholder}
-              className="w-full resize-none rounded-lg border border-line px-3 py-2 text-[13px] text-ink-deep focus:border-sage focus:outline-none"
+              className="w-full resize-none rounded-lg border border-line px-3 py-2 text-[13px] text-ink-deep focus:border-ink focus:outline-none focus:ring-[3px] focus:ring-ink/15"
             />
           </label>
           <div className="flex items-center justify-between gap-2">
@@ -150,7 +150,7 @@ export function FeeAuditCommentPanel({ clubId }: { clubId: number }) {
       {commentsQuery.isSuccess &&
         (comments.length === 0 ? (
           <ConsoleCard>
-            <EmptyState icon="🗒️" title={meta.empty} body="위 입력란에 첫 기록을 남겨 보세요." />
+            <EmptyState title={meta.empty} body="위 입력란에 첫 기록을 남겨 보세요." />
           </ConsoleCard>
         ) : (
           <ConsoleCard>

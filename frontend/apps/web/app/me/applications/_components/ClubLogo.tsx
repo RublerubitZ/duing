@@ -30,7 +30,7 @@ export function ClubLogo({ logo, size = 64 }: Props) {
   if (kind === 'mountain') {
     return (
       <div style={{ ...base, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', gap: 2 }}>
-        <svg width={size * 0.4} height={size * 0.22} viewBox="0 0 40 22" fill="none">
+        <svg width={size * 0.4} height={size * 0.22} viewBox="0 0 40 22" fill="none" aria-hidden>
           <path d="M2 20 L14 4 L22 14 L28 8 L38 20 Z"
                 stroke={fg} strokeWidth="1.6" strokeLinejoin="round" fill="none" />
         </svg>

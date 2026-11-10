@@ -10,9 +10,9 @@ export const MEMBER_STATUS_LABEL: Record<string, string> = {
 };
 
 export const MEMBER_STATUS_CLASS: Record<string, string> = {
-  INVITED: 'bg-slate-100 text-slate-600',
-  RESPONDED: 'bg-emerald-100 text-emerald-700',
-  NO_AVAILABLE_SLOT: 'bg-orange-100 text-orange-700',
-  ASSIGNED: 'bg-blue-100 text-blue-700',
-  EXCLUDED: 'bg-rose-100 text-rose-700',
+  INVITED: 'bg-paper text-charcoal-2 ring-1 ring-inset ring-line',
+  RESPONDED: 'bg-sage/10 text-sage-deep',
+  NO_AVAILABLE_SLOT: 'bg-warm/10 text-warm-deep',
+  ASSIGNED: 'bg-sky/10 text-sky-deep',
+  EXCLUDED: 'bg-coral/10 text-coral-deep',
 };

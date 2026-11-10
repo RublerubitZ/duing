@@ -1,5 +1,6 @@
 'use client';
 
+import { Link2 } from 'lucide-react';
 import type { BuilderQuestion } from './QuestionBuilder';
 import { MarkdownProse } from '@/components/markdown/MarkdownProse';
 import {
@@ -88,7 +89,7 @@ export function RecruitmentPreview({ data }: { data: RecruitmentPreviewData }) {
           {isExternal ? (
             <>
               <div className="mb-3 flex items-center gap-2 rounded-[13px] border border-line bg-cream px-3.5 py-3">
-                <span className="text-xl">🔗</span>
+                <Link2 size={20} aria-hidden className="shrink-0 text-ink" />
                 <div className="min-w-0 flex-1">
                   <div className="text-[12.5px] font-bold text-ink-deep">외부 폼으로 지원해요</div>
                   <div className="truncate tabular-nums text-[11px] text-charcoal-3">

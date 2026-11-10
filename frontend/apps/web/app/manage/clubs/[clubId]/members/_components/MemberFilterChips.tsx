@@ -51,7 +51,7 @@ export function MemberFilterChips({
         onChange={(event) => onQueryChange(event.target.value)}
         placeholder="이름·학과·학번·역할로 검색"
         aria-label="부원 검색"
-        className="w-full rounded-md border border-line bg-paper px-3 py-2 text-sm text-charcoal placeholder:text-charcoal-3 focus:border-sage focus:outline-none sm:w-72"
+        className="w-full rounded-md border border-line bg-paper px-3 py-2 text-sm text-charcoal placeholder:text-charcoal-3 focus:border-ink focus:outline-none focus:ring-[3px] focus:ring-ink/15 sm:w-72"
       />
 
       <div className="flex flex-wrap items-center gap-1.5">

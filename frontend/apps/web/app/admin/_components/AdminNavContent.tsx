@@ -75,7 +75,7 @@ export function AdminNavContent({
               // 접힌 폭에는 그룹 라벨이 들어가지 않아 여백으로 그룹을 가른다(첫 그룹 위는 비운다).
               groupIndex > 0 && <div aria-hidden className="my-2" />
             ) : (
-              <div className="px-3 pb-1 pt-2 text-[10.5px] font-bold uppercase tracking-wide08 text-charcoal-3">
+              <div className="px-3 pb-1 pt-2 text-xs font-semibold text-charcoal-3">
                 {group}
               </div>
             )}
@@ -328,8 +328,8 @@ function NavBadge({ children, danger }: { children: number; danger?: boolean }) 
   return (
     <span
       className={cn(
-        'shrink-0 rounded-full px-1.5 py-px tabular-nums text-[10px] font-extrabold leading-none',
-        danger ? 'bg-coral text-paper' : 'bg-paper text-charcoal-2 ring-1 ring-line',
+        'shrink-0 rounded-full px-1.5 py-px tabular-nums text-[11px] font-extrabold leading-none',
+        danger ? 'bg-danger text-paper' : 'bg-paper text-charcoal-2 ring-1 ring-line',
       )}
     >
       {children}
@@ -354,7 +354,7 @@ function CollapsedBadgeDot({
         aria-hidden
         className={cn(
           'absolute right-2.5 top-2 h-[7px] w-[7px] rounded-full ring-2 ring-paper-warm',
-          danger ? 'bg-coral' : 'bg-ink',
+          danger ? 'bg-danger' : 'bg-ink',
         )}
       />
       <span className="sr-only">{`${title} ${count}건 처리 대기`}</span>

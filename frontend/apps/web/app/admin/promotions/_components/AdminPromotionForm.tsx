@@ -399,7 +399,7 @@ export function AdminPromotionForm(props: Props) {
             : '이미지 없이 텍스트+팔레트만으로도 배너 등록이 가능합니다.'}
         </p>
         {imageSizeWarning && (
-          <p className="mt-1 text-[12px] text-amber-600">
+          <p className="mt-1 text-[12px] text-warm-deep">
             {imageSizeWarning}
           </p>
         )}
@@ -497,7 +497,7 @@ export function AdminPromotionForm(props: Props) {
             && state.noticeId !== null
             && props.initialValues.notice?.id === state.noticeId
             && props.initialValues.notice?.isAccessible === false && (
-              <p className="mt-1 text-[12px] text-amber-600">
+              <p className="mt-1 text-[12px] text-warm-deep">
                 연결된 공지가 비공개/삭제 상태입니다. 다시 선택하거나 다른 연결을 골라주세요.
               </p>
           )}
@@ -608,7 +608,7 @@ export function AdminPromotionForm(props: Props) {
               </div>
             )}
             {state.bannerImageUrl && state.imageAltText.trim() === '' && (
-              <span className="absolute right-2 top-2 rounded bg-coral/90 px-2 py-1 text-[11px] font-bold text-paper">
+              <span className="absolute right-2 top-2 rounded bg-danger px-2 py-1 text-[11px] font-bold text-paper">
                 ⚠ Alt 미입력
               </span>
             )}
@@ -618,7 +618,7 @@ export function AdminPromotionForm(props: Props) {
             className="relative flex h-[200px] flex-col justify-between overflow-hidden rounded-xl px-8 py-7"
             style={{
               background: previewStyle.bg,
-              color: hasBannerImage ? '#fff' : previewStyle.fg,
+              color: hasBannerImage ? 'var(--paper)' : previewStyle.fg,
             }}
           >
             {hasBannerImage && (
@@ -658,7 +658,7 @@ export function AdminPromotionForm(props: Props) {
                 className="relative inline-flex items-center gap-2 self-start rounded-full px-3 py-[5px] text-[11.5px] font-extrabold"
                 style={{
                   background: hasBannerImage ? 'rgba(255,255,255,0.95)' : 'rgba(255,255,255,0.14)',
-                  color: hasBannerImage ? '#143025' : previewStyle.accent,
+                  color: hasBannerImage ? 'var(--ink-deep)' : previewStyle.accent,
                 }}
               >
                 {state.tag}
@@ -673,8 +673,8 @@ export function AdminPromotionForm(props: Props) {
                 <div
                   className="mt-3 inline-block rounded-md px-3 py-1.5 text-[12px] font-bold"
                   style={{
-                    background: hasBannerImage ? '#9DB6A0' : previewStyle.accent,
-                    color: hasBannerImage ? '#143025' : '#fff',
+                    background: hasBannerImage ? 'var(--sage)' : previewStyle.accent,
+                    color: hasBannerImage ? 'var(--ink-deep)' : 'var(--paper)',
                   }}
                 >
                   {state.ctaLabel} →

@@ -50,7 +50,7 @@ export function BookingRow({ booking, onSelect }: Props) {
               {note && ` · ${note}`}
             </span>
           </span>
-          <span aria-hidden className="shrink-0 text-xs text-charcoal-3">상세 ›</span>
+          <span aria-hidden className="shrink-0 text-xs text-charcoal-3">상세</span>
         </button>
         {isConflict && (
           <div className="mt-3 flex items-center gap-2 rounded-lg bg-coral/10 px-3 py-2">

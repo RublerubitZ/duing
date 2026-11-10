@@ -18,7 +18,6 @@ export function FeeClubsTable({ items, onOpenDetail }: Props) {
   if (items.length === 0) {
     return (
       <EmptyState
-        icon="🔎"
         title="조회 결과가 없습니다"
         body={'검색어를 줄이거나 기간·사용 여부 필터를 바꿔보세요.\n동아리명으로 찾을 수 있어요.'}
       />

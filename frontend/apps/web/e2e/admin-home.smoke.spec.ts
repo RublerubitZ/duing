@@ -396,22 +396,33 @@ test.describe('총동연 홈', () => {
     }
   });
 
-  test('폭마다 가로 넘침 없이 8칸이 2열·4열로 같은 폭이다', async ({ page }) => {
+  test('폭마다 가로 넘침 없이 8칸이 2열·4열·8열로 같은 폭이다', async ({ page }) => {
     const tileItems = tileRegion(page).getByRole('listitem');
     const tileCount = await tileItems.count();
     for (const width of [390, 768, 1024, 1280]) {
       await page.setViewportSize({ width, height: 900 });
       await expectNoHorizontalOverflow(page);
       const tileBoxes = await Promise.all(Array.from({ length: tileCount }, (_, index) => boxOf(tileItems.nth(index))));
-      // grid-cols-2 lg:grid-cols-4
-      expect(firstRowCount(tileBoxes), `${width}px 첫 줄 칸 수`).toBe(width < 1024 ? 2 : 4);
+      // grid-cols-2 lg:grid-cols-4 xl:grid-cols-8
+      expect(firstRowCount(tileBoxes), `${width}px 첫 줄 칸 수`).toBe(width < 1024 ? 2 : width < 1280 ? 4 : 8);
       const firstTileWidth = tileBoxes[0]?.width ?? 0;
       for (const tileBox of tileBoxes) expect(Math.abs(tileBox.width - firstTileWidth), `${width}px 칸 폭`).toBeLessThanOrEqual(1);
       if (width === 1280) {
-        const trendBox = await boxOf(card(page, '처리 대기 추이'));
+        const schoolSyncBox = await boxOf(card(page, '학교 반영 대기'));
         const queueBox = await boxOf(card(page, '처리 대기열'));
-        expect(Math.abs(trendBox.width - 320), '1280px 오른쪽 칸 폭').toBeLessThanOrEqual(1);
-        expect(trendBox.x, '1280px 오른쪽 칸이 대기열 옆에 있어야 한다').toBeGreaterThan(queueBox.x);
+        expect(Math.abs(schoolSyncBox.width - 320), '1280px 오른쪽 칸 폭').toBeLessThanOrEqual(1);
+        expect(schoolSyncBox.x, '1280px 오른쪽 칸이 대기열 옆에 있어야 한다').toBeGreaterThan(queueBox.x);
+        // 추이·회비 감사는 대기열 아래에서 나란히 선다.
+        const trendBox = await boxOf(card(page, '처리 대기 추이'));
+        const feeAuditBox = await boxOf(card(page, '회비 감사 요약'));
+        expect(trendBox.y, '1280px 추이가 대기열 아래에 있어야 한다').toBeGreaterThan(queueBox.y);
+        expect(Math.abs(trendBox.y - feeAuditBox.y), '1280px 추이와 회비 감사가 같은 줄').toBeLessThanOrEqual(1);
+        expect(feeAuditBox.x, '1280px 회비 감사가 추이 옆에 있어야 한다').toBeGreaterThan(trendBox.x);
+        // 나란한 두 카드는 높이가 같고, 짧은 쪽 바로가기도 바닥에 붙어 같은 줄에 선다.
+        expect(Math.abs(trendBox.height - feeAuditBox.height), '1280px 추이와 회비 감사 카드 높이').toBeLessThanOrEqual(1);
+        const trendLinkBox = await boxOf(card(page, '처리 대기 추이').getByRole('link', { name: '주간 브리핑 보기', exact: true }));
+        const feeAuditLinkBox = await boxOf(card(page, '회비 감사 요약').getByRole('link', { name: '회비 감사', exact: true }));
+        expect(Math.abs(trendLinkBox.y - feeAuditLinkBox.y), '1280px 두 카드의 바로가기가 같은 줄').toBeLessThanOrEqual(1);
       }
       if (width === 390) {
         await expect(page.getByRole('button', { name: '관리 메뉴 열기', exact: true })).toBeVisible();
@@ -447,7 +458,7 @@ test.describe('총동연 홈', () => {
     }
     // 요약 줄(triageQueueSummary 형식)만 본다 — 사람이 쓴 행 제목에도 "전체"가 들어갈 수 있다.
     await expect(queueCard.getByText(/^(오래 기다린 \d+건 · )?전체 \d+건$/)).toHaveCount(0);
-    // 전체 메뉴 배지(AdminSectionPendingBadge)도 같은 집계를 쓴다.
+    // 사이드바 배지도 같은 집계를 쓴다 — 실패하면 건수를 그리지 않는다.
     await expect(page.getByText(/건 처리 대기$/)).toHaveCount(0);
   });
 });
