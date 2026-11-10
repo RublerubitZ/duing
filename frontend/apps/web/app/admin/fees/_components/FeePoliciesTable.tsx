@@ -45,7 +45,6 @@ export function FeePoliciesTable({
     return (
       <ConsoleCard>
         <EmptyState
-          icon="📄"
           title="회비 정책이 없습니다"
           body={'선택한 기간에 조회되는 정책이 없어요.\n기간을 넓혀보세요.'}
         />

@@ -151,7 +151,7 @@ export function FacilityCrawlTab() {
           />
         )}
         {reservationsQuery.data && reservationsQuery.data.content.length === 0 && (
-          <EmptyState icon="🗓️" title="크롤 예약이 없어요" body="이 조건에 수집된 학교 예약이 없습니다." />
+          <EmptyState title="크롤 예약이 없어요" body="이 조건에 수집된 학교 예약이 없습니다." />
         )}
         {reservationsQuery.data && reservationsQuery.data.content.length > 0 && (
           <ul className="divide-y divide-line">

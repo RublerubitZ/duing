@@ -46,6 +46,8 @@ const config: Config = {
         },
         // paper.warm — 크림 캔버스 위에 얹히는 옅은 웜 화이트 표면(관리자 콘솔 사이드바).
         paper: { DEFAULT: '#FFFFFF', warm: '#FBFAF6' },
+        // console — 운영진 콘솔 사이드바의 진한 초록 표면(위 DEFAULT → 아래 deep). 총동연 콘솔은 paper.warm 을 쓴다.
+        console: { DEFAULT: '#34463E', deep: '#2A382F' },
         // deep — 같은 색상의 진한 변형. 토큰/10 배경 위 배지 글자·아이콘용(흰·크림·크림2 바탕에서 WCAG AA 4.5:1 이상).
         // warm.deep 은 warm/20 위 "고정" 칩에도 쓴다 — 최악(크림2) 4.52 라 여유가 거의 없으니 값을 밝히지 말 것.
         warm: { DEFAULT: '#E8B968', deep: '#865D14' },

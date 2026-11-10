@@ -90,7 +90,6 @@ export function FeePaymentsTable({
           {payments.length === 0 ? (
             <ConsoleCard>
               <EmptyState
-                icon="🧾"
                 title="납부 내역이 없습니다"
                 body={'선택한 기간에 기록된 납부가 없어요.\n기간이나 상태 필터를 바꿔보세요.'}
               />

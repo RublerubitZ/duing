@@ -195,10 +195,9 @@ export function SubmissionBatchesTab({ statusFilter }: { statusFilter?: Submissi
       {!batchesQuery.isLoading && batchesQuery.isSuccess && batches.length === 0 && (
         hasFilter ? (
           // 초기화 버튼은 바로 위 필터 행에 이미 있다(같은 카드) — 여기서 한 번 더 두면 같은 이름 버튼이 둘이 된다.
-          <EmptyState icon="🔍" title="조건에 맞는 제출 목록이 없어요" body="검색어·생성일 범위를 넓혀보세요." />
+          <EmptyState title="조건에 맞는 제출 목록이 없어요" body="검색어·생성일 범위를 넓혀보세요." />
         ) : (
           <EmptyState
-            icon="📄"
             title={statusFilter === 'REVIEWING' ? '진행 중인 제출 목록이 없어요' : '아직 만든 제출 목록이 없어요'}
             body="'제출 준비' 탭에서 승인된 예약을 골라 만들 수 있어요."
             action={

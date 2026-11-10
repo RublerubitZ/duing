@@ -182,7 +182,7 @@ export function ManageNav({ currentClubId, collapsed = false }: ManageNavProps) 
             (collapsed ? (
               groupIndex > 0 && <div aria-hidden className="h-2" />
             ) : (
-              <p className="px-3 pb-1 pt-2.5 text-[10.5px] font-bold uppercase tracking-[0.1em] text-white/35">
+              <p className="px-3 pb-1 pt-2.5 text-xs font-semibold text-white/60">
                 {group.label}
               </p>
             ))}
@@ -232,7 +232,7 @@ function ManageNavItem({ item, collapsed }: { item: NavItem; collapsed: boolean 
         'relative my-0.5 flex items-center gap-3 rounded-md py-2.5 text-[13.5px] font-semibold outline-none',
         'focus-visible:ring-2 focus-visible:ring-sage motion-safe:transition-colors motion-safe:duration-200',
         collapsed ? 'justify-center px-0' : 'px-3',
-        item.active ? 'bg-white/10 font-bold text-white' : 'text-white/60 hover:bg-white/5 hover:text-white',
+        item.active ? 'bg-white/10 font-bold text-white' : 'text-white/75 hover:bg-white/5 hover:text-white',
       )}
     >
       {item.active && (
