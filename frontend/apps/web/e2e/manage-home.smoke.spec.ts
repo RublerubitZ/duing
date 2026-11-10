@@ -237,7 +237,7 @@ test.describe('회장 홈', () => {
       }),
     ).toBeVisible();
     // 공개 상세는 조회 비컨 POST 를 보내 들어가지 않고 주소만 본다.
-    await expect(feedCard.getByRole('link', { name: '동아리 페이지 바로가기 →', exact: true })).toHaveAttribute('href', `/clubs/${clubId}`);
+    await expect(feedCard.getByRole('link', { name: '동아리 페이지 바로가기', exact: true })).toHaveAttribute('href', `/clubs/${clubId}`);
 
     // 오늘 일정은 라운드 fan-out 을 다시 구현하지 않고 "배지 건수 = 행 수"만 본다.
     const todayCard = card(page, '오늘 일정');
