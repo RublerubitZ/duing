@@ -211,7 +211,7 @@ describe('InterestingClubs — 로고 폴백', () => {
     const { container } = render(await InterestingClubs());
 
     // CSS 만으로 이뤄진 수정이라 클래스 불변식으로 잡는다 — md 에서 4열로 되돌리면 배지가 카드 밖으로
-    // 튀고(768 실측 36px), cqw 루트를 빼면 1024 에서 카드가 세로로 길어진다(비율 0.76).
+    // 튀고(768 실측 36px), cqw 루트를 빼면 1024 에서도 안쪽 치수가 1280 크기 그대로 남는다.
     const grid = container.querySelector('.md\\:grid-cols-2');
     expect(grid).toHaveClass('lg:grid-cols-4');
     const wrapper = grid?.firstElementChild;
