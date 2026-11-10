@@ -75,7 +75,7 @@ export function submissionBlockVisual(booking: SubmissionCandidateBooking): Bloc
     return { container: 'border-coral/40 bg-coral/10 opacity-70', nameClass: 'text-coral-deep line-through', badge: null };
   }
   if (booking.status === 'CONFLICT') {
-    return { container: 'border-warm/60 bg-warm/20', nameClass: 'text-[#8E6620]', badge: '충돌' };
+    return { container: 'border-warm/60 bg-warm/20', nameClass: 'text-warm-deep', badge: '충돌' };
   }
   if (booking.status === 'CONFIRMED') {
     return { container: 'border-sage bg-sage/30', nameClass: 'text-ink-deep', badge: '등록완료' };

@@ -15,6 +15,7 @@ import {
 import { HomeNav } from '@/app/_components/HomeNav';
 import { cn } from '@/app/_lib/cn';
 import { ButtonSpinner } from '@/components/loading/Spinner';
+import { ArrowLeft } from '@/components/duing/Icon';
 import { TextLinesSkeleton } from '@/components/loading/Skeleton';
 import { toRoute } from '@/app/_lib/route';
 import { ConfirmDialog } from '@/app/_components/ConfirmDialog';
@@ -68,9 +69,10 @@ export function InquiryDetailPage({ inquiryId }: Props) {
           <p className="text-center">
             <Link
               href={toRoute('/me/inquiries')}
-              className="text-sm font-semibold text-ink hover:underline"
+              className="inline-flex items-center gap-1 text-sm font-semibold text-ink hover:underline"
             >
-              ← 내 문의 목록으로
+              <ArrowLeft size={14} aria-hidden />
+              내 문의 목록으로
             </Link>
           </p>
         </main>
@@ -157,8 +159,9 @@ export function InquiryDetailPage({ inquiryId }: Props) {
     <div className="duing min-h-dvh bg-cream">
       <HomeNav slimOnMobile />
       <main className="mx-auto max-w-3xl px-6 py-10">
-        <Link href={toRoute('/me/inquiries')} className="text-sm text-charcoal-2 hover:text-ink">
-          ← 내 문의
+        <Link href={toRoute('/me/inquiries')} className="inline-flex items-center gap-1 text-sm text-charcoal-2 hover:text-ink">
+          <ArrowLeft size={14} aria-hidden />
+          내 문의
         </Link>
 
         <div className="mt-4 space-y-5">
@@ -173,7 +176,7 @@ export function InquiryDetailPage({ inquiryId }: Props) {
                     onChange={(event) => setEditTitle(event.target.value)}
                     maxLength={TITLE_MAX_LENGTH}
                     required
-                    className="w-full rounded-lg border border-line px-3 py-2 text-sm text-ink-deep focus:border-sage focus:outline-none"
+                    className="w-full rounded-lg border border-line px-3 py-2 text-sm text-ink-deep focus:border-ink focus:outline-none focus:ring-[3px] focus:ring-ink/15"
                   />
                 </label>
                 <label className="flex flex-col gap-1.5">
@@ -184,7 +187,7 @@ export function InquiryDetailPage({ inquiryId }: Props) {
                     maxLength={CONTENT_MAX_LENGTH}
                     required
                     rows={10}
-                    className="w-full resize-none rounded-lg border border-line px-3 py-2 text-sm text-ink-deep focus:border-sage focus:outline-none"
+                    className="w-full resize-none rounded-lg border border-line px-3 py-2 text-sm text-ink-deep focus:border-ink focus:outline-none focus:ring-[3px] focus:ring-ink/15"
                   />
                 </label>
 

@@ -53,7 +53,7 @@ export function AdminClubsTable({
   return (
     <div className="border-line overflow-x-auto rounded-md border bg-white">
       <table className="w-full text-sm">
-        <thead className="border-line bg-graysoft border-b text-[12px] uppercase text-slate-500">
+        <thead className="border-line bg-graysoft border-b text-[12px] uppercase text-charcoal-3">
           <tr>
             <th className={cn('whitespace-nowrap px-4 py-3 text-left', isSignalView && 'min-w-[16rem]')}>이름</th>
             {isSignalView ? null : <th className="whitespace-nowrap px-4 py-3 text-left">분류</th>}
@@ -80,7 +80,7 @@ export function AdminClubsTable({
               <React.Fragment key={club.id}>
                 <tr className="border-line border-b last:border-b-0">
                   <td className="px-4 py-3">
-                    <div className="flex flex-wrap items-center gap-1.5 font-medium text-slate-900">
+                    <div className="flex flex-wrap items-center gap-1.5 font-medium text-ink-deep">
                       <Link
                         href={`/admin/clubs/${club.id}`}
                         className="break-keep hover:underline"
@@ -90,7 +90,7 @@ export function AdminClubsTable({
                       {club.centralClub && (
                         <span
                           aria-label="중앙동아리"
-                          className="whitespace-nowrap rounded-full bg-slate-900 px-1.5 py-0.5 text-[10px] font-semibold text-white"
+                          className="whitespace-nowrap rounded-full bg-ink-deep px-1.5 py-0.5 text-[11px] font-semibold text-white"
                         >
                           🏛️ 중앙
                         </span>
@@ -98,29 +98,29 @@ export function AdminClubsTable({
                       {club.facilitySecuredTimeTarget && (
                         <span
                           aria-label="기본 확보 시간 대상"
-                          className="whitespace-nowrap rounded-full bg-emerald-700 px-1.5 py-0.5 text-[10px] font-semibold text-white"
+                          className="whitespace-nowrap rounded-full bg-paper px-1.5 py-0.5 text-[11px] font-semibold text-ink ring-1 ring-inset ring-ink"
                         >
                           확보 대상
                         </span>
                       )}
                     </div>
-                    <div className="text-xs text-slate-500">{clubCategoryLabel(club.category)}</div>
+                    <div className="text-xs text-charcoal-3">{clubCategoryLabel(club.category)}</div>
                     {signal && club.signalDetail ? (
                       <SignalWatchPoints clubName={club.name} signal={signal} signalDetail={club.signalDetail} now={now} />
                     ) : null}
                   </td>
                   {isSignalView ? null : (
-                    <td className="whitespace-nowrap px-4 py-3 text-slate-600">{club.division ?? '—'}</td>
+                    <td className="whitespace-nowrap px-4 py-3 text-charcoal-2">{club.division ?? '—'}</td>
                   )}
                   <td className="px-4 py-3">
                     {club.leaderName ? (
                       <div className="whitespace-nowrap">
-                        <div className="text-slate-900">{club.leaderName}</div>
-                        <div className="text-xs text-slate-500">{club.leaderStudentId}</div>
+                        <div className="text-ink-deep">{club.leaderName}</div>
+                        <div className="text-xs text-charcoal-3">{club.leaderStudentId}</div>
                       </div>
                     ) : (
                       // 신호 화면은 어느 줄에도 경고색을 쓰지 않는다(스펙 §8-3) — 일반 목록만 기존 경고색.
-                      <span className={cn('whitespace-nowrap', isSignalView ? 'text-slate-500' : 'text-rose-600')}>회장 정보 없음</span>
+                      <span className={cn('whitespace-nowrap', isSignalView ? 'text-charcoal-3' : 'text-coral-deep')}>회장 정보 없음</span>
                     )}
                   </td>
                   {isSignalView ? null : (
@@ -135,23 +135,23 @@ export function AdminClubsTable({
                           {STATUS_LABEL[club.status]}
                         </span>
                         {cleanupCounts && (
-                          <div className="mt-1 break-keep text-xs text-slate-600">{pendingCleanupRowText(cleanupCounts)}</div>
+                          <div className="mt-1 break-keep text-xs text-charcoal-2">{pendingCleanupRowText(cleanupCounts)}</div>
                         )}
                       </td>
-                      <td className="px-4 py-3 text-xs text-slate-500">{auditText}</td>
+                      <td className="px-4 py-3 text-xs text-charcoal-3">{auditText}</td>
                       <td className="px-4 py-3 text-right">
                         <div className="inline-flex flex-wrap justify-end gap-1.5">
                           <button
                             type="button"
                             onClick={() => onCentralClubToggleClick(club)}
-                            className="whitespace-nowrap rounded-md border border-slate-200 px-2.5 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                            className="whitespace-nowrap rounded-md border border-line px-2.5 py-1 text-xs font-semibold text-charcoal hover:bg-cream"
                           >
                             {club.centralClub ? '중앙 해제' : '중앙 지정'}
                           </button>
                           <button
                             type="button"
                             onClick={() => onSecuredTargetToggleClick(club)}
-                            className="whitespace-nowrap rounded-md border border-slate-200 px-2.5 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                            className="whitespace-nowrap rounded-md border border-line px-2.5 py-1 text-xs font-semibold text-charcoal hover:bg-cream"
                           >
                             {club.facilitySecuredTimeTarget ? '확보 해제' : '확보 지정'}
                           </button>
@@ -160,7 +160,7 @@ export function AdminClubsTable({
                             <button
                               type="button"
                               onClick={() => onPendingCleanupClick(club, cleanupCounts)}
-                              className="whitespace-nowrap rounded-md border border-rose-200 px-2.5 py-1 text-xs font-semibold text-rose-700 hover:bg-rose-50"
+                              className="whitespace-nowrap rounded-md border border-danger/30 px-2.5 py-1 text-xs font-semibold text-danger hover:bg-danger/5"
                             >
                               {PENDING_CLEANUP_ACTION_LABEL}
                             </button>
@@ -173,8 +173,8 @@ export function AdminClubsTable({
                               className={cn(
                                 'whitespace-nowrap rounded-md border px-2.5 py-1 text-xs font-semibold',
                                 action.tone === 'danger'
-                                  ? 'border-rose-200 text-rose-700 hover:bg-rose-50'
-                                  : 'border-emerald-200 text-emerald-700 hover:bg-emerald-50',
+                                  ? 'border-danger/30 text-danger hover:bg-danger/5'
+                                  : 'border-sage-soft text-ink hover:bg-sage-mist',
                               )}
                             >
                               {action.label}
@@ -184,7 +184,7 @@ export function AdminClubsTable({
                             <button
                               type="button"
                               onClick={() => onCloseClick(club)}
-                              className="whitespace-nowrap rounded-md border border-rose-300 bg-rose-50 px-2.5 py-1 text-xs font-semibold text-rose-700 hover:bg-rose-100"
+                              className="whitespace-nowrap rounded-md border border-danger/30 bg-danger/5 px-2.5 py-1 text-xs font-semibold text-danger hover:bg-danger/10"
                             >
                               삭제
                             </button>
@@ -195,8 +195,8 @@ export function AdminClubsTable({
                   )}
                 </tr>
                 {isRejected && (
-                  <tr className="border-line border-b bg-rose-50 last:border-b-0">
-                    <td colSpan={isSignalView ? 2 : 6} className="px-4 py-2 text-xs text-rose-700">
+                  <tr className="border-line border-b bg-coral/10 last:border-b-0">
+                    <td colSpan={isSignalView ? 2 : 6} className="px-4 py-2 text-xs text-coral-deep">
                       <span className="font-semibold">거절 사유: </span>
                       {club.rejectionReason}
                     </td>
@@ -225,7 +225,7 @@ function SignalWatchPoints({
 }) {
   const watchPoints = signalWatchPoints(signal, signalDetail, now);
   return (
-    <div className="mt-1 text-xs text-slate-600">
+    <div className="mt-1 text-xs text-charcoal-2">
       {watchPoints.recruitment ? (
         <>
           <p className="break-keep">
@@ -235,7 +235,7 @@ function SignalWatchPoints({
               href={toRoute(`/admin/recruitments/${watchPoints.recruitment.recruitmentId}`)}
               aria-label={`${clubName} 모집: ${watchPoints.recruitment.title}`}
               title={watchPoints.recruitment.title}
-              className="inline-block max-w-[12rem] truncate rounded py-3.5 align-middle font-medium text-slate-900 underline underline-offset-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink"
+              className="inline-block max-w-[12rem] truncate rounded py-3.5 align-middle font-medium text-ink-deep underline underline-offset-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink"
             >
               {watchPoints.recruitment.title}
             </Link>

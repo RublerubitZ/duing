@@ -85,7 +85,6 @@ export function AdminClubActivityLogList({ clubId }: { clubId: number }) {
           {events.length === 0 ? (
             <ConsoleCard>
               <EmptyState
-                icon="🗒️"
                 title="기록된 활동이 없습니다"
                 body={'선택한 유형에 기록된 활동이 없어요.\n활동 이력은 계측 배포 이후의 변경부터 기록됩니다.'}
               />
@@ -116,7 +115,7 @@ export function AdminClubActivityLogList({ clubId }: { clubId: number }) {
                             href={toRoute(
                               `/admin/clubs/${clubId}/join-codes?joinCodeId=${event.joinCodeId}`,
                             )}
-                            className="text-[12.5px] text-indigo-600 hover:underline"
+                            className="text-[12.5px] text-ink hover:underline"
                           >
                             링크 보기 →
                           </Link>

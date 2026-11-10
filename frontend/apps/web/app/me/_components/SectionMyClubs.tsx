@@ -77,7 +77,7 @@ export function SectionMyClubs({ myClubs, isPending = false }: Props) {
           <div className="bg-paper border border-line rounded-lg px-8 py-12 text-center text-charcoal-3 text-sm">
             아직 가입한 동아리가 없어요.{' '}
             <Link href="/clubs" className="text-ink font-semibold hover:underline">
-              동아리 탐색하러 가기 →
+              동아리 탐색하러 가기
             </Link>
           </div>
         ) : (
@@ -106,7 +106,7 @@ export function SectionMyClubs({ myClubs, isPending = false }: Props) {
                     )}
                   >
                     <ClubLogo logoUrl={club.logoUrl} alt={club.clubName}>
-                      <span>🏛</span>
+                      <span aria-hidden className="font-bold">{(club.clubName || '?').trim().charAt(0)}</span>
                     </ClubLogo>
                   </div>
 
@@ -115,11 +115,10 @@ export function SectionMyClubs({ myClubs, isPending = false }: Props) {
                       <span className="font-bold text-[16px] text-ink-deep">{club.clubName}</span>
                       <span
                         className={cn(
-                          'pill text-[10.5px]',
+                          'pill text-[11px]',
                           isManager && 'bg-ink text-white border-ink',
                         )}
                       >
-                        {isManager && '✦ '}
                         {roleLabel}
                       </span>
                     </div>

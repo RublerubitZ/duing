@@ -36,11 +36,12 @@ describe('deep 토큰 글자 대비(WCAG AA 4.5:1) — 밝은 바탕 4종', () =
     ['text-warm-deep', 'bg-warm/20'],
     ['text-coral-deep', 'bg-coral/5'],
     ['text-coral-deep', 'bg-coral/10'],
+    ['text-sky-deep', 'bg-sky/10'],
   ] as const)('%s 는 바탕 4종 위 %s 합성에서 4.5:1 이상이다', (textClass, tintClass) => {
     expect(worstContrast(textClass, tintClass)).toBeGreaterThanOrEqual(SMALL_TEXT_AA);
   });
 
-  // bg-coral/15 는 흰 모달 1곳(시설 예약 상세 BookingDetailModal 의 충돌 배너)에만 쓴다 — 크림 계열 위(최악 4.44)에는 쓰지 않는다.
+  // bg-coral/15 는 흰 바탕(시설 예약 상세 BookingDetailModal 의 충돌 배너, 총동연 예약 대기열 충돌 행의 hover)에만 쓴다 — 크림 계열 위(최악 4.44)에는 쓰지 않는다.
   it('text-coral-deep 은 흰 바탕 위 bg-coral/15 합성에서 4.5:1 이상이다', () => {
     expect(worstContrast('text-coral-deep', 'bg-coral/15', [LIGHT_SURFACES.흰색])).toBeGreaterThanOrEqual(SMALL_TEXT_AA);
   });

@@ -230,7 +230,7 @@ export function AdminFaqListPage() {
                           <span
                             className={cn(
                               'inline-block px-2 py-0.5 rounded-full text-[11.5px] font-semibold',
-                              faq.published ? 'bg-sage-mist text-ink-deep' : 'bg-graysoft text-charcoal-2',
+                              faq.published ? 'bg-sage/10 text-sage-deep' : 'bg-graysoft text-charcoal-2',
                             )}
                           >{faq.published ? '공개' : '비공개'}</span>
                         </Td>

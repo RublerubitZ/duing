@@ -70,9 +70,8 @@ export function ApplicantInterviewScheduleCard({
             </span>
             <h2 className="min-w-0 break-words text-base font-semibold text-ink">{title}</h2>
           </div>
-          {/* 장식 화살표는 aria-label 이 이미 accname 에서 빼고 있다(WCAG 2.5.3 — 가시 텍스트 포함). */}
-          <Link href={roundHref} aria-label="면접 관리에서 조정" className={ROUND_LINK_CLASS}>
-            면접 관리에서 조정 →
+          <Link href={roundHref} className={ROUND_LINK_CLASS}>
+            면접 관리에서 조정
           </Link>
         </header>
 

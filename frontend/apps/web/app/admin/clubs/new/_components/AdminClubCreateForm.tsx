@@ -130,7 +130,7 @@ export function AdminClubCreateForm() {
       </Field>
 
       <Field label="중앙동아리 여부">
-        <label className="inline-flex items-center gap-2 text-sm text-slate-700">
+        <label className="inline-flex items-center gap-2 text-sm text-charcoal">
           <input
             type="checkbox"
             checked={centralClub}
@@ -140,7 +140,7 @@ export function AdminClubCreateForm() {
               setCollege('');
               setDepartment('');
             }}
-            className="h-4 w-4 rounded border-slate-300"
+            className="h-4 w-4 rounded border-line"
           />
           중앙동아리로 지정 (공개 화면에 🏛️ 배지 노출)
         </label>
@@ -217,13 +217,13 @@ export function AdminClubCreateForm() {
       </Field>
 
       {formError && (
-        <p className="rounded-md bg-rose-50 px-3 py-2 text-sm text-rose-700">{formError}</p>
+        <p className="rounded-md bg-coral/10 px-3 py-2 text-sm text-coral-deep">{formError}</p>
       )}
 
       <div className="flex items-center justify-end gap-2 pt-2">
         <Link
           href={toRoute('/admin/clubs')}
-          className="text-charcoal-2 rounded-md px-3 py-2 text-sm hover:bg-slate-100"
+          className="text-charcoal-2 rounded-md px-3 py-2 text-sm hover:bg-graysoft"
         >
           취소
         </Link>

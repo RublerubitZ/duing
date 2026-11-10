@@ -13,7 +13,7 @@ type SparkleProps = {
   style?: React.CSSProperties;
 };
 
-export function Sparkle({ size = 16, color = '#9DB6A0', className = '', style = {} }: SparkleProps) {
+export function Sparkle({ size = 16, color = 'var(--sage)', className = '', style = {} }: SparkleProps) {
   return (
     <svg
       className={className}
@@ -44,7 +44,7 @@ type SparkleFullProps = {
   style?: React.CSSProperties;
 };
 
-export function SparkleFull({ size = 24, color = '#9DB6A0', className = '', style = {} }: SparkleFullProps) {
+export function SparkleFull({ size = 24, color = 'var(--sage)', className = '', style = {} }: SparkleFullProps) {
   return (
     <svg
       className={className}

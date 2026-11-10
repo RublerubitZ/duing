@@ -78,7 +78,7 @@ export function MemberAssignModal({
         </fieldset>
 
         {showRescheduleNotice && (
-          <p className="rounded-md bg-sky-50 px-3 py-2 text-xs text-sky-700">
+          <p className="rounded-md bg-sky/10 px-3 py-2 text-xs text-sky-deep">
             변경 시 지원자에게 일정 변경 알림이 발송됩니다.
           </p>
         )}

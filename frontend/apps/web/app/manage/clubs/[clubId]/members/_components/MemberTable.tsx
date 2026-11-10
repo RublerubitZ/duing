@@ -22,8 +22,8 @@ type Props = {
 };
 
 const FEE_STATUS: Record<MemberFeeStatus, { label: string; className: string }> = {
-  PAID: { label: '납부', className: 'bg-sage-mist text-ink' },
-  UNPAID: { label: '미납', className: 'bg-[#fce2d9] text-[#9a3f23]' },
+  PAID: { label: '납부', className: 'bg-sage/10 text-sage-deep' },
+  UNPAID: { label: '미납', className: 'bg-coral/10 text-coral-deep' },
   NONE: { label: '—', className: '' },
 };
 
@@ -109,7 +109,7 @@ export function MemberTable({
                     aria-label="전체 선택"
                     checked={allSelected}
                     onChange={onToggleAll}
-                    className="h-4 w-4 cursor-pointer rounded border-line text-ink focus:ring-sage"
+                    className="h-4 w-4 cursor-pointer accent-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
                   />
                 </th>
               )}
@@ -137,7 +137,7 @@ export function MemberTable({
                         aria-label={`${member.name} 선택`}
                         checked={isSelected}
                         onChange={() => onToggleSelect(member.memberId)}
-                        className="h-4 w-4 cursor-pointer rounded border-line text-ink focus:ring-sage"
+                        className="h-4 w-4 cursor-pointer accent-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
                       />
                     </td>
                   )}
@@ -208,7 +208,7 @@ export function MemberTable({
                       aria-label={`${member.name} 선택`}
                       checked={isSelected}
                       onChange={() => onToggleSelect(member.memberId)}
-                      className="mt-0.5 h-4 w-4 shrink-0 cursor-pointer rounded border-line text-ink focus:ring-sage"
+                      className="mt-0.5 h-4 w-4 shrink-0 cursor-pointer accent-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
                     />
                   </label>
                 )}

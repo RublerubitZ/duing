@@ -143,7 +143,6 @@ export function FeeAuditLogList({
           {logs.length === 0 ? (
             <ConsoleCard>
               <EmptyState
-                icon="🗒️"
                 title="감사 로그가 없습니다"
                 body={
                   '선택한 기간·유형에 기록된 변경이 없어요.\n감사 로그는 계측 배포 이후의 변경부터 기록됩니다.'

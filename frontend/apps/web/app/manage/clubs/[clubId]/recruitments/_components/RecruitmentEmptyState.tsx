@@ -10,8 +10,7 @@ type Props = {
 export function RecruitmentEmptyState({ clubId }: Props) {
   return (
     <div className="rounded-[20px] border border-dashed border-line bg-paper px-6 py-10 text-center">
-      <p className="text-3xl">📥</p>
-      <p className="mt-3 text-[15.5px] font-bold text-ink-deep">진행 중인 모집이 없어요</p>
+      <p className="text-[15.5px] font-bold text-ink-deep">진행 중인 모집이 없어요</p>
       <p className="mt-1.5 text-sm leading-relaxed text-charcoal-3">
         모집은 한 번에 하나씩만 진행할 수 있어요.
         <br />

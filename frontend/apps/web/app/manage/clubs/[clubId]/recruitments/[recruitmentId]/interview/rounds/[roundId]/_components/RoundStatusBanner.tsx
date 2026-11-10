@@ -39,7 +39,7 @@ export function RoundStatusBanner({
     detail.members.some((member) => member.status !== 'EXCLUDED');
 
   return (
-    <div className="rounded-xl border border-slate-200 bg-white px-5 py-4">
+    <div className="rounded-xl border border-line bg-white px-5 py-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <span
@@ -50,7 +50,7 @@ export function RoundStatusBanner({
           >
             {ROUND_STATUS_LABEL[status]}
           </span>
-          <span className="text-base font-semibold text-slate-900">{detail.title}</span>
+          <span className="text-base font-semibold text-ink-deep">{detail.title}</span>
         </div>
 
         <div className="flex items-center gap-2">
@@ -60,7 +60,7 @@ export function RoundStatusBanner({
               type="button"
               onClick={onAutoAssign}
               disabled={autoAssignPending}
-              className="inline-flex items-center gap-1.5 rounded-md bg-amber-500 px-3 py-1.5 text-sm font-medium text-white hover:bg-amber-600 disabled:opacity-50"
+              className="inline-flex items-center gap-1.5 rounded-md bg-warm-deep px-3 py-1.5 text-sm font-medium text-white hover:bg-warm-deep/90 disabled:opacity-50"
             >
               {autoAssignPending && <ButtonSpinner />}자동배정 실행
             </button>
@@ -72,7 +72,7 @@ export function RoundStatusBanner({
               type="button"
               onClick={onConfirm}
               disabled={confirmPending}
-              className="inline-flex items-center gap-1.5 rounded-md bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
+              className="inline-flex items-center gap-1.5 rounded-md bg-ink px-3 py-1.5 text-sm font-medium text-white hover:bg-ink-deep disabled:opacity-50"
             >
               {confirmPending && <ButtonSpinner />}확정
             </button>
@@ -84,7 +84,7 @@ export function RoundStatusBanner({
               href={toRoute(
                 `/manage/clubs/${clubId}/recruitments/${recruitmentId}/interview/rounds/new`,
               )}
-              className="rounded-md bg-purple-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-purple-700"
+              className="rounded-md bg-ink px-3 py-1.5 text-sm font-medium text-white hover:bg-ink-deep"
             >
               이어서 작성
             </Link>
@@ -94,15 +94,15 @@ export function RoundStatusBanner({
 
       {/* 조기 배정 UX ①: COLLECTING + 전원 응답 완료 배너 */}
       {allResponded && (
-        <div className="mt-3 rounded-md bg-emerald-50 px-4 py-2 text-sm text-emerald-700">
+        <div className="mt-3 rounded-md bg-sage-mist px-4 py-2 text-sm text-ink">
           전원 응답 완료 — 마감 전이지만 지금 배정할 수 있어요
         </div>
       )}
 
       {/* ASSIGNING — 배정안은 draft 상태임을 안내 */}
       {status === 'ASSIGNING' && (
-        <div className="mt-3 flex items-center gap-2 rounded-md bg-amber-50 px-4 py-2 text-sm text-amber-700">
-          <span className="rounded-full bg-amber-200 px-2 py-0.5 text-xs font-semibold text-amber-800">
+        <div className="mt-3 flex items-center gap-2 rounded-md bg-warm/10 px-4 py-2 text-sm text-warm-deep">
+          <span className="rounded-full bg-warm/20 px-2 py-0.5 text-xs font-semibold text-warm-deep">
             draft
           </span>
           확정 전까지 지원자에게 통지되지 않습니다
@@ -111,7 +111,7 @@ export function RoundStatusBanner({
 
       {/* SCHEDULED — 일정 변경 가능 안내 */}
       {status === 'SCHEDULED' && (
-        <div className="mt-3 rounded-md bg-sky-50 px-4 py-2 text-sm text-sky-700">
+        <div className="mt-3 rounded-md bg-sky/10 px-4 py-2 text-sm text-sky-deep">
           일정 변경 가능 — 지원자 행의 [일정 변경]을 통해 배정 슬롯을 수정할 수 있습니다
         </div>
       )}

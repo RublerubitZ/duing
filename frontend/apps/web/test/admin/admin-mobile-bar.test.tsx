@@ -1,7 +1,16 @@
-import { render, screen } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { render as rtlRender, screen, waitFor, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import type { ReactElement } from 'react';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { setupServer } from 'msw/node';
+import { http, HttpResponse } from 'msw';
+import { createApiClient } from '@duing/api';
+import { ApiClientProvider } from '@duing/hooks';
+import { useAuthStore } from '@duing/stores';
 
 import { AdminMobileBar } from '@/app/admin/_components/AdminMobileBar';
+import { ToastProvider } from '@/app/_components/toast/ToastProvider';
 
 const mockUsePathname = vi.fn(() => '/admin');
 vi.mock('next/navigation', () => ({
@@ -9,7 +18,51 @@ vi.mock('next/navigation', () => ({
   useRouter: () => ({ replace: vi.fn(), push: vi.fn() }),
 }));
 
+// 로그아웃 훅만 바꿔 끼운다 — 실제 훅은 세션 저장소 정리까지 해서 이 테스트 환경에서는 끝나지 않는다(저장소 미구성).
+// 이 화면이 책임지는 것은 "훅을 부르고, 끝나면 홈으로 하드 이동한다" 이다.
+const logoutSpy = vi.fn(async () => {});
+vi.mock('@duing/hooks', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@duing/hooks')>()),
+  useLogout: () => logoutSpy,
+}));
+
+// 드로어의 메뉴 배지·이름·알림 종이 조회하는 것들.
+const server = setupServer(
+  http.get('*/admin/pending-counts', () => HttpResponse.json({ ok: true, data: {}, message: null })),
+  http.get('*/users/me', () =>
+    HttpResponse.json({ ok: true, data: { id: 1, name: '김총무', role: 'ADMIN' }, message: null }),
+  ),
+  http.get('*/notifications/unread-count', () => HttpResponse.json({ ok: true, data: { count: 2 }, message: null })),
+);
+// 로그아웃 후 이동은 window.location.replace(하드 이동)다 — jsdom 은 Location 을 재정의할 수 없어 전역을 스텁한다.
+const hardReplaceSpy = vi.fn();
+beforeAll(() => {
+  server.listen({ onUnhandledRequest: 'error' });
+  vi.stubGlobal('location', { ...window.location, replace: hardReplaceSpy });
+});
+afterEach(() => {
+  server.resetHandlers();
+  logoutSpy.mockClear();
+  hardReplaceSpy.mockClear();
+  useAuthStore.setState(useAuthStore.getInitialState(), true);
+});
+afterAll(() => {
+  server.close();
+  vi.unstubAllGlobals();
+});
 beforeEach(() => mockUsePathname.mockReturnValue('/admin'));
+
+const apiClient = createApiClient({ baseUrl: 'http://localhost:8080/api/v1' });
+function render(ui: ReactElement) {
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  return rtlRender(
+    <ApiClientProvider client={apiClient}>
+      <QueryClientProvider client={queryClient}>
+        <ToastProvider>{ui}</ToastProvider>
+      </QueryClientProvider>
+    </ApiClientProvider>,
+  );
+}
 
 describe('AdminMobileBar', () => {
   it.each([
@@ -28,5 +81,28 @@ describe('AdminMobileBar', () => {
     expect(screen.getByRole('button', { name: '관리 메뉴 열기' }).parentElement).toHaveClass(
       'no-print',
     );
+  });
+
+  it('로그인 상태면 상단 바가 알림 종을 맡는다 — 콘솔에는 사이트 상단바가 없다', async () => {
+    useAuthStore.setState({ status: 'authenticated', isVerified: true, user: null });
+    render(<AdminMobileBar />);
+    await waitFor(() =>
+      expect(screen.getByRole('link', { name: '알림 2개' })).toHaveAttribute('href', '/notifications'),
+    );
+  });
+
+  it('드로어 아래에 내 이름(마이페이지)·홈으로·로그아웃이 있고, 로그아웃하면 홈으로 하드 이동한다', async () => {
+    useAuthStore.setState({ status: 'authenticated', isVerified: true, user: null });
+    const user = userEvent.setup();
+    render(<AdminMobileBar />);
+
+    await user.click(screen.getByRole('button', { name: '관리 메뉴 열기' }));
+    const drawer = within(await screen.findByRole('dialog', { name: '관리 메뉴' }));
+    expect(await drawer.findByRole('link', { name: /김총무/ })).toHaveAttribute('href', '/me');
+    expect(drawer.getByRole('link', { name: '홈으로' })).toHaveAttribute('href', '/');
+
+    await user.click(drawer.getByRole('button', { name: '로그아웃' }));
+    await waitFor(() => expect(hardReplaceSpy).toHaveBeenCalledWith('/'));
+    expect(logoutSpy).toHaveBeenCalledTimes(1);
   });
 });

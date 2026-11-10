@@ -100,7 +100,6 @@ export function AdminClubJoinCodesTable({ clubId, highlightJoinCodeId = null }: 
     return (
       <ConsoleCard>
         <EmptyState
-          icon="🔗"
           title="발급된 가입 링크가 없어요"
           body={'이 동아리가 만든 모집 가입 링크·부원 초대 링크가 아직 없습니다.'}
         />

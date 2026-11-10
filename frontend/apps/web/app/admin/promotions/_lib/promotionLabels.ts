@@ -7,7 +7,7 @@ export const ACTIVE_LABEL: Record<'true' | 'false', string> = {
 };
 
 export const ACTIVE_BADGE_CLASS: Record<'true' | 'false', string> = {
-  true: 'bg-emerald-100 text-emerald-700',
+  true: 'bg-sage/10 text-sage-deep',
   false: 'bg-graysoft text-charcoal-3',
 };
 
@@ -45,8 +45,8 @@ export const DISPLAY_STATUS_LABEL: Record<PromotionDisplayStatus, string> = {
 };
 
 export const DISPLAY_STATUS_BADGE_CLASS: Record<PromotionDisplayStatus, string> = {
-  LIVE: 'bg-emerald-100 text-emerald-700',
-  UPCOMING: 'bg-sky-100 text-sky-700',
+  LIVE: 'bg-sage/10 text-sage-deep',
+  UPCOMING: 'bg-sky/10 text-sky-deep',
   EXPIRED: 'bg-graysoft text-charcoal-3',
   INACTIVE: 'bg-graysoft text-charcoal-3',
 };

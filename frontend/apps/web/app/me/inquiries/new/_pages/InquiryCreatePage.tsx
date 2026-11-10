@@ -12,6 +12,7 @@ import { HomeNav } from '@/app/_components/HomeNav';
 import { captureEvent } from '@/app/_lib/analytics';
 import { toRoute } from '@/app/_lib/route';
 import { useToast } from '@/app/_components/toast/ToastProvider';
+import { ArrowLeft } from '@/components/duing/Icon';
 import { ButtonSpinner } from '@/components/loading/Spinner';
 import { InquiryImageUploader } from '../../_components/InquiryImageUploader';
 
@@ -60,8 +61,9 @@ export function InquiryCreatePage() {
     <div className="duing min-h-dvh bg-cream">
       <HomeNav slimOnMobile />
       <main className="mx-auto max-w-3xl px-6 py-10">
-        <Link href={toRoute('/me/inquiries')} className="text-sm text-charcoal-2 hover:text-ink">
-          ← 내 문의
+        <Link href={toRoute('/me/inquiries')} className="inline-flex items-center gap-1 text-sm text-charcoal-2 hover:text-ink">
+          <ArrowLeft size={14} aria-hidden />
+          내 문의
         </Link>
 
         <header className="mb-6 mt-3">
@@ -79,7 +81,7 @@ export function InquiryCreatePage() {
               onChange={(event) => setTitle(event.target.value)}
               maxLength={TITLE_MAX_LENGTH}
               required
-              className="w-full rounded-lg border border-line px-3 py-2 text-sm text-ink-deep focus:border-sage focus:outline-none"
+              className="w-full rounded-lg border border-line px-3 py-2 text-sm text-ink-deep focus:border-ink focus:outline-none focus:ring-[3px] focus:ring-ink/15"
             />
           </label>
 
@@ -91,7 +93,7 @@ export function InquiryCreatePage() {
               maxLength={CONTENT_MAX_LENGTH}
               required
               rows={10}
-              className="w-full resize-none rounded-lg border border-line px-3 py-2 text-sm text-ink-deep focus:border-sage focus:outline-none"
+              className="w-full resize-none rounded-lg border border-line px-3 py-2 text-sm text-ink-deep focus:border-ink focus:outline-none focus:ring-[3px] focus:ring-ink/15"
             />
           </label>
 
