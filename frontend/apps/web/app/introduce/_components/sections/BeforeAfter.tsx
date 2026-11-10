@@ -1,4 +1,4 @@
-import { Check } from 'lucide-react';
+import { ArrowRight, Check } from 'lucide-react';
 import { FadeIn } from '@/components/motion/FadeIn';
 import { Reveal } from '../motion/Reveal';
 
@@ -23,9 +23,6 @@ export function BeforeAfter() {
     <section className="py-20 md:py-28">
       <div className="mx-auto max-w-layout px-4 sm:px-6 md:px-10">
         <FadeIn>
-          <p className="mb-4 tabular-nums text-[11.5px] font-semibold uppercase tracking-[0.22em] text-ink">
-            FOR LEADERS · 동아리를 운영한다면
-          </p>
           <h2 className="mb-3 max-w-[820px]" style={{ fontSize: 'clamp(28px, 3.8vw, 44px)' }}>
             공지는 카카오톡, 지원서는 구글폼,
             <br />
@@ -63,7 +60,7 @@ export function BeforeAfter() {
                 className="grid h-11 w-11 place-items-center rounded-full bg-ink text-paper shadow-2"
                 aria-hidden
               >
-                <span className="rotate-90 text-lg md:rotate-0">→</span>
+                <ArrowRight size={18} className="rotate-90 md:rotate-0" />
               </span>
             </div>
           </FadeIn>

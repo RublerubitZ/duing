@@ -2,6 +2,7 @@
 
 import { PhoneVerificationField } from '@/app/_components/PhoneVerificationField';
 import { SignupIllustration } from '@/app/_components/SignupIllustration';
+import { ArrowRight } from '@/components/duing/Icon';
 import type { PhoneVerificationController } from '@/app/_lib/use-phone-verification';
 
 type Props = {
@@ -61,7 +62,8 @@ export function SignupStepVerify({ phone, onPhoneChange, verification, onNext }:
 
       {verification.verified && (
         <button type="button" onClick={onNext} className="btn btn-primary btn-big w-full">
-          다음 →
+          다음
+          <ArrowRight size={16} aria-hidden />
         </button>
       )}
     </div>

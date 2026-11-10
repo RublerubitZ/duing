@@ -9,7 +9,7 @@ const BENEFITS = [
     label: '대구대 동아리 정보',
     color: 'bg-sky/30 text-sky',
     icon: (
-      <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+      <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden>
         <path d="M7 1.5l1.3 4H13l-3.5 2.5 1.3 4L7 9.5 3.2 12l1.3-4L1 5.5h4.7L7 1.5z" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round" />
       </svg>
     ),
@@ -18,7 +18,7 @@ const BENEFITS = [
     label: '마감 임박·면접 일정 알람',
     color: 'bg-warm/30 text-warm',
     icon: (
-      <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+      <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden>
         <path d="M7 1.5a4 4 0 014 4v2.5l1 1.5H2l1-1.5V5.5a4 4 0 014-4z" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round" />
         <path d="M5.5 11.5a1.5 1.5 0 003 0" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
       </svg>
@@ -28,7 +28,7 @@ const BENEFITS = [
     label: '지원서 자동 임시 저장',
     color: 'bg-sage-soft/40 text-ink',
     icon: (
-      <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+      <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden>
         <rect x="2" y="1.5" width="10" height="11" rx="1.5" stroke="currentColor" strokeWidth="1.2" />
         <path d="M4.5 5h5M4.5 7.5h5M4.5 10h3" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
       </svg>
@@ -38,7 +38,7 @@ const BENEFITS = [
     label: '찜한 동아리 모아보기',
     color: 'bg-berry/20 text-berry',
     icon: (
-      <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+      <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden>
         <path d="M7 11.5S2 8 2 4.5a2.5 2.5 0 015-0 2.5 2.5 0 015 0C12 8 7 11.5 7 11.5z" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round" />
       </svg>
     ),
@@ -63,7 +63,7 @@ export default async function SignupPage() {
         {/* Logo */}
         <div className="relative z-10 flex items-center gap-2.5 px-8 pt-8">
           <span className="brand-mark">
-            <span className="b-d" style={{ color: '#fff' }}>D</span>
+            <span className="b-d" style={{ color: 'var(--paper)' }}>D</span>
             <span className="b-u" style={{ color: 'rgba(157,182,160,0.85)', marginLeft: '-7px' }}>u</span>
             <span className="b-ing" style={{ color: 'rgba(255,255,255,0.75)' }}>ing</span>
             <svg className="b-spark" viewBox="0 0 14 14" fill="none" aria-hidden="true">
@@ -73,21 +73,18 @@ export default async function SignupPage() {
               />
             </svg>
           </span>
-          <span className="rounded-full bg-white/10 px-2.5 py-1 text-[11px] font-semibold tracking-wide06 text-cream/75">
+          <span className="rounded-full bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-cream/75">
             대구대학교
           </span>
         </div>
 
         {/* Main copy */}
         <div className="relative z-10 flex flex-1 flex-col justify-center px-8">
-          <p className="mb-3 text-xs font-semibold uppercase tracking-wide16 text-sage-soft">
-            JOIN DUING
-          </p>
           {/* `.duing h2` 가 text-ink-deep(어두운 색) 를 강제해 Tailwind 텍스트 색 유틸리티를 덮으므로,
               다크 패널에서는 인라인 스타일로 흰색을 지정해 배경(ink-deep)과 묻히지 않게 한다(brand-mark 와 동일 패턴). */}
           <h2
             className="mb-4 text-[2.5rem] font-bold leading-tight tracking-tightx"
-            style={{ color: '#fff' }}
+            style={{ color: 'var(--paper)' }}
           >
             30초 만에
             <br />
@@ -105,7 +102,7 @@ export default async function SignupPage() {
 
           {/* Benefits list */}
           <div className="rounded-lg bg-white/8 p-4">
-            <p className="mb-3 text-xs font-semibold text-cream/50 tracking-wide04">
+            <p className="mb-3 text-xs font-semibold text-cream/50">
               가입하면 바로 누리는 혜택
             </p>
             <ul className="space-y-2.5">

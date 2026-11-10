@@ -1,11 +1,13 @@
 'use client';
 
+import { Check } from 'lucide-react';
 import { CollegeSelect } from '@/app/_components/CollegeSelect';
 import { GradeSelect } from '@/app/_components/GradeSelect';
 import { TermsAgreement } from './TermsAgreement';
 import type { SignupFormState } from '../_lib/signup-state';
 import type { College, Grade } from '@duing/types';
 import { ButtonSpinner } from '@/components/loading/Spinner';
+import { ArrowLeft } from '@/components/duing/Icon';
 
 const inputCls =
   'w-full rounded-md border border-line bg-paper px-3.5 py-3 text-sm text-charcoal outline-none transition focus:border-ink focus:ring-1 focus:ring-ink/20 placeholder:text-charcoal-3/50';
@@ -50,8 +52,11 @@ export function SignupStepProfile({
       </div>
 
       {/* 앞 단계 인증 완료 배지 */}
-      <div className="flex items-center gap-2 rounded-md border border-emerald-600/30 bg-emerald-600/5 px-3.5 py-2.5 text-sm">
-        <span className="font-medium text-emerald-600">✓ 휴대폰 인증 완료</span>
+      <div className="flex items-center gap-2 rounded-md border border-sage/50 bg-sage/10 px-3.5 py-2.5 text-sm">
+        <span className="inline-flex items-center gap-1 font-medium text-sage-deep">
+          <Check size={14} aria-hidden />
+          휴대폰 인증 완료
+        </span>
         <span className="text-charcoal-3">{state.phone}</span>
       </div>
 
@@ -207,7 +212,8 @@ export function SignupStepProfile({
       {/* 버튼 */}
       <div className="flex gap-2 pt-1">
         <button type="button" onClick={onBack} className="btn btn-big">
-          ← 이전
+          <ArrowLeft size={16} aria-hidden />
+          이전
         </button>
         <button type="submit" disabled={!canSubmit} className="btn btn-primary btn-big flex-1 disabled:opacity-50">
           {isSubmitting && <ButtonSpinner />}가입 완료
