@@ -646,6 +646,9 @@ export function createApiClient(options: CreateApiClientOptions): DuingApiClient
   const refreshCoordinator =
     authTransport === 'cookie'
       ? createRefreshCoordinator(async (): Promise<RefreshOutcome> => {
+          // 401 이 막기 가드를 지난 뒤 탭 사이 잠금·저장소 읽기를 기다리는 사이 막혔을 수 있다 — 훅 없는 갱신 요청이
+          // 바뀐 계정 쿠키로 나가지 않게 한다. 진짜 오프라인이면 원래도 'unavailable' 이라 동작이 같다.
+          if (isKnownOffline()) return 'unavailable';
           try {
             // 결과를 가르는 건 refresh 가 전송된 시점의 쿠키라 원 요청 시각이 아니라 이 시각을 싣는다.
             // 벽시계 역행에 흔들리지 않게 문서 단조 시각을 쓴다(세션 개시 시각과 같은 축).
@@ -658,6 +661,8 @@ export function createApiClient(options: CreateApiClientOptions): DuingApiClient
             });
             if (refreshResponse.status === 204) return 'refreshed';
             if (refreshResponse.status === 401 || refreshResponse.status === 404) {
+              // 막히기 전에 나간 갱신이 막힌 뒤 돌아왔다 — 막힌 문서에서 만료 안내·로그인 이동을 띄우지 않는다.
+              if (isKnownOffline()) return 'unavailable';
               notifyUnauthorized(refreshStartedAt);
               return 'session-expired';
             }
@@ -696,6 +701,11 @@ export function createApiClient(options: CreateApiClientOptions): DuingApiClient
             return;
           }
           if (authTransport === 'cookie') {
+            // 막힌 뒤 도착한 401 — 갱신·재시도는 훅 없는 ky 라 막기를 비켜 바뀐 쿠키로 나간다. 원 401 을 그대로 올린다.
+            // 진짜 오프라인에서도 결과가 같다(원 401 이 그대로 올라감).
+            if (isKnownOffline()) {
+              return;
+            }
             // authTransport==='cookie' 면 refreshCoordinator 는 구조상 항상 존재하지만,
             // 타입 내로잉으로 non-null 단언(!)을 피한다(레포 규약). 도달 불가 가드.
             if (refreshCoordinator === null) {
@@ -718,6 +728,8 @@ export function createApiClient(options: CreateApiClientOptions): DuingApiClient
             // 매 호출 request.clone() — new Request(사용된 Request) 는 바디 소비 TypeError 라, 두 번째
             // 재시도(skip→401→강제 갱신)에서 바디 있는 요청이 네트워크 오류로 둔갑한다.
             const retryOriginalRequest = () => {
+              // 갱신을 기다리는 사이(공유 잠금·저장소·갱신 요청) 막혔을 수 있다 — 세 재시도 자리가 모두 여기를 지난다.
+              if (isKnownOffline()) return;
               const preservedTimeout = Reflect.get(options, 'timeout');
               if (typeof preservedTimeout === 'number' || preservedTimeout === false) {
                 return ky(request.clone(), { retry: 0, timeout: preservedTimeout });
