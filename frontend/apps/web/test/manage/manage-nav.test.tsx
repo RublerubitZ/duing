@@ -13,7 +13,9 @@ const mockRecruitmentDetail = vi.fn(() => ({ data: undefined }) as { data: unkno
 const mockClubRecruitments = vi.fn(() => ({ data: undefined }) as { data: unknown });
 // 시설 예약 메뉴는 중앙동아리 여부와(비중앙이면) 예약 기록으로 정한다.
 const mockManagedClubs = vi.fn(() => ({ data: undefined }) as { data: unknown });
-const mockFacilityBookings = vi.fn((_clubId: number | undefined) => ({ data: undefined }) as { data: unknown });
+const mockFacilityBookings = vi.fn(
+  (_clubId: number | undefined) => ({ data: undefined, isError: false }) as { data: unknown; isError: boolean },
+);
 vi.mock('@duing/hooks', () => ({
   useRecruitmentDetailQuery: () => mockRecruitmentDetail(),
   useClubRecruitmentsQuery: () => mockClubRecruitments(),
@@ -36,7 +38,7 @@ beforeEach(() => {
   mockClubRecruitments.mockReturnValue({ data: undefined });
   mockManagedClubs.mockReturnValue({ data: undefined });
   mockFacilityBookings.mockReset();
-  mockFacilityBookings.mockReturnValue({ data: undefined });
+  mockFacilityBookings.mockReturnValue({ data: undefined, isError: false });
 });
 
 describe('ManageNav — 지원자/통계 컨텍스트 활성화', () => {
@@ -197,7 +199,7 @@ describe('ManageNav — 시설 예약 메뉴(중앙동아리만 신청 가능)',
 
   it('중앙동아리가 아니고 예약 기록이 없으면 메뉴를 숨긴다', () => {
     mockManagedClubs.mockReturnValue(managedClub(false));
-    mockFacilityBookings.mockReturnValue({ data: [] });
+    mockFacilityBookings.mockReturnValue({ data: [], isError: false });
     render(<ManageNav currentClubId={CLUB_ID} />);
     expect(facilityLink()).toBeNull();
     expect(mockFacilityBookings).toHaveBeenLastCalledWith(CLUB_ID);
@@ -205,7 +207,14 @@ describe('ManageNav — 시설 예약 메뉴(중앙동아리만 신청 가능)',
 
   it('중앙동아리가 아니어도 예약 기록이 있으면 메뉴를 남긴다 — 중앙 해제는 예약을 취소하지 않는다', () => {
     mockManagedClubs.mockReturnValue(managedClub(false));
-    mockFacilityBookings.mockReturnValue({ data: [{ bookingId: 1 }] });
+    mockFacilityBookings.mockReturnValue({ data: [{ bookingId: 1 }], isError: false });
+    render(<ManageNav currentClubId={CLUB_ID} />);
+    expect(facilityLink()).toBeInTheDocument();
+  });
+
+  it('중앙동아리가 아니어도 예약 조회가 실패하면 메뉴를 숨기지 않는다 — 기록이 있을 수 있고 화면에 다시 시도가 있다', () => {
+    mockManagedClubs.mockReturnValue(managedClub(false));
+    mockFacilityBookings.mockReturnValue({ data: undefined, isError: true });
     render(<ManageNav currentClubId={CLUB_ID} />);
     expect(facilityLink()).toBeInTheDocument();
   });

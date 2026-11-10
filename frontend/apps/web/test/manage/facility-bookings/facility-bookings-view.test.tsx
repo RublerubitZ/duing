@@ -172,6 +172,14 @@ describe('FacilityBookingsView — 중앙동아리가 아닌 동아리', () => {
     expect(screen.queryByRole('link', { name: '예약하러 가기' })).toBeNull();
   });
 
+  it('예약 기록이 있으면 신청 불가 안내와 함께 기존 예약을 계속 볼 수 있다고 알리고 목록을 그대로 보여준다', () => {
+    mockManagedClubs.current = nonCentral;
+    mockBookingsQuery.current = { ...mockBookingsQuery.current, data: [makeBooking({ bookingId: 31, status: 'PENDING' })] };
+    render(<FacilityBookingsView clubId={7} />);
+    expect(screen.getByText(/중앙동아리만 신청할 수 있어요.*이전에 신청한 예약은 여기서 계속 확인할 수 있어요/)).toBeInTheDocument();
+    expect(screen.getAllByRole('listitem').length).toBeGreaterThan(0);
+  });
+
   it('중앙동아리면 안내가 없고 예약 홈 CTA 가 그대로 있다', () => {
     mockManagedClubs.current = { data: [{ ...nonCentral.data[0], centralClub: true }] };
     mockBookingsQuery.current = { ...mockBookingsQuery.current, data: [] };

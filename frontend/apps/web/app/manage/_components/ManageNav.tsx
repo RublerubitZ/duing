@@ -63,11 +63,14 @@ export function ManageNav({ currentClubId, collapsed = false }: ManageNavProps) 
 
   // 시설 예약은 중앙동아리만 신청할 수 있다(백엔드 ClubEligibilityPolicy) — 중앙동아리가 아니면 메뉴를 숨긴다.
   // 다만 중앙에서 해제돼도 예약은 남으므로(해제가 예약을 취소하지 않는다) 기록이 하나라도 있으면 메뉴를 남긴다.
-  // fail-open — 운영 동아리 목록을 아직 모르면 숨기지 않는다("알려진 비중앙만 숨김"). 예약 조회는 비중앙일 때만 한다.
+  // fail-open — 운영 동아리 목록을 아직 모르거나 예약 조회가 실패하면 숨기지 않는다("알려진 비중앙·알려진 0건만 숨김").
+  // 예약 조회는 비중앙일 때만 한다.
   const { data: managedClubs } = useManagedClubsQuery();
   const isKnownNonCentral = managedClubs?.find((club) => club.clubId === currentClubId)?.centralClub === false;
-  const { data: nonCentralBookings } = useClubFacilityBookingsQuery(isKnownNonCentral ? currentClubId : undefined);
-  const showFacilityBookings = !isKnownNonCentral || (nonCentralBookings?.length ?? 0) > 0;
+  const { data: nonCentralBookings, isError: isBookingsError } = useClubFacilityBookingsQuery(
+    isKnownNonCentral ? currentClubId : undefined,
+  );
+  const showFacilityBookings = !isKnownNonCentral || isBookingsError || (nonCentralBookings?.length ?? 0) > 0;
 
   // 모집 하위 페이지(상세/지원자/통계/면접 등)를 보는 중이면 해당 모집 컨텍스트로
   // 지원자·통계 진입을 활성화한다. 모집을 선택하지 않은 목록·신규 작성 화면에서는 비활성 안내를 유지한다.
