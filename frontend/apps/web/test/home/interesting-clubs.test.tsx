@@ -217,6 +217,9 @@ describe('InterestingClubs — 로고 폴백', () => {
     const wrapper = grid?.firstElementChild;
     expect(wrapper).toHaveClass('lg:[container-type:inline-size]');
     const card = wrapper?.firstElementChild;
-    expect(card).toHaveClass('text-[16px]', 'lg:text-[5.614cqw]', 'lg:min-h-[101.75cqw]', 'h-full');
+    expect(card).toHaveClass('text-[16px]', 'lg:text-[5.614cqw]', 'h-full');
+    // 최소 높이는 두지 않는다 — "이번 주에 N명" 줄이 없는 날 카드 아래가 비어 보였다. 높이는 격자가 맞춘다.
+    expect(card?.className).not.toMatch(/min-h-/);
+    expect(grid).toHaveClass('md:auto-rows-fr');
   });
 });

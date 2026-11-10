@@ -161,7 +161,7 @@ export function SystemComposedSlide({ slide, priority = false }: Props) {
             className="btn hidden max-w-full rounded-md px-4 py-2 text-[13px] sm:px-[22px] sm:py-3 sm:text-[15px] md:inline-flex md:max-w-[calc(100%-7rem)]"
             style={{
               background: isDarkText ? 'var(--sage)' : slide.accent,
-              color: isDarkText ? 'var(--ink-deep)' : '#fff',
+              color: isDarkText ? 'var(--ink-deep)' : 'var(--paper)',
             }}
           >
             <span className="min-w-0 truncate">{slide.cta}</span>

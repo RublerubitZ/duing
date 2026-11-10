@@ -47,7 +47,7 @@ export async function InterestingClubs() {
             lg 부터는 카드 폭이 221~285px 로 흔들리므로 카드를 통째로 비례 축소한다 — 래퍼를 컨테이너 쿼리
             컨테이너로 두고 카드 글자 크기를 폭의 %(cqw)로 잡으면 em 단위 내부 치수가 함께 줄어 1280 의 모양이
             그대로 유지된다(1024 에서 0.78 배). 이 레포의 첫 컨테이너 쿼리 사용처. */}
-        <div className="hidden gap-5 md:grid md:grid-cols-2 lg:grid-cols-4">
+        <div className="hidden gap-5 md:grid md:auto-rows-fr md:grid-cols-2 lg:grid-cols-4">
           {clubs.map((club) => (
             <div key={club.id} className="lg:[container-type:inline-size]">
               <InterestCard club={club} />
@@ -111,12 +111,12 @@ function InterestCard({ club }: { club: ClubSummary }) {
 
   return (
     // 카드 안 치수는 전부 em — 기준 글자 16px(=1280 의 카드 폭 285 × 5.614%)에서 로고 82·제목 30·배지 14·
-    // 패딩 22 가 나온다(고정 최소 높이는 두지 않는다 — "이번 주에 N명" 줄이 없는 날 카드 아래 절반이 비었다. 같은 줄의 카드 높이는 격자가 맞춘다). lg 부터 루트 글자를 cqw 로 잡아 폭에 비례해 전체가 같이 줄고,
+    // 패딩 22 가 나온다. 최소 높이는 두지 않는다(예전에는 md 290px·lg 101.75cqw 였다) — "이번 주에 N명" 줄이 하나도 없는 날 카드 아래가 비어 보였다. 카드 높이는 격자가 맞춘다. lg 부터 루트 글자를 cqw 로 잡아 폭에 비례해 전체가 같이 줄고,
     // md(2열)는 16px 고정이라 예전 px 값과 동일하다. 글자 크기를 바꾸는 요소(로고·배지·제목)는 자기 크기
     // 기준으로 다시 환산했다(로고 82/30 = 2.733em).
     <Link
       href={`/clubs/${club.id}`}
-      className="group flex h-full flex-col rounded-[1.5em] bg-paper p-[1.375em] forced-colors:border text-[16px] transition duration-250 ease-duing hover:-translate-y-1 hover:shadow-3 motion-reduce:transition-none lg:min-h-[101.75cqw] lg:text-[5.614cqw]"
+      className="group flex h-full flex-col rounded-[1.5em] bg-paper p-[1.375em] forced-colors:border text-[16px] transition duration-250 ease-duing hover:-translate-y-1 hover:shadow-3 motion-reduce:transition-none lg:text-[5.614cqw]"
     >
       <div className="flex items-start justify-between gap-[0.75em]">
         <ClubCardLogo club={club} className="h-[2.733em] w-[2.733em] rounded-[0.6em] text-[1.875em]" />
@@ -145,7 +145,7 @@ function InterestCard({ club }: { club: ClubSummary }) {
         {club.tagline ?? (club.tags.length > 0 ? club.tags.map(normalizeTag).join(' · ') : '소개 준비중')}
       </p>
 
-      {/* 임계값 미만이면 이 줄만 빠진다 — 카드 최소 높이는 유지돼 그리드가 흔들리지 않는다. */}
+      {/* 임계값 미만이면 이 줄만 빠진다 — 카드 높이는 격자가 맞춘다(같은 줄은 stretch, md 2×2 의 두 줄은 auto-rows-fr). */}
       {interestCount !== null && (
         <p className="mt-auto pt-[1.75em] text-[1em] font-normal leading-[1.5] tracking-tightest text-ink-deep">
           이번 주에
