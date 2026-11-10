@@ -46,6 +46,8 @@ vi.mock('@duing/hooks', () => ({
   useRecruitmentDetailQuery: () => ({ data: undefined }),
   // ManageNav 의 통계 폴백(진행 중 모집 판정)이 쓴다 — 셸 테스트는 나브 판정을 다루지 않으므로 빈 값.
   useClubRecruitmentsQuery: () => ({ data: undefined }),
+  // ManageNav 의 시설 예약 메뉴 판정(비중앙일 때만 예약 기록 조회) — 셸 테스트의 동아리는 중앙동아리라 조회하지 않는다.
+  useClubFacilityBookingsQuery: () => ({ data: undefined }),
 }) satisfies Partial<Record<keyof typeof import('@duing/hooks'), unknown>>);
 
 import { ManageShell } from '@/app/manage/_components/ManageShell';

@@ -11,9 +11,14 @@ vi.mock('next/navigation', () => ({
 const mockRecruitmentDetail = vi.fn(() => ({ data: undefined }) as { data: unknown });
 // 모집 컨텍스트가 없을 때 통계가 진행 중 모집으로 떨어지는 판정에 클럽 모집 목록을 쓴다.
 const mockClubRecruitments = vi.fn(() => ({ data: undefined }) as { data: unknown });
+// 시설 예약 메뉴는 중앙동아리 여부와(비중앙이면) 예약 기록으로 정한다.
+const mockManagedClubs = vi.fn(() => ({ data: undefined }) as { data: unknown });
+const mockFacilityBookings = vi.fn((_clubId: number | undefined) => ({ data: undefined }) as { data: unknown });
 vi.mock('@duing/hooks', () => ({
   useRecruitmentDetailQuery: () => mockRecruitmentDetail(),
   useClubRecruitmentsQuery: () => mockClubRecruitments(),
+  useManagedClubsQuery: () => mockManagedClubs(),
+  useClubFacilityBookingsQuery: (clubId: number | undefined) => mockFacilityBookings(clubId),
 }) satisfies Partial<Record<keyof typeof import('@duing/hooks'), unknown>>);
 
 import { ManageNav } from '@/app/manage/_components/ManageNav';
@@ -29,6 +34,9 @@ const RECRUITMENT_ID = 10;
 beforeEach(() => {
   mockRecruitmentDetail.mockReturnValue({ data: undefined });
   mockClubRecruitments.mockReturnValue({ data: undefined });
+  mockManagedClubs.mockReturnValue({ data: undefined });
+  mockFacilityBookings.mockReset();
+  mockFacilityBookings.mockReturnValue({ data: undefined });
 });
 
 describe('ManageNav — 지원자/통계 컨텍스트 활성화', () => {
@@ -164,5 +172,47 @@ describe('ManageNav — 접힘 상태', () => {
     const dashboardLink = screen.getByRole('link', { name: '대시보드' });
     expect(dashboardLink).toHaveAttribute('title', '대시보드');
     expect(screen.queryByText('모집을 먼저 선택하세요')).not.toBeInTheDocument();
+  });
+});
+
+describe('ManageNav — 시설 예약 메뉴(중앙동아리만 신청 가능)', () => {
+  const managedClub = (centralClub: boolean) => ({
+    data: [{ clubId: CLUB_ID, clubName: '동아리', logoUrl: null, myRole: 'LEADER', centralClub, activeRecruitmentCount: 0 }],
+  });
+  const facilityLink = () => screen.queryByRole('link', { name: '시설 예약' });
+
+  beforeEach(() => mockUsePathname.mockReturnValue(`/manage/clubs/${CLUB_ID}`));
+
+  it('중앙동아리면 메뉴가 있고, 예약 기록은 조회하지 않는다', () => {
+    mockManagedClubs.mockReturnValue(managedClub(true));
+    render(<ManageNav currentClubId={CLUB_ID} />);
+    expect(facilityLink()).toHaveAttribute('href', `/manage/clubs/${CLUB_ID}/facility-bookings`);
+    expect(mockFacilityBookings).toHaveBeenLastCalledWith(undefined);
+  });
+
+  it('운영 동아리 목록을 아직 모르면 숨기지 않는다(fail-open)', () => {
+    render(<ManageNav currentClubId={CLUB_ID} />);
+    expect(facilityLink()).toBeInTheDocument();
+  });
+
+  it('중앙동아리가 아니고 예약 기록이 없으면 메뉴를 숨긴다', () => {
+    mockManagedClubs.mockReturnValue(managedClub(false));
+    mockFacilityBookings.mockReturnValue({ data: [] });
+    render(<ManageNav currentClubId={CLUB_ID} />);
+    expect(facilityLink()).toBeNull();
+    expect(mockFacilityBookings).toHaveBeenLastCalledWith(CLUB_ID);
+  });
+
+  it('중앙동아리가 아니어도 예약 기록이 있으면 메뉴를 남긴다 — 중앙 해제는 예약을 취소하지 않는다', () => {
+    mockManagedClubs.mockReturnValue(managedClub(false));
+    mockFacilityBookings.mockReturnValue({ data: [{ bookingId: 1 }] });
+    render(<ManageNav currentClubId={CLUB_ID} />);
+    expect(facilityLink()).toBeInTheDocument();
+  });
+
+  it('중앙동아리가 아니고 예약 기록을 아직 받는 중이면 메뉴를 그리지 않는다', () => {
+    mockManagedClubs.mockReturnValue(managedClub(false));
+    render(<ManageNav currentClubId={CLUB_ID} />);
+    expect(facilityLink()).toBeNull();
   });
 });
