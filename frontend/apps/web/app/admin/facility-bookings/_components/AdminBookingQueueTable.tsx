@@ -38,7 +38,7 @@ export function AdminBookingQueueTable({ rows, onSelect }: Props) {
                 key={row.bookingId}
                 onClick={() => onSelect(row.bookingId)}
                 className={`cursor-pointer border-b border-line align-middle last:border-b-0 motion-safe:transition-colors ${
-                  row.status === 'CONFLICT' ? 'bg-[#FDF1EC] hover:bg-[#FCE9E1]' : 'hover:bg-graysoft/50'
+                  row.status === 'CONFLICT' ? 'bg-coral/10 hover:bg-coral/15' : 'hover:bg-graysoft/50'
                 }`}
               >
                 <td className="whitespace-nowrap px-[18px] py-[13px] tabular-nums text-xs font-bold text-ink-deep">

@@ -18,6 +18,7 @@ Tailwind 토큰과 `.duing` 스코프 CSS 변수(`var(--ink)` 등)가 1:1 동일
 | Ink Deep | `#143025` | `ink-deep` / `--ink-deep` | 헤딩 텍스트(h1~h4 자동), `btn-primary` hover, 다크 띠 배경 — 페이지에서 가장 어두운 잉크 |
 | Ink Soft | `#2E6149` | `ink-soft` / `--ink-soft` | ink 의 밝은 변형 — 저빈도 보조 |
 | Sage | `#9DB6A0` | `sage` / `--sage` | **장식 전용** — Sparkle, 형광펜 밑줄(`border-sage`), 라이브 도트. 텍스트 컬러로 승격 금지 |
+| Sage Deep | `#4D6850` | `sage-deep` | 밝은 바탕 위 세이지 톤 글자 — `bg-sage/10` 배지 글자·아이콘(AA 4.5:1 이상) |
 | Sage Soft | `#C9D8CC` | `sage-soft` / `--sage-soft` | 연한 보더, 히어로 블러 원 그라디언트 |
 | Sage Mist | `#E8EEE8` | `sage-mist` / `--sage-mist` | `.pill` 기본 배경, CTA 패널 서피스 |
 | Sage Tint | `#F1F5F1` | `sage-tint` / `--sage-tint` | hover·선택 상태 배경 (드롭다운 항목 등 인터랙션 피드백) |
@@ -34,6 +35,9 @@ Tailwind 토큰과 `.duing` 스코프 CSS 변수(`var(--ink)` 등)가 1:1 동일
 | Coral | `#D97757` | `coral` / `--coral` | 코랄 액센트 — pill 페어(`#fce2d9` / `#9a3f23`). 흰 글자를 얹는 위험 버튼·긴급 배지는 coral 이 아니라 `danger` |
 | Berry | `#B65672` | `berry` / `--berry` | 베리 액센트 — pill 페어 (`#f6dce3` / `#7e2a45`) |
 | Sky | `#6A95B8` | `sky` / `--sky` | 블루 액센트 — pill 페어 (`#dde8f1` / `#2f557a`). 유일하게 50~950 풀 스케일 보유 |
+| Warm Deep | `#865D14` | `warm-deep` | `bg-warm/10` 배지·안내 글자 — 대기·주의 |
+| Coral Deep | `#A54525` | `coral-deep` | `bg-coral/10` 배지·경고 글자 — 미납·충돌·오류. 흰 글자를 얹는 솔리드는 `danger` |
+| Sky Deep | `#406786` | `sky-deep` / `--sky-deep` | `bg-sky/10` 배지 글자, 차트 보조 계열 — 정보 |
 | Danger | `#B04A28` | `danger` | 파괴적 액션(정지·삭제·강제 로그아웃)과 긴급 상태 배지 — 흰 글자를 얹는 솔리드(5.45:1). hover 는 `#9A3F23` |
 | Console | `#34463E` → `#2A382F` | `console` / `console-deep` | 운영진 콘솔 사이드바·모바일 상단바·동아리 전환 메뉴의 진한 초록 표면(위 → 아래 그라디언트) |
 
@@ -165,6 +169,23 @@ Secondary: `bg-paper text-ink border border-line hover:border-sage` — 보더�
 **Role:** 카테고리 라벨, 상태 배지.
 
 `.pill` = `inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-sage-mist text-ink whitespace-nowrap`. 변형: `.pill-solid`(bg-ink text-paper), `.pill-outline`(border-line, text-charcoal-2), 파스텔 페어 `.pill-warm`(#fbefd7/#8e6620) `.pill-coral`(#fce2d9/#9a3f23) `.pill-berry`(#f6dce3/#7e2a45) `.pill-sky`(#dde8f1/#2f557a). 상태 배지에는 라이브 도트 `h-1.5 w-1.5 rounded-full bg-sage` 를 곁들인다. 표기는 `모집중`(붙여쓰기) 통일.
+
+**상태 배지 규약(콘솔 — 운영진·총동연).** 표·카드 안의 상태 배지와 안내 띠는 `.pill-*` 파스텔 페어나 hex 를 직접 적지 않고 토큰 조합으로 쓴다.
+
+| 뜻 | 클래스 |
+| --- | --- |
+| 중립(종료·해당 없음) | `bg-paper text-charcoal-2 ring-1 ring-inset ring-line` |
+| 긍정(납부·완료·면접) | `bg-sage/10 text-sage-deep` |
+| 대기·주의 | `bg-warm/10 text-warm-deep` |
+| 경고(미납·충돌) | `bg-coral/10 text-coral-deep` (+ 테두리 `border-coral/30`) |
+| 정보(행사 등) | `bg-sky/10 text-sky-deep` |
+| 긴급 — 흰 글자 솔리드 | `bg-danger text-paper` |
+
+- 배경은 `/10` 까지만 — `/20` 이상은 크림 위에서 `*-deep` 글자 대비가 4.5:1 근처로 떨어진다(`warm-deep` 은 `/20` 최악 4.52 라 값을 밝히지 않는다).
+- `*-deep` 은 흰·크림·크림2 바탕의 `/10` 합성 위에서 WCAG AA 를 넘도록 고른 값이다. 기본 색(`text-sage`·`text-coral` …)을 글자로 쓰지 않는다.
+- 위험·종료 동작(버튼·링크)은 배지가 아니라 `text-danger hover:bg-danger/5`(+ `border-danger/30`).
+- 입력칸 포커스는 `focus:border-ink focus:outline-none focus:ring-[3px] focus:ring-ink/15`. 밝은 바탕에서 `ring-sage` 는 대비가 모자라 쓰지 않는다(진한 콘솔 사이드바 안에서만 쓴다).
+- 네이티브 체크박스는 `accent-ink` + `focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink` — `@tailwindcss/forms` 가 없어 `border-*`·`text-*`·`focus:ring-*` 는 아무것도 그리지 않는다.
 
 ### Default Card (`.card` 확장형)
 **Role:** 동아리·콘텐츠 카드의 표준형.
@@ -369,6 +390,7 @@ Secondary: `bg-paper text-ink border border-line hover:border-sage` — 보더�
   --coral:      #D97757;
   --berry:      #B65672;
   --sky:        #6A95B8;
+  --sky-deep:   #406786;
   --font-body:    Pretendard, system-ui, sans-serif;
   --shadow-1: 0 1px 2px rgba(31,74,54,.04), 0 2px 8px rgba(31,74,54,.04);
   --shadow-2: 0 2px 6px rgba(31,74,54,.05), 0 12px 32px rgba(31,74,54,.08);
@@ -381,12 +403,13 @@ Secondary: `bg-paper text-ink border border-line hover:border-sage` — 보더�
 ```ts
 colors: {
   ink: { DEFAULT: '#1F4A36', deep: '#143025', soft: '#2E6149' },
-  sage: { DEFAULT: '#9DB6A0', soft: '#C9D8CC', mist: '#E8EEE8', tint: '#F1F5F1' },
+  sage: { DEFAULT: '#9DB6A0', deep: '#4D6850', soft: '#C9D8CC', mist: '#E8EEE8', tint: '#F1F5F1' },
   charcoal: { DEFAULT: '#2F3433', 2: '#4A504F', 3: '#5C645F' },
   line: '#E5E2DA', graysoft: '#F0EDE5',
   cream: { DEFAULT: '#F6F3EC', 2: '#EFEBE0' }, paper: { DEFAULT: '#FFFFFF', warm: '#FBFAF6' },
   console: { DEFAULT: '#34463E', deep: '#2A382F' }, danger: { DEFAULT: '#B04A28', hover: '#9A3F23' },
-  warm: '#E8B968', coral: '#D97757', berry: '#B65672', sky: { DEFAULT: '#6A95B8' /* +50~950 */ },
+  warm: { DEFAULT: '#E8B968', deep: '#865D14' }, coral: { DEFAULT: '#D97757', deep: '#A54525' }, berry: '#B65672',
+  sky: { DEFAULT: '#6A95B8', deep: '#406786' /* +50~950 */ },
 },
 fontFamily: {
   body: ['Pretendard', 'system-ui', 'sans-serif'],

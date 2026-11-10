@@ -169,6 +169,7 @@ describe('FacilityBookingsView — 중앙동아리가 아닌 동아리', () => {
     mockBookingsQuery.current = { ...mockBookingsQuery.current, data: [] };
     render(<FacilityBookingsView clubId={7} />);
     expect(screen.getByText(/시설 예약은 중앙동아리만 신청할 수 있어요/)).toBeInTheDocument();
+    expect(screen.queryByText(/이전에 신청한 예약/)).toBeNull();
     expect(screen.queryByRole('link', { name: '예약하러 가기' })).toBeNull();
   });
 

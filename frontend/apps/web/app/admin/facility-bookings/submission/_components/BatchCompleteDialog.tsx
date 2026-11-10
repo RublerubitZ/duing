@@ -35,7 +35,7 @@ export function BatchCompleteDialog({ batch, isPending, onConfirm, onClose }: Pr
         </span>
         <DialogTitle className="text-[21px] font-extrabold leading-snug text-ink-deep">학교 제출을 완료하시겠습니까?</DialogTitle>
         {/* 두 행위 구분 경고(개편 스펙 §5) — 오프라인 제출과 시스템 완료 처리를 혼동한 조기 완료를 막는다. */}
-        <div className="flex gap-2 rounded-md bg-[#FBEFD7] px-3 py-2 text-xs leading-relaxed text-[#8E6620]">
+        <div className="flex gap-2 rounded-md bg-warm/10 px-3 py-2 text-xs leading-relaxed text-warm-deep">
           <span aria-hidden>⚠️</span>
           <p>
             <strong>학교 제출(오프라인)</strong>과 <strong>시스템 완료 처리</strong>는 별개입니다. 실제 행정실
