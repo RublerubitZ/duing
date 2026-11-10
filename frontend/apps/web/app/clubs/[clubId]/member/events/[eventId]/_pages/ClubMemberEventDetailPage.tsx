@@ -1,10 +1,12 @@
 'use client';
 
 import Link from 'next/link';
+import { MapPin } from 'lucide-react';
 import { useParams } from 'next/navigation';
 import { formatDateTimeKst, useClubEventDetailQuery } from '@duing/hooks';
 import { toRoute } from '@/app/_lib/route';
 import { TextLinesSkeleton } from '@/components/loading/Skeleton';
+import { ArrowLeft } from '@/components/duing/Icon';
 
 type Props = { clubId: number; eventId: number };
 
@@ -33,9 +35,10 @@ function ClubMemberEventDetail({ clubId, eventId }: Props) {
         <p className="text-sm text-coral-deep">일정을 불러오지 못했습니다.</p>
         <Link
           href={toRoute(`/clubs/${clubId}/member/events`)}
-          className="mt-4 inline-block text-sm text-ink"
+          className="mt-4 inline-flex items-center gap-1 text-sm text-ink"
         >
-          ← 목록으로
+          <ArrowLeft size={14} aria-hidden />
+          목록으로
         </Link>
       </div>
     );
@@ -45,15 +48,19 @@ function ClubMemberEventDetail({ clubId, eventId }: Props) {
     <article className="mx-auto max-w-3xl px-6 py-10">
       <Link
         href={toRoute(`/clubs/${clubId}/member/events`)}
-        className="mb-4 inline-block text-sm text-charcoal-2 hover:text-ink"
+        className="mb-4 inline-flex items-center gap-1 text-sm text-charcoal-2 hover:text-ink"
       >
-        ← 목록으로
+        <ArrowLeft size={14} aria-hidden />
+        목록으로
       </Link>
       <h1 className="text-xl font-bold text-ink">{data.title}</h1>
       <p className="mt-2 text-sm text-charcoal-2">
         {formatDateTimeKst(data.startAt)} ~ {formatDateTimeKst(data.endAt)}
       </p>
-      {data.location && <p className="mt-1 text-sm text-charcoal-3">📍 {data.location}</p>}
+      {data.location && <p className="mt-1 flex items-center gap-1 text-sm text-charcoal-3">
+          <MapPin size={14} aria-hidden className="shrink-0" />
+          {data.location}
+        </p>}
       {data.description && (
         <div className="mt-6 whitespace-pre-wrap text-sm text-charcoal-2">{data.description}</div>
       )}

@@ -67,7 +67,7 @@ export function ClubRecruitmentSummary({ recruitment }: Props) {
     <section className="rounded-2xl bg-sage-mist px-4 py-3" aria-label="모집 정보">
       <div className="mb-2 flex items-center justify-between">
         <span className="flex items-center gap-1.5 text-[13px] font-bold text-ink-deep">
-          <Sparkle size={13} color="#1F4A36" />
+          <Sparkle size={13} color="var(--ink)" />
           {header}
         </span>
         {end && <span className="tabular-nums text-[12.5px] font-bold text-ink">{end}</span>}

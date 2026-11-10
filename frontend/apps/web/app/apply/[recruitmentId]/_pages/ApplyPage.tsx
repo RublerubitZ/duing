@@ -58,7 +58,7 @@ export function ApplyPage() {
     return (
       <div
         className="duing min-h-dvh"
-        style={{ background: 'linear-gradient(180deg, #ece6d3 0%, #f3efe4 8%, #f3efe4 92%, #ece6d3 100%)' }}
+        style={{ background: 'linear-gradient(180deg, var(--cream-2) 0%, var(--cream) 8%, var(--cream) 92%, var(--cream-2) 100%)' }}
       >
         <ResourceNotFound
           title="이 모집은 찾을 수 없어요"
@@ -81,7 +81,7 @@ export function ApplyPage() {
     return (
       <div
         className="flex min-h-dvh flex-col items-center justify-center gap-5 px-6"
-        style={{ background: 'linear-gradient(180deg, #ece6d3 0%, #f3efe4 8%, #f3efe4 92%, #ece6d3 100%)' }}
+        style={{ background: 'linear-gradient(180deg, var(--cream-2) 0%, var(--cream) 8%, var(--cream) 92%, var(--cream-2) 100%)' }}
       >
         <p role="alert" className="rounded-[10px] bg-coral/5 px-4 py-3 text-center text-sm text-coral-deep">
           {detailErrorMessage}
@@ -102,7 +102,7 @@ export function ApplyPage() {
     return (
       <div
         className="min-h-dvh"
-        style={{ background: 'linear-gradient(180deg, #ece6d3 0%, #f3efe4 8%, #f3efe4 92%, #ece6d3 100%)' }}
+        style={{ background: 'linear-gradient(180deg, var(--cream-2) 0%, var(--cream) 8%, var(--cream) 92%, var(--cream-2) 100%)' }}
       >
         <LoadingGate label="불러오는 중" className="min-h-dvh" />
       </div>
@@ -113,7 +113,7 @@ export function ApplyPage() {
     return (
       <div
         className="min-h-dvh"
-        style={{ background: 'linear-gradient(180deg, #ece6d3 0%, #f3efe4 8%, #f3efe4 92%, #ece6d3 100%)' }}
+        style={{ background: 'linear-gradient(180deg, var(--cream-2) 0%, var(--cream) 8%, var(--cream) 92%, var(--cream-2) 100%)' }}
       >
         <LoadingGate label="이동 중" className="min-h-dvh" />
       </div>
@@ -134,7 +134,7 @@ export function ApplyPage() {
     return (
       <div
         className="flex min-h-dvh flex-col items-center justify-center gap-5 px-6"
-        style={{ background: 'linear-gradient(180deg, #ece6d3 0%, #f3efe4 8%, #f3efe4 92%, #ece6d3 100%)' }}
+        style={{ background: 'linear-gradient(180deg, var(--cream-2) 0%, var(--cream) 8%, var(--cream) 92%, var(--cream-2) 100%)' }}
       >
         <p role="alert" className="rounded-[10px] bg-coral/5 px-4 py-3 text-center text-sm text-coral-deep">
           {blockedMessage}
@@ -154,7 +154,7 @@ export function ApplyPage() {
     return (
       <div
         className="flex min-h-dvh flex-col items-center justify-center gap-5 px-6"
-        style={{ background: 'linear-gradient(180deg, #ece6d3 0%, #f3efe4 8%, #f3efe4 92%, #ece6d3 100%)' }}
+        style={{ background: 'linear-gradient(180deg, var(--cream-2) 0%, var(--cream) 8%, var(--cream) 92%, var(--cream-2) 100%)' }}
       >
         <p role="alert" className="rounded-[10px] bg-coral/5 px-4 py-3 text-center text-sm text-coral-deep">
           임시저장한 답변을 불러오지 못했습니다. 잠시 후 다시 시도해주세요.

@@ -43,14 +43,11 @@ export function ClubExploreFallback({ page }: { page: PageResponse<ClubSummary> 
             {/* ClubExplorePage 의 같은 행과 맞춘다(손으로 맞춤) — 제목 블록 + 검색 폼(회색 자리) */}
             <div className="flex items-end justify-between mb-7">
               <div>
-                <div className="text-[13px] font-semibold text-ink tracking-wide08 mb-2.5">
-                  EXPLORE · 동아리 탐색
-                </div>
                 <h1 className="text-[48px] mb-3">
                   {totalElements > 0 ? `${totalElements}개 동아리를 둘러보세요` : '동아리를 둘러보세요'}
                   <SparkleFull
                     size={28}
-                    color="#9DB6A0"
+                    color="var(--sage)"
                     className="inline-block ml-2.5 align-middle"
                   />
                 </h1>
@@ -69,7 +66,7 @@ export function ClubExploreFallback({ page }: { page: PageResponse<ClubSummary> 
                   <button key={segment.key} type="button" className={SCOPE_SEGMENT_CLASS(on)}>
                     {segment.key === '전체' ? '전체' : SCOPE_CLUB_LABEL[segment.key]}
                     {on && (
-                      <span className="text-[11px] text-sage font-medium tracking-wide04">
+                      <span className="text-[11px] text-sage font-medium">
                         · {segment.hint}
                       </span>
                     )}
@@ -96,7 +93,7 @@ export function ClubExploreFallback({ page }: { page: PageResponse<ClubSummary> 
                 </div>
                 <div className="flex items-center gap-3">
                   <button type="button" aria-pressed={false} className={FAVORITE_CHIP_CLASS(false)}>
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5" aria-hidden>
                       <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
                     </svg>
                     찜한 동아리
@@ -127,8 +124,7 @@ export function ClubExploreFallback({ page }: { page: PageResponse<ClubSummary> 
       <div className="md:hidden">
         {/* ClubExplorePage 의 같은 행과 맞춘다(손으로 맞춤) — 제목 블록 */}
         <section className="bg-cream px-4 pt-page-top pb-4 sm:px-6">
-          <div className="text-[11px] font-bold tracking-wide08 text-ink">EXPLORE</div>
-          <h1 className="mt-1 text-[27px] tracking-tightx">동아리 탐색</h1>
+          <h1 className="text-[27px] tracking-tightx">동아리 탐색</h1>
         </section>
 
         {/* ClubExplorePage 의 같은 행과 맞춘다(손으로 맞춤) — sticky 검색 바(회색 자리, 폼 높이 46px) */}
@@ -151,7 +147,7 @@ export function ClubExploreFallback({ page }: { page: PageResponse<ClubSummary> 
           <div className="text-[13.5px] text-charcoal-2" />
           <div className="flex items-center gap-2">
             <button type="button" className={FILTER_BUTTON_CLASS}>
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-[15px] w-[15px]">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-[15px] w-[15px]" aria-hidden>
                 <line x1="4" y1="7" x2="20" y2="7" />
                 <line x1="7" y1="12" x2="17" y2="12" />
                 <line x1="10" y1="17" x2="14" y2="17" />
@@ -165,7 +161,7 @@ export function ClubExploreFallback({ page }: { page: PageResponse<ClubSummary> 
                   <option key={option.value} value={option.value}>{option.label}</option>
                 ))}
               </select>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="pointer-events-none absolute right-0 h-[15px] w-[15px] text-charcoal-2">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="pointer-events-none absolute right-0 h-[15px] w-[15px] text-charcoal-2" aria-hidden>
                 <polyline points="6 9 12 15 18 9" />
               </svg>
             </div>

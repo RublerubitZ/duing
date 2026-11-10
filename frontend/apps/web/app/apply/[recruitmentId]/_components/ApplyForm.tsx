@@ -191,7 +191,7 @@ export function ApplyForm({ recruitment, recruitmentId, questionItems, initialAn
   return (
     <div
       className="min-h-dvh"
-      style={{ background: 'linear-gradient(180deg, #ece6d3 0%, #f3efe4 8%, #f3efe4 92%, #ece6d3 100%)' }}
+      style={{ background: 'linear-gradient(180deg, var(--cream-2) 0%, var(--cream) 8%, var(--cream) 92%, var(--cream-2) 100%)' }}
     >
       <main className="mx-auto max-w-[760px] px-8 pb-24 pt-16">
 
@@ -207,13 +207,13 @@ export function ApplyForm({ recruitment, recruitmentId, questionItems, initialAn
           {/* 자동저장 상태 */}
           {isClosed ? (
             <span className="tabular-nums text-[12.5px] tracking-wide text-coral-deep">
-              {isNotStarted ? '모집 시작 전' : '모집 마감'} — 임시저장 및 제출 불가
+              {isNotStarted ? '모집 시작 전' : '모집 마감'}, 임시저장 및 제출 불가
             </span>
           ) : (
             <span className="inline-flex items-center gap-1.5 tabular-nums text-[12.5px] tracking-wide text-charcoal-3">
               {autosaveStatus.kind === 'saved' && (
                 <>
-                  <span className="h-1.5 w-1.5 rounded-full bg-ink-soft shadow-[0_0_0_3px_rgba(46,97,73,0.18)]" />
+                  <span className="h-1.5 w-1.5 rounded-full bg-ink-soft ring-[3px] ring-ink-soft/20" />
                   마지막 저장 {AUTOSAVE_TIME_FORMATTER.format(autosaveStatus.at)}
                 </>
               )}
@@ -265,7 +265,7 @@ export function ApplyForm({ recruitment, recruitmentId, questionItems, initialAn
         {/* 모집 안내문 — 모집 정보(헤더) → 안내문 → 지원서 질문 순서 정책. content 없으면 미표시 */}
         {recruitment.content && (
           <section aria-label="모집 안내" className="mb-9">
-            <h2 className="mb-3 text-[13px] font-bold tracking-wide text-ink">모집 안내</h2>
+            <h2 className="mb-3 text-[13px] font-bold text-ink">모집 안내</h2>
             <MarkdownProse content={recruitment.content} className="text-[14.5px]" />
           </section>
         )}

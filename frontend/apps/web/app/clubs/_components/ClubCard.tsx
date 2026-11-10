@@ -48,13 +48,13 @@ type StatusStyle = {
 };
 
 const STATUS_STYLES: Record<StatusKey, StatusStyle> = {
-  OPEN:        { label: RECRUITMENT_DISPLAY_STATUS_LABEL.OPEN,     dotColor: '#9DB6A0', chipClass: 'bg-sage-mist text-ink-deep' },
+  OPEN:        { label: RECRUITMENT_DISPLAY_STATUS_LABEL.OPEN,     dotColor: 'var(--sage)', chipClass: 'bg-sage-mist text-ink-deep' },
   // 우측 기간 영역이 "상시모집"을 표기하므로 칩은 모집 가능 상태만 말한다(중복 제거).
-  ALWAYS_OPEN: { label: RECRUITMENT_DISPLAY_STATUS_LABEL.OPEN,     dotColor: '#9DB6A0', chipClass: 'bg-sage-mist text-ink-deep' },
-  UPCOMING:    { label: RECRUITMENT_DISPLAY_STATUS_LABEL.UPCOMING, dotColor: '#E8B968', chipClass: 'bg-[#FBEFD7] text-[#8E6620]' },
-  CLOSED:      { label: RECRUITMENT_DISPLAY_STATUS_LABEL.CLOSED,   dotColor: '#5C645F', chipClass: 'bg-graysoft text-charcoal-2' },
+  ALWAYS_OPEN: { label: RECRUITMENT_DISPLAY_STATUS_LABEL.OPEN,     dotColor: 'var(--sage)', chipClass: 'bg-sage-mist text-ink-deep' },
+  UPCOMING:    { label: RECRUITMENT_DISPLAY_STATUS_LABEL.UPCOMING, dotColor: 'var(--warm)', chipClass: 'bg-[var(--pill-warm-bg)] text-[var(--pill-warm-ink)]' },
+  CLOSED:      { label: RECRUITMENT_DISPLAY_STATUS_LABEL.CLOSED,   dotColor: 'var(--charcoal-3)', chipClass: 'bg-graysoft text-charcoal-2' },
   // '모집 없음'은 표시 상태 테이블의 키가 아니라 리터럴로 둔다.
-  NONE:        { label: '모집 없음',                               dotColor: '#5C645F', chipClass: 'bg-graysoft text-charcoal-2' },
+  NONE:        { label: '모집 없음',                               dotColor: 'var(--charcoal-3)', chipClass: 'bg-graysoft text-charcoal-2' },
 };
 
 /** "2026-08-08" → "8.8" — 앞자리 0 을 떼 달력 표기처럼 읽히게 한다. */
@@ -82,7 +82,7 @@ function renderPeriod(club: Club): React.ReactNode {
       return <span className="font-bold text-ink">상시모집</span>;
     case 'UPCOMING':
       return (
-        <span className="font-bold text-[#8E6620]">
+        <span className="font-bold text-[var(--pill-warm-ink)]">
           {formatMonthDay(recruitment.startDate)}부터 모집
         </span>
       );
@@ -153,7 +153,7 @@ export function ClubCard({
               event.stopPropagation();
               if (isFavoriteStateReady) onLikeToggle?.(club.id);
             }}
-            className={`grid place-items-center w-8 h-8 rounded-full shrink-0 disabled:opacity-50 ${liked ? 'bg-[#FFE8E5] text-coral' : 'bg-transparent text-charcoal-3'}`}
+            className={`grid place-items-center w-8 h-8 rounded-full shrink-0 disabled:opacity-50 ${liked ? 'bg-coral/10 text-coral' : 'bg-transparent text-charcoal-3'}`}
           >
             <HeartIcon key={liked ? 'on' : 'off'} filled={liked} pop={shouldPop} />
           </button>

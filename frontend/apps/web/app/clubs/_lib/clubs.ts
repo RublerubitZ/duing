@@ -80,14 +80,14 @@ export const CAT_COLORS: Record<
   // text: 탐색 카드의 pill 없는 카테고리 텍스트용 — fg 와 달리 카테고리끼리 색이 겹치지 않게 배정
   // (fg 는 파스텔 배경 위 조합이라 학술·창작·친목이 전부 잉크로 겹친다). 색상값은 기존 pill 팔레트 재사용.
   '학술': { bg: 'bg-sage-mist', fg: 'text-ink',       text: 'text-ink',       bgValue: 'var(--sage-mist)',  fgValue: 'var(--ink)',      emoji: '📚', num: '01' },
-  '운동': { bg: 'bg-[#FBEFD7]', fg: 'text-[#8E6620]', text: 'text-[#8E6620]', bgValue: '#FBEFD7',           fgValue: '#8E6620',         emoji: '⚽',  num: '02' },
-  '음악': { bg: 'bg-[#F6DCE3]', fg: 'text-[#7E2A45]', text: 'text-[#7E2A45]', bgValue: '#F6DCE3',           fgValue: '#7E2A45',         emoji: '🎵', num: '03' },
-  '공연': { bg: 'bg-[#FCE2D9]', fg: 'text-[#9A3F23]', text: 'text-[#9A3F23]', bgValue: '#FCE2D9',           fgValue: '#9A3F23',         emoji: '🎭', num: '04' },
-  '봉사': { bg: 'bg-[#DDE8F1]', fg: 'text-[#2F557A]', text: 'text-[#2F557A]', bgValue: '#DDE8F1',           fgValue: '#2F557A',         emoji: '🤝', num: '05' },
-  '창작': { bg: 'bg-sage-tint', fg: 'text-ink',       text: 'text-[#7E2A45]', bgValue: 'var(--sage-tint)',  fgValue: 'var(--ink)',      emoji: '🎨', num: '06' },
+  '운동': { bg: 'bg-[var(--pill-warm-bg)]', fg: 'text-[var(--pill-warm-ink)]', text: 'text-[var(--pill-warm-ink)]', bgValue: 'var(--pill-warm-bg)',           fgValue: 'var(--pill-warm-ink)',         emoji: '⚽',  num: '02' },
+  '음악': { bg: 'bg-[var(--pill-berry-bg)]', fg: 'text-[var(--pill-berry-ink)]', text: 'text-[var(--pill-berry-ink)]', bgValue: 'var(--pill-berry-bg)',           fgValue: 'var(--pill-berry-ink)',         emoji: '🎵', num: '03' },
+  '공연': { bg: 'bg-[var(--pill-coral-bg)]', fg: 'text-[var(--pill-coral-ink)]', text: 'text-[var(--pill-coral-ink)]', bgValue: 'var(--pill-coral-bg)',           fgValue: 'var(--pill-coral-ink)',         emoji: '🎭', num: '04' },
+  '봉사': { bg: 'bg-[var(--pill-sky-bg)]', fg: 'text-[var(--pill-sky-ink)]', text: 'text-[var(--pill-sky-ink)]', bgValue: 'var(--pill-sky-bg)',           fgValue: 'var(--pill-sky-ink)',         emoji: '🤝', num: '05' },
+  '창작': { bg: 'bg-sage-tint', fg: 'text-ink',       text: 'text-[var(--pill-berry-ink)]', bgValue: 'var(--sage-tint)',  fgValue: 'var(--ink)',      emoji: '🎨', num: '06' },
   // 예술: 홈 카테고리(homeCategories) 의 ART 라벨색(#7D4F87) 과 맞춘다.
   '예술': { bg: 'bg-[#EFE2F1]', fg: 'text-[#7d4f87]', text: 'text-[#7d4f87]', bgValue: '#EFE2F1',           fgValue: '#7d4f87',         emoji: '🎭', num: '07' },
   'IT':   { bg: 'bg-[#E3E9E1]', fg: 'text-ink-deep',  text: 'text-ink-deep',  bgValue: '#E3E9E1',           fgValue: 'var(--ink-deep)', emoji: '💻', num: '08' },
-  '창업': { bg: 'bg-[#FBEFD7]', fg: 'text-[#8E6620]', text: 'text-[#8E6620]', bgValue: '#FBEFD7',           fgValue: '#8E6620',         emoji: '🚀', num: '09' },
-  '친목': { bg: 'bg-sage-mist', fg: 'text-ink',       text: 'text-[#9A3F23]', bgValue: 'var(--sage-mist)',  fgValue: 'var(--ink)',      emoji: '🍻', num: '10' },
+  '창업': { bg: 'bg-[var(--pill-warm-bg)]', fg: 'text-[var(--pill-warm-ink)]', text: 'text-[var(--pill-warm-ink)]', bgValue: 'var(--pill-warm-bg)',           fgValue: 'var(--pill-warm-ink)',         emoji: '🚀', num: '09' },
+  '친목': { bg: 'bg-sage-mist', fg: 'text-ink',       text: 'text-[var(--pill-coral-ink)]', bgValue: 'var(--sage-mist)',  fgValue: 'var(--ink)',      emoji: '🍻', num: '10' },
 };

@@ -102,7 +102,7 @@ describe('가입 링크 랜딩 — 상태 분기', () => {
     );
     renderPage();
 
-    expect(await screen.findByText('🎉 가입 신청이 완료되었습니다.')).toBeInTheDocument();
+    expect(await screen.findByText('가입 신청이 완료되었습니다.')).toBeInTheDocument();
     expect(
       screen.getByText('운영진 확인 후 두잉 개발동아리 동아리 회원으로 등록됩니다.'),
     ).toBeInTheDocument();
@@ -119,7 +119,7 @@ describe('가입 링크 랜딩 — 상태 분기', () => {
 
     expect(
       await screen.findByText(
-        /🎉 축하합니다! 두잉 개발동아리 최종 합격을 축하드립니다\. 가입은 약 30초 정도 소요됩니다\./,
+        /^축하합니다! 두잉 개발동아리 최종 합격을 축하드립니다\. 가입은 약 30초 정도 소요됩니다\./,
       ),
     ).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '동아리 가입하기' })).toBeInTheDocument();
@@ -249,7 +249,7 @@ describe('가입 링크 랜딩 — 가입 신청', () => {
 
     await userEvent.click(await screen.findByRole('button', { name: '동아리 가입하기' }));
 
-    expect(await screen.findByText('🎉 가입 신청이 완료되었습니다.')).toBeInTheDocument();
+    expect(await screen.findByText('가입 신청이 완료되었습니다.')).toBeInTheDocument();
     expect(mockAddToast).toHaveBeenCalledWith('가입 신청을 보냈어요. 승인되면 알려드릴게요.');
   });
 
@@ -312,7 +312,7 @@ describe('가입 링크 랜딩 — 가입 신청', () => {
 
     await userEvent.click(await screen.findByRole('button', { name: '동아리 가입하기' }));
 
-    expect(await screen.findByText('🎉 가입 신청이 완료되었습니다.')).toBeInTheDocument();
+    expect(await screen.findByText('가입 신청이 완료되었습니다.')).toBeInTheDocument();
     expect(
       screen.getByText('운영진 확인 후 두잉 개발동아리 동아리 회원으로 등록됩니다.'),
     ).toBeInTheDocument();
