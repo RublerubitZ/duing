@@ -159,7 +159,7 @@ Du-ing 의 비주얼 랭귀지는 따뜻한 크림 캔버스(#F6F3EC) 위에서 
 ### Secondary / Ghost Button (`.btn-secondary` / `.btn-ghost`)
 **Role:** 보조 액션, 텍스트성 컨트롤.
 
-Secondary: `bg-paper text-ink border border-line hover:border-sage` — 보더가 sage 로 물드는 것이 유일한 hover. Ghost: `bg-transparent text-charcoal-2 hover:bg-graysoft hover:text-charcoal`. 원형 아이콘 버튼(캐러셀 prev/next): `btn grid h-9 w-9 place-items-center rounded-full p-0` 에 prev 는 `bg-paper text-ink-deep ring-1 ring-ink/15 shadow-1`, next 는 `bg-ink-deep text-cream shadow-1` — 한 쌍에서 진행 방향을 색으로 구분한다.
+Secondary: `bg-paper text-ink border border-line hover:border-sage` — 보더가 sage 로 물드는 것이 유일한 hover. Ghost: `bg-transparent text-charcoal-2 hover:bg-graysoft hover:text-charcoal`. 원형 아이콘 버튼(캐러셀 prev/next): `btn grid h-9 w-9 place-items-center rounded-full p-0` 에 prev 는 `bg-paper text-ink-deep ring-1 ring-ink/15 shadow-1`, next 는 `bg-ink-deep text-cream shadow-1` — 한 쌍에서 진행 방향을 색으로 구분한다. 끝이 있는 줄(홈 카테고리)에서는 끝에 닿은 쪽을 `aria-disabled` + `opacity-40` 으로 끈다 — `disabled` 로 끄면 키보드 포커스가 사라진다.
 
 ### Search Capsule (캡슐 인 패널)
 **Role:** 히어로 검색 — 인풋과 버튼을 한 장의 흰 패널에 담는다.
