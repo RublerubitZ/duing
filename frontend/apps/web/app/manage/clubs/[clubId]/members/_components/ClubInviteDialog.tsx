@@ -375,7 +375,7 @@ function ActiveInviteCard({
         <div>
           <dt className="text-xs text-charcoal-3">링크 상태</dt>
           <dd className="mt-0.5 font-semibold text-ink-deep">
-            {expired ? '만료됨' : exhausted ? '인원 마감' : '🟢 활성'}
+            {expired ? '만료됨' : exhausted ? '인원 마감' : '활성'}
           </dd>
         </div>
         <div>

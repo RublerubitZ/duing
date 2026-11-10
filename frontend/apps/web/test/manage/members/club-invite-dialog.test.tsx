@@ -239,7 +239,7 @@ describe('부원 초대 다이얼로그 — 활성 링크 카드', () => {
   it('상태·만료 일시·가입 현황을 서버 수치 그대로 보여주고 액션 4종을 노출한다', async () => {
     await openDialog({ activeCode: inviteCode() });
 
-    expect(await screen.findByText('🟢 활성')).toBeInTheDocument();
+    expect(await screen.findByText('활성')).toBeInTheDocument();
     expect(screen.getByText(`${formatDateTimeKst(FUTURE_ISO)}까지`)).toBeInTheDocument();
     // 사용 4 / 최대 30 · 누적 신청 6 · 승인 대기 2 — 서버 카운트를 합산하거나 파생하지 않는다.
     expect(screen.getByText('사용')).toBeInTheDocument();

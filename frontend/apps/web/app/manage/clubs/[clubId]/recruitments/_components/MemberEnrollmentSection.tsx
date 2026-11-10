@@ -394,7 +394,7 @@ function ActiveCodeCard({
           <dt className="text-xs text-charcoal-3">링크 상태</dt>
           {/* 만료 → 인원 마감 순서는 부원 초대 다이얼로그와 같다 — 만료된 링크는 거절로 인원이 환급돼도 다시 쓸 수 없어 만료가 앞선다. */}
           <dd className="mt-0.5 font-semibold text-ink-deep">
-            {expired ? '만료' : exhausted ? '인원 마감' : '🟢 활성'}
+            {expired ? '만료' : exhausted ? '인원 마감' : '활성'}
           </dd>
         </div>
         <div>

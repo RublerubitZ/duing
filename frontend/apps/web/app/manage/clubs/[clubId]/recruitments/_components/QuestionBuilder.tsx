@@ -3,7 +3,7 @@
 import type { QuestionItemPayload, QuestionType, RecruitmentQuestionItem } from '@duing/types';
 
 import { FormSegment } from './form-controls';
-import { X } from 'lucide-react';
+import { ChevronDown, ChevronUp, X } from 'lucide-react';
 
 /** 빌더 내부 상태 — key 는 React 렌더 전용 식별자로 서버가 발급하는 id 와 별개다. */
 export type BuilderChoice = { key: string; id: string | null; label: string };
@@ -181,7 +181,7 @@ export function QuestionBuilder({ questions, onChange, nextKey }: QuestionBuilde
                 className="grid h-9 w-9 place-items-center rounded text-charcoal-3 hover:bg-graysoft disabled:opacity-30"
                 aria-label="위로 이동"
               >
-                ▲
+                <ChevronUp size={16} aria-hidden />
               </button>
               <button
                 type="button"
@@ -190,7 +190,7 @@ export function QuestionBuilder({ questions, onChange, nextKey }: QuestionBuilde
                 className="grid h-9 w-9 place-items-center rounded text-charcoal-3 hover:bg-graysoft disabled:opacity-30"
                 aria-label="아래로 이동"
               >
-                ▼
+                <ChevronDown size={16} aria-hidden />
               </button>
               <button
                 type="button"

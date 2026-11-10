@@ -39,7 +39,7 @@ export function AdminNoticesTable({ items, onDeleteClick }: Props) {
               <Td className="whitespace-nowrap">{formatDateKst(notice.createdAt)}</Td>
               <Td className="whitespace-nowrap">{notice.expiresAt ? formatDateKst(notice.expiresAt) : '—'}</Td>
               <Td className="whitespace-nowrap">{notice.notifyOnPublish ? '발송' : '미발송'}</Td>
-              <Td>{notice.pinned ? <Pin size={14} aria-label="고정" className="text-ink" /> : ''}</Td>
+              <Td>{notice.pinned ? <Pin size={14} role="img" aria-label="고정" className="text-ink" /> : ''}</Td>
               <Td className="whitespace-nowrap">
                 <div className="flex gap-2">
                   <Link

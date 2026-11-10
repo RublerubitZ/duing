@@ -441,7 +441,7 @@ describe('모집 상세 — 활성 링크 카드', () => {
 
     renderPage();
 
-    expect(await screen.findByText('🟢 활성')).toBeInTheDocument();
+    expect(await screen.findByText('활성')).toBeInTheDocument();
     // 모집 진행 중이면 만료 시각이 없다 — 프리셋 문구로 안내한다.
     expect(screen.getByText('모집 종료 후 7일까지')).toBeInTheDocument();
     expect(screen.getByText('누적 가입 신청')).toBeInTheDocument();
@@ -456,7 +456,7 @@ describe('모집 상세 — 활성 링크 카드', () => {
     renderPage();
 
     expect(await screen.findByText(/^\d{4}\.\d{2}\.\d{2} \d{2}:\d{2}까지$/)).toBeInTheDocument();
-    expect(screen.getByText('🟢 활성')).toBeInTheDocument();
+    expect(screen.getByText('활성')).toBeInTheDocument();
   });
 
   it('만료 시각이 지난 링크는 상태가 만료다', async () => {
@@ -465,7 +465,7 @@ describe('모집 상세 — 활성 링크 카드', () => {
     renderPage();
 
     expect(await screen.findByText('만료')).toBeInTheDocument();
-    expect(screen.queryByText('🟢 활성')).not.toBeInTheDocument();
+    expect(screen.queryByText('활성')).not.toBeInTheDocument();
   });
 
   it('사용 인원이 최대 인원에 닿으면 만료 전이어도 상태가 인원 마감이다', async () => {
@@ -475,7 +475,7 @@ describe('모집 상세 — 활성 링크 카드', () => {
 
     const statusCard = within(await screen.findByLabelText('가입 링크 상태'));
     expect(statusCard.getByText('인원 마감')).toBeInTheDocument();
-    expect(statusCard.queryByText('🟢 활성')).not.toBeInTheDocument();
+    expect(statusCard.queryByText('활성')).not.toBeInTheDocument();
   });
 
   it('최대 인원에 한 명 모자라면 상태가 활성이다', async () => {
@@ -484,7 +484,7 @@ describe('모집 상세 — 활성 링크 카드', () => {
     renderPage();
 
     const statusCard = within(await screen.findByLabelText('가입 링크 상태'));
-    expect(statusCard.getByText('🟢 활성')).toBeInTheDocument();
+    expect(statusCard.getByText('활성')).toBeInTheDocument();
     expect(statusCard.queryByText('인원 마감')).not.toBeInTheDocument();
   });
 

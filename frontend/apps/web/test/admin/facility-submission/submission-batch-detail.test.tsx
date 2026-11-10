@@ -126,7 +126,7 @@ describe('SubmissionBatchDetailPage', () => {
   it('REVIEWING 배치의 뒤로가기는 제출 대기 탭, 완료 배치는 제출 이력 탭으로 향한다', () => {
     mockDetailQuery.mockReturnValue(detailSuccess(makeDetail()));
     const { unmount } = render(<SubmissionBatchDetailPage batchId={1} />);
-    expect(screen.getByRole('link', { name: '제출 대기' })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: '제출 대기 목록' })).toHaveAttribute(
       'href',
       '/admin/facility-bookings?tab=ready',
     );
@@ -136,7 +136,7 @@ describe('SubmissionBatchDetailPage', () => {
       detailSuccess(makeDetail({ batch: makeBatch({ completed: true, completedAt: '2026-08-02T09:00:00' }) })),
     );
     render(<SubmissionBatchDetailPage batchId={1} />);
-    expect(screen.getByRole('link', { name: '제출 이력' })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: '제출 이력 목록' })).toHaveAttribute(
       'href',
       '/admin/facility-bookings?tab=archive',
     );
@@ -145,7 +145,7 @@ describe('SubmissionBatchDetailPage', () => {
   it('상세 로딩 전에는 뒤로가기가 제출 이력 탭을 가리킨다(상태를 모를 때의 폴백)', () => {
     mockDetailQuery.mockReturnValue({ data: undefined, isLoading: true, isSuccess: false, isError: false });
     render(<SubmissionBatchDetailPage batchId={1} />);
-    expect(screen.getByRole('link', { name: '제출 이력' })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: '제출 이력 목록' })).toHaveAttribute(
       'href',
       '/admin/facility-bookings?tab=archive',
     );
@@ -161,8 +161,7 @@ describe('SubmissionBatchDetailPage', () => {
     // 메모=제목 승격(개편 스펙 §7) — 메모가 있으면 제목, 제출번호는 서브로 내려간다.
     expect(screen.getByRole('heading', { name: '8월 1차 제출' })).toBeInTheDocument();
     expect(screen.getByText('SUB-20260801-001')).toBeInTheDocument();
-    // 상태 배지와 뒤로가기 링크(화살표 글리프를 아이콘으로 바꾼 뒤 글자가 같다) 두 곳
-    expect(screen.getAllByText('제출 대기')).toHaveLength(2);
+    expect(screen.getByText('제출 대기')).toBeInTheDocument();
     // 생성자 항목의 값만 좁혀 폴백(-)을 단언 — 다른 셀의 - 와 헷갈리지 않는다.
     expect(screen.getByText('생성자').nextElementSibling).toHaveTextContent('-');
     // 조회는 라우트가 넘긴 batchId 로 마운트된다.

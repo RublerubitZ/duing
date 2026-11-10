@@ -80,7 +80,7 @@ export function SubmissionBatchDetailPage({ batchId }: Props) {
   const detail = detailQuery.data;
   const backToReady = detail !== undefined && deriveBatchStatus(detail.batch) === 'REVIEWING';
   const backRoute = backToReady ? READY_ROUTE : ARCHIVE_ROUTE;
-  const backLabel = backToReady ? '제출 대기' : '제출 이력';
+  const backLabel = backToReady ? '제출 대기 목록' : '제출 이력 목록';
 
   // 완료 결과 Dialog(제외 목록)의 예약일·동아리 라벨 소스 — 페이지 레벨에서 유지한다(데이터 없으면 null → 예약번호 폴백).
   const bookingsById = useMemo<ReadonlyMap<number, SubmissionCandidateBooking> | null>(

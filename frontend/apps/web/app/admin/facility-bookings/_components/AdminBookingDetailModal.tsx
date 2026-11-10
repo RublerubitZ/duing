@@ -100,7 +100,9 @@ function ValidationCards({
                 check.count > 0 ? 'text-coral-deep' : 'text-ink'
               }`}
             >
-              {check.count === 0 && (
+              {check.count > 0 ? (
+                <TriangleAlert size={15} aria-hidden className="shrink-0" />
+              ) : (
                 <svg
                   aria-hidden
                   viewBox="0 0 24 24"
@@ -114,7 +116,6 @@ function ValidationCards({
                   <path d="M20 6 9 17l-5-5" />
                 </svg>
               )}
-              {check.count > 0 && <TriangleAlert size={15} aria-hidden className="shrink-0" />}
               {check.count > 0 ? `${check.count}건` : '없음'}
             </p>
           </div>

@@ -433,6 +433,7 @@ export function AdminPromotionForm(props: Props) {
                 <button
                   key={option.value}
                   type="button"
+                  aria-pressed={selected}
                   onClick={() => update('palette', option.value)}
                   className={`relative h-14 rounded-md border-2 px-3 text-left text-[12px] font-semibold transition-colors ${selected ? 'border-ink' : 'border-line hover:border-charcoal-3'}`}
                   style={{ background: style.bg, color: style.fg }}
