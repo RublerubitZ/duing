@@ -193,17 +193,17 @@ function CrawlGroupRow({ group }: { group: AdminCrawlReservationGroup }) {
       <div className="flex flex-wrap items-center gap-2">
         <p className="text-sm font-bold text-ink-deep">{group.title}</p>
         {group.groupType === 'CLUB' && (
-          <span className="rounded-full bg-slate-900 px-1.5 py-0.5 text-[10px] font-semibold text-white">
+          <span className="rounded-full bg-ink-deep px-1.5 py-0.5 text-[11px] font-semibold text-white">
             매칭 동아리
           </span>
         )}
         {group.groupType === 'EXTERNAL' && (
-          <span className="rounded-full bg-graysoft px-1.5 py-0.5 text-[10px] font-semibold text-charcoal-2">
+          <span className="rounded-full bg-graysoft px-1.5 py-0.5 text-[11px] font-semibold text-charcoal-2">
             매칭 없음
           </span>
         )}
         {group.facilitySecuredTimeTarget === true && (
-          <span className="rounded-full bg-emerald-700 px-1.5 py-0.5 text-[10px] font-semibold text-white">
+          <span className="rounded-full bg-ink px-1.5 py-0.5 text-[11px] font-semibold text-white">
             기본 확보 대상
           </span>
         )}

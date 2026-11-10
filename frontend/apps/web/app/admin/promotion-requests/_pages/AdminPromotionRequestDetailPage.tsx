@@ -157,7 +157,7 @@ export function AdminPromotionRequestDetailPage({ requestId }: Props) {
                   href={safeSuggestedLink}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-[13.5px] text-blue-600 hover:underline break-all"
+                  className="text-[13.5px] text-sky-deep hover:underline break-all"
                 >
                   {request.suggestedLinkUrl}
                 </a>

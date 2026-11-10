@@ -7,9 +7,9 @@ export const SUCCESSION_STATUS_LABEL: Record<SuccessionStatus, string> = {
 };
 
 export const SUCCESSION_STATUS_BADGE_CLASS: Record<SuccessionStatus, string> = {
-  PENDING: 'bg-amber-100 text-amber-800',
-  APPROVED: 'bg-emerald-100 text-emerald-800',
-  REJECTED: 'bg-rose-100 text-rose-700',
+  PENDING: 'bg-warm/20 text-warm-deep',
+  APPROVED: 'bg-sage-mist text-ink',
+  REJECTED: 'bg-coral/20 text-coral-deep',
 };
 
 export const CLUB_MEMBER_EVENT_TYPE_LABEL: Record<ClubMemberEventType, string> = {

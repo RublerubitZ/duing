@@ -389,7 +389,7 @@ function AdminClubsList({
               onPendingCleanupClick={handlePendingCleanupClick}
             />
           )}
-          <footer className="mt-4 flex items-center justify-between text-xs text-slate-500">
+          <footer className="mt-4 flex items-center justify-between text-xs text-charcoal-3">
             <span>총 {totalElements}곳</span>
             <div className="flex items-center gap-2">
               <button
