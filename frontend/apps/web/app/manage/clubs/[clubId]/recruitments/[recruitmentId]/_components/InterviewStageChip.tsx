@@ -27,6 +27,7 @@ const STAGE_CHIP_CLASS: Record<string, string> = {
   '라운드 작성 중': 'bg-paper text-charcoal-2 ring-1 ring-inset ring-line',
   '배정 검토 중': 'bg-warm/10 text-warm-deep',
   '면접 확정': 'bg-sage/10 text-sage-deep',
+  '라운드 인원 없음': 'bg-paper text-charcoal-2 ring-1 ring-inset ring-line',
 };
 
 /** 라운드 목록 → 단계 라벨 (§10.5) */
@@ -81,7 +82,7 @@ export function InterviewStageChip({ clubId, recruitmentId }: InterviewStageChip
   const isCollecting = stageLabel.startsWith('응답 대기');
   const chipClass = isCollecting
     ? 'bg-sky/10 text-sky-deep'
-    : (STAGE_CHIP_CLASS[stageLabel] ?? 'bg-graysoft text-charcoal-2');
+    : (STAGE_CHIP_CLASS[stageLabel] ?? 'bg-paper text-charcoal-2 ring-1 ring-inset ring-line');
 
   return (
     <div className="flex items-center gap-2">

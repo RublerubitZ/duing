@@ -370,6 +370,22 @@ describe('RecruitmentDetailPage — 면접 진행 단계표시 칩 (§10.5)', ()
 
     expect(await screen.findByText(expectedLabel)).toBeInTheDocument();
   });
+
+  // DESIGN.md 콘솔 상태 배지 규약 — 해당 없음은 중립 배지.
+  it('단계 칩 — 라운드 인원 없음은 중립 배지로 그린다', async () => {
+    server.use(
+      mockRecruitmentDetail(true),
+      http.get(`*/recruitments/${RECRUITMENT_ID}/interview-rounds`, () =>
+        HttpResponse.json({ ok: true, data: [stageRound(noMembers)], message: null }),
+      ),
+    );
+
+    renderPage();
+
+    const chip = await screen.findByText('라운드 인원 없음');
+    expect(chip).toHaveClass('bg-paper', 'text-charcoal-2', 'ring-1', 'ring-inset', 'ring-line');
+    expect(chip).not.toHaveClass('bg-graysoft');
+  });
 });
 
 // 수제 오버레이였던 마감 확인을 공용 ConfirmDialog 로 교체한 변경을 고정한다.
