@@ -7,8 +7,8 @@ export const REPORT_STATUS_LABEL: Record<ReportStatus, string> = {
 };
 
 export const REPORT_STATUS_BADGE_CLASS: Record<ReportStatus, string> = {
-  PENDING: 'bg-warm/20 text-warm-deep',
-  RESOLVED: 'bg-sage-mist text-ink',
+  PENDING: 'bg-warm/10 text-warm-deep',
+  RESOLVED: 'bg-sage/10 text-sage-deep',
   DISMISSED: 'bg-graysoft text-charcoal-2',
 };
 

@@ -109,7 +109,7 @@ export function MemberTable({
                     aria-label="전체 선택"
                     checked={allSelected}
                     onChange={onToggleAll}
-                    className="h-4 w-4 cursor-pointer rounded border-line text-ink focus:ring-sage"
+                    className="h-4 w-4 cursor-pointer rounded border-line text-ink focus:ring-ink"
                   />
                 </th>
               )}
@@ -137,7 +137,7 @@ export function MemberTable({
                         aria-label={`${member.name} 선택`}
                         checked={isSelected}
                         onChange={() => onToggleSelect(member.memberId)}
-                        className="h-4 w-4 cursor-pointer rounded border-line text-ink focus:ring-sage"
+                        className="h-4 w-4 cursor-pointer rounded border-line text-ink focus:ring-ink"
                       />
                     </td>
                   )}
@@ -208,7 +208,7 @@ export function MemberTable({
                       aria-label={`${member.name} 선택`}
                       checked={isSelected}
                       onChange={() => onToggleSelect(member.memberId)}
-                      className="mt-0.5 h-4 w-4 shrink-0 cursor-pointer rounded border-line text-ink focus:ring-sage"
+                      className="mt-0.5 h-4 w-4 shrink-0 cursor-pointer rounded border-line text-ink focus:ring-ink"
                     />
                   </label>
                 )}

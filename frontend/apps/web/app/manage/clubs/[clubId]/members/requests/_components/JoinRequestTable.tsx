@@ -62,7 +62,7 @@ export function JoinRequestTable({
                   aria-label="전체 선택"
                   checked={allSelected}
                   onChange={onToggleAll}
-                  className="h-4 w-4 cursor-pointer rounded border-line text-ink focus:ring-sage"
+                  className="h-4 w-4 cursor-pointer rounded border-line text-ink focus:ring-ink"
                 />
               </th>
             )}
@@ -91,7 +91,7 @@ export function JoinRequestTable({
                       aria-label={`${joinRequest.userName} 선택`}
                       checked={isSelected}
                       onChange={() => onToggleSelect(joinRequest.joinRequestId)}
-                      className="h-4 w-4 cursor-pointer rounded border-line text-ink focus:ring-sage"
+                      className="h-4 w-4 cursor-pointer rounded border-line text-ink focus:ring-ink"
                     />
                   </td>
                 )}

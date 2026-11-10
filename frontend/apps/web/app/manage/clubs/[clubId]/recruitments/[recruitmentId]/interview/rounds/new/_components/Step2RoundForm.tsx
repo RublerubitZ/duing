@@ -142,7 +142,7 @@ export function Step2RoundForm({
             required
             placeholder="예: 1차 면접"
             aria-label="라운드 제목"
-            className="mt-1 w-full rounded-md border border-line px-3 py-2 text-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
+            className="mt-1 w-full rounded-md border border-line px-3 py-2 text-sm focus:border-ink focus:outline-none focus:ring-[3px] focus:ring-ink/15"
           />
         </label>
 
@@ -157,7 +157,7 @@ export function Step2RoundForm({
             onChange={(event) => setAvailabilityDeadline(event.target.value)}
             required
             aria-label="가능시간 제출 마감"
-            className="mt-1 w-full rounded-md border border-line px-3 py-2 text-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
+            className="mt-1 w-full rounded-md border border-line px-3 py-2 text-sm focus:border-ink focus:outline-none focus:ring-[3px] focus:ring-ink/15"
           />
         </label>
 
@@ -170,7 +170,7 @@ export function Step2RoundForm({
             onChange={(event) => setLocation(event.target.value)}
             placeholder="예: 공학관 2201호"
             aria-label="장소"
-            className="mt-1 w-full rounded-md border border-line px-3 py-2 text-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
+            className="mt-1 w-full rounded-md border border-line px-3 py-2 text-sm focus:border-ink focus:outline-none focus:ring-[3px] focus:ring-ink/15"
           />
         </label>
 

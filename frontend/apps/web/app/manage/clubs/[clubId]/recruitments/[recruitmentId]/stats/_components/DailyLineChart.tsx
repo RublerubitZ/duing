@@ -30,13 +30,13 @@ export function DailyLineChart({ dailyPoints }: DailyLineChartProps) {
         <CartesianGrid strokeDasharray="3 3" stroke="var(--gray-line)" />
         <XAxis
           dataKey="date"
-          tick={{ fontSize: 11, fill: '#94a3b8' }}
+          tick={{ fontSize: 11, fill: 'var(--charcoal-3)' }}
           tickLine={false}
           axisLine={false}
         />
         <YAxis
           allowDecimals={false}
-          tick={{ fontSize: 11, fill: '#94a3b8' }}
+          tick={{ fontSize: 11, fill: 'var(--charcoal-3)' }}
           tickLine={false}
           axisLine={false}
           width={30}
@@ -53,9 +53,9 @@ export function DailyLineChart({ dailyPoints }: DailyLineChartProps) {
         <Line
           type="monotone"
           dataKey="submittedCount"
-          stroke="#059669"
+          stroke="var(--ink)"
           strokeWidth={2}
-          dot={{ r: 3, fill: '#059669' }}
+          dot={{ r: 3, fill: 'var(--ink)' }}
           activeDot={{ r: 5 }}
         />
       </LineChart>

@@ -9,8 +9,8 @@ export const STATUS_LABEL: Record<ClubStatus, string> = {
 };
 
 export const STATUS_BADGE_CLASS: Record<ClubStatus, string> = {
-  PENDING_APPROVAL: 'bg-warm/20 text-warm-deep',
-  ACTIVE: 'bg-sage-mist text-ink',
+  PENDING_APPROVAL: 'bg-warm/10 text-warm-deep',
+  ACTIVE: 'bg-sage/10 text-sage-deep',
   INACTIVE: 'bg-line text-charcoal',
   REJECTED: 'bg-coral/10 text-coral-deep',
 };

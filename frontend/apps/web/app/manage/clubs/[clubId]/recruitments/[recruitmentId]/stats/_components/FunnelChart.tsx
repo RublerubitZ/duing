@@ -22,7 +22,7 @@ type FunnelStage = {
   color: string;
 };
 
-const STAGE_COLORS: [string, string, string] = ['#475569', '#0369a1', '#16a34a'];
+const STAGE_COLORS: [string, string, string] = ['var(--charcoal-2)', 'var(--sky)', 'var(--ink)'];
 
 export function FunnelChart({ funnelData }: FunnelChartProps) {
   const allStages: FunnelStage[] = [
@@ -51,14 +51,14 @@ export function FunnelChart({ funnelData }: FunnelChartProps) {
             type="number"
             domain={[0, maxValue]}
             allowDecimals={false}
-            tick={{ fontSize: 11, fill: '#94a3b8' }}
+            tick={{ fontSize: 11, fill: 'var(--charcoal-3)' }}
             tickLine={false}
             axisLine={false}
           />
           <YAxis
             type="category"
             dataKey="name"
-            tick={{ fontSize: 12, fill: '#475569' }}
+            tick={{ fontSize: 12, fill: 'var(--charcoal-2)' }}
             tickLine={false}
             axisLine={false}
             width={64}
