@@ -46,7 +46,6 @@ const ALLOWED_SOLID_CORAL: ReadonlyArray<AllowedMatch> = [
   { file: 'app/_components/NotificationItem.tsx', count: 1, reason: DOT_OR_BAR },
   { file: 'app/_components/toast/ToastProvider.tsx', count: 1, reason: DOT_OR_BAR },
   { file: 'app/_lib/closingSoon.ts', count: 1, reason: CLOSING_SOON_TICKER },
-  { file: 'app/admin/_components/AdminNavContent.tsx', count: 1, reason: BADGE },
   { file: 'app/admin/_components/AdminNavContent.tsx', count: 1, reason: DOT_OR_BAR },
   { file: 'app/admin/facility-bookings/_components/AdminBookingDetailModal.tsx', count: 1, reason: DOT_OR_BAR },
   { file: 'app/admin/facility-bookings/_components/AdminSlotStrip.tsx', count: 1, reason: BADGE },

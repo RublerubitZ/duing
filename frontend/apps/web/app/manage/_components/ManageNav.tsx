@@ -218,7 +218,8 @@ function ManageNavItem({ item, collapsed }: { item: NavItem; collapsed: boolean 
           <Icon size={19} aria-hidden className="shrink-0 text-white/25" />
           {item.label}
         </span>
-        <span className="mt-0.5 block pl-8 text-[11px] leading-tight text-white/30">{hint}</span>
+        {/* 안내 문구는 읽혀야 하는 설명이라 비활성 라벨보다 밝게 둔다(진한 바탕 위 4.5:1 이상). */}
+        <span className="mt-0.5 block pl-8 text-xs leading-tight text-white/60">{hint}</span>
       </span>
     );
   }

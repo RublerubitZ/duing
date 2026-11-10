@@ -57,7 +57,7 @@ export function AdminMobileBar() {
           </svg>
         </button>
         <div className="min-w-0 leading-tight">
-          <div className="text-[10.5px] text-charcoal-3">총동연 관리자</div>
+          <div className="text-xs text-charcoal-3">총동연 관리자</div>
           <div className="truncate text-[14px] font-semibold text-ink">
             {activeTitle ?? '관리 콘솔'}
           </div>
