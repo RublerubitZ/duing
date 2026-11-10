@@ -339,7 +339,7 @@ function AdminClubsList({
         />
         <button
           type="submit"
-          className="border-line text-charcoal-2 hover:bg-graysoft rounded-md border px-3 py-2 text-sm"
+          className="border-line text-charcoal-2 hover:bg-graysoft shrink-0 whitespace-nowrap rounded-md border px-3 py-2 text-sm"
         >
           검색
         </button>

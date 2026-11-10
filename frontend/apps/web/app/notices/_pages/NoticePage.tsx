@@ -393,7 +393,7 @@ export function NoticePage() {
               <div className="w-full lg:w-[280px]" style={{
                 display: 'flex', alignItems: 'center', gap: 8,
                 background: 'var(--paper)',
-                border: '1px solid var(--gray-line)',
+                border: '1px solid var(--field)',
                 borderRadius: 10,
                 padding: '0 4px 0 14px',
                 height: 40,

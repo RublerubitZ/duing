@@ -227,7 +227,7 @@ export function RespondAvailabilityModal({
                   width: '100%',
                   padding: '10px 12px',
                   borderRadius: 8,
-                  border: '1px solid var(--gray-line)',
+                  border: '1px solid var(--field)',
                   fontSize: 13,
                   resize: 'vertical',
                   color: 'var(--ink-deep)',

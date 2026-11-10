@@ -35,7 +35,7 @@ function SortableHighlightRow({
     <li
       ref={setNodeRef}
       style={{ transform: CSS.Transform.toString(transform), transition }}
-      className="flex items-center gap-2.5 rounded-[12px] border border-line bg-white px-3 py-2 has-[input:focus]:border-ink has-[input:focus]:ring-[3px] has-[input:focus]:ring-ink/15"
+      className="flex items-center gap-2.5 rounded-[12px] border border-field bg-white px-3 py-2 has-[input:focus]:border-ink has-[input:focus]:ring-[3px] has-[input:focus]:ring-ink/15"
     >
       {!readOnly && (
         <button
