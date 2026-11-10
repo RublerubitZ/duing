@@ -16,7 +16,7 @@ const INLINE_DEFINITION = /['"]--([a-z0-9-]+)['"]\s*:/g;
 const CSS_COMMENT = /\/\*[\s\S]*?\*\//g;
 // 라이브러리가 런타임에 넣는 변수.
 const RUNTIME_PREFIXES = ['radix-', 'tw-'];
-const SKY_NUMBER_SCALE = /(?<![\w-])sky-\d/;
+const SKY_NUMBER_SCALE = /\bsky-\d/;
 
 function listSourceFiles(directory: string): string[] {
   return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
@@ -26,7 +26,11 @@ function listSourceFiles(directory: string): string[] {
   });
 }
 
-const sources = SCANNED_DIRS.flatMap((directory) => listSourceFiles(join(WEB_ROOT, directory))).map((filePath) => ({
+// tailwind.config.ts 도 hsl(var(--border)) 처럼 변수를 쓴다 — 같이 읽는다.
+const sources = [
+  ...SCANNED_DIRS.flatMap((directory) => listSourceFiles(join(WEB_ROOT, directory))),
+  join(WEB_ROOT, 'tailwind.config.ts'),
+].map((filePath) => ({
   file: relative(WEB_ROOT, filePath),
   // 주석 속 예시(var(--xxx))는 사용이 아니다 — CSS 주석만 걷는다(TS 주석에는 예시가 없다).
   text: filePath.endsWith('.css') ? readFileSync(filePath, 'utf8').replace(CSS_COMMENT, '') : readFileSync(filePath, 'utf8'),
@@ -50,11 +54,13 @@ describe('CSS 변수 정의 가드', () => {
 
   it('검사가 실제 정의·사용을 읽는다 — 빈 목록으로 통과하지 않는다', () => {
     const globals = sources.find(({ file }) => file === 'app/globals.css');
-    expect(globals?.text).toMatch(/--neutral-mid\s*:/);
-    expect(sources.some(({ text }) => text.includes('var(--neutral-mid)'))).toBe(true);
+    expect(globals?.text).toMatch(/--ink\s*:/);
+    expect(sources.some(({ file, text }) => file.endsWith('.tsx') && text.includes('var(--ink)'))).toBe(true);
   });
 
   it('sky 숫자 스케일(Tailwind 기본 하늘색)을 쓰지 않는다 — sky·sky-deep 만 쓴다', () => {
+    expect(SKY_NUMBER_SCALE.test('hover:bg-sky-100')).toBe(true);
+    expect(SKY_NUMBER_SCALE.test('bg-sky/10 text-sky-deep')).toBe(false);
     const uses = sources.flatMap(({ file, text }) => (SKY_NUMBER_SCALE.test(text) ? [file] : []));
     expect(uses).toEqual([]);
   });

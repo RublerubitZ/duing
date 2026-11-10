@@ -10,7 +10,7 @@ Du-ing 의 비주얼 랭귀지는 따뜻한 크림 캔버스(#F6F3EC) 위에서 
 
 ## Tokens — Colors
 
-Tailwind 토큰과 `.duing` 스코프 CSS 변수(`var(--ink)` 등)가 1:1 동일 값. 변수는 인라인 스타일·SVG 속성처럼 클래스를 쓸 수 없는 자리에서만 쓰고, 표의 Token 칸에 변수명이 적힌 색만 변수가 있다(`test/lint/css-variable-defined.test.ts` 가 정의 없는 `var(--…)` 사용을 막는다).
+이름이 같은 Tailwind 토큰과 `.duing` 스코프 CSS 변수(`var(--ink)` 등)는 값이 같다. 변수는 인라인 스타일·SVG 속성처럼 클래스를 쓸 수 없는 자리에서만 쓰고, 표의 Token 칸에 변수명이 적힌 색만 변수가 있다(`test/lint/css-variable-defined.test.ts` 가 정의 없는 `var(--…)` 사용을 막는다).
 
 | Name | Value | Token | Role |
 |------|-------|-------|------|
