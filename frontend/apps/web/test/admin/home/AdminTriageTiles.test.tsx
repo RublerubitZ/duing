@@ -89,7 +89,7 @@ describe('AdminTriageTiles', () => {
 
   it('320px 에서도 두 칸씩 놓이고 넓으면 네 칸, 더 넓으면 한 줄 여덟 칸인 한 장의 띠다', () => {
     render(<AdminTriageTiles />);
-    expect(screen.getByRole('list')).toHaveClass('grid-cols-2', 'lg:grid-cols-4', 'xl:grid-cols-8', 'gap-px', 'bg-line');
+    expect(screen.getByRole('list')).toHaveClass('grid-cols-2', 'lg:grid-cols-4', 'xl:grid-cols-8', 'gap-px', 'bg-paper');
   });
 
   it('건수를 받기 전·받지 못했으면 칸에 건수를 그리지 않는다', () => {

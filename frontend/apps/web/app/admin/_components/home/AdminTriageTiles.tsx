@@ -15,9 +15,9 @@ export function AdminTriageTiles() {
 
   return (
     <section aria-label="영역별 대기">
-      {/* 한 장의 띠 — 칸 사이 1px 선은 gap-px 뒤로 비치는 line 색이다. 8칸이 2·4·8열 어디서도 외톨이 칸 없이 찬다(8열은 사이드바 옆 본문이 넓어지는 xl 부터).
+      {/* 한 장의 띠 — 칸 사이 1px 선은 gap-px 자리에서 겹치는 칸 테두리(ring)다. 옛 백엔드라 칸이 7개여도 빈 자리는 흰색으로 남는다. 8칸이 2·4·8열 어디서도 외톨이 칸 없이 찬다(8열은 사이드바 옆 본문이 넓어지는 xl 부터).
           신고 칸은 맨 앞이고 건수가 있으면 경고색이라 폭을 넓히지 않아도 먼저 보인다. 0건은 숫자를 흐리게 해 남은 일이 있는 칸만 눈에 걸린다. */}
-      <ul className="grid grid-cols-2 gap-px overflow-hidden rounded-xl border border-line bg-line lg:grid-cols-4 xl:grid-cols-8">
+      <ul className="grid grid-cols-2 gap-px overflow-hidden rounded-xl border border-line bg-paper lg:grid-cols-4 xl:grid-cols-8">
         {tiles.map((tile) => {
           const count = pendingCounts?.[tile.countKey];
           // 0건에 경고색을 칠하면 경고가 배경이 된다 — 위험 칸도 건수가 있을 때만.
@@ -29,7 +29,7 @@ export function AdminTriageTiles() {
             tile.todayLabel,
           );
           return (
-            <li key={tile.key} className="bg-paper">
+            <li key={tile.key} className="ring-1 ring-line">
               <Link
                 href={toRoute(triageTileHref(tile.key, queue.inquiryTotals))}
                 className="flex h-full min-h-11 flex-col gap-1 p-3 transition-colors hover:bg-sage-tint focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ink"

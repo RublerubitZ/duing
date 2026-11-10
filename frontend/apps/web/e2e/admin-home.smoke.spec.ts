@@ -453,5 +453,7 @@ test.describe('총동연 홈', () => {
     }
     // 요약 줄(triageQueueSummary 형식)만 본다 — 사람이 쓴 행 제목에도 "전체"가 들어갈 수 있다.
     await expect(queueCard.getByText(/^(오래 기다린 \d+건 · )?전체 \d+건$/)).toHaveCount(0);
+    // 사이드바 배지도 같은 집계를 쓴다 — 실패하면 건수를 그리지 않는다.
+    await expect(page.getByText(/건 처리 대기$/)).toHaveCount(0);
   });
 });

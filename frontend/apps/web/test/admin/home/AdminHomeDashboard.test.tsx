@@ -29,11 +29,11 @@ describe('AdminHomeDashboard', () => {
     expect(signalsColumn).toContainElement(screen.getByTestId('school'));
   });
 
-  it('추이와 회비 감사는 대기열 아래에서 sm 부터 나란히 서고, 자동 작업이 그 아래 대기열 칸에 온다', () => {
+  it('추이와 회비 감사는 대기열 아래에서 sm·lg 부터 나란히 서고(사이드바가 붙는 md 에서는 쌓인다), 자동 작업이 그 아래 대기열 칸에 온다', () => {
     render(<AdminHomeDashboard />);
     const queueColumn = screen.getByTestId('queue').parentElement!;
     const pair = screen.getByTestId('trend').parentElement!.parentElement!;
-    expect(pair).toHaveClass('grid', 'sm:grid-cols-2');
+    expect(pair).toHaveClass('grid', 'sm:grid-cols-2', 'md:grid-cols-1', 'lg:grid-cols-2');
     expect(pair).toContainElement(screen.getByTestId('fee'));
     expect(screen.getByTestId('fee').parentElement).toHaveClass('min-w-0');
     expect(pair.parentElement).toBe(queueColumn);
