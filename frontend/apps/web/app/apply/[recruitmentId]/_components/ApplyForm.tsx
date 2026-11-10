@@ -190,8 +190,7 @@ export function ApplyForm({ recruitment, recruitmentId, questionItems, initialAn
 
   return (
     <div
-      className="min-h-dvh"
-      style={{ background: 'linear-gradient(180deg, var(--cream-2) 0%, var(--cream) 8%, var(--cream) 92%, var(--cream-2) 100%)' }}
+      className="apply-paper min-h-dvh"
     >
       <main className="mx-auto max-w-[760px] px-8 pb-24 pt-16">
 
