@@ -354,7 +354,7 @@ function CollapsedBadgeDot({
         aria-hidden
         className={cn(
           'absolute right-2.5 top-2 h-[7px] w-[7px] rounded-full ring-2 ring-paper-warm',
-          danger ? 'bg-coral' : 'bg-ink',
+          danger ? 'bg-danger' : 'bg-ink',
         )}
       />
       <span className="sr-only">{`${title} ${count}건 처리 대기`}</span>
