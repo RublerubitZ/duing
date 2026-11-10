@@ -5,7 +5,7 @@ import { CategoryRail } from '../../app/_components/sections/CategoryRail';
 
 function renderRail() {
   return render(
-    <CategoryRail heading={<h2>내게 맞는 카테고리</h2>} mobile={<div data-testid="mobile-tiles" />}>
+    <CategoryRail heading={<h2>내게 맞는 카테고리</h2>}>
       <a href="/clubs?category=ACADEMIC">학술</a>
       <a href="/clubs?category=HOBBY">취미</a>
     </CategoryRail>,
@@ -31,14 +31,13 @@ describe('CategoryRail — 홈 카테고리 줄의 이전·다음 버튼', () =>
   });
   afterEach(() => scrollBy.mockReset());
 
-  it('맨 앞에서는 이전이 꺼져 있고 다음이 켜져 있다 — 제목·모바일 타일·카드는 그대로 그린다', () => {
+  it('맨 앞에서는 이전이 꺼져 있고 다음이 켜져 있다 — 제목·카드는 그대로 그린다', () => {
     const { container } = renderRail();
     fireEvent.scroll(sizeScroller(container, { scrollLeft: 0, clientWidth: 1200, scrollWidth: 2280 }));
     expect(screen.getByRole('heading', { name: '내게 맞는 카테고리' })).toBeInTheDocument();
-    expect(screen.getByTestId('mobile-tiles')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: '학술' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: '이전 카테고리' })).toBeDisabled();
-    expect(screen.getByRole('button', { name: '다음 카테고리' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: '이전 카테고리' })).toHaveAttribute('aria-disabled', 'true');
+    expect(screen.getByRole('button', { name: '다음 카테고리' })).not.toHaveAttribute('aria-disabled');
   });
 
   it('다음을 누르면 화면에 다 들어오는 카드 수만큼 오른쪽으로, 이전은 왼쪽으로 민다', () => {
@@ -59,16 +58,26 @@ describe('CategoryRail — 홈 카테고리 줄의 이전·다음 버튼', () =>
     const scroller = sizeScroller(container, { scrollLeft: 1080, clientWidth: 1200, scrollWidth: 2280 });
     fireEvent.scroll(scroller);
 
-    expect(screen.getByRole('button', { name: '다음 카테고리' })).toBeDisabled();
-    expect(screen.getByRole('button', { name: '이전 카테고리' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: '다음 카테고리' })).toHaveAttribute('aria-disabled', 'true');
+    expect(screen.getByRole('button', { name: '이전 카테고리' })).not.toHaveAttribute('aria-disabled');
   });
 
   it('넘칠 것이 없으면(줄이 화면에 다 들어오면) 두 버튼 모두 꺼진다', () => {
     const { container } = renderRail();
     fireEvent.scroll(sizeScroller(container, { scrollLeft: 0, clientWidth: 2400, scrollWidth: 2280 }));
 
-    expect(screen.getByRole('button', { name: '이전 카테고리' })).toBeDisabled();
-    expect(screen.getByRole('button', { name: '다음 카테고리' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: '이전 카테고리' })).toHaveAttribute('aria-disabled', 'true');
+    expect(screen.getByRole('button', { name: '다음 카테고리' })).toHaveAttribute('aria-disabled', 'true');
+  });
+
+  it('꺼진 버튼은 눌러도 밀지 않고, 포커스를 잃지 않게 disabled 속성은 쓰지 않는다', () => {
+    const { container } = renderRail();
+    fireEvent.scroll(sizeScroller(container, { scrollLeft: 0, clientWidth: 1200, scrollWidth: 2280 }));
+
+    const prev = screen.getByRole('button', { name: '이전 카테고리' });
+    fireEvent.click(prev);
+    expect(scrollBy).not.toHaveBeenCalled();
+    expect(prev).not.toBeDisabled();
   });
 
   it('움직임 줄이기를 켠 사용자에게는 부드러운 스크롤 없이 바로 옮긴다', () => {
