@@ -20,6 +20,7 @@ import { FeeCycleSegment } from './FeeCycleSegment';
 import { ClubProfilePreview, type ClubPreviewData } from './ClubProfilePreview';
 import { DIVISIONS } from '../../../../../clubs/_lib/clubs';
 import { COLLEGE_OPTIONS } from '../../../../../_lib/college';
+import { FormSwitch } from '@/app/_components/FormSwitch';
 import { ImageUploader } from '@/app/_components/ImageUploader';
 import { ImageWithFallback } from '@/app/_components/ImageWithFallback';
 import { clubCategoryLabel } from '@/app/clubs/[clubId]/_lib/clubCategoryLabel';
@@ -758,22 +759,7 @@ export function ClubInfoForm({ detail, mode, mutation, onCancel, onSaved }: Club
               description="회원별 기수를 관리해요. 끄면 기수 관련 화면이 숨겨지고, 기존 기수 데이터는 보존됩니다."
             >
               <div className="flex items-center gap-3">
-                <button
-                  type="button"
-                  role="switch"
-                  aria-checked={useGeneration}
-                  aria-label="회원 기수 관리 사용"
-                  onClick={() => setUseGeneration((prev) => !prev)}
-                  className={`relative h-[26px] w-[46px] shrink-0 rounded-full transition-colors disabled:cursor-default disabled:opacity-60 ${
-                    useGeneration ? 'bg-[#4a6b3f]' : 'bg-[#cfcab8]'
-                  }`}
-                >
-                  <span
-                    className={`absolute top-[3px] h-5 w-5 rounded-full bg-white shadow transition-[left] ${
-                      useGeneration ? 'left-[23px]' : 'left-[3px]'
-                    }`}
-                  />
-                </button>
+                <FormSwitch checked={useGeneration} onChange={setUseGeneration} ariaLabel="회원 기수 관리 사용" />
                 <span className="text-[13.5px] font-medium text-[#4a5247]">
                   {useGeneration ? '사용 중' : '사용 안 함'}
                 </span>

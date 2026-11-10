@@ -329,7 +329,7 @@ function NavBadge({ children, danger }: { children: number; danger?: boolean }) 
     <span
       className={cn(
         'shrink-0 rounded-full px-1.5 py-px tabular-nums text-[10px] font-extrabold leading-none',
-        danger ? 'bg-coral text-paper' : 'bg-paper text-charcoal-2 ring-1 ring-line',
+        danger ? 'bg-danger text-paper' : 'bg-paper text-charcoal-2 ring-1 ring-line',
       )}
     >
       {children}
@@ -354,7 +354,7 @@ function CollapsedBadgeDot({
         aria-hidden
         className={cn(
           'absolute right-2.5 top-2 h-[7px] w-[7px] rounded-full ring-2 ring-paper-warm',
-          danger ? 'bg-coral' : 'bg-ink',
+          danger ? 'bg-danger' : 'bg-ink',
         )}
       />
       <span className="sr-only">{`${title} ${count}건 처리 대기`}</span>
