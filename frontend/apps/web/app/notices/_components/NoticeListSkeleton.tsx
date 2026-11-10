@@ -31,8 +31,7 @@ export function NoticeListSkeleton() {
             {/* 상단 제목·검색 가로 배치 경계는 NoticePage Hero 와 같은 lg(#1381) — 바꿀 때 함께 바꾼다. */}
             <div className="mb-[22px] flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between lg:gap-6">
               <div className="flex-1">
-                <Skeleton className="h-3.5 w-14" />
-                <Skeleton className="mt-2.5 h-10 w-44" />
+                <Skeleton className="h-10 w-44" />
                 <Skeleton className="mt-2.5 h-5 w-full max-w-[420px]" />
                 {/* 모바일 전용 "총동연 자주 묻는 질문" 링크 자리 — 데스크탑은 사이드바에 같은 진입점이 있다. */}
                 <Skeleton className="mt-2.5 h-[18px] w-36 md:hidden" />
