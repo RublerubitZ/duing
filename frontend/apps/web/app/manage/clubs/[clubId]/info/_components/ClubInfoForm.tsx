@@ -75,7 +75,7 @@ function collegeLabel(code: College | null): string {
 }
 
 const inputCls =
-  'w-full border border-line bg-white rounded-[8px] px-3 py-2.5 text-[14px] text-ink-deep placeholder:text-charcoal-3 transition-[border-color,box-shadow] focus:outline-none focus:border-ink focus:shadow-[0_0_0_3px_rgba(31,74,54,0.15)]';
+  'w-full border border-line bg-white rounded-[8px] px-3 py-2.5 text-[14px] text-ink-deep placeholder:text-charcoal-3 transition-[border-color,box-shadow] focus:outline-none focus:border-ink focus:ring-[3px] focus:ring-ink/15';
 
 const selectCls =
   'w-full border border-line bg-white rounded-[8px] px-3 py-2.5 text-[14px] text-ink-deep appearance-none transition-[border-color] focus:outline-none focus:border-ink';

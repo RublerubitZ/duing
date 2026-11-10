@@ -3,10 +3,10 @@
 import type { ClubFaq } from '@duing/types';
 
 const cardInputCls =
-  'w-full border border-[#cfcab8] bg-white rounded-[8px] px-3 py-2 text-[14px] text-[#2a2f27] placeholder:text-[#b8b8ac] focus:outline-none focus:border-[#4a6b3f] focus:shadow-[0_0_0_3px_rgba(74,107,63,0.15)] transition-[border-color,box-shadow]';
+  'w-full border border-line bg-white rounded-[8px] px-3 py-2 text-[14px] text-ink-deep placeholder:text-charcoal-3 focus:outline-none focus:border-ink focus:ring-[3px] focus:ring-ink/15 transition-[border-color,box-shadow]';
 
 const deleteBtnCls =
-  'px-2 py-1 rounded-[6px] text-[12.5px] text-[#8a8f83] hover:text-[#b35a3a] hover:bg-[rgba(179,90,58,0.06)] cursor-pointer transition-colors bg-transparent border-none';
+  'px-2 py-1 rounded-[6px] text-[12.5px] text-charcoal-3 hover:text-danger hover:bg-danger/5 cursor-pointer transition-colors bg-transparent border-none';
 
 type FaqsRepeaterProps = {
   value: ClubFaq[];
@@ -36,10 +36,10 @@ export function FaqsRepeater({
       {value.map((faq, idx) => (
         <div
           key={idx}
-          className="rounded-[12px] border border-[#e2ddcb] bg-white p-3.5"
+          className="rounded-[12px] border border-line bg-white p-3.5"
         >
           <div className="flex items-start gap-2.5">
-            <span className="mt-2 shrink-0 tabular-nums text-[14px] font-extrabold text-[#4a6b3f]">Q</span>
+            <span className="mt-2 shrink-0 tabular-nums text-[14px] font-extrabold text-ink">Q</span>
             <input
               type="text"
               value={faq.question}
@@ -50,7 +50,7 @@ export function FaqsRepeater({
             />
           </div>
           <div className="mt-2 flex items-start gap-2.5">
-            <span className="mt-2 shrink-0 tabular-nums text-[14px] font-extrabold text-[#b6a06a]">A</span>
+            <span className="mt-2 shrink-0 tabular-nums text-[14px] font-extrabold text-warm-deep">A</span>
             <textarea
               value={faq.answer}
               onChange={(event) => update(idx, { answer: event.target.value })}
@@ -75,7 +75,7 @@ export function FaqsRepeater({
         <button
           type="button"
           onClick={add}
-          className="inline-flex items-center gap-1.5 mt-1 bg-transparent border-none text-[13px] font-medium text-[#3e5b34] hover:text-[#4a6b3f] hover:underline cursor-pointer px-0 py-1"
+          className="inline-flex items-center gap-1.5 mt-1 bg-transparent border-none text-[13px] font-medium text-ink hover:underline cursor-pointer px-0 py-1"
         >
           + FAQ 추가
         </button>

@@ -43,11 +43,11 @@ export function TagsInput({ value, onChange, readOnly = false, maxTags = 5, maxT
   }
 
   return (
-    <div className="flex flex-wrap gap-1.5 min-h-[42px] border border-[#cfcab8] bg-white rounded-[8px] px-2.5 py-2 focus-within:border-[#5b7e4d]">
+    <div className="flex flex-wrap gap-1.5 min-h-[42px] border border-line bg-white rounded-[8px] px-2.5 py-2 focus-within:border-ink">
       {value.map((tag, idx) => (
         <span
           key={`${tag}-${idx}`}
-          className="inline-flex items-center gap-1.5 bg-[#e7ebd9] text-[#3e5b34] border border-[#cfd6b3] rounded-full py-[3px] pl-[11px] pr-2.5 text-[12.5px] font-medium"
+          className="inline-flex items-center gap-1.5 bg-sage-mist text-ink border border-sage-soft rounded-full py-[3px] pl-[11px] pr-2.5 text-[12.5px] font-medium"
         >
           {normalizeTag(tag)}
           {!readOnly && (
@@ -55,7 +55,7 @@ export function TagsInput({ value, onChange, readOnly = false, maxTags = 5, maxT
               type="button"
               onClick={() => remove(idx)}
               aria-label={`태그 ${normalizeTag(tag)} 삭제`}
-              className="text-[#4a6b3f] text-[13px] leading-none opacity-70 hover:opacity-100 cursor-pointer"
+              className="text-ink text-[13px] leading-none opacity-70 hover:opacity-100 cursor-pointer"
             >
               ×
             </button>
@@ -90,7 +90,7 @@ export function TagsInput({ value, onChange, readOnly = false, maxTags = 5, maxT
           }}
           maxLength={maxTagLength}
           placeholder={value.length === 0 ? '엔터로 태그 추가' : ''}
-          className="min-w-[8rem] flex-1 bg-transparent text-[14px] text-[#2a2f27] placeholder:text-[#b8b8ac] outline-none"
+          className="min-w-[8rem] flex-1 bg-transparent text-[14px] text-ink-deep placeholder:text-charcoal-3 outline-none"
         />
       )}
     </div>
