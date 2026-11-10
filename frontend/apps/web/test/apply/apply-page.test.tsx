@@ -705,9 +705,13 @@ function makeQueryClient() {
   });
 }
 
-// 재마운트 회귀 테스트만 QueryClient 를 공유한다(실제 앱의 루트 QueryClient 가 SPA 네비게이션
-// 내내 유지되는 상황 재현). 나머지 테스트는 매 렌더마다 새 인스턴스로 격리된 상태에서 돈다.
-function renderApplyPage(queryClient: QueryClient = makeQueryClient()) {
+// QueryClient 를 직접 볼 테스트(재마운트 회귀 — 루트 QueryClient 가 SPA 네비게이션 내내 유지되는
+// 상황 재현, isMutating 대기)만 넘기고, 나머지는 매 렌더마다 새 인스턴스로 격리된다.
+// reactStrictMode 는 개발 모드 이중 마운트·정리를 재현할 테스트만 켠다.
+function renderApplyPage(
+  queryClient: QueryClient = makeQueryClient(),
+  { reactStrictMode }: { reactStrictMode?: boolean } = {},
+) {
   function Wrapper({ children }: { children: ReactNode }) {
     return (
       <ApiClientProvider client={apiClient}>
@@ -722,6 +726,7 @@ function renderApplyPage(queryClient: QueryClient = makeQueryClient()) {
         <ApplyPage />
       </Suspense>
     </Wrapper>,
+    { reactStrictMode },
   );
 }
 
@@ -1046,6 +1051,27 @@ describe('ApplyPage — 제출과 자동저장', () => {
     releaseSubmit();
     await waitFor(() => expect(mockRouterPush).toHaveBeenCalled());
   }, 10_000);
+
+  it('입력한 뒤 제출 응답을 기다리는 동안 화면이 내려가면 떠날 때 저장을 보내지 않는다', async () => {
+    const requestMethods: string[] = [];
+    let releaseSubmit: () => void = () => {};
+    const submitGate = new Promise<void>((resolve) => {
+      releaseSubmit = resolve;
+    });
+    server.use(...recordSubmitAndDraftSave(requestMethods, submitGate));
+    const queryClient = makeQueryClient();
+    const user = userEvent.setup();
+    const view = renderApplyPage(queryClient);
+
+    await user.type(await screen.findByRole('textbox', { name: /지원 동기/ }), '열정');
+    await submitAndConfirm(user);
+    await waitFor(() => expect(requestMethods).toEqual(['POST']));
+    // 응답을 붙잡은 채 내린다 — 보내면 늦은 PUT 이 제출하며 지운 서버 저장본을 되살린다.
+    view.unmount();
+    releaseSubmit();
+    await waitFor(() => expect(queryClient.isMutating()).toBe(0));
+    expect(requestMethods).toEqual(['POST']);
+  });
 
   it('제출이 실패하면 자동저장이 다시 켜져 그때의 답을 저장한다', async () => {
     const draftBodies: unknown[] = [];
@@ -1543,13 +1569,34 @@ describe('ApplyPage — 화면을 떠날 때 자동저장', () => {
   it('열기만 하고 떠나면 보내지 않는다', async () => {
     const draftBodies: UpsertDraftPayload[] = [];
     server.use(recordDraftSave(draftBodies));
-    const view = renderApplyPage();
+    const queryClient = makeQueryClient();
+    const view = renderApplyPage(queryClient);
 
     await screen.findByRole('textbox', { name: /지원 동기/ });
     view.unmount();
-    await new Promise((resolve) => setTimeout(resolve, 2500));
+    await waitFor(() => expect(queryClient.isMutating()).toBe(0));
     expect(draftBodies).toHaveLength(0);
-  }, 10_000);
+  });
+
+  // StrictMode(dev)는 폼이 마운트되자마자 정리 함수를 한 번 돌렸다 다시 건다 — 그 정리에서 보내면 열기만 해도 저장되고, 다시 걸지 못하면 떠날 때 못 보낸다.
+  it('StrictMode 에서도 열기만 하고 떠나면 보내지 않고, 입력 뒤 떠나면 한 번만 보낸다', async () => {
+    const draftBodies: UpsertDraftPayload[] = [];
+    server.use(recordDraftSave(draftBodies));
+    const queryClient = makeQueryClient();
+    const user = userEvent.setup();
+
+    const openOnlyVisit = renderApplyPage(queryClient, { reactStrictMode: true });
+    await screen.findByRole('textbox', { name: /지원 동기/ });
+    openOnlyVisit.unmount();
+    await waitFor(() => expect(queryClient.isMutating()).toBe(0));
+    expect(draftBodies).toHaveLength(0);
+
+    const typedVisit = renderApplyPage(queryClient, { reactStrictMode: true });
+    await user.type(await screen.findByRole('textbox', { name: /지원 동기/ }), '열정');
+    typedVisit.unmount();
+    await waitFor(() => expect(queryClient.isMutating()).toBe(0));
+    expect(draftBodies).toEqual([{ answers: [{ questionId: TEXT_QUESTION_ID, values: ['열정'] }] }]);
+  });
 
   it('자동저장이 끝난 뒤 떠나면 다시 보내지 않는다', async () => {
     const draftBodies: UpsertDraftPayload[] = [];
