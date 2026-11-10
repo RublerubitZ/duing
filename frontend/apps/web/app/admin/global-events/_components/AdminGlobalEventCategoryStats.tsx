@@ -10,7 +10,7 @@ import {
 
 const OTHER_WARN_THRESHOLD = 0.15;
 const NORMAL_BAR_COLOR = 'var(--sage)';
-const WARN_BAR_COLOR = '#D97757';
+const WARN_BAR_COLOR = 'var(--coral)';
 
 export function AdminGlobalEventCategoryStats() {
   const statsQuery = useGlobalEventCategoryStatsQuery();

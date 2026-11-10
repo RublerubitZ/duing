@@ -12,7 +12,7 @@ function ScheduleRow({ clubId, item }: { clubId: number; item: TodayScheduleItem
       <span className="w-12 shrink-0 text-xs font-semibold text-charcoal-2">{formatTimeKst(item.startAt)}</span>
       <span
         className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${
-          item.kind === 'INTERVIEW' ? 'bg-sage-mist text-ink' : 'bg-sky-100 text-sky-700'
+          item.kind === 'INTERVIEW' ? 'bg-sage/10 text-sage-deep' : 'bg-sky/10 text-sky-deep'
         }`}
       >
         {item.kind === 'INTERVIEW' ? '면접' : '행사'}

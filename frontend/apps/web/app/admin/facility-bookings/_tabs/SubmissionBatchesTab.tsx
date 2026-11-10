@@ -276,7 +276,7 @@ export function SubmissionBatchesTab({ statusFilter }: { statusFilter?: Submissi
                       <p>{formatDateKst(batch.submittedAt)}</p>
                       {/* 진행 중 배치의 방치 감지(3일↑ 경고색) / 완료·취소는 처리일을 함께 보여준다. */}
                       {status === 'REVIEWING' && ageDays !== null && ageDays >= 1 && (
-                        <p className={`mt-0.5 text-xs ${ageDays >= 3 ? 'font-bold text-[#8E6620]' : 'text-charcoal-3'}`}>
+                        <p className={`mt-0.5 text-xs ${ageDays >= 3 ? 'font-bold text-warm-deep' : 'text-charcoal-3'}`}>
                           생성 {ageDays}일 경과
                         </p>
                       )}

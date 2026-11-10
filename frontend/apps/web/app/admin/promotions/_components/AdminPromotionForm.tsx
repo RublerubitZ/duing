@@ -618,7 +618,7 @@ export function AdminPromotionForm(props: Props) {
             className="relative flex h-[200px] flex-col justify-between overflow-hidden rounded-xl px-8 py-7"
             style={{
               background: previewStyle.bg,
-              color: hasBannerImage ? '#fff' : previewStyle.fg,
+              color: hasBannerImage ? 'var(--paper)' : previewStyle.fg,
             }}
           >
             {hasBannerImage && (
@@ -658,7 +658,7 @@ export function AdminPromotionForm(props: Props) {
                 className="relative inline-flex items-center gap-2 self-start rounded-full px-3 py-[5px] text-[11.5px] font-extrabold"
                 style={{
                   background: hasBannerImage ? 'rgba(255,255,255,0.95)' : 'rgba(255,255,255,0.14)',
-                  color: hasBannerImage ? '#143025' : previewStyle.accent,
+                  color: hasBannerImage ? 'var(--ink-deep)' : previewStyle.accent,
                 }}
               >
                 {state.tag}
@@ -673,8 +673,8 @@ export function AdminPromotionForm(props: Props) {
                 <div
                   className="mt-3 inline-block rounded-md px-3 py-1.5 text-[12px] font-bold"
                   style={{
-                    background: hasBannerImage ? '#9DB6A0' : previewStyle.accent,
-                    color: hasBannerImage ? '#143025' : '#fff',
+                    background: hasBannerImage ? 'var(--sage)' : previewStyle.accent,
+                    color: hasBannerImage ? 'var(--ink-deep)' : 'var(--paper)',
                   }}
                 >
                   {state.ctaLabel} →

@@ -89,7 +89,7 @@ export function RoundMemberTable({ detail, onExclude, onManualAssign }: RoundMem
                   <button
                     type="button"
                     onClick={() => onManualAssign(member)}
-                    className="rounded-md px-3 py-2 text-[13px] sm:px-2 sm:py-1 sm:text-xs text-sky-600 hover:bg-sky-50"
+                    className="rounded-md px-3 py-2 text-[13px] sm:px-2 sm:py-1 sm:text-xs text-sky-deep hover:bg-sky/10"
                   >
                     일정 변경
                   </button>
