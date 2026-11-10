@@ -126,7 +126,7 @@ export function ClubSwitcher({ managedClubs, currentClubId, onNavigate }: ClubSw
                   {club.activeRecruitmentCount > 0 && (
                     <>
                       {' · '}
-                      <span className="text-sage-soft">모집중</span>
+                      <span className="text-sage-mist">모집중</span>
                     </>
                   )}
                 </span>

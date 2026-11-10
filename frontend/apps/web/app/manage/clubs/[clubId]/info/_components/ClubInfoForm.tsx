@@ -75,16 +75,16 @@ function collegeLabel(code: College | null): string {
 }
 
 const inputCls =
-  'w-full border border-[#cfcab8] bg-white rounded-[8px] px-3 py-2.5 text-[14px] text-[#2a2f27] placeholder:text-[#b8b8ac] transition-[border-color,box-shadow] focus:outline-none focus:border-[#4a6b3f] focus:shadow-[0_0_0_3px_rgba(74,107,63,0.15)]';
+  'w-full border border-line bg-white rounded-[8px] px-3 py-2.5 text-[14px] text-ink-deep placeholder:text-charcoal-3 transition-[border-color,box-shadow] focus:outline-none focus:border-ink focus:shadow-[0_0_0_3px_rgba(31,74,54,0.15)]';
 
 const selectCls =
-  'w-full border border-[#cfcab8] bg-white rounded-[8px] px-3 py-2.5 text-[14px] text-[#2a2f27] appearance-none transition-[border-color] focus:outline-none focus:border-[#4a6b3f]';
+  'w-full border border-line bg-white rounded-[8px] px-3 py-2.5 text-[14px] text-ink-deep appearance-none transition-[border-color] focus:outline-none focus:border-ink';
 
-const labelCls = 'block text-[13px] font-medium text-[#4a5247]';
+const labelCls = 'block text-[13px] font-medium text-charcoal-2';
 
 const chevronStyle = {
   backgroundImage:
-    "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'><path d='M2 4l4 4 4-4' fill='none' stroke='%234a5247' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/></svg>\")",
+    "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'><path d='M2 4l4 4 4-4' fill='none' stroke='%234A504F' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/></svg>\")",
   backgroundRepeat: 'no-repeat',
   backgroundPosition: 'right 12px center',
   backgroundSize: '12px',
@@ -339,14 +339,11 @@ export function ClubInfoForm({ detail, mode, mutation, onCancel, onSaved }: Club
     <div className="mx-auto max-w-[1240px] px-6 py-9 xl:grid xl:grid-cols-[minmax(0,1fr)_380px] xl:items-start xl:gap-6">
       <form onSubmit={handleSubmit} className="min-w-0">
         <header className="mb-6 flex items-baseline gap-3">
-          <h1 className="text-[26px] font-bold tracking-tight text-[#2a2f27]">동아리 정보</h1>
-          <span className="tabular-nums text-[11px] tracking-[0.14em] text-[#8a8f83] uppercase">
-            CLUB PROFILE
-          </span>
+          <h1 className="text-[26px] font-bold tracking-tight text-ink-deep">동아리 정보</h1>
         </header>
 
         {readOnly && (
-          <p className="mb-5 text-[13px] text-[#8a8f83]">
+          <p className="mb-5 text-[13px] text-charcoal-3">
             임원은 동아리 정보를 열람만 할 수 있어요. 수정은 회장(LEADER)만 가능합니다.
           </p>
         )}
@@ -562,24 +559,24 @@ export function ClubInfoForm({ detail, mode, mutation, onCancel, onSaved }: Club
             <Field label="활동 요일 / 빈도">
               <div className="mt-1 flex flex-wrap items-center gap-2">
                 <ActiveDaysToggle value={activeDays} onChange={setActiveDays} disabled={readOnly} />
-                <span className="mx-1 h-5 w-px bg-[#d9d4c3]" />
-                <span className="text-[13px] text-[#4a5247]">주</span>
+                <span className="mx-1 h-5 w-px bg-line" />
+                <span className="text-[13px] text-charcoal-2">주</span>
                 <input
                   type="number"
                   min={1}
                   aria-label="주간 활동 횟수"
                   value={activityFrequency}
                   onChange={(event) => setActivityFrequency(event.target.value)}
-                  className="w-14 rounded-[8px] border border-[#cfcab8] bg-white px-2 py-1.5 text-center text-[13.5px] focus:border-[#4a6b3f] focus:outline-none"
+                  className="w-14 rounded-[8px] border border-line bg-white px-2 py-1.5 text-center text-[13.5px] focus:border-ink focus:outline-none"
                 />
-                <span className="text-[13px] text-[#4a5247]">회</span>
+                <span className="text-[13px] text-charcoal-2">회</span>
               </div>
             </Field>
 
             <div className="mt-4">
               <Field label="회비">
                 {showFeeMigrationNotice && (
-                  <p className="mb-2 text-[12px] text-[#8a6d3b]">
+                  <p className="mb-2 text-[12px] text-warm-deep">
                     회비 정보가 새 형식으로 개편되었어요. 회비가 있다면 금액과 주기를, 없다면 &apos;회비 없음&apos;을 선택해 주세요.
                   </p>
                 )}
@@ -601,16 +598,16 @@ export function ClubInfoForm({ detail, mode, mutation, onCancel, onSaved }: Club
                       onChange={(event) => setFeeAmount(event.target.value)}
                       placeholder="30000"
                       disabled={readOnly}
-                      className="w-[120px] rounded-[8px] border border-[#cfcab8] bg-white px-3 py-2 text-[14px] focus:border-[#4a6b3f] focus:outline-none"
+                      className="w-[120px] rounded-[8px] border border-line bg-white px-3 py-2 text-[14px] focus:border-ink focus:outline-none"
                     />
-                    <span className="text-[13px] text-[#4a5247]">원</span>
+                    <span className="text-[13px] text-charcoal-2">원</span>
                   </div>
                 )}
                 {/* 회비 안내문 — 주기가 '회비 없음'이어도 항상 입력 가능(분야별·신규/기존 차등 안내). */}
                 <div className="mt-3 flex flex-col gap-1.5">
                   <div className="flex items-baseline justify-between">
                     <label htmlFor="f-fee-note" className={labelCls}>회비 안내 (선택)</label>
-                    <span className="text-[11.5px] font-medium text-[#8a8f83]">{feeNote.length}/150</span>
+                    <span className="text-[11.5px] font-medium text-charcoal-3">{feeNote.length}/150</span>
                   </div>
                   <textarea
                     id="f-fee-note"
@@ -619,9 +616,9 @@ export function ClubInfoForm({ detail, mode, mutation, onCancel, onSaved }: Club
                     rows={4}
                     onChange={(event) => setFeeNote(event.target.value)}
                     placeholder={'선수 : 학기당 30,000원\n매니저 : 학기당 15,000원\n\n신규 회원은 첫 학기만 5,000원이 추가됩니다.'}
-                    className="w-full resize-none rounded-[8px] border border-[#cfcab8] bg-white px-3 py-2 text-[14px] leading-relaxed focus:border-[#4a6b3f] focus:outline-none"
+                    className="w-full resize-none rounded-[8px] border border-line bg-white px-3 py-2 text-[14px] leading-relaxed focus:border-ink focus:outline-none"
                   />
-                  <p className="text-[12px] text-[#8a8f83]">
+                  <p className="text-[12px] text-charcoal-3">
                     모집 분야별 또는 신규/기존 회원 등 회비가 다른 경우 자유롭게 안내해 주세요.
                   </p>
                 </div>
@@ -636,7 +633,7 @@ export function ClubInfoForm({ detail, mode, mutation, onCancel, onSaved }: Club
                 <label htmlFor="f-tagline" className={labelCls}>한줄 소개</label>
                 <span
                   className={`text-[11.5px] font-medium ${
-                    tagline.length > 20 ? 'text-[#b04a2a]' : 'text-[#8a8f83]'
+                    tagline.length > 20 ? 'text-danger' : 'text-charcoal-3'
                   }`}
                 >
                   {tagline.length}/20
@@ -652,7 +649,7 @@ export function ClubInfoForm({ detail, mode, mutation, onCancel, onSaved }: Club
                 className={inputCls}
               />
               {tagline.length > 20 && (
-                <p className="mt-1 text-[12px] text-[#b04a2a]">
+                <p className="mt-1 text-[12px] text-danger">
                   기존에 저장된 소개가 20자를 초과합니다. 20자 이내로 줄이는 것을 권장해요.
                 </p>
               )}
@@ -661,11 +658,11 @@ export function ClubInfoForm({ detail, mode, mutation, onCancel, onSaved }: Club
             <div className="mt-4 flex flex-col gap-1.5">
               <div className="flex items-baseline justify-between">
                 <span className={labelCls}>
-                  해시태그 <span className="text-[11.5px] font-normal text-[#8a8f83]">(최대 5개)</span>
+                  해시태그 <span className="text-[11.5px] font-normal text-charcoal-3">(최대 5개)</span>
                 </span>
                 <span
                   className={`text-[11.5px] font-medium ${
-                    tags.length > 5 ? 'text-[#b04a2a]' : tags.length === 5 ? 'text-[#3e5b34]' : 'text-[#8a8f83]'
+                    tags.length > 5 ? 'text-danger' : tags.length === 5 ? 'text-ink' : 'text-charcoal-3'
                   }`}
                 >
                   {tags.length}/5
@@ -673,12 +670,12 @@ export function ClubInfoForm({ detail, mode, mutation, onCancel, onSaved }: Club
               </div>
               <TagsInput value={tags} onChange={setTags} readOnly={readOnly} />
               {tags.length > 5 && (
-                <p className="mt-1.5 text-[12px] text-[#b04a2a]">
+                <p className="mt-1.5 text-[12px] text-danger">
                   이전에 등록된 태그가 5개를 초과합니다. 새 태그를 추가하려면 먼저 일부를 삭제해 주세요.
                 </p>
               )}
               {tags.length === 5 && (
-                <p className="mt-1.5 text-[12px] text-[#8a8f83]">최대 5개까지 추가할 수 있어요.</p>
+                <p className="mt-1.5 text-[12px] text-charcoal-3">최대 5개까지 추가할 수 있어요.</p>
               )}
             </div>
 
@@ -688,7 +685,7 @@ export function ClubInfoForm({ detail, mode, mutation, onCancel, onSaved }: Club
                 {!readOnly && (
                   <span
                     className={`text-[11.5px] font-medium ${
-                      descriptionOverLimit ? 'text-[#b04a2a]' : 'text-[#8a8f83]'
+                      descriptionOverLimit ? 'text-danger' : 'text-charcoal-3'
                     }`}
                   >
                     {`${descriptionTextLength.toLocaleString()}/1,500 · 권장 300~800자`}
@@ -703,7 +700,7 @@ export function ClubInfoForm({ detail, mode, mutation, onCancel, onSaved }: Club
                     dangerouslySetInnerHTML={{ __html: sanitizeNoticeHtml(seededDescription) }}
                   />
                 ) : (
-                  <p className="text-[13px] text-[#8a8f83]">등록된 소개가 없습니다.</p>
+                  <p className="text-[13px] text-charcoal-3">등록된 소개가 없습니다.</p>
                 )
               ) : (
                 <>
@@ -714,7 +711,7 @@ export function ClubInfoForm({ detail, mode, mutation, onCancel, onSaved }: Club
                     features={{ headings: false, image: false, code: false }}
                   />
                   {descriptionOverLimit && (
-                    <p className="mt-1 text-[12px] text-[#b04a2a]">
+                    <p className="mt-1 text-[12px] text-danger">
                       소개글은 1,500자 이하로 줄여주세요.
                     </p>
                   )}
@@ -760,16 +757,16 @@ export function ClubInfoForm({ detail, mode, mutation, onCancel, onSaved }: Club
             >
               <div className="flex items-center gap-3">
                 <FormSwitch checked={useGeneration} onChange={setUseGeneration} ariaLabel="회원 기수 관리 사용" />
-                <span className="text-[13.5px] font-medium text-[#4a5247]">
+                <span className="text-[13.5px] font-medium text-charcoal-2">
                   {useGeneration ? '사용 중' : '사용 안 함'}
                 </span>
               </div>
             </SectionCard>
           )}
 
-          {error && <p className="mt-2 text-[13px] text-[#b35a3a]">{error}</p>}
+          {error && <p className="mt-2 text-[13px] text-danger">{error}</p>}
           {savedAt && !error && (
-            <p className="mt-2 text-[13px] text-[#3e5b34]">저장됨 ({SAVED_TIME_FORMATTER.format(savedAt)})</p>
+            <p className="mt-2 text-[13px] text-ink">저장됨 ({SAVED_TIME_FORMATTER.format(savedAt)})</p>
           )}
 
           {!readOnly && (
@@ -782,7 +779,7 @@ export function ClubInfoForm({ detail, mode, mutation, onCancel, onSaved }: Club
                   type="button"
                   onClick={onCancel}
                   disabled={mutation.isPending}
-                  className="rounded-[8px] border border-[#cfcab8] px-4 py-2 text-[14px] text-[#4a5247] hover:bg-[#f5f3ec] disabled:opacity-50"
+                  className="rounded-[8px] border border-line px-4 py-2 text-[14px] text-charcoal-2 hover:bg-cream disabled:opacity-50"
                 >
                   취소
                 </button>

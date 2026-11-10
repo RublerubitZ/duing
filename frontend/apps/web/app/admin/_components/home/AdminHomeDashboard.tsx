@@ -21,7 +21,7 @@ export function AdminHomeDashboard() {
         <div className="flex min-w-0 flex-col gap-4">
           <AdminTriageQueueCard />
           {/* 나란한 두 카드는 높이를 맞춘다 — 카드 루트가 칸 높이를 채운다.
-              md 에서는 사이드바가 붙어 본문이 464px 까지 좁아지므로 다시 한 칸으로 쌓고, lg 부터 나란히 둔다. */}
+              md 에서는 사이드바가 붙어 본문이 416px 까지 좁아지므로 다시 한 칸으로 쌓고, lg 부터 나란히 둔다. */}
           <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-1 lg:grid-cols-2">
             <div className="min-w-0 [&>*]:h-full">
               <AdminPendingTrendCard />

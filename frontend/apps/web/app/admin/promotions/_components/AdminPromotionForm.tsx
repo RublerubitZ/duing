@@ -608,7 +608,7 @@ export function AdminPromotionForm(props: Props) {
               </div>
             )}
             {state.bannerImageUrl && state.imageAltText.trim() === '' && (
-              <span className="absolute right-2 top-2 rounded bg-coral/90 px-2 py-1 text-[11px] font-bold text-paper">
+              <span className="absolute right-2 top-2 rounded bg-danger px-2 py-1 text-[11px] font-bold text-paper">
                 ⚠ Alt 미입력
               </span>
             )}
