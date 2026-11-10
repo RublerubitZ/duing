@@ -319,9 +319,6 @@ export function CalendarPage({ renderedTodayIso }: Props) {
           <PageSegment label="일정·시설" items={CALENDAR_FACILITY_SEGMENT_ITEMS} />
           <div className="cal-header-row" style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 32, marginBottom: 28 }}>
             <div>
-              <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)', letterSpacing: '0.08em', marginBottom: 10 }}>
-                CAMPUS CALENDAR · 캠퍼스 캘린더
-              </div>
               {/* keep-all — 모바일에서 접힐 때 어절 단위로만 줄바꿈. 스파클은 마지막 어절과
                   nowrap 으로 묶어 단독 줄바꿈(장식만 다음 줄로 떨어지는 현상)을 막는다. */}
               <h1 className="cal-h1" style={{ fontSize: 56, lineHeight: 1.05, wordBreak: 'keep-all' }}>
@@ -387,7 +384,7 @@ export function CalendarPage({ renderedTodayIso }: Props) {
 
           {/* Filter chips */}
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
-            <span style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--charcoal-3)', letterSpacing: '0.04em', marginRight: 4 }}>
+            <span style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--charcoal-3)', marginRight: 4 }}>
               필터 ·
             </span>
             {KIND_ORDER.map((kind) => {
@@ -496,7 +493,7 @@ export function CalendarPage({ renderedTodayIso }: Props) {
                 {['일', '월', '화', '수', '목', '금', '토'].map((label, i) => (
                   <div key={label} className="cal-weekhead" style={{
                     padding: detailOpen ? '10px 10px' : '12px 16px',
-                    fontSize: detailOpen ? 11.5 : 12, fontWeight: 700, letterSpacing: '0.06em',
+                    fontSize: detailOpen ? 11.5 : 12, fontWeight: 700,
                     color: i === 0 ? 'var(--pill-coral-ink)' : i === 6 ? 'var(--pill-sky-ink)' : 'var(--charcoal-2)',
                   }}>{label}</div>
                 ))}
@@ -680,8 +677,8 @@ export function CalendarPage({ renderedTodayIso }: Props) {
                 position: 'relative', overflow: 'hidden',
               }}>
                 <SparkleFull size={36} color="var(--sage)" style={{ position: 'absolute', top: 18, right: 22, opacity: 0.9 }} />
-                <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.55)', letterSpacing: '0.08em', fontWeight: 700, marginBottom: 10 }}>
-                  {selectedDate === todayIso ? 'TODAY · 오늘' : 'SELECTED · 선택한 날짜'}
+                <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.55)', fontWeight: 700, marginBottom: 10 }}>
+                  {selectedDate === todayIso ? '오늘' : '선택한 날짜'}
                 </div>
                 <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
                   <span style={{ fontSize: 56, fontWeight: 700, lineHeight: 1, color: 'var(--paper)' }}>
@@ -745,7 +742,7 @@ export function CalendarPage({ renderedTodayIso }: Props) {
                             display: 'inline-flex', alignItems: 'center', gap: 5,
                             padding: '2px 8px', borderRadius: 999,
                             background: accent.bg, color: accent.fg,
-                            fontSize: 10.5, fontWeight: 700, letterSpacing: '0.04em',
+                            fontSize: 10.5, fontWeight: 700,
                           }}>
                             <span style={{ width: 5, height: 5, borderRadius: 999, background: accent.dot }} />
                             {KIND_LABEL[event.kind]}
@@ -774,9 +771,6 @@ export function CalendarPage({ renderedTodayIso }: Props) {
         <div style={{ maxWidth: CONTENT_WIDTH, margin: '0 auto' }}>
           <div style={{ display: 'flex', alignItems: 'end', justifyContent: 'space-between', marginBottom: 20 }}>
             <div>
-              <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink)', letterSpacing: '0.08em', marginBottom: 6 }}>
-                UPCOMING · 다가오는 일정
-              </div>
               <h2 style={{ fontSize: 28, lineHeight: 1.1 }}>
                 앞으로 한 달, 놓치면 아쉬워요
               </h2>

@@ -21,7 +21,6 @@ export function NoticeRow({ notice }: Props) {
         width: 56, textAlign: 'center',
         fontSize: 11, fontWeight: 700,
         color: notice.pinned ? 'var(--ink)' : 'var(--charcoal-3)',
-        letterSpacing: '0.04em',
       }}>
         {notice.pinned ? '고정 ' : ''}{notice.tag}
       </div>

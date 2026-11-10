@@ -32,7 +32,7 @@ export function UpcomingCards({ events, todayIso }: Props) {
                 display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
                 flexShrink: 0,
               }}>
-                <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', opacity: 0.7 }}>{view.monthNumber}월</div>
+                <div style={{ fontSize: 10, fontWeight: 700, opacity: 0.7 }}>{view.monthNumber}월</div>
                 <div style={{ fontSize: 28, fontWeight: 700, lineHeight: 1 }}>
                   {view.dayNumber}
                 </div>
@@ -43,7 +43,7 @@ export function UpcomingCards({ events, todayIso }: Props) {
                 background: view.daysLeft === 0 ? 'var(--ink)' : 'var(--gray-soft)',
                 color: view.daysLeft === 0 ? 'var(--paper)' : 'var(--charcoal-2)',
                 fontVariantNumeric: 'tabular-nums',
-                fontSize: 11, fontWeight: 700, letterSpacing: '0.04em',
+                fontSize: 11, fontWeight: 700,
               }}>{view.dday}</span>
             </div>
 
@@ -53,7 +53,7 @@ export function UpcomingCards({ events, todayIso }: Props) {
                 display: 'inline-flex', alignItems: 'center', gap: 5,
                 padding: '2px 8px', borderRadius: 999,
                 background: view.accent.bg, color: view.accent.fg,
-                fontSize: 10.5, fontWeight: 700, letterSpacing: '0.04em',
+                fontSize: 10.5, fontWeight: 700,
                 marginBottom: 8,
               }}>
                 <span style={{ width: 5, height: 5, borderRadius: 999, background: view.accent.dot }} />

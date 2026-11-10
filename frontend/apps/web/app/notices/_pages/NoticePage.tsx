@@ -79,7 +79,7 @@ function NewBadge() {
       display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
       padding: '2px 7px', borderRadius: 5,
       background: 'var(--danger)', color: 'var(--paper)',
-      fontSize: 12, fontWeight: 800, letterSpacing: '0.06em',
+      fontSize: 12, fontWeight: 800,
       marginLeft: 8, transform: 'translateY(-1px)',
     }}>NEW</span>
   );
@@ -366,10 +366,6 @@ export function NoticePage() {
           {/* Hero — 가로 배치는 lg 부터. md 사이드바가 붙는 768~1023px 은 본문이 좁아 제목이 꺾인다(#1381). 고정 카드 2열·표도 같은 경계. */}
           <div className="mb-[22px] flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between lg:gap-6">
             <div>
-              <div style={{
-                fontSize: 11.5, fontWeight: 700, color: 'var(--ink)',
-                letterSpacing: '0.14em', marginBottom: 10,
-              }}>NOTICE</div>
               <h1 style={{ fontSize: 36, marginBottom: 10, display: 'inline-flex', alignItems: 'center', gap: 8 }}>
                 캠퍼스 소식
                 <SparkleFull size={22} color="var(--sage)" />
@@ -649,7 +645,7 @@ export function NoticePage() {
                   padding: '12px 22px', gap: 14, alignItems: 'center',
                   borderBottom: '1px solid var(--gray-line)',
                   fontSize: 11.5, fontWeight: 700, color: 'var(--charcoal-3)',
-                  letterSpacing: '0.04em',
+                 
                 }}>
                   <span>NO.</span>
                   <span />
