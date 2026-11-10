@@ -2,10 +2,12 @@
 
 import { useEffect, useState } from 'react';
 import { usePathname } from 'next/navigation';
+import { NotificationBell } from '@/app/_components/NotificationBell';
 import { skipNextOverlayReclaim } from '@/app/_lib/backDismiss';
 import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
 import { ADMIN_SECTIONS, ADMIN_STANDALONE_SECTIONS, isStandaloneSectionActive } from '../_lib/adminSections';
 import { AdminNavContent, resolveActiveSectionHref } from './AdminNavContent';
+import { AdminSidebarActions } from './AdminSidebar';
 
 /**
  * 모바일(md 미만) 어드민 섹션 내비 — 상단바 햄버거로 좌측 Sheet 드로어를 연다.
@@ -62,6 +64,10 @@ export function AdminMobileBar() {
             {activeTitle ?? '관리 콘솔'}
           </div>
         </div>
+        {/* 사이트 상단바가 없으므로 알림은 이 바가 맡는다. */}
+        <div className="ml-auto shrink-0">
+          <NotificationBell />
+        </div>
       </div>
 
       <Sheet open={drawerOpen} onOpenChange={setDrawerOpen}>
@@ -87,6 +93,10 @@ export function AdminMobileBar() {
           >
             {/* 드로어는 폭이 충분하므로 접힘을 적용하지 않는다(데스크탑 사이드바 전용 상태). */}
             <AdminNavContent />
+            {/* 콘솔을 벗어나는 길(내 페이지·홈으로·로그아웃) — 데스크탑 사이드바 아래와 같은 묶음. */}
+            <div className="-mx-3 mt-3 border-t border-line">
+              <AdminSidebarActions />
+            </div>
           </div>
         </SheetContent>
       </Sheet>

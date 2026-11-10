@@ -1,5 +1,4 @@
 import type { Metadata } from 'next';
-import { HomeNav } from '../_components/HomeNav';
 import { AdminRoleGuard } from './_components/AdminRoleGuard';
 import { AdminSidebar } from './_components/AdminSidebar';
 import { AdminMobileBar } from './_components/AdminMobileBar';
@@ -9,8 +8,7 @@ export const metadata: Metadata = { title: '총동연 콘솔 | 두잉' };
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="duing bg-cream min-h-dvh">
-      {/* 모바일에서는 섹션 내비를 AdminMobileBar 드로어가 제공하므로 글로벌 링크를 슬림화한다. */}
-      <HomeNav slimOnMobile />
+      {/* 콘솔은 사이트 상단바를 얹지 않는다(운영진 콘솔과 같다) — 서비스로 돌아가기·알림·로그아웃은 사이드바와 모바일 상단바·드로어가 맡는다. */}
       <AdminRoleGuard>
         <div className="flex">
           <AdminSidebar />

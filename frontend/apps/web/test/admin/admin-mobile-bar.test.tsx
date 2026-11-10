@@ -1,4 +1,8 @@
-import { render, screen } from '@testing-library/react';
+import { render as rtlRender, screen } from '@testing-library/react';
+import type { ReactElement } from 'react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { createApiClient } from '@duing/api';
+import { ApiClientProvider } from '@duing/hooks';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { AdminMobileBar } from '@/app/admin/_components/AdminMobileBar';
@@ -10,6 +14,16 @@ vi.mock('next/navigation', () => ({
 }));
 
 beforeEach(() => mockUsePathname.mockReturnValue('/admin'));
+
+// 상단바의 알림 종이 조회 훅을 쓴다 — 로그인 전이라 요청은 나가지 않는다.
+const apiClient = createApiClient({ baseUrl: 'http://localhost:8080/api/v1' });
+function render(ui: ReactElement) {
+  return rtlRender(
+    <ApiClientProvider client={apiClient}>
+      <QueryClientProvider client={new QueryClient()}>{ui}</QueryClientProvider>
+    </ApiClientProvider>,
+  );
+}
 
 describe('AdminMobileBar', () => {
   it.each([
