@@ -1,9 +1,8 @@
 'use client';
 
-import { ROUND_STATUS_BADGE_CLASS } from '@/components/interview/interviewRoundStatusLabels';
 import Link from 'next/link';
 import { ApiError } from '@duing/api';
-import type { InterviewRoundSummary, InterviewRoundStatus } from '@duing/types';
+import type { InterviewRoundSummary } from '@duing/types';
 import {
   formatDateTimeKst,
   useInterviewRoundsQuery,
@@ -11,21 +10,13 @@ import {
 } from '@duing/hooks';
 import { toRoute } from '../../../../../../../_lib/route';
 import { cn } from '@/app/_lib/cn';
+import { ROUND_STATUS_BADGE_CLASS, ROUND_STATUS_LABEL } from '@/components/interview/interviewRoundStatusLabels';
 import { LoadingGate } from '@/components/loading/LoadingGate';
 import { Spinner } from '@/components/loading/Spinner';
 
 type Props = {
   clubId: number;
   recruitmentId: number;
-};
-
-// 상태 뱃지 — manage 톤 (운영진 화면 기준)
-const STATUS_LABEL: Record<InterviewRoundStatus, string> = {
-  DRAFT: '작성 중',
-  COLLECTING: '응답 수집 중',
-  ASSIGNING: '배정 검토 중',
-  SCHEDULED: '확정',
-  CANCELLED: '취소',
 };
 
 type RoundCardProps = {
@@ -48,7 +39,7 @@ function RoundCard({ round, clubId, recruitmentId }: RoundCardProps) {
                 ROUND_STATUS_BADGE_CLASS[round.status],
               )}
             >
-              {STATUS_LABEL[round.status]}
+              {ROUND_STATUS_LABEL[round.status]}
             </span>
           </div>
           <p className="text-sm font-semibold text-ink-deep">{round.title}</p>
@@ -67,7 +58,7 @@ function RoundCard({ round, clubId, recruitmentId }: RoundCardProps) {
             href={toRoute(
               `/manage/clubs/${clubId}/recruitments/${recruitmentId}/interview/rounds/new`,
             )}
-            className="shrink-0 rounded-md bg-ink px-3 py-1.5 text-sm font-medium text-white hover:bg-ink-deep"
+            className="btn btn-primary btn-sm min-h-11 shrink-0"
           >
             이어서 작성
           </Link>
@@ -76,7 +67,7 @@ function RoundCard({ round, clubId, recruitmentId }: RoundCardProps) {
             href={toRoute(
               `/manage/clubs/${clubId}/recruitments/${recruitmentId}/interview/rounds/${round.roundId}`,
             )}
-            className="btn btn-secondary btn-sm shrink-0"
+            className="btn btn-secondary btn-sm min-h-11 shrink-0"
           >
             현황 보기
           </Link>

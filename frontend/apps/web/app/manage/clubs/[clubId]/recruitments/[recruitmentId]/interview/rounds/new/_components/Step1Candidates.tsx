@@ -205,7 +205,7 @@ export function Step1Candidates({
                   type="button"
                   onClick={() => toggleCandidate(candidate)}
                   aria-label={`${candidate.userName} 선택 해제`}
-                  className="flex items-center gap-1 rounded-full bg-warm/20 px-2 py-0.5 text-xs text-warm-deep hover:bg-warm/20"
+                  className="flex items-center gap-1 rounded-full bg-warm/20 px-2 py-0.5 text-xs text-warm-deep hover:ring-1 hover:ring-inset hover:ring-warm-deep/40"
                 >
                   {candidate.userName}
                   <span aria-hidden="true">×</span>

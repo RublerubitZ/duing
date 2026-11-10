@@ -334,7 +334,7 @@ export default function RecruitmentDetailPage({
             <button
               type="button"
               onClick={() => setShowCloseConfirm(true)}
-              className="inline-flex items-center gap-2 rounded-md border border-line bg-white px-4 py-2 text-sm font-medium text-danger shadow-sm transition-colors hover:border-danger/40 hover:bg-danger/5"
+              className="inline-flex items-center gap-2 rounded-md border border-danger/30 bg-white px-4 py-2 text-sm font-medium text-danger shadow-sm transition-colors hover:border-danger/40 hover:bg-danger/5"
             >
               모집 마감
             </button>
@@ -346,7 +346,7 @@ export default function RecruitmentDetailPage({
             type="button"
             disabled={isStatsSummaryPending}
             onClick={() => setShowDeleteConfirm(true)}
-            className={`inline-flex items-center gap-2 rounded-md border border-line bg-white px-4 py-2 text-sm font-medium text-danger shadow-sm transition-colors hover:border-danger/40 hover:bg-danger/5${
+            className={`inline-flex items-center gap-2 rounded-md border border-danger/30 bg-white px-4 py-2 text-sm font-medium text-danger shadow-sm transition-colors hover:border-danger/40 hover:bg-danger/5${
               isStatsSummaryPending ? ' invisible' : ''
             }`}
           >
