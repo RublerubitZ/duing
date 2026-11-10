@@ -195,7 +195,7 @@ export function ActivityPhotoCard({
             maxLength={CAPTION_MAX}
             onChange={(event) => setCaptionDraft(event.target.value)}
             placeholder="사진 설명(선택)"
-            className="w-full rounded-md border border-field px-2.5 py-1.5 text-[13px] focus:border-ink focus:outline-none"
+            className="w-full rounded-md border border-field px-2.5 py-1.5 text-[13px] focus:border-ink focus:ring-[3px] focus:ring-ink/15 focus:outline-none"
           />
           <p className="text-right text-[11px] text-charcoal-3">
             {captionDraft.length}/{CAPTION_MAX}

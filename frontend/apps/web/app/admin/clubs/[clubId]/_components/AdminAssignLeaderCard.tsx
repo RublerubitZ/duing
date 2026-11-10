@@ -91,7 +91,7 @@ export function AdminAssignLeaderCard({ clubId, currentLeaderName }: Props) {
             onChange={(event) => setReason(event.target.value.slice(0, REASON_MAX))}
             rows={3}
             placeholder={`${actionLabel} 사유를 입력하세요 (최대 1000자)`}
-            className="w-full rounded-md border border-coral-deep bg-white px-3 py-2 text-sm focus:border-coral focus:outline-none"
+            className="w-full rounded-md border border-coral-deep bg-white px-3 py-2 text-sm focus:border-coral-deep focus:ring-[3px] focus:ring-coral/20 focus:outline-none"
           />
           <p className="text-right text-[11px] text-coral-deep">
             {reason.length} / {REASON_MAX}

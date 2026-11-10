@@ -345,7 +345,7 @@ export function SubmissionPrepareTab() {
           <input
             type="search" aria-label="동아리 검색" value={clubKeyword} placeholder="동아리 검색"
             onChange={(event) => setClubKeyword(event.target.value)}
-            className="rounded-[10px] bg-graysoft px-3.5 py-2 text-[13px] text-charcoal placeholder:text-charcoal-3"
+            className="rounded-[10px] border border-field bg-graysoft px-3.5 py-2 text-[13px] text-charcoal placeholder:text-charcoal-3"
           />
           <select
             aria-label="제출 상태"
