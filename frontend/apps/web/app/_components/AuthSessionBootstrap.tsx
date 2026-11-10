@@ -7,7 +7,12 @@ import { useApiClient, userQueryKeys } from '@duing/hooks';
 import { useAuthStore } from '@duing/stores';
 
 import { useToast } from '@/app/_components/toast/ToastProvider';
-import { consumeBootSessionRestore, hadSession, markHadSession } from '@/app/_lib/authBoot';
+import {
+  consumeBootSessionRestore,
+  hadSession,
+  markHadSession,
+  writeSessionUser,
+} from '@/app/_lib/authBoot';
 import posthog from 'posthog-js';
 
 export function AuthSessionBootstrap() {
@@ -17,9 +22,12 @@ export function AuthSessionBootstrap() {
   const setSession = useAuthStore((state) => state.setSession);
   const status = useAuthStore((state) => state.status);
   const isVerified = useAuthStore((state) => state.isVerified);
+  const userId = useAuthStore((state) => state.user?.id ?? null);
   const { addToast } = useToast();
 
   const previousStateRef = useRef({ status, isVerified });
+  // 이 탭이 서버 확인 뒤 공유 표지에 쓰는 데 성공한 값 — undefined 면 확인 전이거나 쓰기에 실패해 비교하지 않는다.
+  const confirmedSessionUserRef = useRef<string | null | undefined>(undefined);
 
   // had-session 플래그와 PostHog 신원은 "서버로 확인된" 전이만 따라간다.
   // 시드(미검증 authenticated)에 플래그를 다시 심으면 스텔 플래그가 스스로를 영속시키고,
@@ -35,6 +43,20 @@ export function AuthSessionBootstrap() {
     }
     previousStateRef.current = { status, isVerified };
   }, [status, isVerified]);
+
+  // 탭 사이 사용자 표지도 같은 전이만 따라간다 — 다른 탭은 이 값이 자기가 확인한 값과 달라지면 새로고침한다.
+  // 위 effect 와 따로 두는 이유: 로그인 상태의 계정 전환은 user id 만 바뀌어 deps 에 넣어야 하는데,
+  // 그 전환에 had-session·PostHog 분기를 다시 돌리지 않는다.
+  useEffect(() => {
+    if (!isVerified) return;
+    let sessionUser: string | null = null;
+    if (status === 'authenticated') {
+      // 확인된 로그인인데 사용자가 없는 상태(지금은 생기지 않는다) — 모르는 값을 쓰지 않는다.
+      if (userId === null) return;
+      sessionUser = String(userId);
+    }
+    confirmedSessionUserRef.current = writeSessionUser(sessionUser) ? sessionUser : undefined;
+  }, [status, isVerified, userId]);
 
   useEffect(() => {
     let cancelled = false;
