@@ -47,17 +47,11 @@ const ALLOWED_SOLID_CORAL: ReadonlyArray<AllowedMatch> = [
   { file: 'app/_components/toast/ToastProvider.tsx', count: 1, reason: DOT_OR_BAR },
   { file: 'app/_lib/closingSoon.ts', count: 1, reason: CLOSING_SOON_TICKER },
   { file: 'app/admin/facility-bookings/_components/AdminBookingDetailModal.tsx', count: 1, reason: DOT_OR_BAR },
-  { file: 'app/admin/facility-bookings/_components/AdminSlotStrip.tsx', count: 1, reason: BADGE },
   { file: 'app/admin/facility-bookings/_components/CrawlFreshnessChip.tsx', count: 1, reason: DOT_OR_BAR },
   { file: 'app/admin/facility-bookings/_pages/AdminFacilityBookingsPage.tsx', count: 1, reason: DOT_OR_BAR },
-  { file: 'app/admin/inquiries/_pages/AdminInquiriesListPage.tsx', count: 1, reason: BADGE },
-  { file: 'app/admin/promotions/_components/AdminPromotionForm.tsx', count: 1, reason: BADGE },
   { file: 'app/facilities/_components/booking/BookingCalendar.tsx', count: 1, reason: DOT_OR_BAR },
   { file: 'app/facilities/_lib/bookingCalendar.ts', count: 1, reason: DOT_OR_BAR },
   { file: 'app/manage/clubs/[clubId]/members/_components/MemberDetailPanel.tsx', count: 1, reason: DOT_OR_BAR },
-  { file: 'app/manage/clubs/[clubId]/members/page.tsx', count: 1, reason: BADGE },
-  { file: 'app/manage/clubs/[clubId]/recruitments/_components/ExternalRecruitmentActions.tsx', count: 1, reason: BADGE },
-  { file: 'app/manage/clubs/[clubId]/recruitments/_components/MemberEnrollmentSection.tsx', count: 1, reason: BADGE },
   { file: 'app/me/_components/MyPageTabs.tsx', count: 1, reason: DOT_OR_BAR },
 ];
 

@@ -90,7 +90,7 @@ function AdminInquiriesList({ initialStatus }: { initialStatus: FederationInquir
           >
             {tab === 'ALL' ? '전체' : INQUIRY_STATUS_LABEL[tab]}
             {tab === 'RECEIVED' && unansweredCount > 0 && (
-              <span className="ml-1.5 inline-flex min-w-[16px] items-center justify-center rounded-full bg-coral px-1.5 py-0.5 text-[11px] font-bold leading-none text-paper">
+              <span className="ml-1.5 inline-flex min-w-[16px] items-center justify-center rounded-full bg-danger px-1.5 py-0.5 text-[11px] font-bold leading-none text-paper">
                 {unansweredCount}
               </span>
             )}

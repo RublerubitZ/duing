@@ -418,6 +418,11 @@ test.describe('총동연 홈', () => {
         expect(trendBox.y, '1280px 추이가 대기열 아래에 있어야 한다').toBeGreaterThan(queueBox.y);
         expect(Math.abs(trendBox.y - feeAuditBox.y), '1280px 추이와 회비 감사가 같은 줄').toBeLessThanOrEqual(1);
         expect(feeAuditBox.x, '1280px 회비 감사가 추이 옆에 있어야 한다').toBeGreaterThan(trendBox.x);
+        // 나란한 두 카드는 높이가 같고, 짧은 쪽 바로가기도 바닥에 붙어 같은 줄에 선다.
+        expect(Math.abs(trendBox.height - feeAuditBox.height), '1280px 추이와 회비 감사 카드 높이').toBeLessThanOrEqual(1);
+        const trendLinkBox = await boxOf(card(page, '처리 대기 추이').getByRole('link', { name: '주간 브리핑 보기', exact: true }));
+        const feeAuditLinkBox = await boxOf(card(page, '회비 감사 요약').getByRole('link', { name: '회비 감사', exact: true }));
+        expect(Math.abs(trendLinkBox.y - feeAuditLinkBox.y), '1280px 두 카드의 바로가기가 같은 줄').toBeLessThanOrEqual(1);
       }
       if (width === 390) {
         await expect(page.getByRole('button', { name: '관리 메뉴 열기', exact: true })).toBeVisible();

@@ -16,7 +16,7 @@ type Props = {
 function cellVisual(cell: SlotStripCell): { tone: string; label: string } {
   const occupied = cell.overlapSource !== null;
   if (cell.inRequest && cell.overlapSource === 'OWN') return { tone: 'bg-sage text-ink-deep', label: '반영' };
-  if (cell.inRequest && occupied) return { tone: 'bg-coral text-paper', label: '충돌' };
+  if (cell.inRequest && occupied) return { tone: 'bg-danger text-paper', label: '충돌' };
   if (cell.inRequest) return { tone: 'bg-ink text-paper', label: '신청' };
   if (occupied) return { tone: 'bg-graysoft text-charcoal-3', label: cell.overlapOrganization ?? '점유' };
   return { tone: 'bg-sage-mist text-ink', label: '가능' };

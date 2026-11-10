@@ -83,10 +83,10 @@ function ThisWeekContent({ latestWeek, currentMonday, todayIso }: { latestWeek: 
         )}
         <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
           {/* 둘째 쪽 끝의 작은 카드라 인쇄에서 쪽 경계에 잘리지 않게 한다 — 학교 반영 대기 카드는 홈과 공용이라 감싸는 쪽에 단다. */}
-          <div role="region" aria-label="다가오는 행사" className="print:break-inside-avoid">
+          <div role="region" aria-label="다가오는 행사" className="print:break-inside-avoid [&>*]:h-full">
             <UpcomingEventsCard currentMonday={currentMonday} todayIso={todayIso} />
           </div>
-          <div className="print:break-inside-avoid">
+          <div className="print:break-inside-avoid [&>*]:h-full">
             <AdminSchoolSyncCard />
           </div>
         </div>
