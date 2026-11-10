@@ -35,7 +35,7 @@ function SortableHighlightRow({
     <li
       ref={setNodeRef}
       style={{ transform: CSS.Transform.toString(transform), transition }}
-      className="flex items-center gap-2.5 rounded-[12px] border border-line bg-white px-3 py-2"
+      className="flex items-center gap-2.5 rounded-[12px] border border-line bg-white px-3 py-2 has-[input:focus]:border-ink has-[input:focus]:ring-[3px] has-[input:focus]:ring-ink/15"
     >
       {!readOnly && (
         <button
@@ -56,7 +56,7 @@ function SortableHighlightRow({
         placeholder="예: 사이드 프로젝트 동료가 필요한 사람"
         maxLength={MAX_LENGTH}
         disabled={readOnly}
-        className="min-w-0 flex-1 bg-transparent text-[14px] text-ink-deep placeholder:text-charcoal-3"
+        className="min-w-0 flex-1 bg-transparent text-[14px] text-ink-deep placeholder:text-charcoal-3 focus:outline-none"
       />
       {!readOnly && (
         <button
