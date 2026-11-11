@@ -28,6 +28,32 @@ export function hadSession(): boolean {
   }
 }
 
+// 지금 이 브라우저에 로그인한 사용자(서버로 확인된 user id) — 다른 탭이 계정이 바뀐 것을 알아채는 공유 표지다.
+// 비로그인 확정이면 키가 없다. had-session 처럼 갱신은 AuthSessionBootstrap 의 전이 한 곳에서만 한다.
+// 값은 내부 대리키 id 다(학번·이름 아님) — 운영에서는 같은 값이 PostHog distinct_id 로 이미 localStorage 에 있고
+// (persistence 기본값), 확정 로그아웃·만료 때 지운다. 확정 전이 없이 브라우저를 닫으면 다음 부팅 확인까지 남는다(had-session 과 같다).
+export const SESSION_USER_KEY = 'duing:auth:session-user';
+
+// 성공 여부를 돌려준다 — 쓰지 못한 탭은 비교하지 않아야 읽기만 되는 저장소에서 새로고침이 되풀이되지 않는다.
+export function writeSessionUser(value: string | null): boolean {
+  try {
+    if (value === null) window.localStorage.removeItem(SESSION_USER_KEY);
+    else window.localStorage.setItem(SESSION_USER_KEY, value);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+// 읽지 못하면 undefined — 호출부는 비교를 건너뛴다(저장소를 못 쓰는 환경은 지금 동작 그대로).
+export function readSessionUser(): string | null | undefined {
+  try {
+    return window.localStorage.getItem(SESSION_USER_KEY);
+  } catch {
+    return undefined;
+  }
+}
+
 // §9.2 3단 시드의 클라이언트 층(신호 없음 행) — 로컬 이력이 있으면 authenticated 로 추정한다.
 // 이력이 없으면 스토어 초기값(unauthenticated)이 곧 시드다. 홈 ISR 전환(#925) 이후 웹 라우트에
 // A′ 서버 시드 전달자는 없다 — 시드가 틀렸다면 서버 확인(부트스트랩/만료 핸들러)이 정정한다.
