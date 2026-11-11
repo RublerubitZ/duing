@@ -334,6 +334,19 @@ const DETAIL_ASSIGNING_HOLDER_DECIDED = {
   slots: [FREED_SLOT_20, { ...FULL_SLOT_21, selectedCount: 2, assignedCount: 0 }, OPEN_SLOT_22],
 };
 const MEMBER_ALREADY_EXCLUDED_MESSAGE = '현재 상태에서 허용되지 않는 멤버 상태 변경입니다.';
+/** 배정 검토 화면에서 [배정]을 누르기 전에 다른 운영진이 강제 확정했다 — 최유리는 제외, 오세훈은 21 에 배정 */
+const DETAIL_HOLDER_PENDING_CONFIRMED = {
+  ...DETAIL_ASSIGNING_HOLDER_PENDING,
+  status: 'SCHEDULED',
+  members: [{ ...MEMBER_WANTS_20, status: 'EXCLUDED' }, { ...MEMBER_HOLDS_21, status: 'ASSIGNED' }],
+};
+/** 단계는 그대로인데 다른 운영진이 슬롯 22 를 지웠다 */
+const DETAIL_HOLDER_PENDING_SLOT_22_DELETED = {
+  ...DETAIL_ASSIGNING_HOLDER_PENDING,
+  slots: [FREED_SLOT_20, FULL_SLOT_21],
+};
+const STALE_ROUND_MESSAGE = '라운드 상태가 바뀌었습니다. 화면을 새로 고친 뒤 다시 시도해 주세요.';
+const SERVER_ERROR_MESSAGE = '서버 오류가 발생했습니다.';
 
 // ── 테스트 설정 ──────────────────────────────────────────────────────────────
 
@@ -629,7 +642,7 @@ describe('RoundDashboard — 면접 라운드 dashboard', () => {
     await userEvent.click(saveButton);
 
     await waitFor(() => {
-      expect(capturedBody).toMatchObject({ slotId: expect.any(Number) });
+      expect(capturedBody).toMatchObject({ slotId: expect.any(Number), expectedRoundStatus: 'ASSIGNING' });
     });
   });
 
@@ -980,7 +993,7 @@ describe('RoundDashboard — 면접 라운드 dashboard', () => {
     await userEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: '배정' }));
 
     await waitFor(() => {
-      expect(capturedBody).toMatchObject({ slotId: expect.any(Number) });
+      expect(capturedBody).toMatchObject({ slotId: expect.any(Number), expectedRoundStatus: 'SCHEDULED' });
     });
   });
 
@@ -1171,10 +1184,10 @@ const EMPTY_CANDIDATES_HANDLER = http.get(
   () => HttpResponse.json({ ok: true, data: [], message: null }),
 );
 
-describe('라운드 현황 — 멤버 동작이 409 로 거절되면 상세 다시 받기', () => {
-  // 행 범위 질의 — 창이 열린 동안 표는 aria-hidden 이라 부재 단언(queryByRole … not)은 재조회와 상관없이 통과한다.
-  const memberRow = (name: string) => screen.getByText(name).closest<HTMLElement>('div.flex.flex-col');
+// 행 범위 질의 — 창이 열린 동안 표는 aria-hidden 이라 부재 단언(queryByRole … not)은 재조회와 상관없이 통과한다.
+const memberRow = (name: string) => screen.getByText(name).closest<HTMLElement>('div.flex.flex-col');
 
+describe('라운드 현황 — 멤버 동작이 409 로 거절되면 상세 다시 받기', () => {
   it('제외가 409 로 거절되면 창 안 문구가 재조회를 기다리지 않고 뜨고, 다시 받은 상세로 그 멤버 행이 제외됨으로 바뀐다', async () => {
     let releaseRefetch: () => void = () => {};
     const refetchGate = new Promise<void>((resolve) => {
@@ -1215,21 +1228,22 @@ describe('라운드 현황 — 멤버 동작이 409 로 거절되면 상세 다�
       releaseRefetch();
     }
   });
+});
 
-  it.each<[number, string, boolean]>([
-    [409, '다시 받은 상세로 그 멤버 행이 바뀐다', true],
-    [500, '상세는 다시 받지 않는다', false],
-  ])('수동 배정이 %i 로 거절되면 배정 창이 닫혀 문구가 보이고, %s', async (status, _label, refetched) => {
-    const SERVER_MESSAGE = status === 409 ? MEMBER_ALREADY_EXCLUDED_MESSAGE : '서버 오류가 발생했습니다.';
+describe('라운드 현황 — 수동 배정 실패는 창 안에서 안내', () => {
+  it.each<[number, string, number]>([
+    [409, '상세를 한 번 더 받는다', 2],
+    [500, '상세는 다시 받지 않는다', 1],
+  ])('%i 로 거절되면 창을 열어 둔 채 창 안에 문구가 뜨고 %s — 창을 닫으면 문구가 사라진다', async (status, _label, expectedDetailGetCount) => {
+    const serverMessage = status === 409 ? MEMBER_ALREADY_EXCLUDED_MESSAGE : SERVER_ERROR_MESSAGE;
     let detailGetCount = 0;
     server.use(
       http.get(`*/interview-rounds/${ROUND_ID}`, () => {
         detailGetCount += 1;
-        const data = detailGetCount === 1 ? DETAIL_ASSIGNING_HOLDER_PENDING : DETAIL_ASSIGNING_HOLDER_DECIDED;
-        return HttpResponse.json({ ok: true, data, message: null });
+        return HttpResponse.json({ ok: true, data: DETAIL_ASSIGNING_HOLDER_PENDING, message: null });
       }),
       http.put(`*/interview-rounds/${ROUND_ID}/members/${MEMBER_HOLDS_21.memberId}/schedule`, () =>
-        HttpResponse.json({ ok: false, data: null, message: SERVER_MESSAGE }, { status }),
+        HttpResponse.json({ ok: false, data: null, message: serverMessage }, { status }),
       ),
     );
 
@@ -1237,19 +1251,113 @@ describe('라운드 현황 — 멤버 동작이 409 로 거절되면 상세 다�
     await screen.findByText('배정 검토 중');
     await userEvent.click(within(memberRow('오세훈')!).getByRole('button', { name: '수동 배정' }));
     const dialog = await screen.findByRole('dialog');
-    await userEvent.click(within(dialog).getAllByRole('radio')[0]!);
     await userEvent.click(within(dialog).getByRole('button', { name: '배정' }));
 
-    // 어떤 실패든 창이 닫혀야 피드백과 뒤의 표가 보인다(모달이 열린 동안은 aria-hidden)
+    expect(await within(dialog).findByRole('alert')).toHaveTextContent(serverMessage);
+    // 창이 열린 동안 본문은 aria-hidden 이라 hidden 까지 세야 페이지 피드백이 없다는 게 보인다.
+    expect(screen.getAllByRole('alert', { hidden: true })).toHaveLength(1);
+    await waitFor(() => expect(detailGetCount).toBe(expectedDetailGetCount));
+
+    await userEvent.click(within(dialog).getByRole('button', { name: '취소' }));
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
-    expect(screen.getByRole('alert')).toHaveTextContent(SERVER_MESSAGE);
-    if (refetched) {
-      await waitFor(() => expect(memberRow('오세훈')).toHaveTextContent('제외됨'));
-      expect(memberRow('오세훈')).toHaveTextContent('배정 슬롯 —');
-    } else {
-      expect(memberRow('오세훈')).not.toHaveTextContent('제외됨');
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+
+    await userEvent.click(within(memberRow('오세훈')!).getByRole('button', { name: '수동 배정' }));
+    expect(within(await screen.findByRole('dialog')).queryByRole('alert')).not.toBeInTheDocument();
+    expect(detailGetCount).toBe(expectedDetailGetCount);
+  });
+
+  it('다시 [배정]을 누르면 지난 실패 문구가 지워진다', async () => {
+    let releaseRetry: () => void = () => {};
+    const retryGate = new Promise<void>((resolve) => {
+      releaseRetry = resolve;
+    });
+    let assignRequestCount = 0;
+    server.use(
+      http.get(`*/interview-rounds/${ROUND_ID}`, () =>
+        HttpResponse.json({ ok: true, data: DETAIL_ASSIGNING_HOLDER_PENDING, message: null }),
+      ),
+      http.put(`*/interview-rounds/${ROUND_ID}/members/${MEMBER_HOLDS_21.memberId}/schedule`, async () => {
+        assignRequestCount += 1;
+        if (assignRequestCount === 1) {
+          return HttpResponse.json({ ok: false, data: null, message: SERVER_ERROR_MESSAGE }, { status: 500 });
+        }
+        await retryGate;
+        return HttpResponse.json({ ok: true, data: null, message: null });
+      }),
+    );
+
+    try {
+      renderDashboard();
+      await screen.findByText('배정 검토 중');
+      await userEvent.click(within(memberRow('오세훈')!).getByRole('button', { name: '수동 배정' }));
+      const dialog = await screen.findByRole('dialog');
+      await userEvent.click(within(dialog).getByRole('button', { name: '배정' }));
+      expect(await within(dialog).findByRole('alert')).toHaveTextContent(SERVER_ERROR_MESSAGE);
+
+      await userEvent.click(within(dialog).getByRole('button', { name: '배정' }));
+      // 두 번째 요청을 붙잡은 동안 — 지난 실패 문구가 남아 있지 않다
+      await waitFor(() => expect(assignRequestCount).toBe(2));
+      expect(within(dialog).queryByRole('alert')).not.toBeInTheDocument();
+    } finally {
+      releaseRetry();
     }
-    expect(detailGetCount).toBe(refetched ? 2 : 1);
+  });
+
+  it.each([
+    { name: '다른 운영진이 먼저 확정했으면 일정 변경 알림 안내가 보이고', refetchedDetail: DETAIL_HOLDER_PENDING_CONFIRMED, showsRescheduleNotice: true },
+    { name: '고른 슬롯이 지워졌으면', refetchedDetail: DETAIL_HOLDER_PENDING_SLOT_22_DELETED, showsRescheduleNotice: false },
+  ])('409 뒤 다시 받은 상세에서 $name 고른 슬롯이 비워져 [배정]이 꺼진다', async ({ refetchedDetail, showsRescheduleNotice }) => {
+    let detailGetCount = 0;
+    server.use(
+      http.get(`*/interview-rounds/${ROUND_ID}`, () => {
+        detailGetCount += 1;
+        const data = detailGetCount === 1 ? DETAIL_ASSIGNING_HOLDER_PENDING : refetchedDetail;
+        return HttpResponse.json({ ok: true, data, message: null });
+      }),
+      http.put(`*/interview-rounds/${ROUND_ID}/members/${MEMBER_HOLDS_21.memberId}/schedule`, () =>
+        HttpResponse.json({ ok: false, data: null, message: STALE_ROUND_MESSAGE }, { status: 409 }),
+      ),
+    );
+
+    renderDashboard();
+    await screen.findByText('배정 검토 중');
+    await userEvent.click(within(memberRow('오세훈')!).getByRole('button', { name: '수동 배정' }));
+    const dialog = await screen.findByRole('dialog');
+    // 슬롯 22(세 번째)를 고른다 — 처음엔 지금 배정된 21 이 골라져 있다
+    await userEvent.click(within(dialog).getAllByRole('radio')[2]!);
+    await userEvent.click(within(dialog).getByRole('button', { name: '배정' }));
+
+    expect(await within(dialog).findByRole('alert')).toHaveTextContent(STALE_ROUND_MESSAGE);
+    await waitFor(() => expect(within(dialog).getByRole('button', { name: '배정' })).toBeDisabled());
+    expect(within(dialog).queryByRole('radio', { checked: true })).not.toBeInTheDocument();
+    if (showsRescheduleNotice) {
+      expect(within(dialog).getByText('변경 시 지원자에게 일정 변경 알림이 발송됩니다.')).toBeInTheDocument();
+    } else {
+      expect(within(dialog).queryByText('변경 시 지원자에게 일정 변경 알림이 발송됩니다.')).not.toBeInTheDocument();
+    }
+    expect(detailGetCount).toBe(2);
+  });
+
+  it('확정 라운드의 일정 변경이 실패해도 창 안에 문구가 뜬다', async () => {
+    server.use(
+      http.get(`*/interview-rounds/${ROUND_ID}`, () =>
+        HttpResponse.json({ ok: true, data: DETAIL_SCHEDULED, message: null }),
+      ),
+      http.put(`*/interview-rounds/${ROUND_ID}/members/:memberId/schedule`, () =>
+        HttpResponse.json({ ok: false, data: null, message: SERVER_ERROR_MESSAGE }, { status: 500 }),
+      ),
+    );
+
+    renderDashboard();
+    await screen.findByText('확정');
+    await userEvent.click(screen.getAllByRole('button', { name: '일정 변경' })[0]!);
+    const dialog = await screen.findByRole('dialog');
+    await userEvent.click(within(dialog).getAllByRole('radio')[1]!);
+    await userEvent.click(within(dialog).getByRole('button', { name: '배정' }));
+
+    expect(await within(dialog).findByRole('alert')).toHaveTextContent(SERVER_ERROR_MESSAGE);
+    expect(screen.getAllByRole('alert', { hidden: true })).toHaveLength(1);
   });
 });
 

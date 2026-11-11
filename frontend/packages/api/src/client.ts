@@ -15,6 +15,7 @@ import type {
   RoundAutoAssignResult,
   RoundConfirmResult,
   UpdateInterviewSlotPayload,
+  InterviewRoundStatus,
 } from '@duing/types';
 import type {
   SubmitSuccessionRequestPayload,
@@ -536,7 +537,12 @@ export type DuingApiClient = {
     autoAssign(roundId: number): Promise<RoundAutoAssignResult>;
     // === 수동 배정 (BE#11) ===
     // PUT /leader/interview-rounds/{roundId}/members/{memberId}/schedule
-    assignMemberSchedule(roundId: number, memberId: number, payload: { slotId: number }): Promise<void>;
+    // expectedRoundStatus = [배정]을 누를 때 화면이 본 단계 — 서버 단계와 다르면 409(옛 서버는 모르는 필드라 무시한다)
+    assignMemberSchedule(
+      roundId: number,
+      memberId: number,
+      payload: { slotId: number; expectedRoundStatus: InterviewRoundStatus },
+    ): Promise<void>;
     // === 배정 해제 (BE#11) ===
     // DELETE /leader/interview-rounds/{roundId}/members/{memberId}/schedule
     unassignMemberSchedule(roundId: number, memberId: number): Promise<void>;
