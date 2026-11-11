@@ -31,7 +31,7 @@ const server = setupServer(
   ),
   http.get('*/leader/recruitments/1/interview-rounds', () =>
     HttpResponse.json({ ok: true, message: null, data: [
-      { roundId: 7, title: '1차 면접', status: 'ASSIGNING', availabilityDeadline: null, location: null, totalMemberCount: 0, respondedMemberCount: 0 },
+      { roundId: 7, title: '1차 면접', status: 'ASSIGNING', availabilityDeadline: null, location: null, totalMemberCount: 3, respondedMemberCount: 3 },
     ] }),
   ),
   http.get('*/leader/recruitments/1/interview-round-candidates', () =>

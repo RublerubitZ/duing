@@ -63,7 +63,7 @@ export function useInterviewRoundDetailQuery(
 /**
  * 면접 라운드 생성 (BE#3)
  * 성공 → list(recruitmentId) + candidates(recruitmentId) invalidate (생성 시 멤버 대기열 변동 + 목록 갱신)
- * + 통계·지원자 목록·이웃 순서 — 생성이 고른 지원을 SUBMITTED·ON_HOLD → INTERVIEW_PENDING 으로 바꾼다
+ * + 통계·지원자 목록·이웃 순서·고른 지원서 상세 — 생성이 고른 지원을 SUBMITTED·ON_HOLD → INTERVIEW_PENDING 으로 바꾼다
  */
 export function useCreateInterviewRoundMutation(recruitmentId: number) {
   const client = useApiClient();
@@ -71,11 +71,11 @@ export function useCreateInterviewRoundMutation(recruitmentId: number) {
   return useMutation({
     mutationFn: (payload: CreateInterviewRoundPayload) =>
       client.interviewRounds.create(recruitmentId, payload),
-    onSuccess: () => {
+    onSuccess: (_createdRound, variables) => {
       queryClient.invalidateQueries({
         queryKey: interviewRoundKeys.list(recruitmentId),
       });
-      // 대기열은 마법사 1단계만 보여 생성 순간엔 보는 곳이 없다 — 바로 다시 받아 홈이 낡은 대기열로 '생성 필요'를 겹쳐 내지 않게.
+      // 라운드를 만드는 순간(마법사 2단계)엔 대기열을 보는 화면이 없다 — 바로 다시 받아 홈이 낡은 대기열로 '생성 필요'를 겹쳐 내지 않게.
       queryClient.invalidateQueries({
         queryKey: interviewRoundKeys.candidates(recruitmentId),
         refetchType: 'all',
@@ -83,12 +83,20 @@ export function useCreateInterviewRoundMutation(recruitmentId: number) {
       queryClient.invalidateQueries({
         queryKey: statsQueryKeys.byRecruitment(recruitmentId),
       });
+      // 홈이 읽는 통계 요약도 같은 이유로 바로 다시 받는다(면접 대상이 된 사람을 '검토 대기'로도 겹쳐 내지 않게) — 떠 있는 요약은 위 무효화가 이미 받으므로 inactive 만.
+      queryClient.refetchQueries({ queryKey: statsQueryKeys.summary(recruitmentId), type: 'inactive' });
       queryClient.invalidateQueries({
         queryKey: applicationQueryKeys.applicants(recruitmentId),
       });
       queryClient.invalidateQueries({
         queryKey: applicationQueryKeys.applicantNeighborsAll(),
       });
+      // 일괄 변경과 같은 이유 — 상세를 다시 열면 낡은 캐시로 옛 상태의 전이 버튼이 계산돼 400 PATCH 가 난다.
+      for (const applicationId of variables.applicationIds) {
+        queryClient.invalidateQueries({
+          queryKey: applicationQueryKeys.applicantDetail(applicationId),
+        });
+      }
     },
   });
 }
@@ -142,7 +150,7 @@ export function useCancelInterviewRoundMutation(recruitmentId: number, roundId: 
 
 /**
  * 슬롯 일괄 생성 (BE#4)
- * 성공 → detail(roundId) invalidate
+ * 성공 → detail(roundId) invalidate + 재초대가 있으면(reinvitedMemberCount > 0) 모든 모집의 list
  * (슬롯 목록 + 멤버 reinvitedMemberCount 반영)
  */
 export function useCreateRoundSlotsMutation(roundId: number) {
@@ -151,10 +159,14 @@ export function useCreateRoundSlotsMutation(roundId: number) {
   return useMutation({
     mutationFn: (payload: CreateRoundSlotsPayload) =>
       client.interviewRounds.createSlots(roundId, payload),
-    onSuccess: () => {
+    onSuccess: (slotsResult) => {
       queryClient.invalidateQueries({
         queryKey: interviewRoundKeys.detail(roundId),
       });
+      // 목록의 응답 수는 재초대로만 바뀐다(늘 걸면 목록을 보는 마법사 3단계가 헛되이 다시 받는다) — 모집 id 를 몰라 접두로 건다.
+      if (slotsResult.reinvitedMemberCount > 0) {
+        queryClient.invalidateQueries({ queryKey: interviewRoundKeys.listAll() });
+      }
     },
   });
 }
@@ -256,7 +268,7 @@ export function useUnassignMemberScheduleMutation(roundId: number) {
 
 /**
  * 멤버 제외 (BE#11)
- * 성공 → detail(roundId) + list(recruitmentId) + candidates(recruitmentId) invalidate
+ * 성공 → detail(roundId) + list(recruitmentId) + candidates(recruitmentId) + 통계 invalidate
  * (제외 시 멤버 대기열 복귀 — 재큐잉이므로 candidates 포함 §10.1)
  */
 export function useExcludeMemberMutation(recruitmentId: number, roundId: number) {
@@ -275,6 +287,8 @@ export function useExcludeMemberMutation(recruitmentId: number, roundId: number)
       queryClient.invalidateQueries({
         queryKey: interviewRoundKeys.candidates(recruitmentId),
       });
+      // 자동 마감 전망(통계 요약)은 결과를 기다리는 사람이 남은 라운드만 센다 — 기다리던 마지막 멤버를 빼면 진행 중 라운드 수가 바뀐다.
+      queryClient.invalidateQueries({ queryKey: statsQueryKeys.byRecruitment(recruitmentId) });
     },
   });
 }
