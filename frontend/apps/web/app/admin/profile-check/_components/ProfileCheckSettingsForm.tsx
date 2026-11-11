@@ -17,7 +17,7 @@ const MESSAGE_MAX_LENGTH = 300;
 const SAVE_FALLBACK_MESSAGE = '저장하지 못했어요. 잠시 후 다시 시도해 주세요.';
 const SEMESTER_CHANGED_MESSAGE = '학기가 바뀌어 최신 설정을 다시 불러왔어요. 확인한 뒤 다시 저장해 주세요.';
 const FIELD_CLASS =
-  'w-full rounded-md border border-field bg-paper px-3.5 py-2 text-[14px] focus-visible:border-ink focus-visible:outline-none';
+  'w-full rounded-md border border-field bg-paper px-3.5 py-2 text-[14px] focus-visible:border-ink focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ink/15';
 
 type SettingsDraft = Partial<Pick<AdminProfileCheck, 'title' | 'message' | 'enabled'>>;
 

@@ -101,7 +101,7 @@ export function AdminForceCloseDialog({
             onChange={(event) => setReason(event.target.value.slice(0, REASON_MAX_LENGTH))}
             rows={4}
             placeholder="예) 모집 기간이 끝났는데 마감되지 않아 운영에서 마감"
-            className="min-h-[72px] w-full rounded-md border border-field bg-paper px-3 py-2 text-sm text-charcoal placeholder:text-charcoal-3 focus-visible:border-ink focus-visible:outline-none"
+            className="min-h-[72px] w-full rounded-md border border-field bg-paper px-3 py-2 text-sm text-charcoal placeholder:text-charcoal-3 focus-visible:border-ink focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ink/15"
           />
           <div
             id="force-close-reason-hint"

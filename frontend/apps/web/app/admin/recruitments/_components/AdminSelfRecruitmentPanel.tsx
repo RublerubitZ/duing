@@ -120,7 +120,7 @@ export function AdminSelfRecruitmentPanel({ recruitmentId }: { recruitmentId: nu
                     aria-label="지원자 정렬"
                     value={sort}
                     onChange={(event) => setSort(toApplicantSort(event.target.value))}
-                    className="rounded-md border border-field bg-paper px-2.5 py-2 text-[12.5px] text-charcoal focus-visible:border-ink focus-visible:outline-none"
+                    className="rounded-md border border-field bg-paper px-2.5 py-2 text-[12.5px] text-charcoal focus-visible:border-ink focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ink/15"
                   >
                     {SORT_OPTIONS.map((option) => (
                       <option key={option.value} value={option.value}>

@@ -237,7 +237,7 @@ export function AdminClubJoinCodesTable({ clubId, highlightJoinCodeId = null }: 
             disabled={forceRevoke.isPending}
             rows={4}
             placeholder="예) 유출 신고가 접수돼 링크를 차단"
-            className="min-h-[72px] w-full rounded-md border border-field bg-paper px-3 py-2 text-sm text-charcoal placeholder:text-charcoal-3 focus-visible:border-ink focus-visible:outline-none"
+            className="min-h-[72px] w-full rounded-md border border-field bg-paper px-3 py-2 text-sm text-charcoal placeholder:text-charcoal-3 focus-visible:border-ink focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ink/15"
           />
           <div
             id="join-code-revoke-reason-hint"

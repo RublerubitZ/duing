@@ -207,7 +207,7 @@ export function AdminUserDetailSheetContent({
           aria-describedby={showNoteLength ? 'admin-note-length' : undefined}
           onChange={(event) => setNote(event.target.value)}
           placeholder="이 회원에 대한 내부 메모를 남겨주세요"
-          className="min-h-[84px] w-full rounded-xl border border-field bg-cream px-3 py-2.5 text-[13px] text-charcoal placeholder:text-charcoal-2 focus-visible:border-ink focus-visible:outline-none"
+          className="min-h-[84px] w-full rounded-xl border border-field bg-cream px-3 py-2.5 text-[13px] text-charcoal placeholder:text-charcoal-2 focus-visible:border-ink focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ink/15"
         />
         <div className="mt-1.5 flex items-center justify-between gap-2">
           {/* 작업자가 탈퇴하면 백엔드가 수정 시각만 남기고 이름을 null 로 내린다 — 조치 이력과 같은 문구로 받는다. */}
