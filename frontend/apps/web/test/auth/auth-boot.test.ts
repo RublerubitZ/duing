@@ -15,6 +15,7 @@ import {
   webConnectivityAdapter,
 } from '@/app/_lib/authBoot';
 
+const API_BASE_URL = 'http://localhost:8080/api/v1';
 const TEST_USER: User = {
   id: 1, studentId: '20240001', name: '홍길동', phone: '010-1234-5678',
   grade: 'FRESHMAN', role: 'STUDENT',
@@ -138,5 +139,21 @@ describe('공유 사용자 표지 — 요청 시점 판정', () => {
     setConfirmedSessionUser('1');
     shareSessionUser('2');
     expect(webConnectivityAdapter()).toBe(false);
+  });
+
+  it.each<[string, string, string, boolean]>([
+    ['로그인은 보낸다', 'POST', 'auth/web/login', true],
+    ['로그아웃은 막는다', 'POST', 'auth/web/logout', false],
+    ['가입은 막는다', 'POST', 'auth/signup', false],
+    ['다른 요청은 막는다', 'GET', 'users/me', false],
+  ])('연결 어댑터 — 다른 탭이 사용자를 바꿨어도 %s', (_label, method, path, allowed) => {
+    setConfirmedSessionUser('1');
+    shareSessionUser('2');
+    expect(webConnectivityAdapter(new Request(`${API_BASE_URL}/${path}`, { method }))).toBe(allowed);
+  });
+
+  it('연결 어댑터 — 명시적 오프라인이면 로그인 요청도 false', () => {
+    vi.stubGlobal('navigator', { onLine: false });
+    expect(webConnectivityAdapter(new Request(`${API_BASE_URL}/auth/web/login`, { method: 'POST' }))).toBe(false);
   });
 });

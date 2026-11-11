@@ -634,6 +634,11 @@ export type CreateApiClientOptions = {
   authTransport?: AuthTransport;
 };
 
+// 웹 로그인 요청인가(쿼리스트링이 없어 URL 끝으로 본다) — 401 분기와 웹 연결 어댑터(요청 시점 막기에서 로그인만 뺀다)가 같이 쓴다.
+export function isWebLoginRequest(request: Request): boolean {
+  return request.url.endsWith('/auth/web/login');
+}
+
 export function createApiClient(options: CreateApiClientOptions): DuingApiClient {
   const { baseUrl } = options;
   const authTransport = options.authTransport ?? 'bearer';
@@ -684,7 +689,7 @@ export function createApiClient(options: CreateApiClientOptions): DuingApiClient
       beforeRequest: [
         async (request) => {
           // 확실한 오프라인이면 타임아웃까지 기다리지 않고 즉시 실패시킨다. (스펙 §3.3)
-          if (isKnownOffline()) {
+          if (isKnownOffline(request)) {
             throw new ApiError(0, NETWORK_ERROR_MESSAGE, undefined, 'NETWORK');
           }
           if (authTransport === 'bearer') {
@@ -713,7 +718,7 @@ export function createApiClient(options: CreateApiClientOptions): DuingApiClient
             }
             // 로그인(자격 오류)·로그아웃(의도적)·refresh 자신(조율기가 전담)의 401 은 갱신 대상이 아니다.
             const isAuthPath =
-              request.url.endsWith('/auth/web/login') ||
+              isWebLoginRequest(request) ||
               request.url.endsWith('/auth/web/logout') ||
               request.url.endsWith('/auth/web/refresh');
             if (isAuthPath) {

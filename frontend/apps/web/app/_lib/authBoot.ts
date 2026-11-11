@@ -1,3 +1,4 @@
+import { isWebLoginRequest } from '@duing/api';
 import { useAuthStore } from '@duing/stores';
 
 import type { User } from '@duing/types';
@@ -71,8 +72,10 @@ export function sessionUserDiverged(): boolean {
 
 // 웹 연결 어댑터(providers 가 등록, 요청마다 불린다) — 다른 탭이 사용자를 바꿨으면 이벤트를 아직 못 받았어도(깨어난 동결 탭) 막는다.
 // navigator.onLine 은 명시적 false 만 오프라인으로 본다(서버의 Node 전역 navigator 엔 onLine 이 없다).
-export function webConnectivityAdapter(): boolean {
+// 로그인은 막지 않는다 — 입력한 자격 증명만 보내 이 탭의 사용자 데이터가 다른 계정으로 가지 않는다(동시 로그인의 늦은 탭).
+export function webConnectivityAdapter(request?: Request): boolean {
   if (typeof navigator !== 'undefined' && navigator.onLine === false) return false;
+  if (request !== undefined && isWebLoginRequest(request)) return true;
   return !sessionUserDiverged();
 }
 
