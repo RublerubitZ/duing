@@ -302,6 +302,8 @@ export function RoundDashboard({ clubId, recruitmentId, roundId }: Props) {
           });
         },
         onError: (assignError) => {
+          // 배정 창엔 문구 자리가 없어 닫는다 — 열어 두면 피드백·다시 받은 표가 스크림 뒤에 가린다(고른 슬롯은 다시 골라야 한다).
+          setAssignTarget(null);
           const message =
             assignError instanceof ApiError
               ? assignError.message
