@@ -71,7 +71,7 @@ export function ApplyPage() {
 
   // 상세 조회 실패 시 isLoading=false·data=undefined 라 아래 로딩 분기가 영구 표류한다 — 먼저 탈출.
   // clubId 를 모르는 상태라 안전한 복귀처는 탐색 목록뿐이다.
-  // 데이터가 있는 재조회 실패는 폼을 그대로 둔다 — 내리면 저장 전 입력을 잃는다(저장본 게이트와 같은 규칙).
+  // 데이터가 있는 재조회 실패는 폼을 그대로 둔다 — 내리면 쓰던 화면이 끊기고, 떠날 때 저장이 실패하면 답도 잃는다(저장본 게이트와 같은 규칙).
   if (detail.isError && detail.data === undefined) {
     const detailErrorMessage =
       detail.error instanceof ApiError
@@ -116,7 +116,7 @@ export function ApplyPage() {
     );
   }
 
-  // 데이터가 있는 재조회 실패는 확정 거절일 때만 막는다 — 일시 실패에 폼을 내리면 저장 전 입력을 잃는다(제출 때 서버가 다시 검증한다).
+  // 데이터가 있는 재조회 실패는 확정 거절일 때만 막는다 — 일시 실패에 폼을 내리면 쓰던 화면이 끊기고, 떠날 때 저장이 실패하면 답도 잃는다(제출 때 서버가 다시 검증한다).
   if (
     eligibility.isError &&
     (eligibility.data === undefined ||
@@ -143,8 +143,8 @@ export function ApplyPage() {
 
   // 조회 실패를 "초안 없음"으로 보고 빈 폼을 그리면 첫 자동저장이 서버 초안을 빈 답으로 통째로 덮는다.
   // 초안 없음은 200 + exists:false 라 여기 오지 않는다. 데이터가 있는 재조회 실패는 폼을 그대로 둔다 —
-  // isError 만 보면 데이터가 있는 채로 다시 받다 실패할 때 쓰던 폼이 언마운트돼 저장 전 입력을 잃는다
-  // (전역 networkMode 'always' 라 재연결 재조회는 꺼져 있지만, 다시 받는 계기가 생겨도 폼을 지킨다).
+  // isError 만 보면 데이터가 있는 채로 다시 받다 실패할 때 쓰던 폼이 언마운트돼 화면이 끊기고, 떠날 때 저장이 실패하면 답도 잃는다
+  // (저장본은 떠나면 바로 버려 지금은 다시 받는 계기가 없다 — 생길 때를 지킨다).
   if (draftQuery.isError && draftQuery.data === undefined) {
     return (
       <div
