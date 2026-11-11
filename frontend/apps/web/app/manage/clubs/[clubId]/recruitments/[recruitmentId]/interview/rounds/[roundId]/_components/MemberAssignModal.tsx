@@ -30,7 +30,7 @@ type MemberAssignModalProps = {
   onCancel: () => void;
   isPending: boolean;
   /** 배정 실패 — 창을 닫지 않고 창 안에 표시 (전역 피드백은 스크림 뒤에 가린다) */
-  errorMessage?: string | null;
+  errorMessage: string | null;
 };
 
 export function MemberAssignModal({
@@ -40,7 +40,7 @@ export function MemberAssignModal({
   onAssign,
   onCancel,
   isPending,
-  errorMessage = null,
+  errorMessage,
 }: MemberAssignModalProps) {
   // 고른 슬롯은 고른 때의 단계와 함께 둔다 — 다시 받은 상세에서 그 슬롯이 사라졌거나 단계가 바뀌었으면(확정 뒤엔 알림이 나간다) 다시 골라야 한다.
   const [selection, setSelection] = useState({ slotId: member.assignedSlotId, roundStatus });

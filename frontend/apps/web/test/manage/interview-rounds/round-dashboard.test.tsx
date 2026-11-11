@@ -340,12 +340,15 @@ const DETAIL_HOLDER_PENDING_CONFIRMED = {
   status: 'SCHEDULED',
   members: [{ ...MEMBER_WANTS_20, status: 'EXCLUDED' }, { ...MEMBER_HOLDS_21, status: 'ASSIGNED' }],
 };
-/** 단계는 그대로인데 다른 운영진이 슬롯 22 를 지웠다 */
+/**
+ * 단계는 그대로인데 다른 경로로 다시 받은 상세에서 고른 슬롯 22 가 목록에서 사라진 경우를 흉내 낸다 — 409 는 다시 받기를 일으키는 계기로만 쓴다.
+ * (실제 서버에선 나오지 않는 조합: 배정 검토 단계는 슬롯을 지울 수 없고, 확정 단계에서 지워진 슬롯 배정은 400 InvalidSlotSelection 이다.)
+ */
 const DETAIL_HOLDER_PENDING_SLOT_22_DELETED = {
   ...DETAIL_ASSIGNING_HOLDER_PENDING,
   slots: [FREED_SLOT_20, FULL_SLOT_21],
 };
-const STALE_ROUND_MESSAGE = '라운드 상태가 바뀌었습니다. 화면을 새로 고친 뒤 다시 시도해 주세요.';
+const STALE_ROUND_MESSAGE = '라운드 단계가 바뀌었습니다. 최신 상태를 확인한 뒤 다시 시도해주세요.';
 const SERVER_ERROR_MESSAGE = '서버 오류가 발생했습니다.';
 
 // ── 테스트 설정 ──────────────────────────────────────────────────────────────
@@ -1306,7 +1309,7 @@ describe('라운드 현황 — 수동 배정 실패는 창 안에서 안내', ()
 
   it.each([
     { name: '다른 운영진이 먼저 확정했으면 일정 변경 알림 안내가 보이고', refetchedDetail: DETAIL_HOLDER_PENDING_CONFIRMED, showsRescheduleNotice: true },
-    { name: '고른 슬롯이 지워졌으면', refetchedDetail: DETAIL_HOLDER_PENDING_SLOT_22_DELETED, showsRescheduleNotice: false },
+    { name: '고른 슬롯이 목록에서 사라졌으면', refetchedDetail: DETAIL_HOLDER_PENDING_SLOT_22_DELETED, showsRescheduleNotice: false },
   ])('409 뒤 다시 받은 상세에서 $name 고른 슬롯이 비워져 [배정]이 꺼진다', async ({ refetchedDetail, showsRescheduleNotice }) => {
     let detailGetCount = 0;
     server.use(
@@ -1337,6 +1340,45 @@ describe('라운드 현황 — 수동 배정 실패는 창 안에서 안내', ()
       expect(within(dialog).queryByText('변경 시 지원자에게 일정 변경 알림이 발송됩니다.')).not.toBeInTheDocument();
     }
     expect(detailGetCount).toBe(2);
+  });
+
+  it('단계가 바뀌어 [배정]이 꺼진 뒤 슬롯을 다시 고르면 켜지고, [배정]을 누를 때의 단계(확정)를 실어 보낸다', async () => {
+    let detailGetCount = 0;
+    const assignRequestBodies: unknown[] = [];
+    server.use(
+      http.get(`*/interview-rounds/${ROUND_ID}`, () => {
+        detailGetCount += 1;
+        const data = detailGetCount === 1 ? DETAIL_ASSIGNING_HOLDER_PENDING : DETAIL_HOLDER_PENDING_CONFIRMED;
+        return HttpResponse.json({ ok: true, data, message: null });
+      }),
+      http.put(`*/interview-rounds/${ROUND_ID}/members/${MEMBER_HOLDS_21.memberId}/schedule`, async ({ request }) => {
+        assignRequestBodies.push(await request.json());
+        if (assignRequestBodies.length === 1) {
+          return HttpResponse.json({ ok: false, data: null, message: STALE_ROUND_MESSAGE }, { status: 409 });
+        }
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+
+    renderDashboard();
+    await screen.findByText('배정 검토 중');
+    await userEvent.click(within(memberRow('오세훈')!).getByRole('button', { name: '수동 배정' }));
+    const dialog = await screen.findByRole('dialog');
+    await userEvent.click(within(dialog).getAllByRole('radio')[2]!);
+    await userEvent.click(within(dialog).getByRole('button', { name: '배정' }));
+    expect(await within(dialog).findByRole('alert')).toHaveTextContent(STALE_ROUND_MESSAGE);
+    await waitFor(() => expect(within(dialog).getByRole('button', { name: '배정' })).toBeDisabled());
+
+    // 확정된 상세에서 다시 고르면 그 선택은 고른 때의 단계(확정)로 기록된다
+    await userEvent.click(within(dialog).getAllByRole('radio')[2]!);
+    expect(within(dialog).getByRole('button', { name: '배정' })).toBeEnabled();
+    await userEvent.click(within(dialog).getByRole('button', { name: '배정' }));
+
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    expect(assignRequestBodies).toEqual([
+      { slotId: OPEN_SLOT_22.slotId, expectedRoundStatus: 'ASSIGNING' },
+      { slotId: OPEN_SLOT_22.slotId, expectedRoundStatus: 'SCHEDULED' },
+    ]);
   });
 
   it('확정 라운드의 일정 변경이 실패해도 창 안에 문구가 뜬다', async () => {

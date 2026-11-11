@@ -537,7 +537,7 @@ export type DuingApiClient = {
     autoAssign(roundId: number): Promise<RoundAutoAssignResult>;
     // === 수동 배정 (BE#11) ===
     // PUT /leader/interview-rounds/{roundId}/members/{memberId}/schedule
-    // expectedRoundStatus = [배정]을 누를 때 화면이 본 단계 — 서버 단계와 다르면 409(옛 서버는 모르는 필드라 무시한다)
+    // expectedRoundStatus = [배정]을 누를 때 화면이 본 단계 — 서버가 검증하면 단계가 다를 때 409(옛 서버는 모르는 필드라 무시한다)
     assignMemberSchedule(
       roundId: number,
       memberId: number,
