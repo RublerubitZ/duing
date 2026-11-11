@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { ApiError } from '@duing/api';
 import {
   useInterviewRoundsQuery,
   useCancelInterviewRoundMutation,
@@ -44,7 +45,8 @@ export function RoundWizard({ clubId, recruitmentId }: Props) {
   const [draftDismissed, setDraftDismissed] = useState(false);
   const [discardError, setDiscardError] = useState<string | null>(null);
 
-  const roundsQuery = useInterviewRoundsQuery(recruitmentId);
+  // 다른 탭·다른 운영진이 바꾼 30초 안 캐시로 창을 열지 않게 마운트 때마다 다시 받는다.
+  const roundsQuery = useInterviewRoundsQuery(recruitmentId, { refetchOnMount: 'always' });
   const draftRound = roundsQuery.data?.find((round) => round.status === 'DRAFT') ?? null;
 
   const cancelMutation = useCancelInterviewRoundMutation(recruitmentId, draftRound?.roundId ?? 0);
@@ -99,9 +101,19 @@ export function RoundWizard({ clubId, recruitmentId }: Props) {
   // selectedApplicationIds — Step2 에 전달할 id 배열
   const selectedApplicationIds = Array.from(selectedMap.keys());
 
-  // DRAFT 체크 중 로딩 — 목록 조회 전에 다이얼로그가 깜박이지 않도록
-  if (roundsQuery.isLoading) {
+  // 마운트 뒤 첫 응답 전에는 낡은 캐시로 창을 열지 않는다 — 첫 응답 뒤의 무효화로는 단계를 내리지 않는다.
+  const isAwaitingFirstRoundsResponse = roundsQuery.isFetching && !roundsQuery.isFetchedAfterMount;
+  if (isAwaitingFirstRoundsResponse) {
     return <LoadingGate label="면접 라운드 불러오는 중" />;
+  }
+
+  // 고르기 전 목록 실패는 막는다 — 낡은 캐시로 창을 열면 그사이 발송된 라운드를 폐기(취소)할 수 있다.
+  if (roundsQuery.isError && roundId === null && !draftDismissed) {
+    const message =
+      roundsQuery.error instanceof ApiError
+        ? roundsQuery.error.message
+        : '면접 라운드 목록을 불러오지 못했습니다.';
+    return <p className="p-6 text-sm text-coral-deep">{message}</p>;
   }
 
   return (
@@ -117,6 +129,8 @@ export function RoundWizard({ clubId, recruitmentId }: Props) {
       {showDraftDialog && draftRound && (
         <DraftResumeDialog
           draftRound={draftRound}
+          clubId={clubId}
+          recruitmentId={recruitmentId}
           isPending={cancelMutation.isPending}
           onResume={handleResume}
           onDiscard={handleDiscard}

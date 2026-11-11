@@ -4,9 +4,9 @@ import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { setupServer } from 'msw/node';
-import { http, HttpResponse } from 'msw';
+import { delay, http, HttpResponse } from 'msw';
 import { createApiClient } from '@duing/api';
-import { ApiClientProvider } from '@duing/hooks';
+import { ApiClientProvider, interviewRoundKeys } from '@duing/hooks';
 import { RoundWizard } from '@/app/manage/clubs/[clubId]/recruitments/[recruitmentId]/interview/rounds/new/_components/RoundWizard';
 import { ToastProvider } from '@/app/_components/toast/ToastProvider';
 
@@ -72,6 +72,18 @@ const DRAFT_ROUND_SUMMARY = {
   respondedMemberCount: 0,
 };
 
+/** 남은 면접 대상이 없는 DRAFT 라운드 요약(전원 제외·탈퇴·결과 확정) */
+const EMPTY_DRAFT_ROUND_SUMMARY = { ...DRAFT_ROUND_SUMMARY, totalMemberCount: 0 };
+
+const INTERVIEW_LANDING_HREF = `/manage/clubs/${CLUB_ID}/recruitments/${RECRUITMENT_ID}/interview`;
+const EMPTY_DRAFT_BODY_TEXT = '남은 면접 대상자가 없어 이 라운드는 발송할 수 없습니다. 폐기해주세요.';
+const EMPTY_DRAFT_NOTE_TEXT = '이 라운드의 면접 대상자는 모두 합격·불합격이 정해졌거나 라운드에서 빠졌습니다.';
+
+function handleCandidatesRequest({ request }: { request: Request }) {
+  const url = new URL(request.url);
+  return handleCandidates(url.searchParams.get('includeUndecided') === 'true');
+}
+
 /** 슬롯 없는 라운드 상세 (발송 조건 미충족) */
 const ROUND_DETAIL_NO_SLOTS = {
   roundId: ROUND_ID,
@@ -134,20 +146,57 @@ function handleEmptyRoundList() {
   return HttpResponse.json({ ok: true, data: [], message: null });
 }
 
+/** 인원 0 초안 하나뿐인 목록과 후보 목록을 준다. */
+function serveEmptyDraftRound() {
+  server.use(
+    http.get(`*/recruitments/${RECRUITMENT_ID}/interview-rounds`, () =>
+      HttpResponse.json({ ok: true, data: [EMPTY_DRAFT_ROUND_SUMMARY], message: null }),
+    ),
+    http.get(`*/recruitments/${RECRUITMENT_ID}/interview-round-candidates`, handleCandidatesRequest),
+  );
+}
+
+/**
+ * 목록 요청 수를 세며 마운트 요청(첫 번째)에는 mountRounds, 그 뒤 다시 받기에는 refetchRounds 를 준다.
+ * refetchStatus 가 200 이 아니면 다시 받기는 그 상태의 오류로 답한다.
+ * 응답은 늦춘다 — MSW 즉시 응답이면 다시 받는 중 상태가 한 번도 그려지지 않아 게이트 항을 지워도 갈리지 않는다.
+ */
+function serveCountedRoundLists(
+  mountRounds: Array<typeof DRAFT_ROUND_SUMMARY>,
+  refetchRounds: Array<typeof DRAFT_ROUND_SUMMARY>,
+  refetchStatus = 200,
+) {
+  const roundListRequests = { count: 0 };
+  server.use(
+    http.get(`*/recruitments/${RECRUITMENT_ID}/interview-rounds`, async () => {
+      roundListRequests.count += 1;
+      const isMountRequest = roundListRequests.count === 1;
+      await delay(50);
+      if (!isMountRequest && refetchStatus !== 200) {
+        return HttpResponse.json({ ok: false, data: null, message: '서버 오류' }, { status: refetchStatus });
+      }
+      return HttpResponse.json({ ok: true, data: isMountRequest ? mountRounds : refetchRounds, message: null });
+    }),
+  );
+  return roundListRequests;
+}
+
 // ── 테스트 설정 ──────────────────────────────────────────────────────────────
 
 beforeAll(() => server.listen({ onUnhandledRequest: 'error' }));
 afterEach(() => server.resetHandlers());
 afterAll(() => server.close());
 
-function renderWizard() {
-  const queryClient = new QueryClient({
+function createWizardQueryClient(staleTime = 0) {
+  return new QueryClient({
     defaultOptions: {
-      queries: { retry: false, refetchOnWindowFocus: false },
+      queries: { retry: false, refetchOnWindowFocus: false, staleTime },
       mutations: { retry: false },
     },
   });
+}
 
+function renderWizard(queryClient: QueryClient = createWizardQueryClient()) {
   function Wrapper({ children }: { children: ReactNode }) {
     return (
       <ApiClientProvider client={apiClient}>
@@ -165,7 +214,43 @@ function renderWizard() {
   );
 }
 
-// ── 테스트 9건 ───────────────────────────────────────────────────────────────
+const elementWatchStops: Array<() => void> = [];
+afterEach(() => {
+  elementWatchStops.splice(0).forEach((stopWatch) => stopWatch());
+});
+
+/**
+ * 렌더 도중 잠깐 붙었다 사라진 요소까지 잡는다 — 마지막 화면만 보는 단언은 중간 상태를 놓친다.
+ * childList 만 본다 — 기존 노드의 글자·속성 변화는 놓친다.
+ */
+function watchForElement(isTarget: (element: Element) => boolean) {
+  const containsTarget = (node: Node) =>
+    node instanceof Element && (isTarget(node) || Array.from(node.querySelectorAll('*')).some(isTarget));
+  let seen = Array.from(document.body.querySelectorAll('*')).some(isTarget);
+  const recordMutations = (mutationRecords: MutationRecord[]) => {
+    if (mutationRecords.some((mutationRecord) => Array.from(mutationRecord.addedNodes).some(containsTarget))) {
+      seen = true;
+    }
+  };
+  const observer = new MutationObserver(recordMutations);
+  observer.observe(document.body, { childList: true, subtree: true });
+  elementWatchStops.push(() => observer.disconnect());
+  return {
+    hasSeen: () => {
+      recordMutations(observer.takeRecords());
+      return seen;
+    },
+  };
+}
+
+const ROUNDS_LOADING_LABEL = '면접 라운드 불러오는 중';
+const isRoundsLoadingGate = (element: Element) =>
+  element.getAttribute('role') === 'status' && element.getAttribute('aria-label') === ROUNDS_LOADING_LABEL;
+const isResumeButton = (element: Element) =>
+  element.tagName === 'BUTTON' && element.textContent?.includes('이어하기') === true;
+const roundListKey = interviewRoundKeys.list(RECRUITMENT_ID);
+
+// ── 테스트 23개(16·21번은 두 경우씩이라 25건 실행) ─────────────────────────────
 
 describe('RoundWizard — 면접 라운드 생성 wizard', () => {
   it('1. 후보 목록이 미결정과 면접 대상 그룹으로 나뉘어 보인다', async () => {
@@ -481,6 +566,15 @@ describe('RoundWizard — 면접 라운드 생성 wizard', () => {
       expect(screen.getByText(/2차 면접/)).toBeInTheDocument();
     });
 
+    await waitFor(() => expect(screen.getByRole('button', { name: /이어하기/ })).toHaveFocus());
+    const resumeDiscardButton = screen.getByRole('button', { name: /폐기하고 새로 만들기/ });
+    expect(resumeDiscardButton).toHaveClass('btn', 'btn-danger-quiet', 'btn-sm');
+    expect(resumeDiscardButton.nextElementSibling).toBe(screen.getByRole('button', { name: /이어하기/ }));
+    expect(screen.getByText('이어서 작성하거나, 폐기하고 새로운 라운드를 만들 수 있습니다.')).toBeInTheDocument();
+    expect(screen.getByText('폐기 시 해당 라운드의 면접 대상자들이 대기열로 돌아갑니다.')).toBeInTheDocument();
+    expect(screen.queryByText(EMPTY_DRAFT_BODY_TEXT)).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: '면접 관리로' })).not.toBeInTheDocument();
+
     // [이어하기] → Step2 이동 (제목 표시 + 프리필 값 확인)
     await userEvent.click(screen.getByRole('button', { name: /이어하기/ }));
 
@@ -700,5 +794,287 @@ describe('RoundWizard — 면접 라운드 생성 wizard', () => {
     // 다른 그룹(면접 대상)은 건드리지 않는다
     expect(screen.getByRole('checkbox', { name: '이면접 선택' })).not.toBeChecked();
     expect(screen.getByText(/2명 선택/)).toBeInTheDocument();
+  });
+
+  it('14. 인원 0 초안이면 이어하기 대신 면접 관리로가 보이고, 폐기 진행 중에는 이동이 막히고, 폐기하면 후보 선정부터 시작한다', async () => {
+    let releaseCancel: () => void = () => {};
+    const cancelResponseGate = new Promise<void>((resolve) => {
+      releaseCancel = resolve;
+    });
+    serveEmptyDraftRound();
+    server.use(
+      http.post(`*/interview-rounds/${ROUND_ID}/cancel`, async () => {
+        await cancelResponseGate;
+        return HttpResponse.json({ ok: true, data: null, message: null });
+      }),
+    );
+
+    renderWizard();
+
+    await waitFor(() => expect(screen.getByRole('dialog')).toBeInTheDocument());
+    // 좁은 폭에서 '폐 / 기해주세요' 처럼 음절 사이에서 끊기지 않게.
+    expect(screen.getByText(EMPTY_DRAFT_BODY_TEXT)).toHaveClass('break-keep');
+    expect(screen.getByText(EMPTY_DRAFT_NOTE_TEXT)).toHaveClass('break-keep');
+    expect(screen.queryByText(/대기열로 돌아갑니다/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/이어서 작성하거나/)).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /이어하기/ })).not.toBeInTheDocument();
+
+    const landingLink = screen.getByRole('link', { name: '면접 관리로' });
+    const discardButton = screen.getByRole('button', { name: /폐기하고 새로 만들기/ });
+    // ConfirmDialog 관례 — [안전 ghost][핵심 solid danger] 순서.
+    expect(landingLink).toHaveClass('btn', 'btn-ghost', 'btn-sm');
+    expect(discardButton).toHaveClass('btn', 'btn-danger', 'btn-sm');
+    expect(landingLink.nextElementSibling).toBe(discardButton);
+
+    // 안전한 쪽에서 시작하고(ConfirmDialog 관례) 두 동작 사이를 Tab 으로 돈다.
+    await waitFor(() => expect(landingLink).toHaveFocus());
+    await userEvent.tab();
+    expect(discardButton).toHaveFocus();
+    await userEvent.tab();
+    expect(landingLink).toHaveFocus();
+
+    // 단언이 실패해도 붙잡아 둔 폐기 응답은 풀어 핸들러가 끝나게 한다.
+    try {
+      await userEvent.click(discardButton);
+      await waitFor(() => expect(landingLink).toHaveAttribute('aria-disabled', 'true'));
+      expect(fireEvent.click(landingLink)).toBe(false);
+    } finally {
+      releaseCancel();
+    }
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    expect(screen.getByText('미결정(지원 완료·보류)', { selector: 'h3' })).toBeInTheDocument();
+  });
+
+  it('15. 인원 0 초안 창의 면접 관리로는 href 가 면접 관리 랜딩이고 이동을 막지 않는다', async () => {
+    serveEmptyDraftRound();
+
+    renderWizard();
+
+    const landingLink = await screen.findByRole('link', { name: '면접 관리로' });
+    expect(landingLink).toHaveAttribute('href', INTERVIEW_LANDING_HREF);
+    expect(landingLink).not.toHaveAttribute('aria-disabled');
+    // 평소에는 막지 않는다 — 라우터 문맥 없는 next/link 클릭은 기본 동작을 그대로 둔다(applicant-card-list 테스트 선례).
+    expect(fireEvent.click(landingLink)).toBe(true);
+  });
+
+  it.each([
+    { cacheState: '낡아도', staleTime: 0 },
+    { cacheState: '신선해도', staleTime: 30_000 },
+  ])(
+    '16. 목록 캐시가 $cacheState 마운트 때 다시 받은 인원으로만 창을 연다 — 캐시 인원 2·서버 인원 0 이면 이어하기가 한 번도 그려지지 않는다',
+    async ({ staleTime }) => {
+      const roundListRequests = serveCountedRoundLists([EMPTY_DRAFT_ROUND_SUMMARY], [EMPTY_DRAFT_ROUND_SUMMARY]);
+      server.use(
+        http.get(`*/recruitments/${RECRUITMENT_ID}/interview-round-candidates`, handleCandidatesRequest),
+      );
+      const queryClient = createWizardQueryClient(staleTime);
+      queryClient.setQueryData(roundListKey, [DRAFT_ROUND_SUMMARY]);
+      const resumeButtonWatch = watchForElement(isResumeButton);
+
+      renderWizard(queryClient);
+
+      expect(screen.getByRole('status', { name: ROUNDS_LOADING_LABEL })).toBeInTheDocument();
+      expect(await screen.findByText(EMPTY_DRAFT_BODY_TEXT)).toBeInTheDocument();
+      expect(roundListRequests.count).toBe(1);
+      expect(resumeButtonWatch.hasSeen()).toBe(false);
+    },
+  );
+
+  it('17. 신선한 캐시여도 마운트 때 한 번 받고, 이어하기로 발송해 목록을 다시 받아도 불러오는 중 화면 없이 완료 화면이 남는다', async () => {
+    const roundListRequests = serveCountedRoundLists(
+      [DRAFT_ROUND_SUMMARY],
+      [{ ...DRAFT_ROUND_SUMMARY, status: 'COLLECTING' }],
+    );
+    server.use(
+      http.get(`*/interview-rounds/${ROUND_ID}`, () =>
+        HttpResponse.json({ ok: true, data: ROUND_DETAIL_WITH_SLOTS, message: null }),
+      ),
+      http.post(`*/interview-rounds/${ROUND_ID}/request-availability`, () =>
+        HttpResponse.json({ ok: true, data: { notifiedMemberCount: 3 }, message: null }),
+      ),
+      http.get(`*/recruitments/${RECRUITMENT_ID}/interview-round-candidates`, handleCandidatesRequest),
+    );
+    const queryClient = createWizardQueryClient(30_000);
+    queryClient.setQueryData(roundListKey, [DRAFT_ROUND_SUMMARY]);
+
+    renderWizard(queryClient);
+
+    const resumeButton = await screen.findByRole('button', { name: /이어하기/ });
+    expect(roundListRequests.count).toBe(1);
+    // 첫 응답 뒤부터 본다 — 그 뒤의 무효화로 게이트가 다시 서면 지금 단계가 내려간다.
+    const loadingGateWatch = watchForElement(isRoundsLoadingGate);
+    await userEvent.click(resumeButton);
+    await waitFor(() =>
+      expect(screen.getByLabelText(/라운드 제목/)).toHaveValue(ROUND_DETAIL_WITH_SLOTS.title),
+    );
+    await userEvent.click(screen.getByRole('button', { name: '저장하고 다음' }));
+    await waitFor(() => screen.getByLabelText(/시작 날짜/));
+    await userEvent.click(screen.getByRole('button', { name: /다음/ }));
+    await waitFor(() => expect(screen.getByRole('button', { name: /발송/ })).not.toBeDisabled());
+
+    await userEvent.click(screen.getByRole('button', { name: /발송/ }));
+    // 중간 상태로 통과하지 않게: 발송 무효화로 목록을 다시 받고, 다 받은 뒤에 본다.
+    await waitFor(() => expect(roundListRequests.count).toBe(2));
+    await waitFor(() => expect(queryClient.isFetching({ queryKey: roundListKey })).toBe(0));
+    expect(screen.getByText(/3명에게 알림/)).toBeInTheDocument();
+    expect(loadingGateWatch.hasSeen()).toBe(false);
+  });
+
+  it('18. 신선한 캐시여도 마운트 때 한 번 받고, 폐기해 목록을 다시 받아도 불러오는 중 화면 없이 새 라운드 1단계로 간다', async () => {
+    const roundListRequests = serveCountedRoundLists([EMPTY_DRAFT_ROUND_SUMMARY], []);
+    server.use(
+      http.post(`*/interview-rounds/${ROUND_ID}/cancel`, () =>
+        HttpResponse.json({ ok: true, data: null, message: null }),
+      ),
+      http.get(`*/recruitments/${RECRUITMENT_ID}/interview-round-candidates`, handleCandidatesRequest),
+    );
+    const queryClient = createWizardQueryClient(30_000);
+    queryClient.setQueryData(roundListKey, [EMPTY_DRAFT_ROUND_SUMMARY]);
+
+    renderWizard(queryClient);
+
+    const discardButton = await screen.findByRole('button', { name: /폐기하고 새로 만들기/ });
+    expect(roundListRequests.count).toBe(1);
+    const loadingGateWatch = watchForElement(isRoundsLoadingGate);
+    await userEvent.click(discardButton);
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    await waitFor(() => expect(roundListRequests.count).toBe(2));
+    await waitFor(() => expect(queryClient.isFetching({ queryKey: roundListKey })).toBe(0));
+    expect(screen.getByText('미결정(지원 완료·보류)', { selector: 'h3' })).toBeInTheDocument();
+    expect(loadingGateWatch.hasSeen()).toBe(false);
+  });
+
+  it('19. 신선한 캐시여도 마운트 때 한 번 받고, 새 라운드를 만들어 목록을 다시 받아도 불러오는 중 화면 없이 슬롯 단계로 간다', async () => {
+    const roundListRequests = serveCountedRoundLists(
+      [],
+      [{ ...DRAFT_ROUND_SUMMARY, title: '1차 면접', totalMemberCount: 1 }],
+    );
+    server.use(
+      http.get(`*/recruitments/${RECRUITMENT_ID}/interview-round-candidates`, handleCandidatesRequest),
+      http.post(`*/recruitments/${RECRUITMENT_ID}/interview-rounds`, () =>
+        HttpResponse.json({ ok: true, data: { roundId: ROUND_ID }, message: null }),
+      ),
+      http.get(`*/interview-rounds/${ROUND_ID}`, () =>
+        HttpResponse.json({ ok: true, data: ROUND_DETAIL_NO_SLOTS, message: null }),
+      ),
+    );
+    const queryClient = createWizardQueryClient(30_000);
+    queryClient.setQueryData(roundListKey, []);
+
+    renderWizard(queryClient);
+
+    await waitFor(() => screen.getByText('미결정(지원 완료·보류)', { selector: 'h3' }));
+    expect(roundListRequests.count).toBe(1);
+    const loadingGateWatch = watchForElement(isRoundsLoadingGate);
+    await userEvent.click(screen.getByRole('checkbox', { name: /김지원 선택/ }));
+    await userEvent.click(screen.getByRole('button', { name: /다음/ }));
+    await waitFor(() => screen.getByLabelText(/라운드 제목/));
+    await userEvent.type(screen.getByLabelText(/라운드 제목/), '1차 면접');
+    await userEvent.type(screen.getByLabelText(/가능시간 제출 마감/), '2026-07-01T18:00');
+    await userEvent.click(screen.getByRole('button', { name: /라운드 생성/ }));
+    await waitFor(() => screen.getByLabelText(/시작 날짜/));
+    // 생성 무효화로 목록을 다시 받는 동안에도 슬롯 단계가 내려가지 않아야 한다.
+    await waitFor(() => expect(roundListRequests.count).toBe(2));
+    await waitFor(() => expect(queryClient.isFetching({ queryKey: roundListKey })).toBe(0));
+    expect(screen.getByLabelText(/시작 날짜/)).toBeInTheDocument();
+    expect(loadingGateWatch.hasSeen()).toBe(false);
+  });
+
+  it('20. 인원 0 초안 창에서 폐기가 실패하면 오류 문구가 뜨고 면접 관리로가 다시 열린다', async () => {
+    serveEmptyDraftRound();
+    server.use(
+      http.post(`*/interview-rounds/${ROUND_ID}/cancel`, () =>
+        HttpResponse.json({ ok: false, data: null, message: '서버 오류' }, { status: 500 }),
+      ),
+    );
+
+    renderWizard();
+
+    await userEvent.click(await screen.findByRole('button', { name: /폐기하고 새로 만들기/ }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('라운드 폐기 중 오류가 발생했습니다. 다시 시도해주세요.');
+    expect(screen.getByRole('link', { name: '면접 관리로' })).not.toHaveAttribute('aria-disabled');
+  });
+
+  it.each([
+    { cacheState: '캐시에 초안이 있어도', cachedRounds: [DRAFT_ROUND_SUMMARY] },
+    { cacheState: '캐시가 없어도', cachedRounds: null },
+  ])(
+    '21. 목록 $cacheState 마운트 때 받기가 실패하면 창도 1단계도 그리지 않고 오류 문구만 보인다 — 이미 발송된 라운드를 폐기할 길을 막는다',
+    async ({ cachedRounds }) => {
+      let roundListRequestCount = 0;
+      server.use(
+        http.get(`*/recruitments/${RECRUITMENT_ID}/interview-rounds`, () => {
+          roundListRequestCount += 1;
+          return HttpResponse.json({ ok: false, data: null, message: '서버 오류' }, { status: 500 });
+        }),
+        http.get(`*/recruitments/${RECRUITMENT_ID}/interview-round-candidates`, handleCandidatesRequest),
+      );
+      const queryClient = createWizardQueryClient(30_000);
+      if (cachedRounds) queryClient.setQueryData(roundListKey, cachedRounds);
+      const resumeButtonWatch = watchForElement(isResumeButton);
+
+      renderWizard(queryClient);
+
+      expect(screen.getByRole('status', { name: ROUNDS_LOADING_LABEL })).toBeInTheDocument();
+      expect(await screen.findByText('서버 오류')).toBeInTheDocument();
+      expect(roundListRequestCount).toBe(1);
+      // 창이 없으니 폐기 버튼도 없다 — 폐기 요청을 보낼 수단이 그려지지 않는다.
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: /폐기하고 새로 만들기/ })).not.toBeInTheDocument();
+      expect(screen.queryByText('미결정(지원 완료·보류)', { selector: 'h3' })).not.toBeInTheDocument();
+      expect(resumeButtonWatch.hasSeen()).toBe(false);
+    },
+  );
+
+  it('22. 폐기한 뒤 목록 다시 받기가 실패해도 오류 문구로 바뀌지 않고 새 라운드 1단계가 남는다', async () => {
+    const roundListRequests = serveCountedRoundLists([EMPTY_DRAFT_ROUND_SUMMARY], [], 500);
+    server.use(
+      http.post(`*/interview-rounds/${ROUND_ID}/cancel`, () =>
+        HttpResponse.json({ ok: true, data: null, message: null }),
+      ),
+      http.get(`*/recruitments/${RECRUITMENT_ID}/interview-round-candidates`, handleCandidatesRequest),
+    );
+    const queryClient = createWizardQueryClient(30_000);
+
+    renderWizard(queryClient);
+
+    await userEvent.click(await screen.findByRole('button', { name: /폐기하고 새로 만들기/ }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    await waitFor(() => expect(roundListRequests.count).toBe(2));
+    await waitFor(() => expect(queryClient.isFetching({ queryKey: roundListKey })).toBe(0));
+    // 다시 받기가 정말 실패했는지 — 그래야 고른 뒤 오류를 무시하는 보호 조건을 본다.
+    expect(queryClient.getQueryState(roundListKey)?.status).toBe('error');
+    expect(screen.getByText('미결정(지원 완료·보류)', { selector: 'h3' })).toBeInTheDocument();
+    expect(screen.queryByText('서버 오류')).not.toBeInTheDocument();
+  });
+
+  it('23. 새 라운드를 만든 뒤 목록 다시 받기가 실패해도 오류 문구로 바뀌지 않고 슬롯 단계가 남는다', async () => {
+    const roundListRequests = serveCountedRoundLists([], [], 500);
+    server.use(
+      http.get(`*/recruitments/${RECRUITMENT_ID}/interview-round-candidates`, handleCandidatesRequest),
+      http.post(`*/recruitments/${RECRUITMENT_ID}/interview-rounds`, () =>
+        HttpResponse.json({ ok: true, data: { roundId: ROUND_ID }, message: null }),
+      ),
+      http.get(`*/interview-rounds/${ROUND_ID}`, () =>
+        HttpResponse.json({ ok: true, data: ROUND_DETAIL_NO_SLOTS, message: null }),
+      ),
+    );
+    const queryClient = createWizardQueryClient(30_000);
+
+    renderWizard(queryClient);
+
+    await waitFor(() => screen.getByText('미결정(지원 완료·보류)', { selector: 'h3' }));
+    await userEvent.click(screen.getByRole('checkbox', { name: /김지원 선택/ }));
+    await userEvent.click(screen.getByRole('button', { name: /다음/ }));
+    await waitFor(() => screen.getByLabelText(/라운드 제목/));
+    await userEvent.type(screen.getByLabelText(/라운드 제목/), '1차 면접');
+    await userEvent.type(screen.getByLabelText(/가능시간 제출 마감/), '2026-07-01T18:00');
+    await userEvent.click(screen.getByRole('button', { name: /라운드 생성/ }));
+    await waitFor(() => screen.getByLabelText(/시작 날짜/));
+    await waitFor(() => expect(roundListRequests.count).toBe(2));
+    await waitFor(() => expect(queryClient.isFetching({ queryKey: roundListKey })).toBe(0));
+    expect(queryClient.getQueryState(roundListKey)?.status).toBe('error');
+    expect(screen.getByLabelText(/시작 날짜/)).toBeInTheDocument();
+    expect(screen.queryByText('서버 오류')).not.toBeInTheDocument();
   });
 });

@@ -9,6 +9,7 @@ import { ApiClientProvider } from '../src/api-context';
 import { interviewRoundKeys } from '../src/interviewRoundQueryKeys';
 import { statsQueryKeys } from '../src/statsQueryKeys';
 import {
+  useInterviewRoundsQuery,
   useInterviewRoundCandidatesQuery,
   useCreateInterviewRoundMutation,
   useCancelInterviewRoundMutation,
@@ -57,6 +58,32 @@ describe('interviewRoundKeys.candidates', () => {
       10,
       false,
     ]);
+  });
+});
+
+describe('useInterviewRoundsQuery — refetchOnMount 옵션', () => {
+  it("신선한 캐시면 기본은 마운트 때 다시 받지 않고, refetchOnMount: 'always' 를 넘기면 다시 받는다", async () => {
+    let listRequestCount = 0;
+    server.use(
+      http.get('*/leader/recruitments/10/interview-rounds', () => {
+        listRequestCount += 1;
+        return HttpResponse.json({ ok: true, data: [], message: null });
+      }),
+    );
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false, staleTime: 30_000 }, mutations: { retry: false } },
+    });
+    queryClient.setQueryData(interviewRoundKeys.list(10), []);
+    const wrapper = makeWrapper(queryClient);
+
+    const defaultMount = renderHook(() => useInterviewRoundsQuery(10), { wrapper });
+    expect(defaultMount.result.current.isFetching).toBe(false);
+    defaultMount.unmount();
+
+    const alwaysMount = renderHook(() => useInterviewRoundsQuery(10, { refetchOnMount: 'always' }), { wrapper });
+    expect(alwaysMount.result.current.isFetching).toBe(true);
+    await waitFor(() => expect(alwaysMount.result.current.isFetchedAfterMount).toBe(true));
+    expect(listRequestCount).toBe(1);
   });
 });
 
