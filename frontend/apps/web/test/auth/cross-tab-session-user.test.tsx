@@ -1,3 +1,4 @@
+import { StrictMode } from 'react';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -85,16 +86,17 @@ afterAll(() => {
   vi.unstubAllGlobals();
 });
 
-function renderBootstrap() {
-  return render(
+function renderBootstrap({ strictMode = false }: { strictMode?: boolean } = {}) {
+  const tree = (
     <ApiClientProvider client={apiClient}>
       <QueryClientProvider client={queryClient}>
         <ToastProvider>
           <AuthSessionBootstrap />
         </ToastProvider>
       </QueryClientProvider>
-    </ApiClientProvider>,
+    </ApiClientProvider>
   );
+  return render(strictMode ? <StrictMode>{tree}</StrictMode> : tree);
 }
 
 // 부팅 확인이 끝나 이 탭이 공유 표지에 A(id 1)를 쓴 상태까지 간다.
@@ -495,12 +497,39 @@ describe('공유 사용자 표지 — 다른 탭의 바뀜', () => {
     expect(meRequestCount).toBe(2);
   });
 
-  it('확인 전에는 다른 탭의 표지가 달라도 요청이 나간다', async () => {
+  it('부팅 확인 전에는 다른 탭의 표지가 달라도 요청이 나간다', async () => {
     registerConnectivityAdapter(webConnectivityAdapter);
     window.localStorage.setItem(SESSION_USER_KEY, '2');
+    let releaseBootCheck: () => void = () => {};
+    const bootCheckGate = new Promise<void>((resolve) => {
+      releaseBootCheck = resolve;
+    });
+    server.use(
+      http.get(`${BASE}/users/me`, async () => {
+        meRequestCount += 1;
+        if (meRequestCount === 1) await bootCheckGate;
+        return HttpResponse.json({ ok: true, data: MEMBER, message: null });
+      }),
+    );
 
-    await expect(apiClient.users.me()).resolves.toMatchObject({ id: 1 });
-    expect(meRequestCount).toBe(1);
+    try {
+      renderBootstrap();
+      // 부팅 확인 요청이 서버에 붙잡힌 동안 — 이 탭은 아직 아무 사용자도 확인하지 않았다.
+      await waitFor(() => expect(meRequestCount).toBe(1));
+      await expect(apiClient.users.me()).resolves.toMatchObject({ id: 1 });
+      expect(meRequestCount).toBe(2);
+    } finally {
+      releaseBootCheck();
+    }
+  });
+
+  it('StrictMode 이중 마운트 뒤에도 확인값이 남아 다른 탭의 바뀜을 요청 시점에 막는다', async () => {
+    registerConnectivityAdapter(webConnectivityAdapter);
+    renderBootstrap({ strictMode: true });
+    await waitFor(() => expect(window.localStorage.getItem(SESSION_USER_KEY)).toBe('1'));
+    window.localStorage.setItem(SESSION_USER_KEY, '2');
+
+    await expect(apiClient.users.me()).rejects.toMatchObject({ code: 'NETWORK' });
   });
 
   it('언마운트하면 이 탭이 확인한 값을 지워 그 뒤에는 요청을 막지 않는다', async () => {

@@ -54,7 +54,7 @@ export function AuthSessionBootstrap() {
     previousStateRef.current = { status, isVerified };
   }, [status, isVerified]);
 
-  // 탭 사이 사용자 표지도 같은 전이만 따라간다 — 다른 탭은 이 값이 자기가 확인한 값과 달라지면 새로고침한다.
+  // 탭 사이 사용자 표지도 같은 전이만 따라간다 — 다른 탭은 이 값이 자기가 확인한 값과 달라지면 요청을 막고 새로고침한다.
   // 위 effect 와 따로 두는 이유: 로그인 상태의 계정 전환은 user id 만 바뀌어 deps 에 넣어야 하는데,
   // 그 전환에 had-session·PostHog 분기를 다시 돌리지 않는다.
   useEffect(() => {
