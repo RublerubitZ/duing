@@ -121,7 +121,7 @@ export function RoundStatusBanner({
 
       {/* ASSIGNING — 응답했으나 배정이 없는 사람과 남은 자리가 함께 있으면 알린다(고른 시간인지는 확정 창이 본다) */}
       {showFreedSeatNotice && (
-        <p className="mt-3 rounded-md border border-warm/60 bg-warm/10 px-4 py-2 text-sm text-warm-deep">
+        <p className="mt-3 break-keep rounded-md border border-warm/60 bg-warm/10 px-4 py-2 text-sm text-warm-deep">
           {`응답했으나 배정받지 못한 지원자 ${unassignedRespondedCount}명 · 남은 자리 ${freeSeatCount}개 — 고른 시간이 아닐 수 있습니다`}
         </p>
       )}
