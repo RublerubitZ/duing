@@ -19,6 +19,7 @@ import {
   useConfirmRoundMutation,
   useExcludeMemberMutation,
   useAssignMemberScheduleMutation,
+  useInterviewRoundDetailQuery,
 } from '../src/interviewRound';
 import { useRecruitmentStatsDailyQuery, useRecruitmentStatsSummaryQuery } from '../src/stats';
 
@@ -465,6 +466,37 @@ describe('useExcludeMemberMutation (스펙 §10.1 — 제외 시 재큐잉)', ()
     expect(queryClient.getQueryState(interviewRoundKeys.candidates(10))?.isInvalidated).toBe(true);
     expect(queryClient.getQueryState(statsQueryKeys.summary(10))?.isInvalidated).toBe(true);
   });
+
+  it.each<[number, string, boolean]>([
+    [409, 'detail queryKey 만 invalidate 된다 — 화면의 상세가 낡았다는 신호', true],
+    [500, 'detail queryKey 도 유지된다', false],
+  ])('%i 응답으로 실패하면 %s', async (status, _label, invalidated) => {
+    const queryClient = newQueryClient();
+    server.use(
+      http.post('*/leader/interview-rounds/42/members/7/exclude', () =>
+        HttpResponse.json(
+          { ok: false, data: null, message: '현재 상태에서 허용되지 않는 멤버 상태 변경입니다.' },
+          { status },
+        ),
+      ),
+    );
+    queryClient.setQueryData(interviewRoundKeys.detail(42), null);
+    queryClient.setQueryData(interviewRoundKeys.list(10), []);
+    queryClient.setQueryData(interviewRoundKeys.candidates(10), []);
+    queryClient.setQueryData(statsQueryKeys.summary(10), null);
+
+    const { result } = renderHook(() => useExcludeMemberMutation(10, 42), {
+      wrapper: makeWrapper(queryClient),
+    });
+    result.current.mutate(7);
+    await waitFor(() => expect(result.current.isError).toBe(true));
+
+    expect(queryClient.getQueryState(interviewRoundKeys.detail(42))?.isInvalidated).toBe(invalidated);
+    // 목록·후보·통계를 낡게 만든 건 이 409 가 아니라 다른 운영진의 동작이다 — 상세만 다시 받는다.
+    expect(queryClient.getQueryState(interviewRoundKeys.list(10))?.isInvalidated).toBe(false);
+    expect(queryClient.getQueryState(interviewRoundKeys.candidates(10))?.isInvalidated).toBe(false);
+    expect(queryClient.getQueryState(statsQueryKeys.summary(10))?.isInvalidated).toBe(false);
+  });
 });
 
 describe('useAssignMemberScheduleMutation (스펙 §10.1 — 배정 detail 만)', () => {
@@ -490,5 +522,72 @@ describe('useAssignMemberScheduleMutation (스펙 §10.1 — 배정 detail 만)'
     // 비대상: list·candidates 는 수동 배정에서 invalidate 안 함
     expect(queryClient.getQueryState(interviewRoundKeys.list(10))?.isInvalidated).toBe(false);
     expect(queryClient.getQueryState(interviewRoundKeys.candidates(10))?.isInvalidated).toBe(false);
+  });
+
+  it.each<[number, string, boolean]>([
+    [409, 'detail queryKey 가 invalidate 된다 — 화면의 상세가 낡았다는 신호', true],
+    [500, 'detail queryKey 는 유지된다', false],
+  ])('%i 응답으로 실패하면 %s', async (status, _label, invalidated) => {
+    const queryClient = newQueryClient();
+    server.use(
+      http.put('*/leader/interview-rounds/42/members/7/schedule', () =>
+        HttpResponse.json(
+          { ok: false, data: null, message: '현재 상태에서 허용되지 않는 멤버 상태 변경입니다.' },
+          { status },
+        ),
+      ),
+    );
+    queryClient.setQueryData(interviewRoundKeys.detail(42), null);
+
+    const { result } = renderHook(() => useAssignMemberScheduleMutation(42), {
+      wrapper: makeWrapper(queryClient),
+    });
+    result.current.mutate({ memberId: 7, slotId: 99 });
+    await waitFor(() => expect(result.current.isError).toBe(true));
+
+    expect(queryClient.getQueryState(interviewRoundKeys.detail(42))?.isInvalidated).toBe(invalidated);
+  });
+
+  it('409 로 실패하면 상세 재조회를 기다리지 않고 바로 오류가 된다', async () => {
+    const queryClient = newQueryClient();
+    let releaseRefetch: () => void = () => {};
+    const refetchGate = new Promise<void>((resolve) => {
+      releaseRefetch = resolve;
+    });
+    let detailGetCount = 0;
+    server.use(
+      http.get('*/leader/interview-rounds/42', async () => {
+        detailGetCount += 1;
+        if (detailGetCount > 1) await refetchGate;
+        return HttpResponse.json({ ok: true, data: { roundId: 42 }, message: null });
+      }),
+      http.put('*/leader/interview-rounds/42/members/7/schedule', () =>
+        HttpResponse.json(
+          { ok: false, data: null, message: '현재 상태에서 허용되지 않는 멤버 상태 변경입니다.' },
+          { status: 409 },
+        ),
+      ),
+    );
+
+    try {
+      // 상세를 지켜보는 쪽이 있어야 무효화가 실제 재조회를 띄운다(화면과 같은 조건).
+      const { result } = renderHook(
+        () => ({
+          detail: useInterviewRoundDetailQuery(42),
+          assign: useAssignMemberScheduleMutation(42),
+        }),
+        { wrapper: makeWrapper(queryClient) },
+      );
+      await waitFor(() => expect(result.current.detail.isSuccess).toBe(true));
+
+      result.current.assign.mutate({ memberId: 7, slotId: 99 });
+
+      // 재조회를 붙잡은 동안 — onError 가 무효화를 돌려주면(return) 오류 기록이 재조회 뒤로 밀려 여기서 시간 초과한다.
+      await waitFor(() => expect(result.current.assign.isError).toBe(true));
+      expect(detailGetCount).toBe(2);
+      expect(result.current.detail.isFetching).toBe(true);
+    } finally {
+      releaseRefetch();
+    }
   });
 });

@@ -302,6 +302,8 @@ export function RoundDashboard({ clubId, recruitmentId, roundId }: Props) {
           });
         },
         onError: (assignError) => {
+          // 배정 창은 모달이라 열어 두면 피드백·다시 받은 표가 스크림 뒤에 가려진다 — 창 안 문구가 없어 닫아도 잃는 게 없다.
+          setAssignTarget(null);
           const message =
             assignError instanceof ApiError
               ? assignError.message

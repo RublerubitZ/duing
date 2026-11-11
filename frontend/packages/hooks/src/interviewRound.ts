@@ -241,6 +241,7 @@ export function useRoundAutoAssignMutation(recruitmentId: number, roundId: numbe
 /**
  * 수동 배정/재배정 (BE#11 — 배정 검토 단계 한정)
  * 성공 → detail(roundId) invalidate
+ * 409 → detail(roundId) invalidate (화면의 상세가 낡았을 수 있다 — 다른 운영진이 결과를 정해 제외된 멤버 등)
  */
 export function useAssignMemberScheduleMutation(roundId: number) {
   const client = useApiClient();
@@ -252,6 +253,12 @@ export function useAssignMemberScheduleMutation(roundId: number) {
       queryClient.invalidateQueries({
         queryKey: interviewRoundKeys.detail(roundId),
       });
+    },
+    onError: (assignError) => {
+      // 409 = 화면의 상세가 낡았을 수 있다 — return 하면 재조회가 끝날 때까지 오류 기록·호출부 안내가 밀린다.
+      if (assignError instanceof ApiError && assignError.status === 409) {
+        void queryClient.invalidateQueries({ queryKey: interviewRoundKeys.detail(roundId) });
+      }
     },
   });
 }
@@ -278,6 +285,7 @@ export function useUnassignMemberScheduleMutation(roundId: number) {
  * 멤버 제외 (BE#11)
  * 성공 → detail(roundId) + list(recruitmentId) + candidates(recruitmentId) + 통계 invalidate
  * (제외 시 멤버 대기열 복귀 — 재큐잉이므로 candidates 포함 §10.1)
+ * 409 → detail(roundId) invalidate (화면의 상세가 낡았을 수 있다 — 결과가 정해져 이미 제외된 멤버 등)
  */
 export function useExcludeMemberMutation(recruitmentId: number, roundId: number) {
   const client = useApiClient();
@@ -297,6 +305,12 @@ export function useExcludeMemberMutation(recruitmentId: number, roundId: number)
       });
       // 자동 마감 전망(통계 요약)은 결과를 기다리는 사람이 남은 라운드만 센다 — 기다리던 마지막 멤버를 빼면 진행 중 라운드 수가 바뀐다.
       queryClient.invalidateQueries({ queryKey: statsQueryKeys.byRecruitment(recruitmentId) });
+    },
+    onError: (excludeError) => {
+      // 409 = 화면의 상세가 낡았을 수 있다 — return 하면 재조회가 끝날 때까지 오류 기록·호출부 안내가 밀린다.
+      if (excludeError instanceof ApiError && excludeError.status === 409) {
+        void queryClient.invalidateQueries({ queryKey: interviewRoundKeys.detail(roundId) });
+      }
     },
   });
 }
