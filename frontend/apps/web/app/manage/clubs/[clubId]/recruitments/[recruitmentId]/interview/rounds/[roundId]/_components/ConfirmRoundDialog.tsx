@@ -93,11 +93,11 @@ export function ConfirmRoundDialog({
                     key={member.applicationId}
                     className="flex items-center justify-between gap-2 rounded-md border border-warm/40 bg-warm/10 px-3 py-1.5 text-sm"
                   >
-                    {/* 오른쪽 문구가 길어져도 이름이 음절 사이에서 끊기지 않게 — 줄바꿈은 오른쪽이 맡는다 */}
+                    {/* 이름·오른쪽 문구 모두 어절 단위로 접고(break-keep), 한 어절이 폭을 넘을 때만 글자 단위로 쪼갠다(anywhere — flex 최소 폭도 줄인다) — 줄바꿈은 오른쪽이 맡는다 */}
                     <span className="max-w-[40%] shrink-0 font-medium text-charcoal break-keep [overflow-wrap:anywhere]">
                       {member.applicantName}
                     </span>
-                    <span className="text-right text-xs text-warm-deep">
+                    <span className="text-right text-xs text-warm-deep break-keep [overflow-wrap:anywhere]">
                       {`선택 슬롯 ${member.selectedSlotIds.length}개`}
                       {freeSeatSlots.length > 0 && (
                         <>

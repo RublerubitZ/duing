@@ -1046,6 +1046,8 @@ describe('배정 검토 — 빈 자리 안내', () => {
     );
     expect(within(dialog).getByText('한지민').closest('li')).toHaveTextContent('선택 슬롯 1개');
     expect(within(dialog).getByText('한지민').closest('li')).not.toHaveTextContent('고른 시간에 빈 자리 있음');
+    // 좁은 폭에서 '있 / 음(' 처럼 음절 사이에서 끊기지 않게.
+    expect(within(dialog).getByText('최유리').nextElementSibling).toHaveClass('break-keep', '[overflow-wrap:anywhere]');
   });
 
   it('확정이 거부되면 창은 바로 열리고, 빈 자리 표시는 라운드 상세를 다시 받은 뒤에 보인다', async () => {
