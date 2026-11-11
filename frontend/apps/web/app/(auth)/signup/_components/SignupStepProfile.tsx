@@ -9,7 +9,7 @@ import { ButtonSpinner } from '@/components/loading/Spinner';
 import { ArrowLeft, Check } from '@/components/duing/Icon';
 
 const inputCls =
-  'w-full rounded-md border border-line bg-paper px-3.5 py-3 text-sm text-charcoal outline-none transition focus:border-ink focus:ring-1 focus:ring-ink/20 placeholder:text-charcoal-3/50';
+  'w-full rounded-md border border-field bg-paper px-3.5 py-3 text-sm text-charcoal outline-none transition focus:border-ink focus:ring-1 focus:ring-ink/20 placeholder:text-charcoal-3/50';
 
 function IconPerson() {
   return (

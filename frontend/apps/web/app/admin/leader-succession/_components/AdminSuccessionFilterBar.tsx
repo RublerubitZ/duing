@@ -32,7 +32,7 @@ export function AdminSuccessionFilterBar({ status, clubIdInput, onStatusChange, 
       <select
         value={status}
         onChange={handleStatusChange}
-        className="px-3 py-1.5 rounded-md border border-line bg-paper text-[13px]"
+        className="px-3 py-1.5 rounded-md border border-field bg-paper text-[13px]"
       >
         {STATUS_OPTIONS.map((opt) => (
           <option key={opt} value={opt}>
@@ -47,7 +47,7 @@ export function AdminSuccessionFilterBar({ status, clubIdInput, onStatusChange, 
         value={clubIdInput}
         onChange={handleClubIdChange}
         placeholder="동아리 ID (선택)"
-        className="px-3 py-1.5 rounded-md border border-line bg-paper text-[13px] w-40"
+        className="px-3 py-1.5 rounded-md border border-field bg-paper text-[13px] w-40"
       />
     </div>
   );

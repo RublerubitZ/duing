@@ -390,10 +390,10 @@ export function NoticePage() {
 
             {/* Search */}
             <div className="flex w-full items-center gap-2 lg:mt-1 lg:w-auto lg:shrink-0">
-              <div className="w-full lg:w-[280px]" style={{
+              <div className="w-full focus-within:ring-[3px] focus-within:ring-ink/15 lg:w-[280px]" style={{
                 display: 'flex', alignItems: 'center', gap: 8,
                 background: 'var(--paper)',
-                border: '1px solid var(--gray-line)',
+                border: '1px solid var(--field)',
                 borderRadius: 10,
                 padding: '0 4px 0 14px',
                 height: 40,

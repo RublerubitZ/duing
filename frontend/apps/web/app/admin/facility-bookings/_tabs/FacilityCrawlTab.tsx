@@ -113,7 +113,7 @@ export function FacilityCrawlTab() {
               setFacilityId(event.target.value === '' ? undefined : Number(event.target.value));
               setPage(0);
             }}
-            className="rounded-md border border-line bg-paper px-2 py-1.5 text-xs"
+            className="rounded-md border border-field bg-paper px-2 py-1.5 text-xs"
           >
             <option value="">전체</option>
             {(facilitiesQuery.data ?? []).map((facility) => (
@@ -132,7 +132,7 @@ export function FacilityCrawlTab() {
             setKeyword(event.target.value);
             setPage(0);
           }}
-          className="rounded-md border border-line bg-paper px-2 py-1.5 text-xs"
+          className="rounded-md border border-field bg-paper px-2 py-1.5 text-xs"
         />
       </div>
 

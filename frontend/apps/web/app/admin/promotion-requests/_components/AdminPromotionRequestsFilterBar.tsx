@@ -35,7 +35,7 @@ export function AdminPromotionRequestsFilterBar({
           const next = event.target.value;
           if (isStatusOption(next)) onStatusChange(next);
         }}
-        className="px-3 py-1.5 rounded-md border border-line bg-paper text-[13px]"
+        className="px-3 py-1.5 rounded-md border border-field bg-paper text-[13px]"
       >
         {STATUS_OPTIONS.map((opt) => (
           <option key={opt} value={opt}>
@@ -49,7 +49,7 @@ export function AdminPromotionRequestsFilterBar({
         value={clubIdInput}
         onChange={(event) => onClubIdInputChange(event.target.value)}
         placeholder="동아리 ID 입력"
-        className="px-3 py-1.5 rounded-md border border-line bg-paper text-[13px] w-40"
+        className="px-3 py-1.5 rounded-md border border-field bg-paper text-[13px] w-40"
         min={1}
       />
     </div>

@@ -152,7 +152,7 @@ export function SubmissionBatchesTab({ statusFilter }: { statusFilter?: Submissi
             setKeyword(event.target.value);
             setPage(0);
           }}
-          className="w-full max-w-xs rounded-[10px] border border-line bg-paper px-3 py-[7px] text-[13px] text-charcoal"
+          className="w-full max-w-xs rounded-[10px] border border-field bg-paper px-3 py-[7px] text-[13px] text-charcoal"
         />
         <input
           type="date"
@@ -162,7 +162,7 @@ export function SubmissionBatchesTab({ statusFilter }: { statusFilter?: Submissi
             setSubmittedFrom(event.target.value);
             setPage(0);
           }}
-          className="rounded-[10px] border border-line bg-paper px-3 py-[7px] text-[13px] text-charcoal"
+          className="rounded-[10px] border border-field bg-paper px-3 py-[7px] text-[13px] text-charcoal"
         />
         <input
           type="date"
@@ -172,7 +172,7 @@ export function SubmissionBatchesTab({ statusFilter }: { statusFilter?: Submissi
             setSubmittedTo(event.target.value);
             setPage(0);
           }}
-          className="rounded-[10px] border border-line bg-paper px-3 py-[7px] text-[13px] text-charcoal"
+          className="rounded-[10px] border border-field bg-paper px-3 py-[7px] text-[13px] text-charcoal"
         />
         {hasFilter && (
           <button type="button" className="btn btn-ghost btn-sm" onClick={resetFilters}>

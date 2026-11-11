@@ -59,7 +59,7 @@ export function ExtendDeadlineModal({
             type="datetime-local"
             value={newDeadline}
             onChange={(event) => setNewDeadline(event.target.value)}
-            className="mt-1 w-full rounded-md border border-line bg-paper px-3 py-1.5 text-sm text-charcoal transition-colors focus-visible:border-ink focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            className="mt-1 w-full rounded-md border border-field bg-paper px-3 py-1.5 text-sm text-charcoal transition-colors focus-visible:border-ink focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
           />
         </div>
         {errorMessage && (

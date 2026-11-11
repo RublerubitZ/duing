@@ -26,7 +26,7 @@ export function AdminPromotionsFilterBar({ activeFilter, onActiveFilterChange }:
           const next = event.target.value;
           if (isActiveFilter(next)) onActiveFilterChange(next);
         }}
-        className="px-3 py-1.5 rounded-md border border-line bg-paper text-[13px]"
+        className="px-3 py-1.5 rounded-md border border-field bg-paper text-[13px]"
       >
         {ACTIVE_OPTIONS.map((opt) => (
           <option key={opt.value} value={opt.value}>

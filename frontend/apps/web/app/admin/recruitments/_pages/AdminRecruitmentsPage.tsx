@@ -42,7 +42,7 @@ const STATUS_VALUES = STATUS_OPTIONS.flatMap((option) => (option.value ? [option
 const SORT_VALUES = SORT_OPTIONS.map((option) => option.value);
 
 const inputCls =
-  'w-full rounded-md border border-line bg-paper px-3 py-2 text-sm text-charcoal transition-colors placeholder:text-charcoal-3 focus-visible:border-ink focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring';
+  'w-full rounded-md border border-field bg-paper px-3 py-2 text-sm text-charcoal transition-colors placeholder:text-charcoal-3 focus-visible:border-ink focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring';
 
 export function AdminRecruitmentsPage() {
   const searchParams = useSearchParams();
@@ -113,7 +113,7 @@ function AdminRecruitmentsList({
               aria-label="정렬"
               value={sort}
               onChange={(event) => setSort(toSort(event.target.value))}
-              className="rounded-md border border-line bg-paper px-2.5 py-2 text-[12.5px] text-charcoal focus-visible:border-ink focus-visible:outline-none"
+              className="rounded-md border border-field bg-paper px-2.5 py-2 text-[12.5px] text-charcoal focus-visible:border-ink focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ink/15"
             >
               {SORT_OPTIONS.map((option) => (
                 <option key={option.value} value={option.value}>

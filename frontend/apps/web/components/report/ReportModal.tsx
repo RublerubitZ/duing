@@ -161,7 +161,7 @@ export function ReportModal({ targetType, targetId, targetLabel, onClose }: Prop
               {...register('detail')}
               className={cn(
                 'w-full resize-none rounded-xl border px-4 py-3 text-sm outline-none transition-colors',
-                'border-line placeholder:text-charcoal-3',
+                'border-field placeholder:text-charcoal-3',
                 'focus:border-ink focus:ring-1 focus:ring-ink',
                 errors.detail && 'border-coral focus:border-coral focus:ring-coral',
               )}

@@ -605,7 +605,7 @@ function GenerationEditor({ member, clubId }: { member: ClubMember; clubId: numb
           disabled={updateGeneration.isPending}
           onChange={(event) => setValue(event.target.value)}
           placeholder="예: 12"
-          className="w-24 rounded-md border border-line bg-paper px-2.5 py-1.5 text-sm text-charcoal focus-visible:border-ink focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+          className="w-24 rounded-md border border-field bg-paper px-2.5 py-1.5 text-sm text-charcoal focus-visible:border-ink focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
         />
         <button
           type="button"

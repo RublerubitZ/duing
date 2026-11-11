@@ -94,7 +94,7 @@ export function PasswordChangeDialog({ open, onClose }: Props) {
               value={currentPassword}
               onChange={(event) => setCurrentPassword(event.target.value)}
               autoComplete="current-password"
-              className="w-full rounded-lg border border-line px-3 py-2 text-sm text-ink-deep focus:border-ink focus:outline-none focus:ring-[3px] focus:ring-ink/15"
+              className="w-full rounded-lg border border-field px-3 py-2 text-sm text-ink-deep focus:border-ink focus:outline-none focus:ring-[3px] focus:ring-ink/15"
             />
           </label>
           <label className="flex flex-col gap-1.5">
@@ -104,7 +104,7 @@ export function PasswordChangeDialog({ open, onClose }: Props) {
               value={newPassword}
               onChange={(event) => setNewPassword(event.target.value)}
               autoComplete="new-password"
-              className="w-full rounded-lg border border-line px-3 py-2 text-sm text-ink-deep focus:border-ink focus:outline-none focus:ring-[3px] focus:ring-ink/15"
+              className="w-full rounded-lg border border-field px-3 py-2 text-sm text-ink-deep focus:border-ink focus:outline-none focus:ring-[3px] focus:ring-ink/15"
             />
           </label>
           <label className="flex flex-col gap-1.5">
@@ -114,7 +114,7 @@ export function PasswordChangeDialog({ open, onClose }: Props) {
               value={confirmPassword}
               onChange={(event) => setConfirmPassword(event.target.value)}
               autoComplete="new-password"
-              className="w-full rounded-lg border border-line px-3 py-2 text-sm text-ink-deep focus:border-ink focus:outline-none focus:ring-[3px] focus:ring-ink/15"
+              className="w-full rounded-lg border border-field px-3 py-2 text-sm text-ink-deep focus:border-ink focus:outline-none focus:ring-[3px] focus:ring-ink/15"
             />
           </label>
           {error && <p role="alert" className="text-[12.5px] text-coral-deep">{error}</p>}

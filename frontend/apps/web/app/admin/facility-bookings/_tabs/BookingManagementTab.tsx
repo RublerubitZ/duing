@@ -190,7 +190,7 @@ export function BookingManagementTab({ isActive = true }: BookingManagementTabPr
           <div className="ml-auto flex flex-wrap items-center gap-2">
             <select
               aria-label="시설 필터"
-              className="rounded-[10px] border border-line bg-paper px-3 py-2 text-[13px] font-semibold text-charcoal"
+              className="rounded-[10px] border border-field bg-paper px-3 py-2 text-[13px] font-semibold text-charcoal"
               value={facilityIdInput}
               onChange={(event) => { setFacilityIdInput(event.target.value); setPage(0); }}
             >
@@ -202,16 +202,16 @@ export function BookingManagementTab({ isActive = true }: BookingManagementTabPr
             <input
               type="date" aria-label="시작일" value={dateFrom}
               onChange={(event) => { setDateFrom(event.target.value); setPage(0); }}
-              className="rounded-[10px] border border-line bg-paper px-3 py-[7px] text-[13px] text-charcoal"
+              className="rounded-[10px] border border-field bg-paper px-3 py-[7px] text-[13px] text-charcoal"
             />
             <input
               type="date" aria-label="종료일" value={dateTo}
               onChange={(event) => { setDateTo(event.target.value); setPage(0); }}
-              className="rounded-[10px] border border-line bg-paper px-3 py-[7px] text-[13px] text-charcoal"
+              className="rounded-[10px] border border-field bg-paper px-3 py-[7px] text-[13px] text-charcoal"
             />
             <select
               aria-label="정렬"
-              className="rounded-[10px] border border-line bg-paper px-3 py-2 text-[13px] font-semibold text-charcoal"
+              className="rounded-[10px] border border-field bg-paper px-3 py-2 text-[13px] font-semibold text-charcoal"
               value={sort}
               onChange={(event) => { setSort(toSort(event.target.value)); setPage(0); }}
             >

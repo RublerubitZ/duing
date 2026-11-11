@@ -98,7 +98,7 @@ export function AdminGlobalEventForm({
               update('category', next);
             }
           }}
-          className="w-full px-3.5 py-2 rounded-md border border-line bg-paper text-[14px]"
+          className="w-full px-3.5 py-2 rounded-md border border-field bg-paper text-[14px]"
         >
           <option value="" disabled hidden>
             카테고리 선택
@@ -123,7 +123,7 @@ export function AdminGlobalEventForm({
           required
           value={state.title}
           onChange={(changeEvent) => update('title', changeEvent.target.value)}
-          className="w-full px-3.5 py-2 rounded-md border border-line bg-paper text-[14px]"
+          className="w-full px-3.5 py-2 rounded-md border border-field bg-paper text-[14px]"
         />
       </Field>
 
@@ -134,7 +134,7 @@ export function AdminGlobalEventForm({
             required
             value={state.startAt}
             onChange={(changeEvent) => update('startAt', changeEvent.target.value)}
-            className="w-full px-3.5 py-2 rounded-md border border-line bg-paper text-[14px]"
+            className="w-full px-3.5 py-2 rounded-md border border-field bg-paper text-[14px]"
           />
         </Field>
         <Field label="종료 일시" error={fieldErrors.endAt}>
@@ -143,7 +143,7 @@ export function AdminGlobalEventForm({
             required
             value={state.endAt}
             onChange={(changeEvent) => update('endAt', changeEvent.target.value)}
-            className="w-full px-3.5 py-2 rounded-md border border-line bg-paper text-[14px]"
+            className="w-full px-3.5 py-2 rounded-md border border-field bg-paper text-[14px]"
           />
         </Field>
       </div>
@@ -154,7 +154,7 @@ export function AdminGlobalEventForm({
           maxLength={200}
           value={state.location}
           onChange={(changeEvent) => update('location', changeEvent.target.value)}
-          className="w-full px-3.5 py-2 rounded-md border border-line bg-paper text-[14px]"
+          className="w-full px-3.5 py-2 rounded-md border border-field bg-paper text-[14px]"
         />
       </Field>
 
@@ -165,7 +165,7 @@ export function AdminGlobalEventForm({
           placeholder="https://..."
           value={state.linkUrl}
           onChange={(changeEvent) => update('linkUrl', changeEvent.target.value)}
-          className="w-full px-3.5 py-2 rounded-md border border-line bg-paper text-[14px]"
+          className="w-full px-3.5 py-2 rounded-md border border-field bg-paper text-[14px]"
         />
       </Field>
 
@@ -175,7 +175,7 @@ export function AdminGlobalEventForm({
           maxLength={2000}
           value={state.description}
           onChange={(changeEvent) => update('description', changeEvent.target.value)}
-          className="w-full px-3.5 py-2 rounded-md border border-line bg-paper text-[14px]"
+          className="w-full px-3.5 py-2 rounded-md border border-field bg-paper text-[14px]"
         />
       </Field>
 

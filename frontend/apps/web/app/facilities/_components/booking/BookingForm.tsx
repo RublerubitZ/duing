@@ -240,7 +240,7 @@ export function BookingForm({
           <label htmlFor="booking-club" className="mb-1 block text-xs text-charcoal-3">신청 동아리</label>
           <select
             id="booking-club"
-            className="w-full rounded-md border border-line bg-paper px-3 py-2 text-base"
+            className="w-full rounded-md border border-field bg-paper px-3 py-2 text-base"
             value={String(effectiveClubId ?? '')}
             onChange={(event) => setClubId(Number(event.target.value))}
           >
@@ -291,7 +291,7 @@ export function BookingForm({
           maxLength={PURPOSE_MAX_LENGTH}
           placeholder="사용 목적을 입력해주세요"
           aria-label="사용 목적"
-          className="w-full rounded-md border border-line bg-paper px-3 py-2 text-base"
+          className="w-full rounded-md border border-field bg-paper px-3 py-2 text-base"
         />
       </div>
 
@@ -304,7 +304,7 @@ export function BookingForm({
           onChange={(event) => setAttendeeCount(event.target.value.replace(/[^0-9]/g, ''))}
           maxLength={4}
           placeholder="예: 15"
-          className="w-full rounded-md border border-line bg-paper px-3 py-2 text-base"
+          className="w-full rounded-md border border-field bg-paper px-3 py-2 text-base"
         />
       </div>
 
@@ -322,7 +322,7 @@ export function BookingForm({
           aria-label="대표 연락처"
           aria-invalid={contactError !== null}
           placeholder="연락 가능한 휴대폰 번호를 입력해주세요."
-          className="w-full rounded-md border border-line bg-paper px-3 py-2 text-base"
+          className="w-full rounded-md border border-field bg-paper px-3 py-2 text-base"
         />
         <p className="mt-1 text-[11px] text-charcoal-3">
           관리자나 시설 담당자가 예약 관련 연락이 필요할 때 사용해요.

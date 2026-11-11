@@ -31,7 +31,7 @@ export function AdminGlobalEventFilterBar({
           if (next === 'ALL') onCategoryChange('ALL');
           else if (isGlobalEventCategory(next)) onCategoryChange(next);
         }}
-        className="px-3 py-2 rounded-md border border-line text-[13px]"
+        className="px-3 py-2 rounded-md border border-field text-[13px]"
       >
         <option value="ALL">전체 카테고리</option>
         {GLOBAL_EVENT_CATEGORY_ORDER.map((categoryValue) => (
@@ -53,7 +53,7 @@ export function AdminGlobalEventFilterBar({
           value={keyword}
           onChange={(changeEvent) => onKeywordChange(changeEvent.target.value)}
           placeholder="제목·설명 검색"
-          className="px-3 py-2 rounded-md border border-line text-[13px] w-[220px]"
+          className="px-3 py-2 rounded-md border border-field text-[13px] w-[220px]"
         />
         <button
           type="submit"

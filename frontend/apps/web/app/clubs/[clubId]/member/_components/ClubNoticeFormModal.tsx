@@ -131,7 +131,7 @@ export function ClubNoticeFormModal(props: Props) {
                 {...register('title')}
                 className={cn(
                   'w-full rounded-xl border px-4 py-3 text-sm outline-none',
-                  'border-line focus:border-ink focus:ring-1 focus:ring-ink',
+                  'border-field focus:border-ink focus:ring-1 focus:ring-ink',
                   errors.title && 'border-coral focus:border-coral focus:ring-coral',
                 )}
               />
@@ -150,7 +150,7 @@ export function ClubNoticeFormModal(props: Props) {
               <input
                 type="text"
                 {...register('summary')}
-                className="w-full rounded-xl border border-line px-4 py-3 text-sm outline-none focus:border-ink focus:ring-1 focus:ring-ink"
+                className="w-full rounded-xl border border-field px-4 py-3 text-sm outline-none focus:border-ink focus:ring-1 focus:ring-ink"
               />
             </div>
 

@@ -56,7 +56,7 @@ export function BookingActionDialog({
             maxLength={500}
             rows={3}
             placeholder={`${reasonLabel}을(를) 입력해주세요 (500자 이내)`}
-            className="w-full rounded-[10px] border border-line bg-paper px-3 py-2.5 text-sm"
+            className="w-full rounded-[10px] border border-field bg-paper px-3 py-2.5 text-sm"
           />
         )}
         {errorMessage && (

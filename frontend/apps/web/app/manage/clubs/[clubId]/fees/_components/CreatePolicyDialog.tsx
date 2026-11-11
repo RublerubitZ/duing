@@ -38,7 +38,7 @@ type CreatePolicyDialogProps = {
 const BILLING_TYPE_OPTIONS: BillingType[] = ['MONTHLY', 'SEMESTER', 'YEARLY', 'ONE_TIME'];
 
 const inputCls =
-  'w-full rounded-md border px-4 py-3 text-sm outline-none transition-colors border-line placeholder:text-charcoal-3 focus-visible:border-ink focus-visible:ring-1 focus-visible:ring-ink';
+  'w-full rounded-md border px-4 py-3 text-sm outline-none transition-colors border-field placeholder:text-charcoal-3 focus-visible:border-ink focus-visible:ring-1 focus-visible:ring-ink';
 const errorInputCls = 'border-coral focus-visible:border-coral focus-visible:ring-coral';
 
 export function CreatePolicyDialog({ clubId, policy, onClose }: CreatePolicyDialogProps) {

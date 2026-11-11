@@ -110,7 +110,7 @@ function AdminInquiriesList({ initialStatus }: { initialStatus: FederationInquir
           value={keywordInput}
           onChange={(event) => setKeywordInput(event.target.value)}
           placeholder="제목 검색"
-          className="px-3 py-1.5 rounded-md border border-line bg-paper text-[13px]"
+          className="px-3 py-1.5 rounded-md border border-field bg-paper text-[13px]"
         />
         <button
           type="submit"

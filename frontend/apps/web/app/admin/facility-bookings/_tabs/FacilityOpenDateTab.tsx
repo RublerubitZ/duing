@@ -17,7 +17,7 @@ import { FacilityOpenDateConfirmDialog } from '../_components/FacilityOpenDateCo
 
 // BookingManagementTab 의 기간 필터와 같은 날짜 입력 외형 — 관리자 콘솔 안에서 폼 컨트롤이 갈라지지 않게 한다.
 const DATE_INPUT_CLASS =
-  'rounded-[10px] border border-line bg-paper px-3 py-[7px] text-[13px] text-charcoal';
+  'rounded-[10px] border border-field bg-paper px-3 py-[7px] text-[13px] text-charcoal';
 const CLOSED_LABEL = '닫힘';
 
 /** 예약 창의 저장값 — 빈 입력은 null 로 접힌다(오픈일 null = 닫힘, 마감일 null = 상한 없음). */

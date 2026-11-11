@@ -29,7 +29,8 @@ Du-ing 의 비주얼 랭귀지는 따뜻한 크림 캔버스(#F6F3EC) 위에서 
 | Charcoal | `#2F3433` | `charcoal` / `--charcoal` | 본문 기본 텍스트 (`.duing` 기본값) |
 | Charcoal 2 | `#4A504F` | `charcoal-2` / `--charcoal-2` | 보조 텍스트 |
 | Charcoal 3 | `#5C645F` | `charcoal-3` / `--charcoal-3` | 메타·캡션·빈 상태 텍스트 — 텍스트 위계의 바닥 |
-| Line | `#E5E2DA` | `line` / `--gray-line` | 모든 보더의 기본 — 1px 웜그레이 헤어라인. 점선 변형도 이 색 |
+| Line | `#E5E2DA` | `line` / `--gray-line` | 카드·표·구분선 보더의 기본 — 1px 웜그레이 헤어라인. 점선 변형도 이 색. 입력칸 테두리는 `field` |
+| Field | `#828884` | `field` / `--field` | 입력칸·선택칸·글상자의 테두리 — 주변과 3:1 이상(흰 바탕 3.62, 크림 3.26, 크림2 3.04). 테두리 없이 흰 면으로만 분리하는 홈 검색 캡슐은 시안대로 예외. 카드·표·구분선에는 쓰지 않는다(그쪽은 `line`) |
 | Gray Soft | `#F0EDE5` | `graysoft` / `--gray-soft` | `btn-ghost` hover, 빈 상태 배경 워시 |
 | Warm | `#E8B968` | `warm` / `--warm` | 옐로 액센트 — pill 페어 전용 (`#fbefd7` / `#8e6620`) |
 | Coral | `#D97757` | `coral` / `--coral` | 코랄 액센트 — pill 페어(`#fce2d9` / `#9a3f23`). 흰 글자를 얹는 위험 버튼·긴급 배지는 coral 이 아니라 `danger` |
@@ -186,7 +187,7 @@ Secondary: `bg-paper text-ink border border-line hover:border-sage` — 보더�
 - 바탕이 옅어 경고가 묻히는 상자는 테두리로 보강한다 — 경고 `border-coral/50`, 주의 `border-warm/60`. 테두리는 글자를 얹지 않아 `/10` 상한과 무관하다.
 - `*-deep` 은 흰·크림·크림2 바탕의 `/10` 합성 위에서 WCAG AA 를 넘도록 고른 값이다. 기본 색(`text-sage`·`text-coral` …)을 글자로 쓰지 않는다.
 - 위험·종료 동작(버튼·링크)은 배지가 아니라 `text-danger hover:bg-danger/5`(+ `border-danger/30`).
-- 입력칸 포커스는 `focus:border-ink focus:outline-none focus:ring-[3px] focus:ring-ink/15`. 밝은 바탕에서 `ring-sage` 는 대비가 모자라 쓰지 않는다(진한 콘솔 사이드바 안에서만 쓴다).
+- 입력칸의 기본 테두리는 `border-field`, 포커스는 `focus:border-ink focus:outline-none focus:ring-[3px] focus:ring-ink/15`. 테두리 색만 바꾸는 포커스는 field 와 ink 의 차이가 작아 링을 함께 쓴다. 밝은 바탕에서 `ring-sage` 는 대비가 모자라 쓰지 않는다(진한 콘솔 사이드바 안에서만 쓴다).
 - 네이티브 체크박스는 `accent-ink` + `focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink` — `@tailwindcss/forms` 가 없어 `border-*`·`text-*`·`focus:ring-*` 는 아무것도 그리지 않는다.
 
 ### Default Card (`.card` 확장형)
@@ -305,7 +306,7 @@ Secondary: `bg-paper text-ink border border-line hover:border-sage` — 보더�
 ### Don't
 - 섹션과 섹션 사이에 가로 구분선을 긋지 않는다 — 헤더↔본문, 히어로↔콘텐츠, 필터↔목록, 카드 안 블록 사이는 전부 여백이 가른다. 가로선은 표의 행, 목록의 행, 모달·시트·고정 바의 chrome, 컴포넌트 외곽선, 활성·강조 표시(탭 언더라인·형광펜 밑줄)에만 쓴다
 - **고정 바의 chrome 판정 기준:** 콘텐츠가 그 바 *뒤로 겹쳐 지나가면* 가를 여백 자체가 없으므로 헤어라인을 둔다 — 하단 탭바의 `border-t`, 반투명 상단 sticky 바의 `border-b` 가 여기 해당한다. 같은 컴포넌트라도 `md:static` 처럼 겹침이 사라지는 구간에서는 선을 두지 않는다(`max-md:border-b` 로 분기). 배경이 불투명해 콘텐츠가 비치지 않는 바는 선 없이 배경 대비만으로 충분하다
-- `border-2 border-black`, 하드 드롭섀도, 임의 `shadow-[...]` — 네오브루탈 문법 금지. 테두리는 항상 1px `border-line`
+- `border-2 border-black`, 하드 드롭섀도, 임의 `shadow-[...]` — 네오브루탈 문법 금지. 테두리는 항상 1px `border-line`(입력칸은 `border-field`)
 - sage 를 텍스트 컬러로 쓰지 않는다 — 장식 전용이다
 - 버튼에 transform hover·그림자 변화를 주지 않는다 — 버튼 hover 는 색상 전환만
 - 무한 마퀴·과도한 스프링 모션 금지 — 모션은 절제가 기본값
@@ -391,6 +392,7 @@ Secondary: `bg-paper text-ink border border-line hover:border-sage` — 보더�
   --warm:       #E8B968;
   --coral:      #D97757;
   --berry:      #B65672;
+  --field:      #828884;
   --sky:        #6A95B8;
   --sky-deep:   #406786;
   --sage-deep:  #4D6850;

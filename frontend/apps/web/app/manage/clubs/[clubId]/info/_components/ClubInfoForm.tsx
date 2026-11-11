@@ -75,10 +75,10 @@ function collegeLabel(code: College | null): string {
 }
 
 const inputCls =
-  'w-full border border-line bg-white rounded-[8px] px-3 py-2.5 text-[14px] text-ink-deep placeholder:text-charcoal-3 transition-[border-color,box-shadow] focus:outline-none focus:border-ink focus:ring-[3px] focus:ring-ink/15';
+  'w-full border border-field bg-white rounded-[8px] px-3 py-2.5 text-[14px] text-ink-deep placeholder:text-charcoal-3 transition-[border-color,box-shadow] focus:outline-none focus:border-ink focus:ring-[3px] focus:ring-ink/15';
 
 const selectCls =
-  'w-full border border-line bg-white rounded-[8px] px-3 py-2.5 text-[14px] text-ink-deep appearance-none transition-[border-color] focus:outline-none focus:border-ink';
+  'w-full border border-field bg-white rounded-[8px] px-3 py-2.5 text-[14px] text-ink-deep appearance-none transition-[border-color] focus:outline-none focus:border-ink focus:ring-[3px] focus:ring-ink/15';
 
 const labelCls = 'block text-[13px] font-medium text-charcoal-2';
 
@@ -567,7 +567,7 @@ export function ClubInfoForm({ detail, mode, mutation, onCancel, onSaved }: Club
                   aria-label="주간 활동 횟수"
                   value={activityFrequency}
                   onChange={(event) => setActivityFrequency(event.target.value)}
-                  className="w-14 rounded-[8px] border border-line bg-white px-2 py-1.5 text-center text-[13.5px] focus:border-ink focus:outline-none"
+                  className="w-14 rounded-[8px] border border-field bg-white px-2 py-1.5 text-center text-[13.5px] focus:border-ink focus:ring-[3px] focus:ring-ink/15 focus:outline-none"
                 />
                 <span className="text-[13px] text-charcoal-2">회</span>
               </div>
@@ -598,7 +598,7 @@ export function ClubInfoForm({ detail, mode, mutation, onCancel, onSaved }: Club
                       onChange={(event) => setFeeAmount(event.target.value)}
                       placeholder="30000"
                       disabled={readOnly}
-                      className="w-[120px] rounded-[8px] border border-line bg-white px-3 py-2 text-[14px] focus:border-ink focus:outline-none"
+                      className="w-[120px] rounded-[8px] border border-field bg-white px-3 py-2 text-[14px] focus:border-ink focus:ring-[3px] focus:ring-ink/15 focus:outline-none"
                     />
                     <span className="text-[13px] text-charcoal-2">원</span>
                   </div>
@@ -616,7 +616,7 @@ export function ClubInfoForm({ detail, mode, mutation, onCancel, onSaved }: Club
                     rows={4}
                     onChange={(event) => setFeeNote(event.target.value)}
                     placeholder={'선수 : 학기당 30,000원\n매니저 : 학기당 15,000원\n\n신규 회원은 첫 학기만 5,000원이 추가됩니다.'}
-                    className="w-full resize-none rounded-[8px] border border-line bg-white px-3 py-2 text-[14px] leading-relaxed focus:border-ink focus:outline-none"
+                    className="w-full resize-none rounded-[8px] border border-field bg-white px-3 py-2 text-[14px] leading-relaxed focus:border-ink focus:ring-[3px] focus:ring-ink/15 focus:outline-none"
                   />
                   <p className="text-[12px] text-charcoal-3">
                     모집 분야별 또는 신규/기존 회원 등 회비가 다른 경우 자유롭게 안내해 주세요.

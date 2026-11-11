@@ -26,7 +26,7 @@ const FILTER_OPTIONS: { label: string; value?: AdminFeeBillFilter }[] = [
 ];
 
 const inputCls =
-  'w-full rounded-md border border-line bg-paper px-3 py-2 text-sm text-charcoal transition-colors placeholder:text-charcoal-3 focus-visible:border-ink focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring';
+  'w-full rounded-md border border-field bg-paper px-3 py-2 text-sm text-charcoal transition-colors placeholder:text-charcoal-3 focus-visible:border-ink focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring';
 
 /**
  * 청구 탭(스펙 §8.3). 필터·페이지는 이 탭 안의 상태다 — 주소에는 기간과 탭만 싣는다.

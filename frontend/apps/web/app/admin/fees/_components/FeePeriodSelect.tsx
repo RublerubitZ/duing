@@ -13,7 +13,7 @@ type Props = {
 };
 
 const controlCls =
-  'rounded-md border border-line bg-paper px-2.5 py-2 text-[12.5px] text-charcoal focus-visible:border-ink focus-visible:outline-none';
+  'rounded-md border border-field bg-paper px-2.5 py-2 text-[12.5px] text-charcoal focus-visible:border-ink focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ink/15';
 
 /**
  * 감사 콘솔 전역 기간 셀렉터. 목록과 상세가 같은 컴포넌트를 쓴다.

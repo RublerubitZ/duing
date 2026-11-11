@@ -64,7 +64,7 @@ const EXPIRED_NOTICE = '만료된 초대 링크예요. 새로 만들어 다시 �
 const EXHAUSTED_NOTICE = '초대 인원이 모두 찼어요. 새로 만들어 다시 공유해주세요.';
 
 const fieldCls =
-  'w-full rounded-md border border-line bg-paper px-3 py-2 text-sm text-charcoal transition-colors placeholder:text-charcoal-3 focus-visible:border-ink focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring';
+  'w-full rounded-md border border-field bg-paper px-3 py-2 text-sm text-charcoal transition-colors placeholder:text-charcoal-3 focus-visible:border-ink focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring';
 
 /** 초대 링크의 만료 시각. BE 가 `joinExpiresAt` 에도 같은 값을 싣지만 의미가 분명한 쪽을 먼저 본다. */
 function expiresAtIso(joinCode: JoinCodeSummary): string | null {

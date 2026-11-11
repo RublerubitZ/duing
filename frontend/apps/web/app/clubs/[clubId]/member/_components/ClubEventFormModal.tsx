@@ -113,7 +113,7 @@ export function ClubEventFormModal(props: Props) {
                 {...register('title')}
                 className={cn(
                   'w-full rounded-xl border px-4 py-3 text-sm outline-none',
-                  'border-line focus:border-ink focus:ring-1 focus:ring-ink',
+                  'border-field focus:border-ink focus:ring-1 focus:ring-ink',
                   errors.title && 'border-coral focus:border-coral focus:ring-coral',
                 )}
               />
@@ -128,7 +128,7 @@ export function ClubEventFormModal(props: Props) {
                 <input
                   type="datetime-local"
                   {...register('startAt')}
-                  className="w-full rounded-xl border border-line px-4 py-3 text-sm outline-none focus:border-ink focus:ring-1 focus:ring-ink"
+                  className="w-full rounded-xl border border-field px-4 py-3 text-sm outline-none focus:border-ink focus:ring-1 focus:ring-ink"
                 />
                 {errors.startAt && <p className="mt-1 text-xs text-coral-deep">{errors.startAt.message}</p>}
               </div>
@@ -139,7 +139,7 @@ export function ClubEventFormModal(props: Props) {
                 <input
                   type="datetime-local"
                   {...register('endAt')}
-                  className="w-full rounded-xl border border-line px-4 py-3 text-sm outline-none focus:border-ink focus:ring-1 focus:ring-ink"
+                  className="w-full rounded-xl border border-field px-4 py-3 text-sm outline-none focus:border-ink focus:ring-1 focus:ring-ink"
                 />
                 {errors.endAt && <p className="mt-1 text-xs text-coral-deep">{errors.endAt.message}</p>}
               </div>
@@ -152,7 +152,7 @@ export function ClubEventFormModal(props: Props) {
               <input
                 type="text"
                 {...register('location')}
-                className="w-full rounded-xl border border-line px-4 py-3 text-sm outline-none focus:border-ink focus:ring-1 focus:ring-ink"
+                className="w-full rounded-xl border border-field px-4 py-3 text-sm outline-none focus:border-ink focus:ring-1 focus:ring-ink"
               />
             </div>
 
@@ -163,7 +163,7 @@ export function ClubEventFormModal(props: Props) {
               <textarea
                 rows={4}
                 {...register('description')}
-                className="w-full resize-none rounded-xl border border-line px-4 py-3 text-sm outline-none focus:border-ink focus:ring-1 focus:ring-ink"
+                className="w-full resize-none rounded-xl border border-field px-4 py-3 text-sm outline-none focus:border-ink focus:ring-1 focus:ring-ink"
               />
             </div>
           </div>
