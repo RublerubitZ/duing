@@ -67,7 +67,8 @@ export function setConfirmedSessionUser(value: string | null | undefined): void 
 // 확인값도 맞춘다 — 부트스트랩 effect 전에 '공유=새 id, 확인값=옛 값' 으로 이 탭의 요청이 막히지 않게.
 export function recordLoggedInSessionUser(userId: number): void {
   const sessionUser = String(userId);
-  if (writeSessionUser(sessionUser)) setConfirmedSessionUser(sessionUser);
+  // 쓰지 못하면 비교를 멈춘다(부트스트랩과 같다) — 읽기만 되는 저장소에서 남의 옛 값과 비교해 막지 않게.
+  setConfirmedSessionUser(writeSessionUser(sessionUser) ? sessionUser : undefined);
 }
 
 // 공유 표지가 이 탭이 확인한 사용자와 다른가. 확인 전이면 저장소를 읽지 않고, 읽지 못하면 비교하지 않는다.
