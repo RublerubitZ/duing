@@ -7,6 +7,7 @@ import type {
   UpdateInterviewSlotPayload,
 } from '@duing/types';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { ApiError } from '@duing/api';
 import { useApiClient } from './api-context';
 import { applicationQueryKeys } from './applicationQueryKeys';
 import { interviewRoundKeys } from './interviewRoundQueryKeys';
@@ -306,6 +307,7 @@ export function useExcludeMemberMutation(recruitmentId: number, roundId: number)
  * force=true 시 미처리 멤버를 자동 제외하고 확정한다.
  * 성공 → detail(roundId) + list(recruitmentId) + candidates(recruitmentId) invalidate
  * (확정 시 상태 전이 + 자동 제외 대기열 복귀)
+ * 409 → detail(roundId) invalidate (서버 상태가 화면과 다르다 — 확정 창의 빈 자리 판정용)
  */
 export function useConfirmRoundMutation(recruitmentId: number, roundId: number) {
   const client = useApiClient();
@@ -325,6 +327,12 @@ export function useConfirmRoundMutation(recruitmentId: number, roundId: number) 
       });
       // 확정된 라운드는 더 이상 자동 마감을 막지 않는다 — 모집의 자동 마감 전망(통계 요약)이 바뀐다(#1572).
       queryClient.invalidateQueries({ queryKey: statsQueryKeys.byRecruitment(recruitmentId) });
+    },
+    onError: (confirmError) => {
+      // 409 = 화면의 상세가 낡았다 — 확정 창이 최신 정원·배정으로 빈 자리를 보도록. return 하면 창이 재조회 뒤에야 열린다.
+      if (confirmError instanceof ApiError && confirmError.status === 409) {
+        void queryClient.invalidateQueries({ queryKey: interviewRoundKeys.detail(roundId) });
+      }
     },
   });
 }
