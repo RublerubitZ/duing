@@ -53,7 +53,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 // 슬롯 이동/취소 서비스는 라운드 API PR(BE#3~)에서 재도입된다. 이 테스트는 리스너 계약만 고정한다 —
 // 이벤트를 직접 발행해 INTERVIEW_UPDATED / INTERVIEW_CANCELLED 알림 생성·dedup·예외 격리를 검증한다.
-// 요청·확정·변경 알림은 결과가 정해진(INTERVIEW_PENDING 이 아닌) 지원에는 만들지 않는다 — "0건"은 면접 대상 대조군과 함께 본다.
+// 요청·확정·변경·취소 알림은 결과가 정해진(INTERVIEW_PENDING 이 아닌) 지원에는 만들지 않는다 — "0건"은 면접 대상 대조군과 함께 본다.
 @Import(TestcontainersConfiguration.class)
 @SpringBootTest
 class InterviewListenerIntegrationTest extends IntegrationTestBase {
@@ -317,5 +317,28 @@ class InterviewListenerIntegrationTest extends IntegrationTestBase {
                 .isEqualTo(1);
         assertThat(countNotifications(acceptedApplicant, NotificationType.INTERVIEW_AVAILABILITY_REQUESTED))
                 .isZero();
+    }
+
+    @Test
+    @DisplayName("결과가 정해진(불합격) 지원자에게는 INTERVIEW_CANCELLED 알림을 만들지 않고 같은 라운드의 면접 대상에게만 만든다")
+    void 결과가_정해진_지원자에게는_INTERVIEW_CANCELLED_알림_생략() {
+        Club club = saveActiveClub();
+        Recruitment recruitment = saveRecruitment(club);
+        InterviewRound round = saveCollectingRound(recruitment);
+        InterviewSlot slot = saveSlot(round.getId());
+
+        User pendingApplicant = saveUser("면접대상");
+        User rejectedApplicant = saveUser("불합격자");
+        Application pendingApplication = saveInterviewPendingApplication(recruitment, pendingApplicant);
+        Application rejectedApplication =
+                saveApplicationWithStatus(recruitment, rejectedApplicant, ApplicationStatus.REJECTED);
+        for (Application application : List.of(pendingApplication, rejectedApplication)) {
+            roundMemberRepository.save(InterviewRoundMember.invite(round.getId(), application.getId()));
+            saveAssignedSchedule(application.getId(), slot.getId(), round.getId());
+            publishAfterCommit(new InterviewCancelledEvent(application.getId(), slot.getId(), recruitment.getId()));
+        }
+
+        assertThat(countNotifications(pendingApplicant, NotificationType.INTERVIEW_CANCELLED)).isEqualTo(1);
+        assertThat(countNotifications(rejectedApplicant, NotificationType.INTERVIEW_CANCELLED)).isZero();
     }
 }

@@ -1,5 +1,9 @@
 package com.duing.domain.interview.entity;
 
+import java.util.Arrays;
+import java.util.Set;
+import java.util.stream.Collectors;
+
 /**
  * InterviewRoundMember 상태머신 (스펙 §5.2):
  * INVITED ↔ RESPONDED|NO_AVAILABLE_SLOT (COLLECTING && 마감 전 재응답),
@@ -21,5 +25,26 @@ public enum RoundMemberStatus {
      */
     public boolean isUnresponded(boolean availabilityDeadlinePassed) {
         return this == INVITED && availabilityDeadlinePassed;
+    }
+
+    /**
+     * 운영진·결과 확정 정리가 이 상태의 멤버를 제외(EXCLUDED)로 바꿀 수 있는가 — {@code InterviewRoundMember#exclude()} 가드와
+     * 결과 확정 정리 잠금 쿼리가 함께 쓰는 단일 판정. 막을 상태만 적는다: 새 상태는 기본으로 제외할 수 있다 — 결과가 정해진
+     * 사람이 진행 중 라운드에 남는 쪽보다 낫다. 막아야 하는 상태가 생기면 여기에 추가한다.
+     */
+    public boolean isExcludable() {
+        return this != ASSIGNED && this != EXCLUDED;
+    }
+
+    private static final Set<RoundMemberStatus> EXCLUDABLE_SET = Arrays.stream(values())
+            .filter(RoundMemberStatus::isExcludable)
+            .collect(Collectors.toUnmodifiableSet());
+
+    /**
+     * 제외할 수 있는 멤버 상태 집합 — 쿼리 IN 절용. isExcludable() 의 컬렉션 파생이라 상태가 추가돼도 자동 추종한다.
+     * 리터럴 재열거(Set.of)를 만들지 말 것 — 사본이 갈라지면 결과 확정 정리가 exclude() 가 허용하는 멤버를 놓친다.
+     */
+    public static Set<RoundMemberStatus> excludableSet() {
+        return EXCLUDABLE_SET;
     }
 }

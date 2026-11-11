@@ -12,7 +12,8 @@ import java.time.LocalDate;
  * @param closesOn                  막는 것이 없을 때 자동 마감되는 첫날(KST) — 이날 00:40 실행이 닫는다
  * @param gracePeriodOver           오늘 ≥ closesOn
  * @param undecidedApplicationCount 결과 없는 지원 수(지원 완료·보류·면접 대기, 탈퇴한 지원자 제외)
- * @param inProgressRoundCount      진행 중 면접 라운드 수(초안·응답 수집·배정 중)
+ * @param inProgressRoundCount      결과를 기다리는 면접 대상(제외 안 됨·결과 없음·지원 삭제와 지원자 탈퇴 아님)이 남은 진행 중 면접 라운드 수
+ *                                  (초안·응답 수집·배정 중)
  */
 public record AutoCloseOutlookQuery(
         LocalDate closesOn,

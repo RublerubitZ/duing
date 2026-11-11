@@ -105,10 +105,11 @@ public class InterviewRoundMember extends BaseEntity {
      * 제외: 운영진이 쓰는 라운드 종결의 멤버 경로 (§5.2 — soft delete 미사용, §16-5, 회원 탈퇴는
      * {@link #excludeOnWithdrawal()}). 지원자에겐
      * 중립 phase(WAITING_NEXT_ROUND)로만 보이고 application 은 INTERVIEW_PENDING 유지라
-     * 즉시 대기열 복귀한다. 가능없음 텍스트는 운영 기록으로 보존한다.
+     * 즉시 대기열 복귀한다. 결과 확정 정리(결과를 정한 지원을 진행 중 라운드에서 빼기)도 이 전이를 쓰는데, 그때 지원은
+     * 이미 종결이라 대기열로 가지 않는다. 가능없음 텍스트는 운영 기록으로 보존한다.
      */
     public void exclude() {
-        if (this.status == RoundMemberStatus.ASSIGNED || this.status == RoundMemberStatus.EXCLUDED) {
+        if (!this.status.isExcludable()) {
             throw new InterviewException.MemberTransitionNotAllowed();
         }
         this.status = RoundMemberStatus.EXCLUDED;

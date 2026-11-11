@@ -20,6 +20,7 @@ import com.duing.domain.clubmember.service.ClubAuthService;
 import com.duing.domain.clubmember.service.ClubMemberEnrollmentService;
 import com.duing.domain.draft.service.ApplicationDraftService;
 import com.duing.domain.interview.service.InterviewAssignmentQueryService;
+import com.duing.domain.interview.service.InterviewAssignmentService;
 import com.duing.domain.interview.service.dto.query.AssignedInterviewSlot;
 import com.duing.domain.recruitment.entity.Recruitment;
 import com.duing.domain.recruitment.repository.RecruitmentRepository;
@@ -64,7 +65,8 @@ class MyApplicationsQueryTest {
             clock,
             mock(ClubAuditEventRepository.class),
             new PhoneRevealRateLimiter(),
-            mock(ApplicationEventPublisher.class));
+            mock(ApplicationEventPublisher.class),
+            mock(InterviewAssignmentService.class));
 
     @Test
     @DisplayName("내 지원 목록 조회 결과에 동아리 카테고리와 로고 URL이 포함된다")

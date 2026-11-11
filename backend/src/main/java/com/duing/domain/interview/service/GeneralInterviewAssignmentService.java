@@ -208,6 +208,20 @@ public class GeneralInterviewAssignmentService implements InterviewAssignmentSer
         }
     }
 
+    @Override
+    @Transactional
+    public void releaseOnResultDecided(Long applicationId) {
+        // 잠금 순서: 지원서(호출자의 flush) → 멤버(id 순) — 응답 API(지원서 → 슬롯 → 멤버)와 같은 방향이고 라운드·슬롯은 잡지 않는다.
+        for (InterviewRoundMember member : interviewRoundMemberRepository
+                .findAllExcludableOfApplicationInRoundsForUpdate(
+                        applicationId, RoundMemberStatus.excludableSet(), RoundStatus.inProgressSet())) {
+            interviewAvailabilityRepository.softDeleteByRoundIdAndApplicationIdKeepingContext(
+                    member.getRoundId(), member.getApplicationId());
+            removeActiveSchedule(member.getRoundId(), member.getApplicationId());
+            member.exclude();
+        }
+    }
+
     private InterviewRoundMember getLockedMemberOfRound(Long roundId, Long memberId) {
         return interviewRoundMemberRepository.findByIdAndRoundIdForUpdate(memberId, roundId)
                 .orElseThrow(InterviewException.MemberNotFound::new);
