@@ -8,6 +8,11 @@ import { MEMBER_STATUS_LABEL, MEMBER_STATUS_CLASS } from './memberStatusLabels';
 // 면접 대상 멤버 테이블 — 상태 뱃지·파생 미응답 강조·배정 슬롯 표기 + 행 액션
 // ([수동 배정] ASSIGNING 한정 / [제외] 비터미널(DRAFT·COLLECTING·ASSIGNING) 한정).
 
+/** 멤버 행의 id — 표와 가능없음 섹션이 함께 쓴다(한 멤버는 둘 중 한 곳에만 있다). 창이 닫힌 뒤 포커스를 보낼 자리다. */
+export function roundMemberRowId(memberId: number) {
+  return `round-member-${memberId}`;
+}
+
 type RoundMemberTableProps = {
   detail: InterviewRoundDetail;
   onExclude: (member: InterviewRoundDetailMember) => void;
@@ -34,17 +39,24 @@ export function RoundMemberTable({ detail, onExclude, onManualAssign }: RoundMem
             member.assignedSlotId !== null ? slotById.get(member.assignedSlotId) : undefined;
 
           return (
+            // 프로그램으로만 포커스를 받는다(탭 순서 밖) — 표 컨테이너가 overflow-hidden 이라 포커스 표시는 안쪽 outline.
             <div
               key={member.memberId}
+              id={roundMemberRowId(member.memberId)}
+              role="group"
+              aria-labelledby={`${roundMemberRowId(member.memberId)}-name`}
+              tabIndex={-1}
               className={cn(
-                'flex flex-col items-stretch gap-2.5 px-5 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-3',
+                'flex flex-col items-stretch gap-2.5 px-5 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-3 focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ink',
                 member.unresponded && 'bg-warm/10',
               )}
             >
               <div className="flex items-center gap-3 min-w-0">
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium text-ink-deep">{member.userName}</span>
+                    <span id={`${roundMemberRowId(member.memberId)}-name`} className="text-sm font-medium text-ink-deep">
+                      {member.userName}
+                    </span>
                     <span className="text-xs text-charcoal-3">{member.studentId}</span>
                     {member.unresponded && (
                       <span className="rounded-full bg-warm/20 px-2 py-0.5 text-xs text-warm-deep">

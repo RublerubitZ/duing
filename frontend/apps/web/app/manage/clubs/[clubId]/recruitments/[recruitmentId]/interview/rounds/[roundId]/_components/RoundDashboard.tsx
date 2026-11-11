@@ -1,7 +1,8 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
+import { useQueryClient } from '@tanstack/react-query';
 import { ApiError } from '@duing/api';
 import {
   useInterviewRoundDetailQuery,
@@ -12,6 +13,7 @@ import {
   useCancelInterviewRoundMutation,
   useExcludeMemberMutation,
   useAssignMemberScheduleMutation,
+  interviewRoundKeys,
 } from '@duing/hooks';
 import { isUnresolvedMembersPayload } from '@duing/types';
 import type { InterviewRoundDetailMember, UnresolvedMembersPayload } from '@duing/types';
@@ -26,7 +28,7 @@ import { MemberAssignModal } from './MemberAssignModal';
 import { ExtendDeadlineModal } from './ExtendDeadlineModal';
 import { RoundStatusBanner } from './RoundStatusBanner';
 import { RoundCountCards } from './RoundCountCards';
-import { RoundMemberTable } from './RoundMemberTable';
+import { RoundMemberTable, roundMemberRowId } from './RoundMemberTable';
 import { NoSlotSection } from './NoSlotSection';
 import { RoundSlotsSection } from './RoundSlotsSection';
 import { ArrowLeft } from '@/components/duing/Icon';
@@ -78,6 +80,13 @@ function ExcludeDialog({
   );
 }
 
+// 포커스가 body 로 빠졌을 때만 그 멤버 행으로 보낸다 — 공용 복귀가 돌려놓은 버튼이나 사용자가 옮긴 자리는 건드리지 않는다.
+function focusMemberRowIfFocusLost(memberId: number) {
+  const activeElement = document.activeElement;
+  if (activeElement !== null && activeElement !== document.body) return;
+  document.getElementById(roundMemberRowId(memberId))?.focus({ preventScroll: true });
+}
+
 // ── RoundDashboard ───────────────────────────────────────────────────────────
 
 export function RoundDashboard({ clubId, recruitmentId, roundId }: Props) {
@@ -109,6 +118,42 @@ export function RoundDashboard({ clubId, recruitmentId, roundId }: Props) {
     const dismissTimer = setTimeout(() => setFeedbackMessage(null), 4_000);
     return () => clearTimeout(dismissTimer);
   }, [feedbackMessage]);
+
+  // 멤버 동작 창이 닫힌 뒤 돌아갈 버튼이 사라지면 그 멤버 행으로 — 표지는 닫힐 때 세우고, 기다릴 다시 받기가 없거나 닫힌 뒤 첫 상세 갱신(실패 포함)이 오거나 다른 창이 열리면 지운다.
+  const queryClient = useQueryClient();
+  const focusGuardMemberIdRef = useRef<number | null>(null);
+  const memberDialogMemberId = excludeTarget?.memberId ?? assignTarget?.memberId ?? null;
+  const isAnyDialogOpen =
+    memberDialogMemberId !== null ||
+    showAutoAssignDialog ||
+    showCancelDialog ||
+    showExtendDeadlineModal ||
+    confirmDialogPayload !== null;
+
+  useEffect(() => {
+    if (isAnyDialogOpen) focusGuardMemberIdRef.current = null;
+  }, [isAnyDialogOpen]);
+
+  useEffect(() => {
+    if (memberDialogMemberId === null) return;
+    return () => {
+      focusGuardMemberIdRef.current = memberDialogMemberId;
+      // 창 언마운트 때 Radix FocusScope 가 건 복귀(setTimeout 0)가 먼저 돌게 한다 — 이 정리는 창의 언마운트 정리 뒤에 실행된다.
+      setTimeout(() => {
+        focusMemberRowIfFocusLost(memberDialogMemberId);
+        // 다시 받는 중이 아니면 기다릴 상세 갱신도 없다 — 표지를 남기면 나중의 관계없는 갱신(확정 성공 등)이 이 행으로 끌어온다.
+        if (queryClient.isFetching({ queryKey: interviewRoundKeys.detail(roundId) }) === 0) focusGuardMemberIdRef.current = null;
+      }, 0);
+    };
+  }, [memberDialogMemberId, queryClient, roundId]);
+
+  useEffect(() => {
+    const guardedMemberId = focusGuardMemberIdRef.current;
+    if (guardedMemberId === null) return;
+    focusGuardMemberIdRef.current = null;
+    // 바로 옮기지 않는다 — 다시 받기가 창의 닫힘 복귀(setTimeout 0)보다 먼저 그려지면 남아 있는 버튼 대신 행으로 간다.
+    setTimeout(() => focusMemberRowIfFocusLost(guardedMemberId), 0);
+  }, [detailQuery.dataUpdatedAt, detailQuery.errorUpdatedAt]);
 
   // Mutations
   const autoAssignMutation = useRoundAutoAssignMutation(recruitmentId, roundId);
