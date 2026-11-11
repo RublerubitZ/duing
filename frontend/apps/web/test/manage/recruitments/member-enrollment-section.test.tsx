@@ -288,7 +288,7 @@ describe('모집 상세 — 모드별 회원 등록 영역', () => {
 
     await screen.findByText('가입 링크 생성·공유');
     const steps = Array.from(container.querySelectorAll('ol li'));
-    expect(steps.map((step) => step.textContent?.replace('→', ''))).toEqual([
+    expect(steps.map((step) => step.textContent)).toEqual([
       '외부 모집 진행',
       '합격자 선정',
       '가입 링크 생성·공유',

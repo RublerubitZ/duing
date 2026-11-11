@@ -421,7 +421,7 @@ function ActiveCodeCard({
         </div>
 
         {/* 유출 경고는 복사 버튼 바로 아래에 둔다 (스펙 §9) — 공유 직전에 읽히는 자리다. */}
-        <p className="mt-3 rounded-md bg-coral/5 px-3 py-2 text-xs leading-relaxed text-coral-deep">
+        <p className="mt-3 rounded-md border border-coral/50 bg-coral/5 px-3 py-2 text-xs leading-relaxed text-coral-deep">
           {LEAK_WARNING}
         </p>
 
