@@ -1100,9 +1100,10 @@ describe('배정 검토 — 빈 자리 안내', () => {
     renderDashboard();
     await screen.findByText('배정 검토 중');
 
+    // 좁은 폭에서 '남 / 은'·'5 / 명' 처럼 음절 사이에서 끊기지 않게.
     expect(
       screen.getByText('응답했으나 배정받지 못한 지원자 2명 · 남은 자리 3개 — 고른 시간이 아닐 수 있습니다'),
-    ).toBeInTheDocument();
+    ).toHaveClass('break-keep');
   });
 
   it.each([
