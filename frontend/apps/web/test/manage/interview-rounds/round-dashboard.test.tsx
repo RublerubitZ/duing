@@ -1216,7 +1216,11 @@ describe('라운드 현황 — 멤버 동작이 409 로 거절되면 상세 다�
     }
   });
 
-  it('수동 배정이 409 로 거절되면 배정 창이 닫혀 문구가 보이고, 다시 받은 상세로 그 멤버 행이 바뀐다', async () => {
+  it.each<[number, string, boolean]>([
+    [409, '다시 받은 상세로 그 멤버 행이 바뀐다', true],
+    [500, '상세는 다시 받지 않는다', false],
+  ])('수동 배정이 %i 로 거절되면 배정 창이 닫혀 문구가 보이고, %s', async (status, _label, refetched) => {
+    const SERVER_MESSAGE = status === 409 ? MEMBER_ALREADY_EXCLUDED_MESSAGE : '서버 오류가 발생했습니다.';
     let detailGetCount = 0;
     server.use(
       http.get(`*/interview-rounds/${ROUND_ID}`, () => {
@@ -1225,7 +1229,7 @@ describe('라운드 현황 — 멤버 동작이 409 로 거절되면 상세 다�
         return HttpResponse.json({ ok: true, data, message: null });
       }),
       http.put(`*/interview-rounds/${ROUND_ID}/members/${MEMBER_HOLDS_21.memberId}/schedule`, () =>
-        HttpResponse.json({ ok: false, data: null, message: MEMBER_ALREADY_EXCLUDED_MESSAGE }, { status: 409 }),
+        HttpResponse.json({ ok: false, data: null, message: SERVER_MESSAGE }, { status }),
       ),
     );
 
@@ -1236,12 +1240,16 @@ describe('라운드 현황 — 멤버 동작이 409 로 거절되면 상세 다�
     await userEvent.click(within(dialog).getAllByRole('radio')[0]!);
     await userEvent.click(within(dialog).getByRole('button', { name: '배정' }));
 
-    // 창이 닫혀야 피드백과 뒤의 표가 보인다(모달이 열린 동안은 aria-hidden)
+    // 어떤 실패든 창이 닫혀야 피드백과 뒤의 표가 보인다(모달이 열린 동안은 aria-hidden)
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
-    expect(screen.getByRole('alert')).toHaveTextContent(MEMBER_ALREADY_EXCLUDED_MESSAGE);
-    await waitFor(() => expect(memberRow('오세훈')).toHaveTextContent('제외됨'));
-    expect(memberRow('오세훈')).toHaveTextContent('배정 슬롯 —');
-    expect(detailGetCount).toBe(2);
+    expect(screen.getByRole('alert')).toHaveTextContent(SERVER_MESSAGE);
+    if (refetched) {
+      await waitFor(() => expect(memberRow('오세훈')).toHaveTextContent('제외됨'));
+      expect(memberRow('오세훈')).toHaveTextContent('배정 슬롯 —');
+    } else {
+      expect(memberRow('오세훈')).not.toHaveTextContent('제외됨');
+    }
+    expect(detailGetCount).toBe(refetched ? 2 : 1);
   });
 });
 
