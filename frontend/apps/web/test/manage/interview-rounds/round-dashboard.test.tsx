@@ -328,9 +328,10 @@ const DETAIL_ASSIGNING_HOLDER_PENDING = {
 /** 결과가 정해진 뒤(서버 상태) — #1659 로 오세훈은 EXCLUDED, 초안 배정이 지워져 21 이 비었다 */
 const DETAIL_ASSIGNING_HOLDER_DECIDED = {
   ...DETAIL_ASSIGNING_HOLDER_PENDING,
-  members: [MEMBER_WANTS_20, { ...MEMBER_HOLDS_21, status: 'EXCLUDED', assignedSlotId: null }],
+  // 결과를 정하면 가능 시간 응답도 soft delete 된다 — 고른 수와 슬롯의 선택 수가 함께 준다.
+  members: [MEMBER_WANTS_20, { ...MEMBER_HOLDS_21, status: 'EXCLUDED', selectedSlotCount: 0, assignedSlotId: null }],
   counts: { ...DETAIL_ASSIGNING_HOLDER_PENDING.counts, totalMemberCount: 1, respondedCount: 1, excludedCount: 1 },
-  slots: [FREED_SLOT_20, { ...FULL_SLOT_21, assignedCount: 0 }, OPEN_SLOT_22],
+  slots: [FREED_SLOT_20, { ...FULL_SLOT_21, selectedCount: 2, assignedCount: 0 }, OPEN_SLOT_22],
 };
 const MEMBER_ALREADY_EXCLUDED_MESSAGE = '현재 상태에서 허용되지 않는 멤버 상태 변경입니다.';
 
@@ -1171,7 +1172,7 @@ const EMPTY_CANDIDATES_HANDLER = http.get(
 );
 
 describe('라운드 현황 — 멤버 동작이 409 로 거절되면 상세 다시 받기', () => {
-  // 행 범위 질의 — 확인 창이 열린 동안 표는 aria-hidden 이라 role 질의는 재조회와 상관없이 통과한다.
+  // 행 범위 질의 — 창이 열린 동안 표는 aria-hidden 이라 부재 단언(queryByRole … not)은 재조회와 상관없이 통과한다.
   const memberRow = (name: string) => screen.getByText(name).closest<HTMLElement>('div.flex.flex-col');
 
   it('제외가 409 로 거절되면 창 안 문구가 재조회를 기다리지 않고 뜨고, 다시 받은 상세로 그 멤버 행이 제외됨으로 바뀐다', async () => {
