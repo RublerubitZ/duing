@@ -74,6 +74,7 @@ describe('connectivity fail-fast', () => {
 describe('isWebLoginRequest', () => {
   it.each<[string, string, boolean]>([
     ['POST', 'auth/web/login', true],
+    ['GET', 'auth/web/login', false],
     ['POST', 'auth/web/logout', false],
     ['POST', 'auth/web/refresh', false],
     ['POST', 'auth/signup', false],

@@ -11,6 +11,7 @@ import { setStorage } from '@duing/storage';
 import { useAuthStore } from '@duing/stores';
 
 import { LoginFormPanel } from '@/app/(auth)/login/_components/LoginFormPanel';
+import { SESSION_USER_KEY, sessionUserDiverged, setConfirmedSessionUser } from '@/app/_lib/authBoot';
 import { PROFILE_CHECK_SNOOZE_KEY } from '@/app/_lib/profileCheckSnooze';
 
 // LoginForm 은 useRouter 뿐 아니라 useSearchParams(next 파라미터)도 사용한다 —
@@ -360,5 +361,41 @@ describe('LoginFormPanel — 정보 확인 팝업 숨김 해제', () => {
 
     expect(await screen.findByText('학번 또는 비밀번호가 올바르지 않습니다.')).toBeInTheDocument();
     expect(window.localStorage.getItem(PROFILE_CHECK_SNOOZE_KEY)).not.toBeNull();
+  });
+});
+
+// 다른 탭의 바뀜으로 이 문서가 막혀 있으면 부트스트랩이 표지를 쓰지 않는다 — 로그인 응답(지금 쿠키의 사용자)을 이동 전에 직접 써야 다른 탭이 곧바로 알아챈다.
+describe('LoginFormPanel — 탭 사이 사용자 표지', () => {
+  afterEach(() => {
+    window.localStorage.removeItem(SESSION_USER_KEY);
+    setConfirmedSessionUser(undefined);
+  });
+
+  it('로그인에 성공하면 이동 전에 공유 표지에 그 사용자 id 를 쓰고 이 탭의 확인값도 맞춘다', async () => {
+    // 이 탭은 옛 계정(9)으로 확인을 마친 상태다.
+    window.localStorage.setItem(SESSION_USER_KEY, '9');
+    setConfirmedSessionUser('9');
+    let sharedSessionUserAtNavigation: string | null = null;
+    let divergedAtNavigation: boolean | null = null;
+    hardReplaceSpy.mockImplementationOnce(() => {
+      sharedSessionUserAtNavigation = window.localStorage.getItem(SESSION_USER_KEY);
+      divergedAtNavigation = sessionUserDiverged();
+    });
+    server.use(
+      http.post(`${BASE}/auth/web/login`, () =>
+        HttpResponse.json({ ok: true, data: { user: TEST_USER }, message: null }),
+      ),
+    );
+    const user = userEvent.setup();
+    renderLoginForm();
+
+    await user.type(screen.getByLabelText('학번'), '20240001');
+    await user.type(screen.getByLabelText('비밀번호'), 'password1234');
+    await user.click(screen.getByRole('button', { name: '로그인' }));
+
+    await waitFor(() => expect(hardReplaceSpy).toHaveBeenCalledWith('/me'));
+    expect(sharedSessionUserAtNavigation).toBe(String(TEST_USER.id));
+    // 확인값이 옛 값이면 부트스트랩 effect 전까지 이 탭의 요청이 막힌다.
+    expect(divergedAtNavigation).toBe(false);
   });
 });
