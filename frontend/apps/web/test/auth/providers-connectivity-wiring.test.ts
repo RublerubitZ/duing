@@ -38,7 +38,7 @@ it('providers 는 모듈을 불러올 때 웹 연결 어댑터(webConnectivityAd
   vi.stubEnv('NEXT_PUBLIC_API_BASE_URL', API_BASE_URL);
 
   await import('@/app/providers');
-  // providers 를 불러온 뒤 같은 모듈 레지스트리에서 꺼내야 providers 가 넘긴 것과 같은 함수다.
+  // providers 는 환경변수를 넣은 뒤에 평가돼야 해 동적으로 불러온다 — 비교할 어댑터도 같은 레지스트리에서 꺼낸다.
   const { consumeBootSessionRestore, webConnectivityAdapter } = await import('@/app/_lib/authBoot');
   // 선점 요청을 끝까지 받는다 — 먼저 끝나 msw 를 닫으면 요청이 실제 네트워크로 샌다.
   await consumeBootSessionRestore();

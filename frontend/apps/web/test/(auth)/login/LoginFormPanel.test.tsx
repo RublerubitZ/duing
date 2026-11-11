@@ -67,6 +67,9 @@ afterEach(() => {
   window.localStorage.removeItem('duing.accessToken');
   mockSearchParams = new URLSearchParams();
   useAuthStore.setState(useAuthStore.getInitialState(), true);
+  // 로그인 성공 테스트는 공유 표지·확인값을 남긴다 — 다음 테스트로 넘기지 않는다.
+  window.localStorage.removeItem(SESSION_USER_KEY);
+  setConfirmedSessionUser(undefined);
 });
 afterAll(() => server.close());
 
@@ -366,11 +369,6 @@ describe('LoginFormPanel — 정보 확인 팝업 숨김 해제', () => {
 
 // 다른 탭의 바뀜으로 이 문서가 막혀 있으면 부트스트랩이 표지를 쓰지 않는다 — 로그인 응답(지금 쿠키의 사용자)을 이동 전에 직접 써야 다른 탭이 곧바로 알아챈다.
 describe('LoginFormPanel — 탭 사이 사용자 표지', () => {
-  afterEach(() => {
-    window.localStorage.removeItem(SESSION_USER_KEY);
-    setConfirmedSessionUser(undefined);
-  });
-
   it('로그인에 성공하면 이동 전에 공유 표지에 그 사용자 id 를 쓰고 이 탭의 확인값도 맞춘다', async () => {
     // 이 탭은 옛 계정(9)으로 확인을 마친 상태다.
     window.localStorage.setItem(SESSION_USER_KEY, '9');

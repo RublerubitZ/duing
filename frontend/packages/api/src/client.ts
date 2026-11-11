@@ -634,7 +634,7 @@ export type CreateApiClientOptions = {
   authTransport?: AuthTransport;
 };
 
-// 웹 로그인 요청인가(쿼리스트링이 없어 URL 끝으로 본다) — 401 분기와 웹 연결 어댑터(요청 시점 막기에서 로그인만 뺀다)가 같이 쓴다.
+// 웹 로그인 요청인가(POST 이고, 쿼리스트링이 없어 URL 끝으로 본다) — 401 분기와 웹 연결 어댑터(요청 시점 막기에서 로그인만 뺀다)가 같이 쓴다.
 export function isWebLoginRequest(request: Request): boolean {
   return request.method === 'POST' && request.url.endsWith('/auth/web/login');
 }

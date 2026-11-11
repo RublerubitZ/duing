@@ -56,7 +56,7 @@ export function readSessionUser(): string | null | undefined {
 }
 
 // 이 탭이 서버 확인 뒤 공유 표지에 쓰는 데 성공한 값 — undefined 면 확인 전이거나 쓰기에 실패해 비교하지 않는다.
-// 요청마다 불리는 연결 어댑터가 읽어야 해 모듈 스코프에 둔다(문서당 하나 — AuthSessionBootstrap 이 갱신하고 언마운트 때 되돌린다).
+// 요청마다 불리는 연결 어댑터가 읽어야 해 모듈 스코프에 둔다(문서당 하나 — AuthSessionBootstrap 이 갱신하고(로그인 성공 직후엔 recordLoggedInSessionUser 도) 언마운트 때 되돌린다).
 let confirmedSessionUser: string | null | undefined;
 
 export function setConfirmedSessionUser(value: string | null | undefined): void {

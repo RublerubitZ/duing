@@ -13,7 +13,6 @@ import { ROUTE_TIMEOUT_MS, apiData, field, installReadOnlyGuard, num, recordApiR
  *   pnpm exec playwright test -c playwright.config.ts e2e/cross-tab-session.smoke.spec.ts
  * dev 서버가 붙는 API 주소가 :8080 이 아니면 E2E_API_BASE_URL(예: http://localhost:8091/api/v1)·E2E_BASE_URL 을 함께 준다.
  * 계정은 환경변수로만 받는다 — 회원 E2E_MEMBER_*, 회장 E2E_LEADER_*(서로 다른 학번). 하나라도 없으면 통째로 건너뛴다.
- * 배선 테스트는 쓰기 전 정착을 networkidle 로 기다린다 — PostHog 키가 있는 dev 환경에선 수집 요청이 이어져 그 대기가 30초 뒤 실패할 수 있다.
  *
  * <p>실패 기록(test-results/ 의 error-context.md)에 남는 것과 뒤처리는 dashboard-home.helpers.ts 머리말을 본다.
  *
@@ -232,8 +231,6 @@ test('다른 탭이 사용자를 바꿨는데 이 탭이 아직 이벤트를 못
   // 캐시가 빈 새 문서에서 같은 이동 — 탭을 바꾸지 않는다(다시 보임이 이벤트 경로로 새로고침한다).
   await reopenConfirmed(memberTab, INQUIRY_FORM_PATH, memberId);
   await markDocument(memberTab);
-  // 이 문서의 첫 조회가 다 나간 뒤에 센다 — 쓰기 전에 나간 요청은 막을 대상이 아니다.
-  await memberTab.waitForLoadState('networkidle', { timeout: ROUTE_TIMEOUT_MS });
   const blockedRequests = recordApiRequests(memberTab);
   await writeSharedSessionUser(memberTab, FOREIGN_SESSION_USER);
   await openInquiryList(memberTab);
@@ -241,7 +238,8 @@ test('다른 탭이 사용자를 바꿨는데 이 탭이 아직 이벤트를 못
   await expect(memberTab.getByText('문의 목록을 불러오지 못했습니다.', { exact: true })).toBeVisible({
     timeout: ROUTE_TIMEOUT_MS,
   });
-  expect(blockedRequests.map((requestUrl) => requestUrl.pathname)).toEqual([]);
+  // 목록 요청은 이동 뒤에만 나간다(위 대조) — 이 문서의 다른 첫 조회가 쓰기 전에 나갔어도 상관없게 그 경로만 본다(networkidle 에 기대지 않는다).
+  expect(blockedRequests.map((requestUrl) => requestUrl.pathname)).not.toContain(MY_INQUIRIES_PATH);
   await expect(memberTab.locator(`html[${RELOAD_MARKER}]`)).toHaveCount(1);
 });
 
