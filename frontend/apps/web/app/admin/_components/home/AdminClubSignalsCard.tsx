@@ -13,6 +13,7 @@ import { signalListHref } from '../../clubs/_lib/clubSignals';
 import { CLUB_SIGNALS_TEXT, contactSignalRows, usageSignalRows } from './adminClubSignalsPresentation';
 
 import type { ContactSignalRow, UsageSignalRow } from './adminClubSignalsPresentation';
+import { ChevronRight } from 'lucide-react';
 
 // 카드 푸터 링크 전례(AdminFeeAuditCard·AdminSchoolSyncCard) — 터치 높이 44px, 밝은 카드라 포커스 링은 ink(sage 는 대비 미달).
 const TEXT_LINK_CLASS =
@@ -104,7 +105,7 @@ function ContactSignalItem({ row }: { row: ContactSignalRow }) {
         <span className="flex items-baseline gap-2">
           <span className={ROW_NAME_CLASS}>{row.name}</span>
           <span className={ROW_COUNT_CLASS}>
-            {row.clubCount}곳 <span aria-hidden="true">›</span>
+            {row.clubCount}곳 <ChevronRight size={14} aria-hidden="true" className="inline-block align-[-2px]" />
           </span>
         </span>
         {row.detailLines.map((line) => (

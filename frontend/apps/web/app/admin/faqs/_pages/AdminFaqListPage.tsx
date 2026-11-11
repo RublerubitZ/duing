@@ -20,6 +20,7 @@ import { FaqCategoryManager } from '../_components/FaqCategoryManager';
 import { FaqSearchMissPanel } from '../_components/FaqSearchMissPanel';
 import { extractErrorMessage } from '@/app/_lib/extractErrorMessage';
 import { FAQ_FULL_LIST_SIZE } from '../_lib/faqListConstants';
+import { ChevronDown, ChevronUp } from 'lucide-react';
 
 const PAGE_SIZE = 20;
 
@@ -257,7 +258,9 @@ export function AdminFaqListPage() {
                               title={filtersActive ? FILTER_DISABLED_TITLE : undefined}
                               aria-label="위로 이동"
                               className="grid h-7 w-7 place-items-center rounded text-charcoal-2 hover:bg-graysoft disabled:opacity-30"
-                            >▲</button>
+                            >
+                              <ChevronUp size={14} aria-hidden />
+                            </button>
                             <button
                               type="button"
                               onClick={() => handleMove(faq.id, 'down')}
@@ -265,7 +268,9 @@ export function AdminFaqListPage() {
                               title={filtersActive ? FILTER_DISABLED_TITLE : undefined}
                               aria-label="아래로 이동"
                               className="grid h-7 w-7 place-items-center rounded text-charcoal-2 hover:bg-graysoft disabled:opacity-30"
-                            >▼</button>
+                            >
+                              <ChevronDown size={14} aria-hidden />
+                            </button>
                           </div>
                         </Td>
                         <Td className="whitespace-nowrap">

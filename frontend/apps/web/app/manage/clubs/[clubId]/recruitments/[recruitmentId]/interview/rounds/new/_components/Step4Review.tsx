@@ -11,6 +11,7 @@ import {
 import { toRoute } from '@/app/_lib/route';
 import { LoadingGate } from '@/components/loading/LoadingGate';
 import { ButtonSpinner } from '@/components/loading/Spinner';
+import { Check, X } from 'lucide-react';
 
 // Step4: 검토·발송
 // 발송 조건 3종 (§10.3):  슬롯≥1 && 멤버≥1 && deadline≠null
@@ -114,17 +115,17 @@ export function Step4Review({ recruitmentId, roundId, clubId }: Props) {
         <h3 className="text-xs font-semibold text-charcoal-3">발송 조건</h3>
         <ul className="space-y-1 text-sm">
           <li className={hasSlots ? 'text-ink' : 'text-coral-deep'}>
-            {hasSlots ? '✓' : '✗'}{' '}
+            {hasSlots ? <Check size={14} aria-hidden className="mr-1 inline-block align-[-2px]" /> : <X size={14} aria-hidden className="mr-1 inline-block align-[-2px]" />}
             {hasSlots ? `슬롯 ${detail?.slots.length ?? 0}개 등록됨` : '슬롯을 1개 이상 등록해야 합니다'}
           </li>
           <li className={hasMembers ? 'text-ink' : 'text-coral-deep'}>
-            {hasMembers ? '✓' : '✗'}{' '}
+            {hasMembers ? <Check size={14} aria-hidden className="mr-1 inline-block align-[-2px]" /> : <X size={14} aria-hidden className="mr-1 inline-block align-[-2px]" />}
             {hasMembers
               ? `면접 대상 ${detail?.counts.totalMemberCount ?? 0}명`
               : '면접 대상 지원자가 1명 이상이어야 합니다'}
           </li>
           <li className={hasDeadline ? 'text-ink' : 'text-coral-deep'}>
-            {hasDeadline ? '✓' : '✗'}{' '}
+            {hasDeadline ? <Check size={14} aria-hidden className="mr-1 inline-block align-[-2px]" /> : <X size={14} aria-hidden className="mr-1 inline-block align-[-2px]" />}
             {hasDeadline ? '가능시간 제출 마감 설정됨' : '가능시간 제출 마감을 설정해야 합니다'}
           </li>
         </ul>

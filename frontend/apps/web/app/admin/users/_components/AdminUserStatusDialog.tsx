@@ -13,6 +13,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { Ban, Undo2 } from 'lucide-react';
 
 // 서버 검증은 Bean Validation 의 @Size(max = 200) 라 UTF-16 코드유닛으로 센다. textarea 의 maxLength 와
 // `str.length` 가 정확히 그 단위다 — 코드포인트/서체소로 세면 이모지 섞인 사유에서 서버만 400 을 낸다.
@@ -55,10 +56,10 @@ export function AdminUserStatusDialog({ detail, nextStatus, isPending, onConfirm
         <div
           aria-hidden
           className={`grid h-11 w-11 place-items-center rounded-[13px] text-[20px] ${
-            isSuspending ? 'pill-coral' : 'bg-sage/15'
+            isSuspending ? 'pill-coral' : 'bg-sage/15 text-ink-deep'
           }`}
         >
-          {isSuspending ? '⛔' : '↩️'}
+          {isSuspending ? <Ban size={20} /> : <Undo2 size={20} />}
         </div>
         <DialogHeader>
           <DialogTitle>{isSuspending ? '계정을 정지할까요?' : '정지를 해제할까요?'}</DialogTitle>

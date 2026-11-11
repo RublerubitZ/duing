@@ -142,7 +142,7 @@ export function AdminClubCreateForm() {
             }}
             className="h-4 w-4 rounded border-line"
           />
-          중앙동아리로 지정 (공개 화면에 🏛️ 배지 노출)
+          중앙동아리로 지정 (공개 화면에 중앙동아리 배지 노출)
         </label>
       </Field>
 

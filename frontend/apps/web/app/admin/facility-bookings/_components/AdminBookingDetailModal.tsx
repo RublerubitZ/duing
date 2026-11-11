@@ -24,6 +24,8 @@ import {
 import { crawlFreshnessLabel, isFacilityBookingConflictPayload } from '../_lib/adminBookingDisplay';
 import { AdminSlotStrip } from './AdminSlotStrip';
 import { BookingActionDialog } from './BookingActionDialog';
+import { Satellite, TriangleAlert } from 'lucide-react';
+import { ArrowLeft, ArrowRight } from '@/components/duing/Icon';
 
 type ActionKind = 'approve' | 'reject' | 'confirm' | 'markConflict' | 'cancel';
 
@@ -98,7 +100,9 @@ function ValidationCards({
                 check.count > 0 ? 'text-coral-deep' : 'text-ink'
               }`}
             >
-              {check.count === 0 && (
+              {check.count > 0 ? (
+                <TriangleAlert size={15} aria-hidden className="shrink-0" />
+              ) : (
                 <svg
                   aria-hidden
                   viewBox="0 0 24 24"
@@ -112,7 +116,7 @@ function ValidationCards({
                   <path d="M20 6 9 17l-5-5" />
                 </svg>
               )}
-              {check.count > 0 ? `⚠ ${check.count}건` : '없음'}
+              {check.count > 0 ? `${check.count}건` : '없음'}
             </p>
           </div>
         ))}
@@ -278,7 +282,8 @@ export function AdminBookingDetailModal({ bookingId, onClose, neighborIds, onNav
                     if (neighborIds.previous !== null) onNavigate(neighborIds.previous);
                   }}
                 >
-                  ← 이전
+                  <ArrowLeft size={14} aria-hidden />
+                  이전
                 </button>
                 <button
                   type="button"
@@ -288,7 +293,8 @@ export function AdminBookingDetailModal({ bookingId, onClose, neighborIds, onNav
                     if (neighborIds.next !== null) onNavigate(neighborIds.next);
                   }}
                 >
-                  다음 →
+                  다음
+                  <ArrowRight size={14} aria-hidden />
                 </button>
               </div>
             )}
@@ -359,9 +365,7 @@ export function AdminBookingDetailModal({ bookingId, onClose, neighborIds, onNav
                     detail.stale ? 'bg-coral/10 text-coral-deep' : 'bg-sage-mist text-ink-deep'
                   }`}
                 >
-                  <span aria-hidden className="text-[15px]">
-                    {detail.stale ? '⚠️' : '🛰'}
-                  </span>
+                  {detail.stale ? <TriangleAlert size={16} aria-hidden className="shrink-0" /> : <Satellite size={16} aria-hidden className="shrink-0" />}
                   <span className="flex-1">
                     {detail.stale
                       ? `${crawlFreshnessLabel(detail.crawlBasisAt, new Date())} — 최신 크롤링을 확인하지 못했습니다. 마지막 수집 데이터를 기준으로 판단하세요.`

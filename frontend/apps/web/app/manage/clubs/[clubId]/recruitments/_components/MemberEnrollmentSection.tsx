@@ -60,13 +60,13 @@ const DEDUCTION_NOTICE =
   '횟수만큼 사용 가능 인원이 일시적으로 감소할 수 있습니다.';
 
 const LEAK_WARNING =
-  '⚠️ 가입 링크는 합격자에게만 공유해주세요. 링크가 외부에 유출되면 제3자가 가입 요청을 생성할 수 ' +
+  '가입 링크는 합격자에게만 공유해주세요. 링크가 외부에 유출되면 제3자가 가입 요청을 생성할 수 ' +
   '있으며, 가입 요청이 생성될 때마다 사용 가능 인원이 일시적으로 차감됩니다. 잘못 생성된 가입 요청은 ' +
   '운영진이 거절하면 자동으로 복구됩니다.';
 
 // 스펙 §4.3.1 — 재생성이 불가능한 모집 종료 후 폐기에만 붙는 경고와 2단계(타이핑) 확인.
 const REVOKE_AFTER_CLOSE_WARNING =
-  '⚠️ 모집이 종료되어 새로운 가입 링크를 생성할 수 없습니다. 현재 링크를 폐기하면 남아있는 합격자도 ' +
+  '모집이 종료되어 새로운 가입 링크를 생성할 수 없습니다. 현재 링크를 폐기하면 남아있는 합격자도 ' +
   '가입할 수 없게 됩니다. 정말 폐기하시겠습니까?';
 const REVOKE_CONFIRM_WORD = '폐기';
 
@@ -394,7 +394,7 @@ function ActiveCodeCard({
           <dt className="text-xs text-charcoal-3">링크 상태</dt>
           {/* 만료 → 인원 마감 순서는 부원 초대 다이얼로그와 같다 — 만료된 링크는 거절로 인원이 환급돼도 다시 쓸 수 없어 만료가 앞선다. */}
           <dd className="mt-0.5 font-semibold text-ink-deep">
-            {expired ? '만료' : exhausted ? '인원 마감' : '🟢 활성'}
+            {expired ? '만료' : exhausted ? '인원 마감' : '활성'}
           </dd>
         </div>
         <div>
@@ -421,7 +421,7 @@ function ActiveCodeCard({
         </div>
 
         {/* 유출 경고는 복사 버튼 바로 아래에 둔다 (스펙 §9) — 공유 직전에 읽히는 자리다. */}
-        <p className="mt-3 rounded-md bg-coral/5 px-3 py-2 text-xs leading-relaxed text-coral-deep">
+        <p className="mt-3 rounded-md border border-coral/50 bg-coral/5 px-3 py-2 text-xs leading-relaxed text-coral-deep">
           {LEAK_WARNING}
         </p>
 

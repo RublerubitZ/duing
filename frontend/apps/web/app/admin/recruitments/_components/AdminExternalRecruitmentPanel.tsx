@@ -6,6 +6,7 @@ import { safeExternalHref } from '@/app/_lib/route';
 import { externalFormPlatformLabel } from '@/app/manage/clubs/[clubId]/recruitments/_lib/externalFormPlatform';
 import { ConsoleCard } from '../../_components/ConsoleCard';
 import { JOIN_LINK_STATUS_LABEL } from '../_lib/recruitmentLabels';
+import { ArrowUpRight } from 'lucide-react';
 
 type Props = {
   recruitment: AdminRecruitmentDetail;
@@ -40,7 +41,7 @@ export function AdminExternalRecruitmentPanel({ recruitment }: Props) {
         >
           <span className="shrink-0 font-semibold">{platformLabel}</span>
           <span className="truncate">{recruitment.externalFormUrl}</span>
-          <span aria-hidden>↗</span>
+          <ArrowUpRight size={14} aria-hidden className="shrink-0" />
         </a>
       )}
 

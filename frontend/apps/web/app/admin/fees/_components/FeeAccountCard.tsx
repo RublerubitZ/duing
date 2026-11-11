@@ -76,7 +76,7 @@ export function FeeAccountCard({ clubId }: { clubId: number }) {
             href={toRoute('/admin/bank-matching')}
             className="font-semibold text-ink underline underline-offset-2"
           >
-            BANK 자동매칭 콘솔 →
+            BANK 자동매칭 콘솔
           </Link>
         </p>
       </section>

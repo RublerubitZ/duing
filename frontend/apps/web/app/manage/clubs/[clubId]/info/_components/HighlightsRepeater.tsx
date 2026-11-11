@@ -9,7 +9,7 @@ import {
   useSortable, verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { Check, GripVertical } from 'lucide-react';
+import { Check, GripVertical, X } from 'lucide-react';
 
 // 추가는 7개까지만 허용. 레거시(8~10개) 데이터는 렌더·수정·삭제 가능, 추가만 차단한다 (§4.4).
 const MAX_ADD = 7;
@@ -65,7 +65,7 @@ function SortableHighlightRow({
           aria-label="강조 항목 삭제"
           className="shrink-0 rounded-[6px] px-1.5 py-1 text-[13px] text-charcoal-3 hover:bg-danger/5 hover:text-danger"
         >
-          ✕
+          <X size={14} aria-hidden />
         </button>
       )}
     </li>

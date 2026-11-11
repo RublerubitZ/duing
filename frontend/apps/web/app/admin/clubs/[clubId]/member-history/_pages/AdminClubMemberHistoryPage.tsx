@@ -6,6 +6,7 @@ import { useAdminClubMemberHistoryQuery } from '@duing/hooks';
 import { Pagination } from '@/components/Pagination';
 import { LoadingGate } from '@/components/loading/LoadingGate';
 import { AdminClubMemberHistoryTable } from '../_components/AdminClubMemberHistoryTable';
+import { ArrowLeft } from '@/components/duing/Icon';
 
 const PAGE_SIZE = 20;
 
@@ -24,8 +25,9 @@ export function AdminClubMemberHistoryPage({ clubId }: Props) {
   return (
     <main className="max-w-layout mx-auto px-4 sm:px-6 md:px-10 py-10">
       <header className="mb-6 flex items-center gap-3">
-        <Link href="/admin/clubs" className="text-[13px] text-charcoal-2 hover:text-ink">
-          ← 동아리 목록
+        <Link href="/admin/clubs" className="inline-flex items-center gap-1 text-[13px] text-charcoal-2 hover:text-ink">
+          <ArrowLeft size={14} aria-hidden />
+          동아리 목록
         </Link>
         <h1 className="text-[22px] font-bold text-ink">동아리 권한 변경 이력</h1>
         <span className="text-[13px] text-charcoal-3">(동아리 ID: {clubId})</span>

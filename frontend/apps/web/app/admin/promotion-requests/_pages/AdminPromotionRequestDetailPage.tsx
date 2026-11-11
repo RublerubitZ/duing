@@ -13,6 +13,7 @@ import {
   PROMOTION_REQUEST_STATUS_LABEL,
   PROMOTION_REQUEST_STATUS_BADGE_CLASS,
 } from '../_lib/promotionRequestLabels';
+import { ArrowLeft } from '@/components/duing/Icon';
 
 type Props = {
   requestId: number;
@@ -72,9 +73,10 @@ export function AdminPromotionRequestDetailPage({ requestId }: Props) {
       <header className="mb-6 flex items-center gap-3">
         <Link
           href="/admin/promotion-requests"
-          className="text-[13px] text-charcoal-2 hover:text-ink"
+          className="inline-flex items-center gap-1 text-[13px] text-charcoal-2 hover:text-ink"
         >
-          ← 목록으로
+          <ArrowLeft size={14} aria-hidden />
+          목록으로
         </Link>
         <h1 className="text-[22px] font-bold text-ink">홍보 요청 상세</h1>
       </header>

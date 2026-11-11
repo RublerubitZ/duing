@@ -117,7 +117,7 @@ export function AdminClubActivityLogList({ clubId }: { clubId: number }) {
                             )}
                             className="text-[12.5px] text-ink hover:underline"
                           >
-                            링크 보기 →
+                            링크 보기
                           </Link>
                         )}
                       </div>

@@ -114,8 +114,10 @@ describe('AdminBookingDetailModal', () => {
     expect(screen.getByText('학교 일정 겹침')).toBeInTheDocument();
     expect(screen.getByText('내부 승인 예약 겹침')).toBeInTheDocument();
     expect(screen.getByText('같은 시간대 대기')).toBeInTheDocument();
-    expect(screen.getAllByText('⚠ 1건')).toHaveLength(2);
-    expect(screen.getByText('⚠ 2건')).toBeInTheDocument();
+    expect(screen.getAllByText('1건')).toHaveLength(2);
+    expect(screen.getByText('2건')).toBeInTheDocument();
+    // 겹침이 있는 칸 셋은 숫자만이 아니라 경고 아이콘으로도 구분된다.
+    expect(document.body.querySelectorAll('svg.lucide-triangle-alert').length).toBeGreaterThanOrEqual(3);
     expect(screen.getByText('승인 후 겹치는 대기 신청은 수동으로 거절해주세요.')).toBeInTheDocument();
     // 슬롯 스트립: 신청 구간과 겹친 칸은 '충돌', 신청 밖 점유 칸은 조직명이 표기된다(목업 셀 시맨틱).
     expect(screen.getByText('충돌')).toBeInTheDocument();
@@ -156,7 +158,7 @@ describe('AdminBookingDetailModal', () => {
 
     expect(screen.getByText('반영')).toBeInTheDocument(); // 18시
     expect(screen.getByText('충돌')).toBeInTheDocument(); // 19시
-    expect(screen.getByText('⚠ 1건')).toBeInTheDocument(); // 학교 일정 겹침
+    expect(screen.getByText('1건')).toBeInTheDocument(); // 학교 일정 겹침
   });
 
   it('학교 선반영(OWN): 확정 건은 안내 없이 "반영" 칸만 그린다', () => {
@@ -182,8 +184,8 @@ describe('AdminBookingDetailModal', () => {
       />,
     );
 
-    expect(screen.getByRole('button', { name: '← 이전' })).toBeDisabled();
-    fireEvent.click(screen.getByRole('button', { name: '다음 →' }));
+    expect(screen.getByRole('button', { name: '이전' })).toBeDisabled();
+    fireEvent.click(screen.getByRole('button', { name: '다음' }));
     expect(onNavigate).toHaveBeenCalledWith(43);
   });
 

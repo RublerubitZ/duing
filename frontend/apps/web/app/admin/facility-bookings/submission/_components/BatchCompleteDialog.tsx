@@ -3,6 +3,7 @@
 import type { SubmissionBatchSummary } from '@duing/types';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { ButtonSpinner } from '@/components/loading/Spinner';
+import { TriangleAlert } from 'lucide-react';
 
 type Props = {
   batch: SubmissionBatchSummary | null;
@@ -36,7 +37,7 @@ export function BatchCompleteDialog({ batch, isPending, onConfirm, onClose }: Pr
         <DialogTitle className="text-[21px] font-extrabold leading-snug text-ink-deep">학교 제출을 완료하시겠습니까?</DialogTitle>
         {/* 두 행위 구분 경고(개편 스펙 §5) — 오프라인 제출과 시스템 완료 처리를 혼동한 조기 완료를 막는다. */}
         <div className="flex gap-2 rounded-md border border-warm/60 bg-warm/10 px-3 py-2 text-xs leading-relaxed text-warm-deep">
-          <span aria-hidden>⚠️</span>
+          <TriangleAlert size={14} aria-hidden className="mt-0.5 shrink-0" />
           <p>
             <strong>학교 제출(오프라인)</strong>과 <strong>시스템 완료 처리</strong>는 별개입니다. 실제 행정실
             제출을 마친 뒤에 진행하세요.

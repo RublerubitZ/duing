@@ -24,6 +24,7 @@ import {
   INQUIRY_STATUS_LABEL,
 } from '@/app/_lib/federationInquiryLabels';
 import { AdminInquiryCloseDialog } from '../../_components/AdminInquiryCloseDialog';
+import { ArrowLeft } from '@/components/duing/Icon';
 
 const ANSWER_MAX_LENGTH = 4000;
 // 답변 작성 시작(RECEIVED → IN_PROGRESS)과 접수로 되돌리기(IN_PROGRESS → RECEIVED) 모두
@@ -265,9 +266,10 @@ export function AdminInquiryDetailPage({ inquiryId }: Props) {
         <p className="text-center">
           <Link
             href={toRoute('/admin/inquiries')}
-            className="text-[13px] font-semibold text-ink hover:underline"
+            className="inline-flex items-center gap-1 text-[13px] font-semibold text-ink hover:underline"
           >
-            ← 목록으로
+            <ArrowLeft size={14} aria-hidden />
+            목록으로
           </Link>
         </p>
       </main>
@@ -281,8 +283,9 @@ export function AdminInquiryDetailPage({ inquiryId }: Props) {
   return (
     <main className="max-w-layout mx-auto px-4 sm:px-6 md:px-10 py-10">
       <header className="mb-6 flex items-center gap-3">
-        <Link href={toRoute('/admin/inquiries')} className="text-[13px] text-charcoal-2 hover:text-ink">
-          ← 목록으로
+        <Link href={toRoute('/admin/inquiries')} className="inline-flex items-center gap-1 text-[13px] text-charcoal-2 hover:text-ink">
+          <ArrowLeft size={14} aria-hidden />
+          목록으로
         </Link>
         <h1 className="text-[22px] font-bold text-ink">1:1 문의 상세</h1>
       </header>
