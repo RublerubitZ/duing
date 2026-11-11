@@ -94,13 +94,13 @@ describe('공유 사용자 표지 — 요청 시점 판정', () => {
     else window.localStorage.setItem(SESSION_USER_KEY, value);
   }
 
-  it.each<[string, string | null, string | null, boolean]>([
-    ['같은 사용자', '1', '1', false],
-    ['다른 탭이 다른 계정으로 로그인', '1', '2', true],
-    ['다른 탭이 로그아웃(표지 없음)', '1', null, true],
-    ['비로그인 확인 탭에서 다른 탭이 로그인', null, '2', true],
-    ['둘 다 비로그인', null, null, false],
-  ])('%s → 다름 = %s', (_label, confirmed, shared, diverged) => {
+  it.each<[string, boolean, string | null, string | null]>([
+    ['같은 사용자', false, '1', '1'],
+    ['다른 탭이 다른 계정으로 로그인', true, '1', '2'],
+    ['다른 탭이 로그아웃(표지 없음)', true, '1', null],
+    ['비로그인 확인 탭에서 다른 탭이 로그인', true, null, '2'],
+    ['둘 다 비로그인', false, null, null],
+  ])('%s → 다름 = %s', (_label, diverged, confirmed, shared) => {
     setConfirmedSessionUser(confirmed);
     shareSessionUser(shared);
     expect(sessionUserDiverged()).toBe(diverged);

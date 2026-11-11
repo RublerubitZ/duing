@@ -130,6 +130,12 @@ function otherKeyWrites() {
   );
 }
 const tabBecomesVisible = () => document.dispatchEvent(new Event('visibilitychange'));
+// 판정 오류는 이제 새로고침 되풀이가 아니라 조용한 전면 실패로 나타난다 — 정상 탭의 요청은 그대로 나가야 한다.
+async function expectRequestGoesOut() {
+  const meRequestsBefore = meRequestCount;
+  await expect(apiClient.users.me()).resolves.toMatchObject({ id: expect.any(Number) });
+  expect(meRequestCount).toBe(meRequestsBefore + 1);
+}
 const pageRestored = () => window.dispatchEvent(new Event('pageshow'));
 
 describe('공유 사용자 표지 — 쓰기', () => {
@@ -333,10 +339,7 @@ describe('공유 사용자 표지 — 다른 탭의 바뀜', () => {
     registerConnectivityAdapter(webConnectivityAdapter);
     await renderVerifiedMember();
     vi.spyOn(Storage.prototype, 'getItem').mockImplementation(throwBlocked);
-    // 판정 오류는 이제 새로고침 되풀이가 아니라 조용한 전면 실패로 나타난다 — 정상 탭의 요청은 그대로 나가야 한다.
-    const meRequestsBefore = meRequestCount;
-    await expect(apiClient.users.me()).resolves.toMatchObject({ id: expect.any(Number) });
-    expect(meRequestCount).toBe(meRequestsBefore + 1);
+    await expectRequestGoesOut();
 
     act(() => {
       storageChanged('2');
@@ -353,10 +356,7 @@ describe('공유 사용자 표지 — 다른 탭의 바뀜', () => {
 
     renderBootstrap();
     await waitFor(() => expect(useAuthStore.getState().isVerified).toBe(true));
-    // 판정 오류는 이제 새로고침 되풀이가 아니라 조용한 전면 실패로 나타난다 — 정상 탭의 요청은 그대로 나가야 한다.
-    const meRequestsBefore = meRequestCount;
-    await expect(apiClient.users.me()).resolves.toMatchObject({ id: expect.any(Number) });
-    expect(meRequestCount).toBe(meRequestsBefore + 1);
+    await expectRequestGoesOut();
 
     act(() => {
       tabBecomesVisible();
@@ -372,15 +372,13 @@ describe('공유 사용자 표지 — 다른 탭의 바뀜', () => {
     const setItemSpy = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(throwBlocked);
     act(() => useAuthStore.getState().setSession(OTHER_MEMBER));
     setItemSpy.mockRestore();
-    // 판정 오류는 이제 새로고침 되풀이가 아니라 조용한 전면 실패로 나타난다 — 정상 탭의 요청은 그대로 나가야 한다.
-    const meRequestsBefore = meRequestCount;
-    await expect(apiClient.users.me()).resolves.toMatchObject({ id: expect.any(Number) });
-    expect(meRequestCount).toBe(meRequestsBefore + 1);
+    await expectRequestGoesOut();
 
     act(() => otherTabWrites('3'));
 
     // 이 탭은 B 인데 비교를 멈춘다 — 쓰지 못한 값으로 비교하면 읽기만 되는 저장소에서 새로고침이 되풀이된다.
     expect(reloadSpy).not.toHaveBeenCalled();
+    await expectRequestGoesOut();
   });
 
   it('신호가 겹쳐도 새로고침·안내는 문서당 한 번이다', async () => {
