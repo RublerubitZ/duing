@@ -117,11 +117,16 @@ public class GeneralInterviewAssignmentService implements InterviewAssignmentSer
 
     @Override
     @Transactional
-    public void assignSchedule(Long roundId, Long memberId, Long slotId, Long currentUserId) {
+    public void assignSchedule(Long roundId, Long memberId, Long slotId, RoundStatus expectedRoundStatus,
+                               Long currentUserId) {
         // 잠금 순서 §16-7-4: round → slot → member.
         interviewRoundAccessor.requireManagerForWriteByRoundId(roundId, currentUserId);
         InterviewRound round = interviewRoundRepository.findByIdForUpdate(roundId)
                 .orElseThrow(InterviewException.RoundNotFound::new);
+        // 잠금 조회로 읽은 단계와 비교한다(앞에서 라운드 엔티티를 읽지 않는다) — 화면을 연 뒤 확정·취소된 라운드를 낡은 화면이 바꾸지 않게.
+        if (expectedRoundStatus != null && expectedRoundStatus != round.getStatus()) {
+            throw new InterviewException.RoundStatusChanged();
+        }
         // SCHEDULED 재배정 성공 시 INTERVIEW_UPDATED 알림 발행 (메서드 마지막).
         if (!ASSIGNABLE_ROUND_STATUSES.contains(round.getStatus())) {
             throw new InterviewException.RoundTransitionNotAllowed();

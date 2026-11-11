@@ -44,7 +44,8 @@ public interface LeaderInterviewAssignmentApi {
                     + "가능없음·미응답 멤버도 운영진 재량으로 배정할 수 있고, 기존 배정은 교체된다. "
                     + "정원이 찬 슬롯은 409 — 단 같은 슬롯 내 본인 재배정은 허용된다. "
                     + "ASSIGNING 에서 멤버 상태는 바뀌지 않는다 (확정 시점에만 ASSIGNED 전이). "
-                    + "배정 해제(DELETE)는 ASSIGNING 한정 — SCHEDULED 에서는 다른 슬롯으로 옮기는 것만 가능하다 (§16-1)."
+                    + "배정 해제(DELETE)는 ASSIGNING 한정 — SCHEDULED 에서는 다른 슬롯으로 옮기는 것만 가능하다 (§16-1). "
+                    + "expectedRoundStatus(선택) — 요청자가 화면에서 본 라운드 단계. 있고 실제 단계와 다르면 409(라운드 단계가 바뀜). 없으면 검사하지 않는다."
     )
     @PutMapping("/leader/interview-rounds/{roundId}/members/{memberId}/schedule")
     ResponseEntity<ApiResponse<Void>> assignSchedule(

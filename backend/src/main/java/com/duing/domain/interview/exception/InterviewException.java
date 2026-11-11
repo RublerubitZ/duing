@@ -131,6 +131,11 @@ public class InterviewException extends ApplicationException {
         public RoundTransitionNotAllowed() { super(MESSAGE, HttpStatus.CONFLICT); }
     }
 
+    public static final class RoundStatusChanged extends InterviewException {
+        private static final String MESSAGE = "라운드 단계가 바뀌었습니다. 최신 상태를 확인한 뒤 다시 시도해주세요.";
+        public RoundStatusChanged() { super(MESSAGE, HttpStatus.CONFLICT); }
+    }
+
     public static final class SlotCapacityExceeded extends InterviewException {
         private static final String MESSAGE = "해당 슬롯의 수용 인원이 가득 찼습니다.";
         public SlotCapacityExceeded() { super(MESSAGE, HttpStatus.CONFLICT); }
