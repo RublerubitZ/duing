@@ -812,8 +812,9 @@ describe('RoundWizard — 면접 라운드 생성 wizard', () => {
     renderWizard();
 
     await waitFor(() => expect(screen.getByRole('dialog')).toBeInTheDocument());
-    expect(screen.getByText(EMPTY_DRAFT_BODY_TEXT)).toBeInTheDocument();
-    expect(screen.getByText(EMPTY_DRAFT_NOTE_TEXT)).toBeInTheDocument();
+    // 좁은 폭에서 '폐 / 기해주세요' 처럼 음절 사이에서 끊기지 않게.
+    expect(screen.getByText(EMPTY_DRAFT_BODY_TEXT)).toHaveClass('break-keep');
+    expect(screen.getByText(EMPTY_DRAFT_NOTE_TEXT)).toHaveClass('break-keep');
     expect(screen.queryByText(/대기열로 돌아갑니다/)).not.toBeInTheDocument();
     expect(screen.queryByText(/이어서 작성하거나/)).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /이어하기/ })).not.toBeInTheDocument();

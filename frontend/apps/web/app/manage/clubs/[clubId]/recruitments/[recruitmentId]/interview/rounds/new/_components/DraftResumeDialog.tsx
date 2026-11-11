@@ -75,10 +75,10 @@ export function DraftResumeDialog({
             <span className="block font-medium text-charcoal">{draftRound.title}</span>
             {hasNoMembers ? (
               <>
-                <span className="block text-charcoal-2">
+                <span className="block break-keep text-charcoal-2">
                   남은 면접 대상자가 없어 이 라운드는 발송할 수 없습니다. 폐기해주세요.
                 </span>
-                <span className="block text-xs text-charcoal-3">
+                <span className="block break-keep text-xs text-charcoal-3">
                   이 라운드의 면접 대상자는 모두 합격·불합격이 정해졌거나 라운드에서 빠졌습니다.
                 </span>
               </>
