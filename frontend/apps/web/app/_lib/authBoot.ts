@@ -54,6 +54,28 @@ export function readSessionUser(): string | null | undefined {
   }
 }
 
+// 이 탭이 서버 확인 뒤 공유 표지에 쓰는 데 성공한 값 — undefined 면 확인 전이거나 쓰기에 실패해 비교하지 않는다.
+// 요청마다 불리는 연결 어댑터가 읽어야 해 모듈 스코프에 둔다(문서당 하나 — AuthSessionBootstrap 이 갱신하고 언마운트 때 되돌린다).
+let confirmedSessionUser: string | null | undefined;
+
+export function setConfirmedSessionUser(value: string | null | undefined): void {
+  confirmedSessionUser = value;
+}
+
+// 공유 표지가 이 탭이 확인한 사용자와 다른가. 확인 전이면 저장소를 읽지 않고, 읽지 못하면 비교하지 않는다.
+export function sessionUserDiverged(): boolean {
+  if (confirmedSessionUser === undefined) return false;
+  const sharedSessionUser = readSessionUser();
+  return sharedSessionUser !== undefined && sharedSessionUser !== confirmedSessionUser;
+}
+
+// 웹 연결 어댑터(providers 가 등록, 요청마다 불린다) — 다른 탭이 사용자를 바꿨으면 이벤트를 아직 못 받았어도(깨어난 동결 탭) 막는다.
+// navigator.onLine 은 명시적 false 만 오프라인으로 본다(서버의 Node 전역 navigator 엔 onLine 이 없다).
+export function webConnectivityAdapter(): boolean {
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) return false;
+  return !sessionUserDiverged();
+}
+
 // §9.2 3단 시드의 클라이언트 층(신호 없음 행) — 로컬 이력이 있으면 authenticated 로 추정한다.
 // 이력이 없으면 스토어 초기값(unauthenticated)이 곧 시드다. 홈 ISR 전환(#925) 이후 웹 라우트에
 // A′ 서버 시드 전달자는 없다 — 시드가 틀렸다면 서버 확인(부트스트랩/만료 핸들러)이 정정한다.

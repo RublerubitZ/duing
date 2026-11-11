@@ -12,8 +12,9 @@ import {
   consumeBootSessionRestore,
   hadSession,
   markHadSession,
-  readSessionUser,
   SESSION_USER_KEY,
+  sessionUserDiverged,
+  setConfirmedSessionUser,
   writeSessionUser,
 } from '@/app/_lib/authBoot';
 import posthog from 'posthog-js';
@@ -33,8 +34,6 @@ export function AuthSessionBootstrap() {
   const { addToast } = useToast();
 
   const previousStateRef = useRef({ status, isVerified });
-  // 이 탭이 서버 확인 뒤 공유 표지에 쓰는 데 성공한 값 — undefined 면 확인 전이거나 쓰기에 실패해 비교하지 않는다.
-  const confirmedSessionUserRef = useRef<string | null | undefined>(undefined);
   // 요청 막기·새로고침은 문서당 한 번 — 나가기 확인 창(고친 내용이 있는 폼의 beforeunload)을 신호마다 띄우지 않는다.
   const reloadStartedRef = useRef(false);
 
@@ -55,7 +54,7 @@ export function AuthSessionBootstrap() {
     previousStateRef.current = { status, isVerified };
   }, [status, isVerified]);
 
-  // 탭 사이 사용자 표지도 같은 전이만 따라간다 — 다른 탭은 이 값이 자기가 확인한 값과 달라지면 새로고침한다.
+  // 탭 사이 사용자 표지도 같은 전이만 따라간다 — 다른 탭은 이 값이 자기가 확인한 값과 달라지면 요청을 막고 새로고침한다.
   // 위 effect 와 따로 두는 이유: 로그인 상태의 계정 전환은 user id 만 바뀌어 deps 에 넣어야 하는데,
   // 그 전환에 had-session·PostHog 분기를 다시 돌리지 않는다.
   useEffect(() => {
@@ -68,8 +67,11 @@ export function AuthSessionBootstrap() {
       if (userId === null) return;
       sessionUser = String(userId);
     }
-    confirmedSessionUserRef.current = writeSessionUser(sessionUser) ? sessionUser : undefined;
+    setConfirmedSessionUser(writeSessionUser(sessionUser) ? sessionUser : undefined);
   }, [status, isVerified, userId]);
+
+  // 확인한 값의 수명은 이 컴포넌트와 같다 — 언마운트 뒤 남은 값으로 요청을 막지 않게(StrictMode 는 다시 마운트하며 쓰기 effect 가 되살린다).
+  useEffect(() => () => setConfirmedSessionUser(undefined), []);
 
   useEffect(() => {
     let cancelled = false;
@@ -154,10 +156,7 @@ export function AuthSessionBootstrap() {
         showSessionSwitchedNotice();
         return;
       }
-      const confirmedSessionUser = confirmedSessionUserRef.current;
-      if (confirmedSessionUser === undefined) return;
-      const sharedSessionUser = readSessionUser();
-      if (sharedSessionUser === undefined || sharedSessionUser === confirmedSessionUser) return;
+      if (!sessionUserDiverged()) return;
       reloadStartedRef.current = true;
       showSessionSwitchedNotice();
       // 하드 이동은 응답이 커밋될 때까지 이 문서가 살아 있다 — 그 사이 요청이 바뀐 계정 쿠키로 나가지 않게 오프라인으로 취급한다.

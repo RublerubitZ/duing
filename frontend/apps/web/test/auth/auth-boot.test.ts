@@ -1,14 +1,18 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useAuthStore } from '@duing/stores';
 import type { User } from '@duing/types';
 
 import {
   HAD_SESSION_KEY,
+  SESSION_USER_KEY,
   consumeBootSessionRestore,
   hadSession,
   markHadSession,
   seedAuthFromLocalHistory,
+  sessionUserDiverged,
+  setConfirmedSessionUser,
   startBootSessionRestore,
+  webConnectivityAdapter,
 } from '@/app/_lib/authBoot';
 
 const TEST_USER: User = {
@@ -75,5 +79,64 @@ describe('startBootSessionRestore (레버 1)', () => {
     // 소비자가 붙기 전 마이크로태스크 한 사이클 — unhandled 면 vitest 가 실패시킨다.
     await new Promise((resolve) => setTimeout(resolve, 0));
     await expect(consumeBootSessionRestore()).rejects.toThrow('만료');
+  });
+});
+
+describe('공유 사용자 표지 — 요청 시점 판정', () => {
+  afterEach(() => {
+    setConfirmedSessionUser(undefined);
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+  });
+
+  function shareSessionUser(value: string | null) {
+    if (value === null) window.localStorage.removeItem(SESSION_USER_KEY);
+    else window.localStorage.setItem(SESSION_USER_KEY, value);
+  }
+
+  it.each<[string, boolean, string | null, string | null]>([
+    ['같은 사용자', false, '1', '1'],
+    ['다른 탭이 다른 계정으로 로그인', true, '1', '2'],
+    ['다른 탭이 로그아웃(표지 없음)', true, '1', null],
+    ['비로그인 확인 탭에서 다른 탭이 로그인', true, null, '2'],
+    ['둘 다 비로그인', false, null, null],
+  ])('%s → 다름 = %s', (_label, diverged, confirmed, shared) => {
+    setConfirmedSessionUser(confirmed);
+    shareSessionUser(shared);
+    expect(sessionUserDiverged()).toBe(diverged);
+  });
+
+  it('확인 전이면 저장소를 읽지 않고 다르지 않다고 본다', () => {
+    shareSessionUser('2');
+    const getItemSpy = vi.spyOn(Storage.prototype, 'getItem');
+    expect(sessionUserDiverged()).toBe(false);
+    expect(getItemSpy).not.toHaveBeenCalled();
+  });
+
+  it('공유 표지를 읽지 못하면 비교하지 않는다', () => {
+    setConfirmedSessionUser('1');
+    vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+      throw new DOMException('blocked', 'SecurityError');
+    });
+    expect(sessionUserDiverged()).toBe(false);
+  });
+
+  it('연결 어댑터 — 명시적 오프라인이면 false', () => {
+    vi.stubGlobal('navigator', { onLine: false });
+    expect(webConnectivityAdapter()).toBe(false);
+  });
+
+  it('연결 어댑터 — onLine 이 없으면(서버의 Node 전역 navigator) 온라인으로 보고 판정을 따른다', () => {
+    vi.stubGlobal('navigator', {});
+    expect(webConnectivityAdapter()).toBe(true);
+    setConfirmedSessionUser('1');
+    shareSessionUser('2');
+    expect(webConnectivityAdapter()).toBe(false);
+  });
+
+  it('연결 어댑터 — 온라인이어도 다른 탭이 사용자를 바꿨으면 false', () => {
+    setConfirmedSessionUser('1');
+    shareSessionUser('2');
+    expect(webConnectivityAdapter()).toBe(false);
   });
 });

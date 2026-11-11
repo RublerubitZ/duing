@@ -1,3 +1,4 @@
+import { StrictMode } from 'react';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -18,7 +19,13 @@ import type { User } from '@duing/types';
 
 import { AuthSessionBootstrap } from '@/app/_components/AuthSessionBootstrap';
 import { ToastProvider } from '@/app/_components/toast/ToastProvider';
-import { HAD_SESSION_KEY, SESSION_USER_KEY, consumeBootSessionRestore } from '@/app/_lib/authBoot';
+import {
+  HAD_SESSION_KEY,
+  SESSION_USER_KEY,
+  consumeBootSessionRestore,
+  sessionUserDiverged,
+  webConnectivityAdapter,
+} from '@/app/_lib/authBoot';
 
 const BASE = 'http://localhost:8080/api/v1';
 const server = setupServer();
@@ -79,16 +86,17 @@ afterAll(() => {
   vi.unstubAllGlobals();
 });
 
-function renderBootstrap() {
-  return render(
+function renderBootstrap({ strictMode = false }: { strictMode?: boolean } = {}) {
+  const tree = (
     <ApiClientProvider client={apiClient}>
       <QueryClientProvider client={queryClient}>
         <ToastProvider>
           <AuthSessionBootstrap />
         </ToastProvider>
       </QueryClientProvider>
-    </ApiClientProvider>,
+    </ApiClientProvider>
   );
+  return render(strictMode ? <StrictMode>{tree}</StrictMode> : tree);
 }
 
 // 부팅 확인이 끝나 이 탭이 공유 표지에 A(id 1)를 쓴 상태까지 간다.
@@ -124,6 +132,12 @@ function otherKeyWrites() {
   );
 }
 const tabBecomesVisible = () => document.dispatchEvent(new Event('visibilitychange'));
+// 판정 오류는 이제 새로고침 되풀이가 아니라 조용한 전면 실패로 나타난다 — 정상 탭의 요청은 그대로 나가야 한다.
+async function expectRequestGoesOut() {
+  const meRequestsBefore = meRequestCount;
+  await expect(apiClient.users.me()).resolves.toMatchObject({ id: expect.any(Number) });
+  expect(meRequestCount).toBe(meRequestsBefore + 1);
+}
 const pageRestored = () => window.dispatchEvent(new Event('pageshow'));
 
 describe('공유 사용자 표지 — 쓰기', () => {
@@ -324,8 +338,10 @@ describe('공유 사용자 표지 — 다른 탭의 바뀜', () => {
   });
 
   it('확인 뒤 저장소 읽기만 실패하면 비교하지 않는다', async () => {
+    registerConnectivityAdapter(webConnectivityAdapter);
     await renderVerifiedMember();
     vi.spyOn(Storage.prototype, 'getItem').mockImplementation(throwBlocked);
+    await expectRequestGoesOut();
 
     act(() => {
       storageChanged('2');
@@ -336,11 +352,13 @@ describe('공유 사용자 표지 — 다른 탭의 바뀜', () => {
   });
 
   it('쓰기만 실패한 탭은 남의 옛 값이 남아 있어도 새로고침을 되풀이하지 않는다', async () => {
+    registerConnectivityAdapter(webConnectivityAdapter);
     window.localStorage.setItem(SESSION_USER_KEY, '9');
     vi.spyOn(Storage.prototype, 'setItem').mockImplementation(throwBlocked);
 
     renderBootstrap();
     await waitFor(() => expect(useAuthStore.getState().isVerified).toBe(true));
+    await expectRequestGoesOut();
 
     act(() => {
       tabBecomesVisible();
@@ -351,15 +369,18 @@ describe('공유 사용자 표지 — 다른 탭의 바뀜', () => {
   });
 
   it('알려진 한계 — 확인 뒤 쓰기에 실패한 탭은 그때부터 비교하지 않는다', async () => {
+    registerConnectivityAdapter(webConnectivityAdapter);
     await renderVerifiedMember();
     const setItemSpy = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(throwBlocked);
     act(() => useAuthStore.getState().setSession(OTHER_MEMBER));
     setItemSpy.mockRestore();
+    await expectRequestGoesOut();
 
     act(() => otherTabWrites('3'));
 
     // 이 탭은 B 인데 비교를 멈춘다 — 쓰지 못한 값으로 비교하면 읽기만 되는 저장소에서 새로고침이 되풀이된다.
     expect(reloadSpy).not.toHaveBeenCalled();
+    await expectRequestGoesOut();
   });
 
   it('신호가 겹쳐도 새로고침·안내는 문서당 한 번이다', async () => {
@@ -427,5 +448,97 @@ describe('공유 사용자 표지 — 다른 탭의 바뀜', () => {
     expect(window.localStorage.getItem(SESSION_USER_KEY)).toBe('2');
     expect(window.localStorage.getItem(HAD_SESSION_KEY)).toBe('1');
     expect(resetSpy).not.toHaveBeenCalled();
+  });
+
+  it('다른 탭이 표지를 바꿨는데 storage 이벤트를 아직 못 받았어도 요청은 보내는 순간 막힌다', async () => {
+    registerConnectivityAdapter(webConnectivityAdapter);
+    await renderVerifiedMember();
+    // 깨어난 동결 탭 흉내 — 저장소엔 다른 탭의 쓰기가 보이지만 이 문서는 아직 이벤트를 처리하지 않았다.
+    window.localStorage.setItem(SESSION_USER_KEY, '2');
+
+    await expect(apiClient.users.me()).rejects.toMatchObject({ code: 'NETWORK' });
+    expect(meRequestCount).toBe(1);
+    expect(reloadSpy).not.toHaveBeenCalled();
+
+    // 새로고침은 지금처럼 이벤트가 맡는다.
+    act(() => storageChanged('2'));
+    expect(reloadSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('요청이 서버에 닿은 사이 다른 탭이 사용자를 바꾸고 401 이 오면 갱신·재시도 없이 실패한다', async () => {
+    registerConnectivityAdapter(webConnectivityAdapter);
+    await renderVerifiedMember();
+    let refreshRequestCount = 0;
+    server.use(
+      http.get(`${BASE}/users/me`, () => {
+        meRequestCount += 1;
+        window.localStorage.setItem(SESSION_USER_KEY, '2');
+        return HttpResponse.json(
+          { ok: false, data: null, message: '인증이 필요합니다.' },
+          { status: 401 },
+        );
+      }),
+      http.post(`${BASE}/auth/web/refresh`, () => {
+        refreshRequestCount += 1;
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+
+    await expect(apiClient.users.me()).rejects.toMatchObject({ status: 401 });
+    expect(refreshRequestCount).toBe(0);
+    expect(meRequestCount).toBe(2);
+  });
+
+  it('공유 표지가 이 탭이 확인한 값과 같으면 요청은 그대로 나간다', async () => {
+    registerConnectivityAdapter(webConnectivityAdapter);
+    await renderVerifiedMember();
+
+    await expect(apiClient.users.me()).resolves.toMatchObject({ id: 1 });
+    expect(meRequestCount).toBe(2);
+  });
+
+  it('부팅 확인 전에는 다른 탭의 표지가 달라도 요청이 나간다', async () => {
+    registerConnectivityAdapter(webConnectivityAdapter);
+    window.localStorage.setItem(SESSION_USER_KEY, '2');
+    let releaseBootCheck: () => void = () => {};
+    const bootCheckGate = new Promise<void>((resolve) => {
+      releaseBootCheck = resolve;
+    });
+    server.use(
+      http.get(`${BASE}/users/me`, async () => {
+        meRequestCount += 1;
+        if (meRequestCount === 1) await bootCheckGate;
+        return HttpResponse.json({ ok: true, data: MEMBER, message: null });
+      }),
+    );
+
+    try {
+      renderBootstrap();
+      // 부팅 확인 요청이 서버에 붙잡힌 동안 — 이 탭은 아직 아무 사용자도 확인하지 않았다.
+      await waitFor(() => expect(meRequestCount).toBe(1));
+      await expect(apiClient.users.me()).resolves.toMatchObject({ id: 1 });
+      expect(meRequestCount).toBe(2);
+    } finally {
+      releaseBootCheck();
+    }
+  });
+
+  it('StrictMode 이중 마운트 뒤에도 확인값이 남아 다른 탭의 바뀜을 요청 시점에 막는다', async () => {
+    registerConnectivityAdapter(webConnectivityAdapter);
+    renderBootstrap({ strictMode: true });
+    await waitFor(() => expect(window.localStorage.getItem(SESSION_USER_KEY)).toBe('1'));
+    window.localStorage.setItem(SESSION_USER_KEY, '2');
+
+    await expect(apiClient.users.me()).rejects.toMatchObject({ code: 'NETWORK' });
+  });
+
+  it('언마운트하면 이 탭이 확인한 값을 지워 그 뒤에는 요청을 막지 않는다', async () => {
+    registerConnectivityAdapter(webConnectivityAdapter);
+    const { unmount } = await renderVerifiedMember();
+    unmount();
+    window.localStorage.setItem(SESSION_USER_KEY, '2');
+
+    expect(sessionUserDiverged()).toBe(false);
+    await expect(apiClient.users.me()).resolves.toMatchObject({ id: 1 });
   });
 });
