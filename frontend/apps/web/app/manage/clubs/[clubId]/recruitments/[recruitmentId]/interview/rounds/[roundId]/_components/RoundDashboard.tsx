@@ -119,7 +119,8 @@ export function RoundDashboard({ clubId, recruitmentId, roundId }: Props) {
     return () => clearTimeout(dismissTimer);
   }, [feedbackMessage]);
 
-  // 멤버 동작 창이 닫힌 뒤 돌아갈 버튼이 사라지면 그 멤버 행으로 — 표지는 닫힐 때 세우고, 기다릴 다시 받기가 없거나 닫힌 뒤 첫 상세 갱신(실패 포함)이 오거나 다른 창이 열리면 지운다.
+  // 멤버 동작 창이 닫힌 뒤 포커스가 body 면(돌아갈 버튼이 사라졌거나, 클릭이 버튼에 포커스를 주지 않는 Safari 처럼 기억한 자리가 없을 때) 그 멤버 행으로 —
+  // 표지는 닫힐 때 세우고, 기다릴 다시 받기가 없거나 닫힌 뒤 첫 상세 갱신(실패 포함)이 오거나 이 화면이 여는 다른 창이 열리면 지운다.
   const queryClient = useQueryClient();
   const focusGuardMemberIdRef = useRef<number | null>(null);
   const memberDialogMemberId = excludeTarget?.memberId ?? assignTarget?.memberId ?? null;

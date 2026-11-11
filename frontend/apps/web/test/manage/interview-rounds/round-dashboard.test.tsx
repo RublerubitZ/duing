@@ -1491,7 +1491,7 @@ describe('라운드 현황 — 멤버 동작 창이 닫힌 뒤 돌아갈 버튼�
     );
 
     await userEvent.click(within(dialog).getByRole('button', { name: '취소' }));
-    await waitFor(() => expect(screen.getByRole('group', { name: '오세훈' })).toHaveFocus());
+    await waitFor(() => expect(screen.getByRole('group', { name: /^오세훈 / })).toHaveFocus());
     expect(detailGetCount).toBe(2);
   });
 
@@ -1501,7 +1501,7 @@ describe('라운드 현황 — 멤버 동작 창이 닫힌 뒤 돌아갈 버튼�
       await excludeHolderAndWaitForClose();
 
       releaseRefetch();
-      const holderRow = screen.getByRole('group', { name: '오세훈' });
+      const holderRow = screen.getByRole('group', { name: /^오세훈 / });
       await waitFor(() => expect(holderRow).toHaveFocus());
 
       // 표지는 그 갱신 한 번으로 지워진다 — 포커스가 빠진 채 관계없는 다시 받기(확정 성공)가 와도 행으로 끌려가지 않는다
@@ -1592,13 +1592,13 @@ describe('라운드 현황 — 멤버 동작 창이 닫힌 뒤 돌아갈 버튼�
 
     renderDashboard();
     await screen.findByText('응답 수집 중');
-    const noSlotRow = screen.getByRole('group', { name: '이영희' });
+    const noSlotRow = screen.getByRole('group', { name: /^이영희 / });
     await userEvent.click(within(noSlotRow).getByRole('button', { name: '제외' }));
     await userEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: '제외하기' }));
 
     await waitFor(() => expect(screen.queryByText(/가능한 시간이 없는 지원자/)).not.toBeInTheDocument());
-    await waitFor(() => expect(screen.getByRole('group', { name: '이영희' })).toHaveFocus());
-    expect(screen.getByRole('group', { name: '이영희' })).not.toBe(noSlotRow);
+    await waitFor(() => expect(screen.getByRole('group', { name: /^이영희 / })).toHaveFocus());
+    expect(screen.getByRole('group', { name: /^이영희 / })).not.toBe(noSlotRow);
   });
 
   it('제외를 [취소]하면(멤버 그대로) [제외] 버튼으로 돌아간다', async () => {

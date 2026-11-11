@@ -39,12 +39,12 @@ export function RoundMemberTable({ detail, onExclude, onManualAssign }: RoundMem
             member.assignedSlotId !== null ? slotById.get(member.assignedSlotId) : undefined;
 
           return (
-            // 프로그램으로만 포커스를 받는다(탭 순서 밖) — 표 컨테이너가 overflow-hidden 이라 포커스 표시는 안쪽 outline.
+            // 탭 순서 밖(클릭·스크립트로만 포커스를 받는다), 이름에 학번을 붙여 동명이인을 가른다 — 표 컨테이너가 overflow-hidden 이라 포커스 표시는 안쪽 outline.
             <div
               key={member.memberId}
               id={roundMemberRowId(member.memberId)}
               role="group"
-              aria-labelledby={`${roundMemberRowId(member.memberId)}-name`}
+              aria-labelledby={`${roundMemberRowId(member.memberId)}-name ${roundMemberRowId(member.memberId)}-student`}
               tabIndex={-1}
               className={cn(
                 'flex flex-col items-stretch gap-2.5 px-5 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-3 focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ink',
@@ -57,7 +57,7 @@ export function RoundMemberTable({ detail, onExclude, onManualAssign }: RoundMem
                     <span id={`${roundMemberRowId(member.memberId)}-name`} className="text-sm font-medium text-ink-deep">
                       {member.userName}
                     </span>
-                    <span className="text-xs text-charcoal-3">{member.studentId}</span>
+                    <span id={`${roundMemberRowId(member.memberId)}-student`} className="text-xs text-charcoal-3">{member.studentId}</span>
                     {member.unresponded && (
                       <span className="rounded-full bg-warm/20 px-2 py-0.5 text-xs text-warm-deep">
                         미응답

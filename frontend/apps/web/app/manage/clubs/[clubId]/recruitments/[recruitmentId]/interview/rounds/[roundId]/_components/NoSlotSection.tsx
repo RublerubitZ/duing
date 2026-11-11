@@ -53,7 +53,7 @@ export function NoSlotSection({ detail, onExclude, onManualAssign }: NoSlotSecti
             key={member.memberId}
             id={roundMemberRowId(member.memberId)}
             role="group"
-            aria-labelledby={`${roundMemberRowId(member.memberId)}-name`}
+            aria-labelledby={`${roundMemberRowId(member.memberId)}-name ${roundMemberRowId(member.memberId)}-student`}
             tabIndex={-1}
             className="flex items-start justify-between gap-3 rounded-md bg-white px-4 py-3 focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ink"
           >
@@ -62,7 +62,7 @@ export function NoSlotSection({ detail, onExclude, onManualAssign }: NoSlotSecti
                 <span id={`${roundMemberRowId(member.memberId)}-name`} className="text-sm font-medium text-ink-deep">
                   {member.userName}
                 </span>
-                <span className="text-xs text-charcoal-3">{member.studentId}</span>
+                <span id={`${roundMemberRowId(member.memberId)}-student`} className="text-xs text-charcoal-3">{member.studentId}</span>
               </div>
               {member.alternativeAvailabilityText && (
                 <p className="mt-1 text-sm text-charcoal-2">
