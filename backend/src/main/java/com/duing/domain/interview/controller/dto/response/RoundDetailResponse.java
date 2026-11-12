@@ -1,5 +1,6 @@
 package com.duing.domain.interview.controller.dto.response;
 
+import com.duing.domain.application.entity.ApplicationStatus;
 import com.duing.domain.interview.entity.RoundMemberStatus;
 import com.duing.domain.interview.entity.RoundStatus;
 import com.duing.domain.interview.service.dto.query.RoundDetailQuery;
@@ -31,12 +32,14 @@ public record RoundDetailResponse(
 
     public record Member(Long memberId, Long applicationId, String userName, String studentId,
                          RoundMemberStatus status, boolean unresponded,
-                         String alternativeAvailabilityText, long selectedSlotCount, Long assignedSlotId) {
+                         String alternativeAvailabilityText, long selectedSlotCount, Long assignedSlotId,
+                         ApplicationStatus applicationResult) {
         public static Member from(RoundDetailQuery.MemberLine memberLine) {
             return new Member(memberLine.memberId(), memberLine.applicationId(),
                     memberLine.userName(), memberLine.studentId(), memberLine.status(),
                     memberLine.unresponded(), memberLine.alternativeAvailabilityText(),
-                    memberLine.selectedSlotCount(), memberLine.assignedSlotId());
+                    memberLine.selectedSlotCount(), memberLine.assignedSlotId(),
+                    memberLine.applicationResult());
         }
     }
 
