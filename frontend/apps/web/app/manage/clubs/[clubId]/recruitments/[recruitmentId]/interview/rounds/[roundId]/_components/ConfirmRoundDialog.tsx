@@ -49,8 +49,9 @@ export function ConfirmRoundDialog({
         if (!open && !isPending) onCancel();
       }}
     >
+      {/* 미처리 지원자가 많으면 창이 화면을 넘는다 — 높이에 상한을 두고 목록만 스크롤해 설명·실패 문구·[강제 확정]은 늘 보이게 한다 */}
       <DialogContent
-        className="max-h-[85vh] max-w-md overflow-y-auto"
+        className="flex max-h-[calc(100dvh-4rem)] max-w-md flex-col"
         busy={isPending}
       >
         <DialogHeader>
@@ -58,67 +59,75 @@ export function ConfirmRoundDialog({
           <DialogDescription>강제 확정 시 아래 {totalCount}명이 자동으로 제외됩니다.</DialogDescription>
         </DialogHeader>
 
-        {unresolvedPayload.unresponded.length > 0 && (
-          <div>
-            <p className="mb-1 text-xs font-semibold text-charcoal-3">미응답</p>
-            <ul className="space-y-1">
-              {unresolvedPayload.unresponded.map((member) => (
-                <li
-                  key={member.applicationId}
-                  className="flex items-center gap-2 rounded-md bg-graysoft px-3 py-1.5 text-sm"
-                >
-                  <span className="font-medium text-charcoal">{member.applicantName}</span>
-                  <span
-                    className={cn(
-                      'rounded-full px-2 py-0.5 text-xs',
-                      MEMBER_STATUS_CLASS[member.memberStatus] ?? 'bg-graysoft text-charcoal-3',
-                    )}
-                  >
-                    {MEMBER_STATUS_LABEL[member.memberStatus] ?? member.memberStatus}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
-
-        {unresolvedPayload.respondedUnassigned.length > 0 && (
-          <div>
-            <p className="mb-1 text-xs font-semibold text-warm-deep">응답했으나 미배정</p>
-            <ul className="space-y-1">
-              {unresolvedPayload.respondedUnassigned.map((member) => {
-                const freeSeatSlots = freeSlots.filter((slot) => member.selectedSlotIds.includes(slot.slotId));
-                return (
+        {/* 목록 안에는 포커스 받는 요소가 없다 — 영역이 포커스를 받아 키보드로도 스크롤한다(FacilityHeatmap 선례). 그룹 사이 간격은 창의 gap-4 와 같다 */}
+        <div
+          role="region"
+          aria-label="미처리 지원자"
+          tabIndex={0}
+          className="min-h-0 space-y-4 overflow-y-auto focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink"
+        >
+          {unresolvedPayload.unresponded.length > 0 && (
+            <div>
+              <p className="mb-1 text-xs font-semibold text-charcoal-3">미응답</p>
+              <ul className="space-y-1">
+                {unresolvedPayload.unresponded.map((member) => (
                   <li
                     key={member.applicationId}
-                    className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-warm/40 bg-warm/10 px-3 py-1.5 text-sm"
+                    className="flex items-center gap-2 rounded-md bg-graysoft px-3 py-1.5 text-sm"
                   >
-                    {/* 이름·오른쪽 문구 모두 어절 단위로 접고(break-keep), 줄 전체보다 긴 한 어절만 글자 단위로 쪼갠다(anywhere).
-                        이름 + 오른쪽 8rem(줄바꿈 없는 시간 한 덩어리 폭)이 한 줄에 안 들어가면 오른쪽 문구가 이름 아래 줄로 내려간다 — 이름은 쪼개지 않는다 */}
-                    <span className="font-medium text-charcoal break-keep [overflow-wrap:anywhere]">
-                      {member.applicantName}
-                    </span>
-                    <span className="grow basis-32 text-right text-xs text-warm-deep break-keep [overflow-wrap:anywhere]">
-                      {`선택 슬롯 ${member.selectedSlotIds.length}개`}
-                      {freeSeatSlots.length > 0 && (
-                        <>
-                          {' · 고른 시간에 빈 자리 있음('}
-                          {freeSeatSlots.map((slot, slotIndex) => (
-                            <Fragment key={slot.slotId}>
-                              {slotIndex > 0 && ', '}
-                              <span className="whitespace-nowrap">{formatSlotRange(slot.startTime, slot.endTime)}</span>
-                            </Fragment>
-                          ))}
-                          )
-                        </>
+                    <span className="font-medium text-charcoal">{member.applicantName}</span>
+                    <span
+                      className={cn(
+                        'rounded-full px-2 py-0.5 text-xs',
+                        MEMBER_STATUS_CLASS[member.memberStatus] ?? 'bg-graysoft text-charcoal-3',
                       )}
+                    >
+                      {MEMBER_STATUS_LABEL[member.memberStatus] ?? member.memberStatus}
                     </span>
                   </li>
-                );
-              })}
-            </ul>
-          </div>
-        )}
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {unresolvedPayload.respondedUnassigned.length > 0 && (
+            <div>
+              <p className="mb-1 text-xs font-semibold text-warm-deep">응답했으나 미배정</p>
+              <ul className="space-y-1">
+                {unresolvedPayload.respondedUnassigned.map((member) => {
+                  const freeSeatSlots = freeSlots.filter((slot) => member.selectedSlotIds.includes(slot.slotId));
+                  return (
+                    <li
+                      key={member.applicationId}
+                      className="flex flex-wrap items-center gap-2 rounded-md border border-warm/40 bg-warm/10 px-3 py-1.5 text-sm"
+                    >
+                      {/* 이름·오른쪽 문구 모두 어절 단위로 접고(break-keep), 줄 전체보다 긴 한 어절만 글자 단위로 쪼갠다(anywhere).
+                          이름 + 오른쪽 8rem(줄바꿈 없는 시간 한 덩어리 폭)이 한 줄에 안 들어가면 오른쪽 문구가 이름 아래 줄로 내려간다 — 이름은 쪼개지 않는다 */}
+                      <span className="font-medium text-charcoal break-keep [overflow-wrap:anywhere]">
+                        {member.applicantName}
+                      </span>
+                      <span className="grow basis-32 text-right text-xs text-warm-deep break-keep [overflow-wrap:anywhere]">
+                        {`선택 슬롯 ${member.selectedSlotIds.length}개`}
+                        {freeSeatSlots.length > 0 && (
+                          <>
+                            {' · 고른 시간에 빈 자리 있음('}
+                            {freeSeatSlots.map((slot, slotIndex) => (
+                              <Fragment key={slot.slotId}>
+                                {slotIndex > 0 && ', '}
+                                <span className="whitespace-nowrap">{formatSlotRange(slot.startTime, slot.endTime)}</span>
+                              </Fragment>
+                            ))}
+                            )
+                          </>
+                        )}
+                      </span>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          )}
+        </div>
 
         {errorMessage && (
           <div role="alert" className="rounded-md border border-coral/20 bg-coral/5 px-3 py-2 text-sm text-coral-deep">

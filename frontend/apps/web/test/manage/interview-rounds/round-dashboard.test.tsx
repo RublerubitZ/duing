@@ -2539,3 +2539,37 @@ describe('라운드 현황 후속 — 일정 변경 창을 열 때 다시 받기
     expect(document.body).toHaveFocus();
   });
 });
+
+describe('라운드 현황 후속 — 확정 409 창 높이', () => {
+  it('확정 409 창은 미처리 지원자 목록만 스크롤하고, 설명·실패 문구·버튼은 스크롤 밖에 둔다 — 목록 영역은 키보드로 스크롤하게 포커스를 받는다', async () => {
+    server.use(
+      http.get(`*/interview-rounds/${ROUND_ID}`, () =>
+        HttpResponse.json({ ok: true, data: DETAIL_ASSIGNING_FREED_SEAT, message: null }),
+      ),
+      http.post(`*/interview-rounds/${ROUND_ID}/confirm`, ({ request }) =>
+        new URL(request.url).searchParams.get('force') === 'true'
+          ? HttpResponse.json({ ok: false, data: null, message: SERVER_ERROR_MESSAGE }, { status: 500 })
+          : HttpResponse.json({ ok: false, data: FREED_SEAT_UNRESOLVED_PAYLOAD, message: '미처리 멤버가 있습니다.' }, { status: 409 }),
+      ),
+    );
+
+    renderDashboard();
+    await screen.findByText('배정 검토 중');
+    await userEvent.click(screen.getByRole('button', { name: /^확정$/ }));
+    const dialog = await screen.findByRole('dialog');
+    await userEvent.click(within(dialog).getByRole('button', { name: /강제 확정/ }));
+    const alert = await within(dialog).findByRole('alert');
+
+    // 320×568 에서 창 전체가 스크롤되면 [강제 확정]이 처음에 화면 밖이다 — 창 높이에 상한을 두고 목록만 스크롤한다.
+    expect(dialog).toHaveClass('max-h-[calc(100dvh-4rem)]', 'flex', 'flex-col');
+    expect(dialog).not.toHaveClass('overflow-y-auto');
+    const listRegion = within(dialog).getByRole('region', { name: '미처리 지원자' });
+    expect(listRegion).toHaveClass('min-h-0', 'overflow-y-auto');
+    expect(listRegion).toHaveAttribute('tabindex', '0');
+    expect(listRegion).toContainElement(within(dialog).getByText('최유리'));
+    expect(listRegion).not.toContainElement(alert);
+    expect(listRegion).not.toContainElement(within(dialog).getByText(/자동으로 제외됩니다/));
+    expect(listRegion).not.toContainElement(within(dialog).getByRole('button', { name: /강제 확정/ }));
+    expect(listRegion).not.toContainElement(within(dialog).getByRole('button', { name: '취소' }));
+  });
+});
