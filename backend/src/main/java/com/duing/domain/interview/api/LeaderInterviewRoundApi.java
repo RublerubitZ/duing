@@ -7,6 +7,7 @@ import com.duing.domain.interview.controller.dto.response.CreateInterviewRoundRe
 import com.duing.domain.interview.controller.dto.response.RoundCandidateResponse;
 import com.duing.domain.interview.controller.dto.response.RoundDetailResponse;
 import com.duing.domain.interview.controller.dto.response.RoundSummaryResponse;
+import com.duing.domain.interview.entity.RoundStatus;
 import com.duing.global.auth.UserPrincipal;
 import com.duing.global.response.ApiResponse;
 import io.swagger.v3.oas.annotations.Operation;
@@ -125,11 +126,15 @@ public interface LeaderInterviewRoundApi {
             summary = "면접 라운드 취소",
             description = "라운드를 취소한다 (발송 전·응답 수집·배정 검토 단계). draft 배정이 정리되고 멤버 지원서는 "
                     + "면접 대상 상태 그대로 후보 대기열로 복귀한다 — 새 라운드에서 재선정하면 된다. "
-                    + "확정된 라운드는 터미널이라 취소할 수 없다. 취소 알림은 발송되지 않는다."
+                    + "확정된 라운드는 터미널이라 취소할 수 없다. 취소 알림은 발송되지 않는다. "
+                    + "expectedRoundStatus(선택) — 요청자가 화면에서 본 라운드 단계. 있고 실제 단계와 다르면 409(라운드 단계가 바뀜). "
+                    + "없으면 검사하지 않는다. 라운드 만들기의 '작성 중인 라운드' 폐기는 DRAFT 를 싣는다."
     )
     @PostMapping("/leader/interview-rounds/{roundId}/cancel")
     ResponseEntity<ApiResponse<Void>> cancelRound(
             @PathVariable Long roundId,
+            @Parameter(description = "요청자가 화면에서 본 라운드 단계 — 실제 단계와 다르면 409", example = "DRAFT")
+            @RequestParam(required = false) RoundStatus expectedRoundStatus,
             @Parameter(hidden = true) @AuthenticationPrincipal UserPrincipal currentUser
     );
 }

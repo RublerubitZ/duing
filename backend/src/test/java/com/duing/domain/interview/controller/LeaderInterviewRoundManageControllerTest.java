@@ -49,6 +49,8 @@ class LeaderInterviewRoundManageControllerTest extends InterviewControllerTestSu
     private static final String CANCEL_PATH = "/api/v1/leader/interview-rounds/{roundId}/cancel";
     private static final String CANDIDATES_PATH = "/api/v1/leader/recruitments/{recruitmentId}/interview-round-candidates";
     private static final String VIEW_PATH = "/api/v1/applications/{applicationId}/interview";
+    private static final String ROUND_STATUS_CHANGED_MESSAGE =
+            "라운드 단계가 바뀌었습니다. 최신 상태를 확인한 뒤 다시 시도해주세요.";
 
     @LocalServerPort
     private int port;
@@ -125,6 +127,152 @@ class LeaderInterviewRoundManageControllerTest extends InterviewControllerTestSu
                 .then().statusCode(HttpStatus.CONFLICT.value());
         givenLeader().when().post(CANCEL_PATH, cancelled.getId())
                 .then().statusCode(HttpStatus.CONFLICT.value());
+    }
+
+    // ── 취소 — 화면이 본 단계(expectedRoundStatus) ──────────────────────────────
+    // 라운드 만들기의 '작성 중인 라운드' 창이 열린 사이 다른 탭·운영진이 그 초안을 발송하면, 창의 [폐기]가
+    // 응답 수집 중인 라운드를 되돌릴 수 없게 취소하면 안 된다. 창은 DRAFT 를 실어 보내고 서버가 잠금 뒤 비교한다.
+
+    @Test
+    @DisplayName("초안이라고 보고 폐기했는데 그사이 발송된 라운드는 취소되지 않고 단계가 바뀌었다는 409 다")
+    void cancelExpectingDraftRejectsSentRound() {
+        InterviewRound sentRound = saveRound(RoundStatus.COLLECTING, LocalDateTime.now().plusDays(3));
+
+        givenLeader()
+                .queryParam("expectedRoundStatus", "DRAFT")
+                .when().post(CANCEL_PATH, sentRound.getId())
+                .then().statusCode(HttpStatus.CONFLICT.value())
+                .body("message", equalTo(ROUND_STATUS_CHANGED_MESSAGE));
+
+        assertThat(interviewRoundRepository.findById(sentRound.getId()).orElseThrow().getStatus())
+                .isEqualTo(RoundStatus.COLLECTING);
+    }
+
+    @Test
+    @DisplayName("초안이라고 보고 폐기했는데 배정 검토 중인 라운드도 거절되고 초안 배정이 그대로 남는다")
+    void cancelExpectingDraftRejectsAssigningRoundAndKeepsSchedules() {
+        InterviewRound assigningRound = saveRound(RoundStatus.ASSIGNING, LocalDateTime.now().minusHours(1));
+        InterviewSlot slot = saveSlot(assigningRound, "2026-06-20T14:00:00");
+        Application application = saveInterviewPendingApplication(recruitment, "배정유지자");
+        saveMember(assigningRound, application, RoundMemberStatus.RESPONDED);
+        interviewScheduleRepository.save(InterviewSchedule.create(
+                application.getId(), slot.getId(), assigningRound.getId(), LocalDateTime.now()));
+
+        givenLeader()
+                .queryParam("expectedRoundStatus", "DRAFT")
+                .when().post(CANCEL_PATH, assigningRound.getId())
+                .then().statusCode(HttpStatus.CONFLICT.value())
+                .body("message", equalTo(ROUND_STATUS_CHANGED_MESSAGE));
+
+        assertThat(interviewRoundRepository.findById(assigningRound.getId()).orElseThrow().getStatus())
+                .isEqualTo(RoundStatus.ASSIGNING);
+        assertThat(interviewScheduleRepository.findByRoundIdAndStatus(
+                assigningRound.getId(), InterviewScheduleStatus.ASSIGNED)).hasSize(1);
+    }
+
+    @Test
+    @DisplayName("초안이라고 보고 폐기했는데 이미 취소된 라운드도 단계가 바뀌었다는 409 다 — 단계 확인이 취소 가능 여부 확인보다 먼저다")
+    void cancelExpectingDraftOnCancelledRoundReportsStatusChanged() {
+        InterviewRound cancelledRound = saveRound(RoundStatus.CANCELLED, LocalDateTime.now().minusDays(1));
+
+        givenLeader()
+                .queryParam("expectedRoundStatus", "DRAFT")
+                .when().post(CANCEL_PATH, cancelledRound.getId())
+                .then().statusCode(HttpStatus.CONFLICT.value())
+                .body("message", equalTo(ROUND_STATUS_CHANGED_MESSAGE));
+    }
+
+    @Test
+    @DisplayName("초안이라고 보고 폐기한 라운드가 아직 초안이면 취소된다")
+    void cancelExpectingDraftCancelsDraftRound() {
+        InterviewRound draftRound = interviewRoundRepository.save(
+                InterviewRoundFixture.draft(recruitment.getId(), LocalDateTime.now().plusDays(7)));
+
+        givenLeader()
+                .queryParam("expectedRoundStatus", "DRAFT")
+                .when().post(CANCEL_PATH, draftRound.getId())
+                .then().statusCode(HttpStatus.NO_CONTENT.value());
+
+        assertThat(interviewRoundRepository.findById(draftRound.getId()).orElseThrow().getStatus())
+                .isEqualTo(RoundStatus.CANCELLED);
+    }
+
+    @Test
+    @DisplayName("타 동아리 사용자는 화면 단계를 실어 보내도 라운드 단계를 알 수 없고 미존재와 같은 404 다")
+    void cancelByOutsiderWithExpectedStatusIsNotFound() {
+        InterviewRound collectingRound = saveRound(RoundStatus.COLLECTING, LocalDateTime.now().plusDays(3));
+        User outsider = saveUser("타인폐기");
+        String outsiderToken = jwtTokenProvider.createToken(outsider.getId(), outsider.getRole().name());
+
+        RestAssured.given().header(HttpHeaders.AUTHORIZATION, "Bearer " + outsiderToken)
+                .queryParam("expectedRoundStatus", "DRAFT")
+                .when().post(CANCEL_PATH, collectingRound.getId())
+                .then().statusCode(HttpStatus.NOT_FOUND.value());
+
+        assertThat(interviewRoundRepository.findById(collectingRound.getId()).orElseThrow().getStatus())
+                .isEqualTo(RoundStatus.COLLECTING);
+    }
+
+    @Test
+    @DisplayName("알 수 없는 단계 값(소문자 포함)은 400 이고 라운드는 취소되지 않는다")
+    void cancelWithUnknownExpectedStatusIsBadRequest() {
+        InterviewRound draftRound = interviewRoundRepository.save(
+                InterviewRoundFixture.draft(recruitment.getId(), LocalDateTime.now().plusDays(7)));
+
+        givenLeader()
+                .queryParam("expectedRoundStatus", "draft")
+                .when().post(CANCEL_PATH, draftRound.getId())
+                .then().statusCode(HttpStatus.BAD_REQUEST.value())
+                .body("message", equalTo("요청 파라미터 'expectedRoundStatus' 의 형식이 올바르지 않습니다."));
+
+        assertThat(interviewRoundRepository.findById(draftRound.getId()).orElseThrow().getStatus())
+                .isEqualTo(RoundStatus.DRAFT);
+    }
+
+    @Test
+    @DisplayName("단계 값이 비어 있으면 보내지 않은 것과 같아 단계 확인 없이 취소된다 — 화면은 값이 없으면 키를 빼고 보내야 한다")
+    void cancelWithEmptyExpectedStatusSkipsCheck() {
+        InterviewRound collectingRound = saveRound(RoundStatus.COLLECTING, LocalDateTime.now().plusDays(3));
+
+        givenLeader()
+                .queryParam("expectedRoundStatus", "")
+                .when().post(CANCEL_PATH, collectingRound.getId())
+                .then().statusCode(HttpStatus.NO_CONTENT.value());
+
+        assertThat(interviewRoundRepository.findById(collectingRound.getId()).orElseThrow().getStatus())
+                .isEqualTo(RoundStatus.CANCELLED);
+    }
+
+    @Test
+    @DisplayName("화면 단계가 실제와 같아도 확정된 라운드는 취소할 수 없다 — 단계 확인이 취소 가능 여부를 대신하지 않는다")
+    void cancelWithMatchingExpectedStatusStillRejectsScheduledRound() {
+        InterviewRound scheduledRound = saveRound(RoundStatus.SCHEDULED, LocalDateTime.now().minusDays(1));
+
+        givenLeader()
+                .queryParam("expectedRoundStatus", "SCHEDULED")
+                .when().post(CANCEL_PATH, scheduledRound.getId())
+                .then().statusCode(HttpStatus.CONFLICT.value())
+                .body("message", equalTo("현재 단계에서 허용되지 않는 라운드 상태 변경입니다."));
+
+        assertThat(interviewRoundRepository.findById(scheduledRound.getId()).orElseThrow().getStatus())
+                .isEqualTo(RoundStatus.SCHEDULED);
+    }
+
+    @Test
+    @DisplayName("마감된 모집에서도 초안이라고 보고 폐기한 초안 라운드는 취소된다 — 화면 단계 확인이 마감 후 정리를 막지 않는다")
+    void closedRecruitmentAllowsDraftDiscardWithExpectedStatus() {
+        InterviewRound draftRound = interviewRoundRepository.save(
+                InterviewRoundFixture.draft(recruitment.getId(), LocalDateTime.now().plusDays(7)));
+        recruitment.close(LocalDateTime.now());
+        recruitmentRepository.saveAndFlush(recruitment);
+
+        givenLeader()
+                .queryParam("expectedRoundStatus", "DRAFT")
+                .when().post(CANCEL_PATH, draftRound.getId())
+                .then().statusCode(HttpStatus.NO_CONTENT.value());
+
+        assertThat(interviewRoundRepository.findById(draftRound.getId()).orElseThrow().getStatus())
+                .isEqualTo(RoundStatus.CANCELLED);
     }
 
     @Test

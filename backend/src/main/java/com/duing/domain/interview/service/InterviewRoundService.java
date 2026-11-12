@@ -1,5 +1,6 @@
 package com.duing.domain.interview.service;
 
+import com.duing.domain.interview.entity.RoundStatus;
 import com.duing.domain.interview.service.dto.command.CreateInterviewRoundCommand;
 import com.duing.domain.interview.service.dto.command.UpdateInterviewRoundCommand;
 import com.duing.domain.interview.service.dto.query.AvailabilityRequestResult;
@@ -43,8 +44,10 @@ public interface InterviewRoundService {
     /**
      * 라운드 취소 (스펙 §9.1 API 12·§16-2) — CANCELLED 전이 + 활성 schedule 전부 정리.
      * 멤버는 전이 없이 자동 재큐잉, 알림 없음 (§8).
+     * {@code expectedRoundStatus} 는 요청자가 화면에서 본 단계 — 있고 잠금 뒤 실제 단계와 다르면 RoundStatusChanged(409),
+     * null 이면 검사하지 않는다(옛 클라이언트·라운드 현황의 취소).
      */
-    void cancelRound(Long roundId, Long currentUserId);
+    void cancelRound(Long roundId, RoundStatus expectedRoundStatus, Long currentUserId);
 
     /** 라운드 목록 — 최신 생성 순 + 멤버 카운트 요약 (스펙 §9.1 API 3). */
     List<RoundSummaryQuery> getRounds(Long recruitmentId, Long currentUserId);

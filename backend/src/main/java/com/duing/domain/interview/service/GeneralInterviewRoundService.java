@@ -263,7 +263,7 @@ public class GeneralInterviewRoundService implements InterviewRoundService {
 
     @Override
     @Transactional
-    public void cancelRound(Long roundId, Long currentUserId) {
+    public void cancelRound(Long roundId, RoundStatus expectedRoundStatus, Long currentUserId) {
         // 취소는 새 활동이 아니라 정리 행위라 마감된 모집에서도 허용한다. 막으면 자동 마감으로 남겨진
         // 라운드를 아무도 치울 수 없어, 이 정책이 지원서에서 없앤 교착을 라운드 계층에 그대로 재생산한다.
         // 특히 자동 마감으로 COLLECTING 라운드가 남으면 학생 화면에는 눌러도 409 만 나는 "가능 시간 응답"
@@ -273,6 +273,10 @@ public class GeneralInterviewRoundService implements InterviewRoundService {
         interviewRoundAccessor.requireManagerByRoundId(roundId, currentUserId);
         InterviewRound round = interviewRoundRepository.findByIdForUpdate(roundId)
                 .orElseThrow(InterviewException.RoundNotFound::new);
+        // 잠금 조회로 읽은 단계와 비교한다(앞에서 라운드 엔티티를 읽지 않는다) — 창을 연 뒤 발송된 초안을 마법사의 '폐기'가 취소하지 않게.
+        if (expectedRoundStatus != null && expectedRoundStatus != round.getStatus()) {
+            throw new InterviewException.RoundStatusChanged();
+        }
 
         round.cancel();
         // §16-2 — 누락 시 취소된 라운드의 draft 배정이 새 라운드 배정과 병존해

@@ -40,12 +40,13 @@ import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import org.springframework.transaction.support.TransactionTemplate;
 
 /**
- * 수동 배정이 라운드를 잠금 조회로 처음 읽는지 검증한다 — 낡은 배정 검토 화면(expectedRoundStatus=ASSIGNING)의 배정이
- * 다른 운영진이 막 커밋한 확정·취소를 보고 409 로 거절돼야 한다.
+ * 수동 배정·라운드 취소가 라운드를 잠금 조회로 처음 읽는지 검증한다 — 낡은 화면(expectedRoundStatus)의 쓰기가 다른
+ * 운영진·다른 탭이 막 커밋한 전이(확정·취소·발송)를 보고 409 로 거절돼야 한다.
  *
- * <p>잠금 앞에서 라운드 엔티티를 한 번이라도 읽으면 커밋 전 ASSIGNING 이 1차 캐시에 남고, 뒤이은 FOR UPDATE 조회는
- * 새 행을 받아도 캐시된 엔티티를 돌려줘 배정이 저장된다. 전이 스레드가 라운드 행을 UPDATE 로 잠근 채 기다리고, 배정
+ * <p>잠금 앞에서 라운드 엔티티를 한 번이라도 읽으면 커밋 전 단계가 1차 캐시에 남고, 뒤이은 FOR UPDATE 조회는
+ * 새 행을 받아도 캐시된 엔티티를 돌려줘 쓰기가 통과한다. 전이 스레드가 라운드 행을 UPDATE 로 잠근 채 기다리고, 쓰기
  * 스레드가 잠금 조회에 들어가는 순간(스파이가 여는 래치) 전이가 커밋한다 — 그 앞의 읽기는 모두 커밋 전 값을 본다.
+ * 전이는 jdbc UPDATE 라 버전을 올리지 않는다 — 취소처럼 라운드 행을 고치는 쓰기도 @Version 방어선 없이 잠금-첫조회만 시험한다.
  * 래치로만 순서를 강제하므로 sleep 이 없다. 리포지토리 스파이가 컨텍스트를 바꾸므로 다른 잠금 테스트와 분리한다.
  */
 @Import(TestcontainersConfiguration.class)
@@ -57,6 +58,7 @@ class InterviewAssignRoundStatusRaceTest extends InterviewControllerTestSupport 
 
     @MockitoSpyBean InterviewRoundRepository roundRepositorySpy;
     @Autowired InterviewAssignmentService assignmentService;
+    @Autowired InterviewRoundService roundService;
     @Autowired InterviewSlotRepository interviewSlotRepository;
     @Autowired InterviewScheduleRepository interviewScheduleRepository;
     @Autowired TransactionTemplate transactionTemplate;
@@ -100,41 +102,66 @@ class InterviewAssignRoundStatusRaceTest extends InterviewControllerTestSupport 
         assertAssignRejectedAfterCommittedTransition(RoundStatus.CANCELLED);
     }
 
+    @Test
+    @DisplayName("폐기 도중 다른 탭의 발송이 커밋되면 초안이라고 본 폐기는 409 이고 라운드는 응답 수집 중 그대로다")
+    void cancelExpectingDraftLosesToCommittedSend() throws Exception {
+        // 모집에 라운드가 이것 하나라 모집당 DRAFT 1개 partial unique 와 부딪치지 않는다.
+        jdbcTemplate.update("UPDATE interview_round SET status = ? WHERE id = ?",
+                RoundStatus.DRAFT.name(), round.getId());
+
+        Throwable cancelFailure = writeAfterCommittedTransition(RoundStatus.COLLECTING,
+                () -> roundService.cancelRound(round.getId(), RoundStatus.DRAFT, leader.getId()));
+
+        assertThat(cancelFailure)
+                .as("초안이라고 본 폐기는 RoundStatusChanged 로 거절돼야 한다 — 실패하면 잠금 앞 선조회·검사 누락 중 하나(래치 타임아웃이면 잠금 조회 누락)")
+                .isInstanceOf(InterviewException.RoundStatusChanged.class);
+        assertThat(interviewRoundRepository.findById(round.getId()).orElseThrow().getStatus())
+                .isEqualTo(RoundStatus.COLLECTING);
+    }
+
     private void assertAssignRejectedAfterCommittedTransition(RoundStatus committedStatus) throws Exception {
+        Throwable assignFailure = writeAfterCommittedTransition(committedStatus, () -> assignmentService.assignSchedule(
+                round.getId(), member.getId(), slot.getId(), RoundStatus.ASSIGNING, leader.getId()));
+
+        assertThat(assignFailure)
+                .as("낡은 배정 검토 화면의 배정은 RoundStatusChanged 로 거절돼야 한다 — 실패하면 잠금 앞 선조회·검사 누락 중 하나(래치 타임아웃이면 잠금 조회 누락)")
+                .isInstanceOf(InterviewException.RoundStatusChanged.class);
+        assertThat(interviewScheduleRepository.findByRoundIdAndApplicationIdAndStatus(
+                round.getId(), member.getApplicationId(), InterviewScheduleStatus.ASSIGNED)).isEmpty();
+    }
+
+    /** 전이가 라운드 행을 쥔 사이 쓰기가 잠금 조회에 닿으면 전이를 커밋시키고, 쓰기가 던진 예외를 돌려준다(없으면 null). */
+    private Throwable writeAfterCommittedTransition(RoundStatus committedStatus, Runnable roundWrite) throws Exception {
         CountDownLatch transitionLocked = new CountDownLatch(1);
-        CountDownLatch assignReachedLockQuery = new CountDownLatch(1);
+        CountDownLatch writeReachedLockQuery = new CountDownLatch(1);
         // 리포지토리는 JDK 프록시라 Spring 이 위임 스파이로 만든다 — callRealMethod 대신 기본 응답(실제 리포지토리 위임)을 부른다.
         Answer<?> realRepository = mockingDetails(roundRepositorySpy).getMockCreationSettings().getDefaultAnswer();
         doAnswer(invocation -> {
-            assignReachedLockQuery.countDown();
+            writeReachedLockQuery.countDown();
             return realRepository.answer(invocation);
         }).when(roundRepositorySpy).findByIdForUpdate(round.getId());
 
         Future<?> transition = executor.submit(() -> transactionTemplate.executeWithoutResult(transactionStatus -> {
-            // UPDATE 가 행잠금을 커밋까지 쥔다 — 배정의 잠금 조회는 커밋 전에 닿으면 기다리고, 뒤에 닿으면 바로 읽어 어느 쪽이든 새 단계를 본다.
+            // UPDATE 가 행잠금을 커밋까지 쥔다 — 쓰기의 잠금 조회는 커밋 전에 닿으면 기다리고, 뒤에 닿으면 바로 읽어 어느 쪽이든 새 단계를 본다.
             jdbcTemplate.update("UPDATE interview_round SET status = ? WHERE id = ?",
                     committedStatus.name(), round.getId());
             transitionLocked.countDown();
-            awaitOrThrow(assignReachedLockQuery);
+            awaitOrThrow(writeReachedLockQuery);
         }));
 
-        Future<Throwable> assign = executor.submit(() -> {
+        Future<Throwable> write = executor.submit(() -> {
             awaitOrThrow(transitionLocked);
             try {
-                assignmentService.assignSchedule(
-                        round.getId(), member.getId(), slot.getId(), RoundStatus.ASSIGNING, leader.getId());
+                roundWrite.run();
                 return null;
-            } catch (Throwable assignFailure) {
-                return assignFailure;
+            } catch (Throwable writeFailure) {
+                return writeFailure;
             }
         });
 
-        assertThat(assign.get(TASK_TIMEOUT_SECONDS, TimeUnit.SECONDS))
-                .as("낡은 배정 검토 화면의 배정은 RoundStatusChanged 로 거절돼야 한다 — 실패하면 잠금 앞 선조회·잠금 누락·검사 누락 중 하나")
-                .isInstanceOf(InterviewException.RoundStatusChanged.class);
+        Throwable writeFailure = write.get(TASK_TIMEOUT_SECONDS, TimeUnit.SECONDS);
         transition.get(TASK_TIMEOUT_SECONDS, TimeUnit.SECONDS);
-        assertThat(interviewScheduleRepository.findByRoundIdAndApplicationIdAndStatus(
-                round.getId(), member.getApplicationId(), InterviewScheduleStatus.ASSIGNED)).isEmpty();
+        return writeFailure;
     }
 
     private static void awaitOrThrow(CountDownLatch latch) {
