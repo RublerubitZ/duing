@@ -297,8 +297,8 @@ describe('useCancelInterviewRoundMutation — 기대 단계', () => {
   });
 
   it.each<[number, string, boolean]>([
-    [409, '목록·대기열이 invalidate 된다 — 화면이 본 단계와 다르다는 신호(마법사의 낡은 초안 목록)', true],
-    [500, '목록·대기열은 유지된다', false],
+    [409, '목록·대기열·상세가 invalidate 된다 — 화면이 본 단계와 다르다는 신호(마법사의 낡은 초안 목록, 현황의 낡은 단계)', true],
+    [500, '목록·대기열·상세는 유지된다', false],
   ])('%i 응답으로 실패하면 %s', async (status, _label, invalidated) => {
     const queryClient = newQueryClient();
     server.use(
@@ -311,6 +311,7 @@ describe('useCancelInterviewRoundMutation — 기대 단계', () => {
     );
     queryClient.setQueryData(interviewRoundKeys.list(10), []);
     queryClient.setQueryData(interviewRoundKeys.candidates(10), []);
+    queryClient.setQueryData(interviewRoundKeys.detail(42), null);
 
     const { result } = renderHook(() => useCancelInterviewRoundMutation(10, 42), {
       wrapper: makeWrapper(queryClient),
@@ -320,6 +321,7 @@ describe('useCancelInterviewRoundMutation — 기대 단계', () => {
 
     expect(queryClient.getQueryState(interviewRoundKeys.list(10))?.isInvalidated).toBe(invalidated);
     expect(queryClient.getQueryState(interviewRoundKeys.candidates(10))?.isInvalidated).toBe(invalidated);
+    expect(queryClient.getQueryState(interviewRoundKeys.detail(42))?.isInvalidated).toBe(invalidated);
   });
 });
 
