@@ -8,6 +8,7 @@ import {
   SESSION_USER_KEY,
   consumeBootSessionRestore,
   hadSession,
+  logoutBlockedMessageOf,
   markHadSession,
   seedAuthFromLocalHistory,
   sessionChangeMessageOf,
@@ -22,6 +23,8 @@ const API_BASE_URL = 'http://localhost:8080/api/v1';
 // 문구는 리터럴로 적는다 — 상수를 import 하면 문구가 바뀌어도 통과한다.
 const ENDED_TEXT = '로그아웃되었어요. 이 화면에서는 저장되지 않아요.';
 const SWITCHED_TEXT = '다른 탭에서 로그인 상태가 바뀌었어요. 이 화면에서는 저장되지 않아요.';
+const LOGOUT_BLOCKED_TEXT =
+  '로그아웃하지 못했어요. 다른 탭에서 로그인 상태가 바뀌었어요 — 새로고침한 뒤 다시 로그아웃해주세요.';
 const TEST_USER: User = {
   id: 1, studentId: '20240001', name: '홍길동', phone: '010-1234-5678',
   grade: 'FRESHMAN', role: 'STUDENT',
@@ -207,5 +210,31 @@ describe('공유 사용자 표지 — 쓰기 실패', () => {
     vi.spyOn(Storage.prototype, 'removeItem').mockImplementation(throwQuota);
 
     expect(writeSessionUser('1')).toBe(false);
+  });
+});
+
+describe('logoutBlockedMessageOf — 막힌 로그아웃은 누를 때의 표지로 다시 판정', () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  // 막힌 문서는 첫 문구에 고정된다 — 그 뒤 다른 탭이 다시 로그인했으면 '로그아웃되었어요' 는 거짓이다(쿠키에 살아 있는 계정).
+  it.each<[string, unknown, string | null, string | null]>([
+    ['로그아웃 문구로 막힘·표지 없음', new ApiError(0, ENDED_TEXT, undefined, 'NETWORK'), null, ENDED_TEXT],
+    ['계정 전환 문구로 막힘·표지에 사용자', new ApiError(0, SWITCHED_TEXT, undefined, 'NETWORK'), '5', LOGOUT_BLOCKED_TEXT],
+    ['로그아웃 문구로 막힌 뒤 다른 탭이 다시 로그인(표지에 사용자)', new ApiError(0, ENDED_TEXT, undefined, 'NETWORK'), '5', LOGOUT_BLOCKED_TEXT],
+    ['계정 전환 문구로 막힌 뒤 다른 탭이 로그아웃(표지 없음)', new ApiError(0, SWITCHED_TEXT, undefined, 'NETWORK'), null, ENDED_TEXT],
+    ['막히지 않은 NETWORK(진짜 오프라인)', new ApiError(0, NETWORK_ERROR_MESSAGE, undefined, 'NETWORK'), '5', null],
+    ['막힘 문구여도 TIMEOUT 코드', new ApiError(0, SWITCHED_TEXT, undefined, 'TIMEOUT'), '5', null],
+    ['막힘 문구여도 ApiError 가 아닌 Error', new Error(SWITCHED_TEXT), null, null],
+  ])('%s', (_label, error, sharedSessionUser, expected) => {
+    if (sharedSessionUser !== null) window.localStorage.setItem(SESSION_USER_KEY, sharedSessionUser);
+    expect(logoutBlockedMessageOf(error)).toBe(expected);
+  });
+
+  // 표지를 읽지 못하면 로그아웃됐다고 말하지 않는다 — 공용 기기에서 떠나지 않게 실패 쪽으로.
+  it('표지를 읽지 못하면 로그아웃하지 못했다고 알린다', () => {
+    vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+      throw new DOMException('blocked', 'SecurityError');
+    });
+    expect(logoutBlockedMessageOf(new ApiError(0, ENDED_TEXT, undefined, 'NETWORK'))).toBe(LOGOUT_BLOCKED_TEXT);
   });
 });

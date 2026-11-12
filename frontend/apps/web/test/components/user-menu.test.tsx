@@ -6,10 +6,13 @@ import { ApiError, NETWORK_ERROR_MESSAGE } from '@duing/api';
 import { useAuthStore, type AuthStatus } from '@duing/stores';
 import type { UserRole } from '@duing/types';
 import { ToastProvider } from '@/app/_components/toast/ToastProvider';
+import { SESSION_USER_KEY } from '@/app/_lib/authBoot';
 
 // 로그아웃 실패 문구 — 리터럴로 적는다(상수를 import 하면 문구가 바뀌어도 통과한다).
 const SWITCHED_TEXT = '다른 탭에서 로그인 상태가 바뀌었어요. 이 화면에서는 저장되지 않아요.';
 const ENDED_TEXT = '로그아웃되었어요. 이 화면에서는 저장되지 않아요.';
+const LOGOUT_BLOCKED_TEXT =
+  '로그아웃하지 못했어요. 다른 탭에서 로그인 상태가 바뀌었어요 — 새로고침한 뒤 다시 로그아웃해주세요.';
 const OFFLINE_LOGOUT_TEXT =
   '로그아웃하지 못했습니다. 네트워크 연결 후 다시 시도하고 이 기기를 떠나지 마세요.';
 const mockLogout = vi.fn().mockResolvedValue(undefined);
@@ -64,6 +67,7 @@ describe('UserMenu', () => {
   beforeEach(() => {
     useAuthStore.setState(useAuthStore.getInitialState(), true);
     mockLogout.mockReset().mockResolvedValue(undefined);
+    window.localStorage.removeItem(SESSION_USER_KEY);
     mockRefresh.mockClear();
     mockMeData.mockReturnValue({ name: '홍길동' });
     mockMyClubs.mockReturnValue([]);
@@ -117,12 +121,15 @@ describe('UserMenu', () => {
   });
 
   // 다른 탭의 로그인 상태 바뀜으로 막혔으면 그 원인 문구, 진짜 오프라인이면 지금 문구 그대로.
-  it.each([
-    ['다른 탭의 계정 전환으로 막힘', SWITCHED_TEXT, SWITCHED_TEXT],
-    ['다른 탭의 로그아웃·만료로 막힘', ENDED_TEXT, ENDED_TEXT],
-    ['진짜 오프라인', NETWORK_ERROR_MESSAGE, OFFLINE_LOGOUT_TEXT],
-  ])('로그아웃 실패 문구 — %s', async (_label, rejectedMessage, expectedToast) => {
+  // 표지는 로그아웃을 누를 때의 공유 표지 — 막혔으면 그 값으로 다시 판정한다(사용자가 있으면 로그아웃되지 않았다).
+  it.each<[string, string, string | null, string]>([
+    ['다른 탭의 계정 전환으로 막힘(표지에 다른 사용자)', SWITCHED_TEXT, '2', LOGOUT_BLOCKED_TEXT],
+    ['다른 탭의 로그아웃·만료로 막힘(표지 없음)', ENDED_TEXT, null, ENDED_TEXT],
+    ['로그아웃으로 막힌 뒤 다른 탭이 다시 로그인(표지에 사용자)', ENDED_TEXT, '3', LOGOUT_BLOCKED_TEXT],
+    ['진짜 오프라인(표지 그대로)', NETWORK_ERROR_MESSAGE, '1', OFFLINE_LOGOUT_TEXT],
+  ])('로그아웃 실패 문구 — %s', async (_label, rejectedMessage, sharedSessionUser, expectedToast) => {
     setStatus('authenticated');
+    if (sharedSessionUser !== null) window.localStorage.setItem(SESSION_USER_KEY, sharedSessionUser);
     mockLogout.mockRejectedValueOnce(new ApiError(0, rejectedMessage, undefined, 'NETWORK'));
     const user = userEvent.setup();
     renderMenu();

@@ -96,6 +96,17 @@ export function sessionChangeMessageOf(error: unknown): string | null {
     : null;
 }
 
+// 막힌 로그아웃의 실패 문구 — 막히지 않은 실패(진짜 오프라인·타임아웃 등)는 null 이라 호출부의 지금 문구가 남는다.
+export const LOGOUT_BLOCKED_MESSAGE =
+  '로그아웃하지 못했어요. 다른 탭에서 로그인 상태가 바뀌었어요 — 새로고침한 뒤 다시 로그아웃해주세요.';
+
+// 누를 때의 표지로 다시 본다 — 막힌 문서는 첫 문구에 고정돼 그 뒤 다른 탭이 다시 로그인했을 수 있고, 살아 있는 계정을 두고 '로그아웃되었어요' 라 하면 공용 기기를 떠난다.
+// 표지가 비어 있을 때만 로그아웃된 것이다(읽지 못하면 실패 쪽으로).
+export function logoutBlockedMessageOf(error: unknown): string | null {
+  if (sessionChangeMessageOf(error) === null) return null;
+  return readSessionUser() === null ? SESSION_ENDED_MESSAGE : LOGOUT_BLOCKED_MESSAGE;
+}
+
 // 공유 표지가 이 탭이 확인한 사용자와 다르면 그 안내 문구, 같거나 비교하지 않으면 null. 확인 전이면 저장소를 읽지 않고, 읽지 못하면 비교하지 않는다.
 export function sessionChangeNotice(): string | null {
   if (confirmedSessionUser === undefined) return null;
