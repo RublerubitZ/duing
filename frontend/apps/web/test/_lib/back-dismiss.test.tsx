@@ -12,6 +12,11 @@ import {
   useBackDismiss,
 } from '@/app/_lib/backDismiss';
 
+// 테스트 끝의 mockRestore() 는 앞 단언이 실패하면 건너뛰어져 스파이가 다음 테스트로 샌다 — 실패해도 도는 afterEach 로 되돌린다.
+afterEach(() => {
+  vi.restoreAllMocks();
+});
+
 // jsdom 의 traversal 은 태스크 큐에 실린다(실측 ~3ms · 매크로태스크 2틱). 고정 지연 대신
 // popstate 발화 자체를 기다려야 안정적이다.
 function nextPopState(): Promise<void> {
@@ -483,19 +488,29 @@ describe('useBackDismiss', () => {
 
   it('죽은 엔트리가 많아도 자동 스킵은 10회로 제한된다', async () => {
     render(<Overlay name="a" />);
+    const liveId: number = window.history.state.__overlayId;
     const backSpy = vi.spyOn(window.history, 'back');
+    // 토큰은 이 테스트만 쓴다 — 건너뛴 엔트리 기억(토큰:ID)은 모듈 수명이라, 다른 테스트와 겹치면 앞으로 건너뛰기로 읽힌다.
+    // ID 는 우리 ID 아래로 둔다 — 알려진 결함 #1708(이전 문서 마커의 ID 를 우리 ID 와 견줌) 때문에, 더 크면 앞으로 가기로 오판해 스킵이 멈춘다.
     for (let index = 0; index < 15; index += 1) {
-      window.history.pushState({ __overlayToken: 'stale-doc', __overlayId: index }, '');
+      window.history.pushState(
+        { __overlayToken: 'stale-doc-skip-cap', __overlayId: liveId - 1 - index },
+        '',
+      );
     }
 
     await pressBack();
     await settle();
     await settle();
+    const backCallsAtCap = backSpy.mock.calls.length;
+    const tokenAtCap: unknown = window.history.state.__overlayToken;
+    // 바닥난 스킵 예산은 사용자 이동에서만 회복된다 — 그대로 끝내면 다음 테스트의 회수 back() 이 죽은 엔트리를 건너뛰지 못한다. 단언이 실패해도 회복되게 먼저 누른다.
+    await pressBack();
 
     // 테스트가 부른 1회 + 자동 스킵 정확히 10회 — 더 적으면 스킵이 죽은 것이고, 더 많으면 상한이 샌 것이다.
-    expect(backSpy.mock.calls.length).toBe(11);
+    expect(backCallsAtCap).toBe(11);
     // 15개를 다 건너뛰지는 못했으므로 여전히 잔존 엔트리 위에 있다.
-    expect(window.history.state.__overlayToken).toBe('stale-doc');
+    expect(tokenAtCap).toBe('stale-doc-skip-cap');
     backSpy.mockRestore();
   });
 
