@@ -1,5 +1,6 @@
 package com.duing.domain.interview.service;
 
+import com.duing.domain.interview.entity.RoundStatus;
 import com.duing.domain.interview.service.dto.query.AutoAssignResult;
 import com.duing.domain.interview.service.dto.query.ConfirmResult;
 
@@ -12,11 +13,13 @@ public interface InterviewAssignmentService {
     AutoAssignResult autoAssign(Long roundId, Long currentUserId);
 
     /**
-     * 수동 배정/재배정 (스펙 §9.1 API 9) — ASSIGNING 한정, 비제외 멤버 전부 가능
-     * (가능없음·미응답 포함 — 운영진 재량), capacity 하드 체크, per-member schedule 교체.
-     * 멤버 상태는 불변 (draft semantics — ASSIGNED 전이는 확정 전용).
+     * 수동 배정/재배정 (스펙 §6.4·§9.1 API 9) — 배정 검토(ASSIGNING)의 초안 배정과 확정(SCHEDULED)의 개별 일정 변경
+     * (SCHEDULED 는 성공 시 INTERVIEW_UPDATED 알림). 비제외 멤버 전부 가능 (가능없음·미응답 포함 — 운영진 재량),
+     * capacity 하드 체크, per-member schedule 교체. 멤버 상태는 불변 (ASSIGNED 전이는 확정 전용).
+     * expectedRoundStatus 는 요청자가 화면에서 본 단계 — 있고 잠근 라운드의 단계와 다르면 RoundStatusChanged(409),
+     * null 이면 검사하지 않는다(옛 클라이언트).
      */
-    void assignSchedule(Long roundId, Long memberId, Long slotId, Long currentUserId);
+    void assignSchedule(Long roundId, Long memberId, Long slotId, RoundStatus expectedRoundStatus, Long currentUserId);
 
     /** 배정 해제 (스펙 §9.1 API 9) — ASSIGNING 한정, 활성 배정이 없으면 404. */
     void unassignSchedule(Long roundId, Long memberId, Long currentUserId);
