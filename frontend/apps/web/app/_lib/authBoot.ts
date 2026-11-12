@@ -1,3 +1,4 @@
+import { isWebLoginRequest } from '@duing/api';
 import { useAuthStore } from '@duing/stores';
 
 import type { User } from '@duing/types';
@@ -29,7 +30,7 @@ export function hadSession(): boolean {
 }
 
 // 지금 이 브라우저에 로그인한 사용자(서버로 확인된 user id) — 다른 탭이 계정이 바뀐 것을 알아채는 공유 표지다.
-// 비로그인 확정이면 키가 없다. had-session 처럼 갱신은 AuthSessionBootstrap 의 전이 한 곳에서만 한다.
+// 비로그인 확정이면 키가 없다. had-session 처럼 갱신은 AuthSessionBootstrap 의 전이에서 한다 — 예외는 로그인 성공 직후의 쓰기 하나(recordLoggedInSessionUser).
 // 값은 내부 대리키 id 다(학번·이름 아님) — 운영에서는 같은 값이 PostHog distinct_id 로 이미 localStorage 에 있고
 // (persistence 기본값), 확정 로그아웃·만료 때 지운다. 확정 전이 없이 브라우저를 닫으면 다음 부팅 확인까지 남는다(had-session 과 같다).
 export const SESSION_USER_KEY = 'duing:auth:session-user';
@@ -55,11 +56,19 @@ export function readSessionUser(): string | null | undefined {
 }
 
 // 이 탭이 서버 확인 뒤 공유 표지에 쓰는 데 성공한 값 — undefined 면 확인 전이거나 쓰기에 실패해 비교하지 않는다.
-// 요청마다 불리는 연결 어댑터가 읽어야 해 모듈 스코프에 둔다(문서당 하나 — AuthSessionBootstrap 이 갱신하고 언마운트 때 되돌린다).
+// 요청마다 불리는 연결 어댑터가 읽어야 해 모듈 스코프에 둔다(문서당 하나 — AuthSessionBootstrap 이 갱신하고(로그인 성공 직후엔 recordLoggedInSessionUser 도) 언마운트 때 되돌린다).
 let confirmedSessionUser: string | null | undefined;
 
 export function setConfirmedSessionUser(value: string | null | undefined): void {
   confirmedSessionUser = value;
+}
+
+// 로그인 응답은 지금 쿠키의 사용자라 막힌 문서여도 정확하다 — 다른 탭이 곧바로 알아채게 한다(AuthSessionBootstrap 은 막힌 문서에서 쓰지 않는다).
+// 확인값도 맞춘다 — 부트스트랩 effect 전에 '공유=새 id, 확인값=옛 값' 으로 이 탭의 요청이 막히지 않게.
+export function recordLoggedInSessionUser(userId: number): void {
+  const sessionUser = String(userId);
+  // 쓰지 못하면 비교를 멈춘다(부트스트랩과 같다) — 읽기만 되는 저장소에서 남의 옛 값과 비교해 막지 않게.
+  setConfirmedSessionUser(writeSessionUser(sessionUser) ? sessionUser : undefined);
 }
 
 // 공유 표지가 이 탭이 확인한 사용자와 다른가. 확인 전이면 저장소를 읽지 않고, 읽지 못하면 비교하지 않는다.
@@ -71,8 +80,10 @@ export function sessionUserDiverged(): boolean {
 
 // 웹 연결 어댑터(providers 가 등록, 요청마다 불린다) — 다른 탭이 사용자를 바꿨으면 이벤트를 아직 못 받았어도(깨어난 동결 탭) 막는다.
 // navigator.onLine 은 명시적 false 만 오프라인으로 본다(서버의 Node 전역 navigator 엔 onLine 이 없다).
-export function webConnectivityAdapter(): boolean {
+// 로그인은 막지 않는다 — 쿠키도 함께 나가지만 서버 웹 로그인은 기존 인증 쿠키를 읽지 않고 입력한 자격 증명으로만 답해 다른 계정 데이터가 새지 않는다(동시 로그인의 늦은 탭).
+export function webConnectivityAdapter(request?: Request): boolean {
   if (typeof navigator !== 'undefined' && navigator.onLine === false) return false;
+  if (request !== undefined && isWebLoginRequest(request)) return true;
   return !sessionUserDiverged();
 }
 

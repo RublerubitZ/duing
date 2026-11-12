@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeAll, afterEach, afterAll } from 'vitest';
 import { setupServer } from 'msw/node';
 import { http, HttpResponse } from 'msw';
-import { createApiClient, NETWORK_ERROR_MESSAGE } from '../src/client';
+import { createApiClient, isWebLoginRequest, NETWORK_ERROR_MESSAGE } from '../src/client';
 import { registerConnectivityAdapter } from '../src/connectivity';
 
 // onUnhandledRequest: 'error' — 오프라인 fail-fast 가 뚫려 네트워크로 나가면 테스트가 즉시 실패한다.
@@ -13,7 +13,8 @@ afterEach(() => {
 });
 afterAll(() => server.close());
 
-const client = createApiClient({ baseUrl: 'http://localhost:8080/api/v1' });
+const BASE_URL = 'http://localhost:8080/api/v1';
+const client = createApiClient({ baseUrl: BASE_URL });
 
 describe('connectivity fail-fast', () => {
   it('어댑터가 false 를 반환하면 요청 없이 즉시 ApiError(NETWORK)로 거부한다', async () => {
@@ -45,6 +46,21 @@ describe('connectivity fail-fast', () => {
     await expect(client.users.me()).resolves.toMatchObject({ id: 1 });
   });
 
+  it('어댑터는 보내려는 요청을 받는다(요청마다 판정을 달리할 수 있게)', async () => {
+    const receivedRequests: string[] = [];
+    registerConnectivityAdapter((request?: Request) => {
+      if (request) receivedRequests.push(`${request.method} ${request.url}`);
+      return true;
+    });
+    server.use(
+      http.get('*/users/me', () =>
+        HttpResponse.json({ ok: true, data: { id: 1 }, message: null }),
+      ),
+    );
+    await client.users.me();
+    expect(receivedRequests).toEqual([`GET ${BASE_URL}/users/me`]);
+  });
+
   it('어댑터 미등록이면 요청이 정상 진행된다', async () => {
     server.use(
       http.get('*/users/me', () =>
@@ -52,5 +68,19 @@ describe('connectivity fail-fast', () => {
       ),
     );
     await expect(client.users.me()).resolves.toMatchObject({ id: 2 });
+  });
+});
+
+describe('isWebLoginRequest', () => {
+  it.each<[string, string, boolean]>([
+    ['POST', 'auth/web/login', true],
+    ['GET', 'auth/web/login', false],
+    ['POST', 'auth/web/logout', false],
+    ['POST', 'auth/web/refresh', false],
+    ['POST', 'auth/signup', false],
+    ['POST', 'auth/login', false],
+    ['GET', 'users/me', false],
+  ])('%s %s → %s', (method, path, expected) => {
+    expect(isWebLoginRequest(new Request(`${BASE_URL}/${path}`, { method }))).toBe(expected);
   });
 });

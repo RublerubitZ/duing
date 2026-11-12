@@ -23,6 +23,7 @@ import {
   HAD_SESSION_KEY,
   SESSION_USER_KEY,
   consumeBootSessionRestore,
+  recordLoggedInSessionUser,
   sessionUserDiverged,
   webConnectivityAdapter,
 } from '@/app/_lib/authBoot';
@@ -540,5 +541,76 @@ describe('공유 사용자 표지 — 다른 탭의 바뀜', () => {
 
     expect(sessionUserDiverged()).toBe(false);
     await expect(apiClient.users.me()).resolves.toMatchObject({ id: 1 });
+  });
+
+  it('이벤트를 아직 못 받은 탭에서도 로그인 요청은 나가고, 로그인이 먼저 끝나면 늦게 온 이벤트로 새로고침하지 않는다', async () => {
+    registerConnectivityAdapter(webConnectivityAdapter);
+    await renderVerifiedMember();
+    let loginRequestCount = 0;
+    server.use(
+      http.post(`${BASE}/auth/web/login`, () => {
+        loginRequestCount += 1;
+        return HttpResponse.json({ ok: true, data: { user: OTHER_MEMBER }, message: null });
+      }),
+    );
+    // 다른 탭이 방금 다른 계정(3)으로 로그인했지만 이 문서는 아직 storage 이벤트를 처리하지 않았다.
+    window.localStorage.setItem(SESSION_USER_KEY, '3');
+
+    // 이 탭의 사용자 데이터를 보내는 요청은 그대로 막힌다.
+    await expect(apiClient.users.me()).rejects.toMatchObject({ code: 'NETWORK' });
+    expect(meRequestCount).toBe(1);
+    await expect(
+      apiClient.auth.login({ studentId: OTHER_MEMBER.studentId, password: 'x', rememberMe: false }),
+    ).resolves.toMatchObject({ id: OTHER_MEMBER.id });
+    expect(loginRequestCount).toBe(1);
+
+    // (가) 로그인 응답이 먼저 — 로그인 화면처럼 세션을 열면 이 탭이 표지를 B(2)로 쓴다.
+    act(() => useAuthStore.getState().setSession(OTHER_MEMBER));
+    await waitFor(() => expect(window.localStorage.getItem(SESSION_USER_KEY)).toBe('2'));
+    // 밀려 있던 옛 이벤트는 저장소의 지금 값(B)을 읽어 새로고침하지 않는다.
+    act(() => storageChanged('3'));
+    expect(reloadSpy).not.toHaveBeenCalled();
+    await expectRequestGoesOut();
+  });
+
+  it('로그인 응답보다 다른 탭의 이벤트가 먼저면 막힌 문서는 표지를 쓰지 않고, 로그인 화면의 쓰기가 표지를 새 계정으로 맞춘다', async () => {
+    registerConnectivityAdapter(webConnectivityAdapter);
+    await renderVerifiedMember();
+    let markLoginArrived = () => {};
+    const loginArrived = new Promise<void>((resolve) => {
+      markLoginArrived = resolve;
+    });
+    let releaseLoginResponse = () => {};
+    const loginResponseHeld = new Promise<void>((resolve) => {
+      releaseLoginResponse = resolve;
+    });
+    server.use(
+      http.post(`${BASE}/auth/web/login`, async () => {
+        markLoginArrived();
+        await loginResponseHeld;
+        return HttpResponse.json({ ok: true, data: { user: OTHER_MEMBER }, message: null });
+      }),
+    );
+    const loginResult = apiClient.auth.login({
+      studentId: OTHER_MEMBER.studentId,
+      password: 'x',
+      rememberMe: false,
+    });
+    await loginArrived;
+
+    // (나) 로그인 POST 가 서버에 닿은 사이 다른 탭(3)의 이벤트가 먼저 온다 — 이 문서는 막고 새로고침을 시작한다.
+    act(() => otherTabWrites('3'));
+    expect(reloadSpy).toHaveBeenCalledTimes(1);
+    releaseLoginResponse();
+    await expect(loginResult).resolves.toMatchObject({ id: OTHER_MEMBER.id });
+
+    // 막힌 문서의 부트스트랩은 세션이 열려도 표지를 쓰지 않는다 — 쿠키는 이미 B(2)인데 다른 탭엔 옛 값(3)이 남는다.
+    act(() => useAuthStore.getState().setSession(OTHER_MEMBER));
+    expect(window.localStorage.getItem(SESSION_USER_KEY)).toBe('3');
+    // 로그인 화면이 이동 전에 쓰는 값이 그 틈을 메운다.
+    recordLoggedInSessionUser(OTHER_MEMBER.id);
+    expect(window.localStorage.getItem(SESSION_USER_KEY)).toBe('2');
+    // 확인값을 맞춰도 떠나는 문서의 요청은 계속 막힌다.
+    await expect(apiClient.users.me()).rejects.toMatchObject({ code: 'NETWORK' });
   });
 });

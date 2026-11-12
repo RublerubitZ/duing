@@ -1,6 +1,6 @@
 import { expect, test, type BrowserContext, type Page, type Response } from '@playwright/test';
 
-import { ROUTE_TIMEOUT_MS, apiData, field, installReadOnlyGuard, num } from './dashboard-home.helpers';
+import { ROUTE_TIMEOUT_MS, apiData, field, installReadOnlyGuard, num, recordApiRequests } from './dashboard-home.helpers';
 
 /**
  * 탭 사이 계정 전환 스모크 — 같은 브라우저(컨텍스트)의 두 탭에서 한 탭이 로그인·로그아웃하면, 남은 탭이 하드 새로고침해
@@ -17,8 +17,8 @@ import { ROUTE_TIMEOUT_MS, apiData, field, installReadOnlyGuard, num } from './d
  * <p>실패 기록(test-results/ 의 error-context.md)에 남는 것과 뒤처리는 dashboard-home.helpers.ts 머리말을 본다.
  *
  * <p>서버에 닿는 쓰기는 로그인·토큰 갱신과 첫 테스트의 로그아웃(이 테스트가 만든 회장 세션)뿐이다 — 그 밖의 쓰기와 열람 감사 GET 은
- * installReadOnlyGuard 가 끊고 테스트를 실패시킨다. 회원 세션은 실행마다 둘씩 서버에 남는다 — 동시 세션 상한이 기본값(5)인
- * 백엔드에서 여러 번 돌리면 같은 계정의 오래된 세션이 밀려난다.
+ * installReadOnlyGuard 가 끊고 테스트를 실패시킨다. 회원 세션은 실행마다 넷씩, 회장 세션은 하나씩(로그인 예외 테스트) 서버에 남는다 —
+ * 동시 세션 상한이 기본값(5)인 백엔드에서 여러 번 돌리면 같은 계정의 오래된 세션이 밀려난다.
  */
 
 const MEMBER_STUDENT_ID = process.env.E2E_MEMBER_STUDENT_ID;
@@ -28,6 +28,12 @@ const LEADER_PASSWORD = process.env.E2E_LEADER_PASSWORD;
 const ME_PATH = '/api/v1/users/me';
 const REFRESH_PATH = '/api/v1/auth/web/refresh';
 const LOGOUT_PATH = '/api/v1/auth/web/logout';
+const LOGIN_PATH = '/api/v1/auth/web/login';
+const MY_INQUIRIES_PATH = '/api/v1/me/federation-inquiries';
+// 요청 시점 막기 배선에 쓰는 화면 — 작성 화면은 목록 조회를 하지 않아, '내 문의' 링크로 옮기면 캐시에 없는 목록 조회가 나간다.
+const INQUIRY_FORM_PATH = '/me/inquiries/new';
+// 다른 탭이 다른 계정으로 로그인해 쓴 척하는 공유 표지 값 — 실제 사용자 id 와 겹치지 않는다.
+const FOREIGN_SESSION_USER = 'e2e-other-tab-user';
 // 앱의 공유 사용자 표지(app/_lib/authBoot.ts SESSION_USER_KEY)와 같은 키.
 const SESSION_USER_KEY = 'duing:auth:session-user';
 // 새로고침 판별 표지 — 앱의 data-had-session 과 겹치지 않는 이름.
@@ -69,6 +75,11 @@ async function loginAfterBoot(page: Page, studentId: string, password: string, n
   );
   await page.goto(`/login?next=${encodeURIComponent(next)}`, { waitUntil: 'commit' });
   await bootSettled;
+  await submitLogin(page, studentId, password);
+}
+
+// 열린 로그인 화면에서 입력·제출하고 로그인 화면을 벗어날 때까지 기다린다.
+async function submitLogin(page: Page, studentId: string, password: string): Promise<void> {
   await page.getByLabel('학번', { exact: true }).fill(studentId);
   try {
     await page.getByLabel('비밀번호', { exact: true }).fill(password, { timeout: ROUTE_TIMEOUT_MS });
@@ -106,6 +117,35 @@ async function sharedSessionUser(page: Page): Promise<string | null> {
 async function meIdOf(response: Response): Promise<number> {
   const body: unknown = await response.json();
   return num(field(field(body, 'data'), 'id'));
+}
+
+// 같은 문서의 쓰기는 storage 이벤트를 만들지 않는다 — 다른 탭이 썼는데 이 문서가 아직 이벤트를 처리하지 않은 순간이 된다.
+async function writeSharedSessionUser(page: Page, value: string | null): Promise<void> {
+  await page.waitForLoadState('domcontentloaded');
+  await page.evaluate(
+    ({ key, nextValue }) => {
+      if (nextValue === null) window.localStorage.removeItem(key);
+      else window.localStorage.setItem(key, nextValue);
+    },
+    { key: SESSION_USER_KEY, nextValue: value },
+  );
+}
+
+// 새 문서를 열고 그 문서의 부팅 확인이 표지를 쓸 때까지 기다린다 — 앞 문서가 남긴 같은 값으로는 확인이 끝났는지 알 수 없다.
+// 앱이 없는 같은 출처 문서(public/ads.txt)로 먼저 떠나 지운다 — 앞 문서의 늦은 확인이 지운 표지를 다시 쓰지 못하게.
+async function reopenConfirmed(page: Page, path: string, userId: number): Promise<void> {
+  const appFreeDocument = await page.goto('/ads.txt');
+  // 파일이 없으면 앱의 404 문서가 떠 그 문서의 늦은 확인이 지운 표지를 다시 쓴다 — 조용히 약해지지 않게 여기서 멈춘다.
+  expect(appFreeDocument?.status(), '/ads.txt 응답 코드').toBe(200);
+  await writeSharedSessionUser(page, null);
+  await page.goto(path, { waitUntil: 'commit' });
+  await expect.poll(() => sharedSessionUser(page), { timeout: ROUTE_TIMEOUT_MS }).toBe(String(userId));
+}
+
+// 문의 작성 화면의 '내 문의' 링크 — 클라이언트 이동이라 문서는 그대로다.
+async function openInquiryList(page: Page): Promise<void> {
+  await page.getByRole('main').getByRole('link', { name: '내 문의', exact: true }).click({ timeout: ROUTE_TIMEOUT_MS });
+  await expect(page.getByRole('heading', { level: 1, name: '내 문의', exact: true })).toBeVisible({ timeout: ROUTE_TIMEOUT_MS });
 }
 
 test('다른 탭에서 다른 계정으로 로그인하면 이 탭이 새로고침돼 그 계정으로 다시 확인하고, 로그아웃하면 다시 새로고침된다', async ({
@@ -171,4 +211,52 @@ test('비로그인 탭은 다른 탭이 로그인하면 새로고침돼 그 계�
 
   await expectReloaded(anonymousTab);
   expect(await meIdOf(await anonymousTabMeAfterReload)).toBe(memberId);
+});
+
+test('다른 탭이 사용자를 바꿨는데 이 탭이 아직 이벤트를 못 받았으면 요청을 보내는 순간 막는다(앱의 연결 어댑터 배선)', async ({
+  context,
+}) => {
+  const memberTab = await openGuardedPage(context);
+  await loginAfterBoot(memberTab, MEMBER_STUDENT_ID ?? '', MEMBER_PASSWORD ?? '', INQUIRY_FORM_PATH);
+  const memberId = num(field(await apiData(memberTab, 'users/me'), 'id'));
+
+  // 대조 — 표지가 그대로면 같은 이동이 문의 목록을 서버에 묻는다(아래 0 건이 거저 나오지 않는다).
+  await reopenConfirmed(memberTab, INQUIRY_FORM_PATH, memberId);
+  const controlRequests = recordApiRequests(memberTab);
+  await openInquiryList(memberTab);
+  await expect
+    .poll(() => controlRequests.map((requestUrl) => requestUrl.pathname), { timeout: ROUTE_TIMEOUT_MS })
+    .toContain(MY_INQUIRIES_PATH);
+
+  // 캐시가 빈 새 문서에서 같은 이동 — 탭을 바꾸지 않는다(다시 보임이 이벤트 경로로 새로고침한다).
+  await reopenConfirmed(memberTab, INQUIRY_FORM_PATH, memberId);
+  await markDocument(memberTab);
+  const blockedRequests = recordApiRequests(memberTab);
+  await writeSharedSessionUser(memberTab, FOREIGN_SESSION_USER);
+  await openInquiryList(memberTab);
+
+  await expect(memberTab.getByText('문의 목록을 불러오지 못했습니다.', { exact: true })).toBeVisible({
+    timeout: ROUTE_TIMEOUT_MS,
+  });
+  // 목록 요청은 이동 뒤에만 나간다(위 대조) — 이 문서의 다른 첫 조회가 쓰기 전에 나갔어도 상관없게 그 경로만 본다(networkidle 에 기대지 않는다).
+  expect(blockedRequests.map((requestUrl) => requestUrl.pathname)).not.toContain(MY_INQUIRIES_PATH);
+  await expect(memberTab.locator(`html[${RELOAD_MARKER}]`)).toHaveCount(1);
+});
+
+test('다른 탭이 사용자를 바꿨는데 이 탭이 아직 이벤트를 못 받았어도 로그인 요청은 막지 않는다', async ({ context }) => {
+  const memberTab = await openGuardedPage(context);
+  await loginAfterBoot(memberTab, MEMBER_STUDENT_ID ?? '', MEMBER_PASSWORD ?? '', '/me');
+  const memberId = num(field(await apiData(memberTab, 'users/me'), 'id'));
+
+  // 세션이 있어도 로그인 화면은 열린다(사용자 전환). 이 문서가 회원으로 확인을 마친 뒤 다른 탭이 쓴 것처럼 표지를 바꾼다.
+  await reopenConfirmed(memberTab, `/login?next=${encodeURIComponent('/me/settings')}`, memberId);
+  await writeSharedSessionUser(memberTab, FOREIGN_SESSION_USER);
+  // 시간 제한이 있는 대기(waitForRequest)를 미리 걸지 않는다 — 요청이 막히면 그 대기가 submitLogin 보다 먼저 끝나
+  // 테스트를 끊고, 학번·비밀번호가 채워진 화면이 실패 기록에 남는다. 막히면 submitLogin 이 빈 페이지로 옮긴 뒤 실패한다.
+  const loginRequests = recordApiRequests(memberTab);
+  await submitLogin(memberTab, LEADER_STUDENT_ID ?? '', LEADER_PASSWORD ?? '');
+
+  expect(loginRequests.map((requestUrl) => requestUrl.pathname)).toContain(LOGIN_PATH);
+  // 늦은 탭의 로그인이 이겼다 — 쿠키가 회장 세션이다.
+  expect(num(field(await apiData(memberTab, 'users/me'), 'id'))).not.toBe(memberId);
 });
