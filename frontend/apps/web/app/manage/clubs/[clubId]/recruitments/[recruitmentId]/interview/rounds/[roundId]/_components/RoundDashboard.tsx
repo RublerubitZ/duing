@@ -81,7 +81,7 @@ function ExcludeDialog({
 }
 
 // 포커스가 body 로 빠졌을 때만 그 요소(멤버 행·상태 배너)로 보낸다 — 공용 복귀가 돌려놓은 버튼이나 사용자가 옮긴 자리는 건드리지 않는다.
-// 멤버 행은 화면이 튀지 않게 그 자리에서 받고, 상태 배너는 [확정]을 누른 뒤 스크롤해 화면 밖이면 보이게 한다.
+// 멤버 행은 화면이 튀지 않게 그 자리에서 받고, 상태 배너는 [확정]을 누른 뒤 스크롤했거나 [라운드 취소](페이지 아래 동작 막대)를 눌러 화면 밖이면 보이게 한다.
 function focusElementIfFocusLost(elementId: string) {
   const activeElement = document.activeElement;
   if (activeElement !== null && activeElement !== document.body) return;
@@ -121,7 +121,7 @@ export function RoundDashboard({ clubId, recruitmentId, roundId }: Props) {
   }, [feedbackMessage]);
 
   // 멤버 동작 창이 닫힌 뒤 포커스가 body 면(돌아갈 버튼이 사라졌거나, 클릭이 버튼에 포커스를 주지 않는 Safari 처럼 기억한 자리가 없을 때) 그 멤버 행으로,
-  // 확정이 성공해 [확정]이 사라지면 상태 배너로 — 표지(포커스를 보낼 요소 id)는 멤버 창이 닫힐 때·확정이 성공할 때 세우고,
+  // 확정·라운드 취소가 성공해 누른 버튼([확정]·동작 막대)이 사라지면 상태 배너로 — 표지(포커스를 보낼 요소 id)는 멤버 창이 닫힐 때·확정이나 라운드 취소가 성공할 때 세우고,
   // 기다릴 다시 받기가 없거나 세운 뒤 첫 상세 갱신(실패 포함)이 오거나 이 화면이 여는 다른 창이 열리면 지운다.
   const queryClient = useQueryClient();
   const focusGuardTargetIdRef = useRef<string | null>(null);
@@ -310,6 +310,8 @@ export function RoundDashboard({ clubId, recruitmentId, roundId }: Props) {
     setConfirmActionError(null);
     cancelMutation.mutate(undefined, {
       onSuccess: () => {
+        // 취소된 상세를 다시 받으면 동작 막대가 사라져 포커스가 body 로 빠진다 — 확정과 같이 그 갱신 한 번에 상태 배너로 보낸다.
+        focusGuardTargetIdRef.current = ROUND_STATUS_BANNER_ID;
         setShowCancelDialog(false);
         setFeedbackMessage({ kind: 'success', text: '라운드가 취소되었습니다.' });
       },
@@ -359,8 +361,8 @@ export function RoundDashboard({ clubId, recruitmentId, roundId }: Props) {
             // 실어 보낸 단계(status)를 서버가 검증한다 — 확정 단계의 성공은 지원자에게 일정 변경 알림이 가는 재배정이다.
             text:
               status === 'SCHEDULED'
-                ? `${assignTarget.userName}의 면접 일정이 변경되었습니다. 지원자에게 일정 변경 알림이 발송됩니다.`
-                : `${assignTarget.userName}에게 슬롯이 배정되었습니다.`,
+                ? `${assignTarget.userName} 님의 면접 일정이 변경되었습니다. 지원자에게 일정 변경 알림이 발송됩니다.`
+                : `${assignTarget.userName} 님에게 슬롯이 배정되었습니다.`,
           });
         },
         onError: (assignError) => {
@@ -372,6 +374,12 @@ export function RoundDashboard({ clubId, recruitmentId, roundId }: Props) {
         },
       },
     );
+  };
+
+  const openAssignDialog = (member: InterviewRoundDetailMember) => {
+    setAssignTarget(member);
+    // 확정 단계는 바꾸면 지원자에게 알림이 간다 — 창을 닫은 사이 다른 탭이 옮긴 일정이 '지금 일정'으로 보이게 열 때 다시 받는다(창은 다시 받은 상세의 멤버를 쓴다).
+    if (status === 'SCHEDULED') void detailQuery.refetch();
   };
 
   const handleSlotsCreated = (reinvitedCount: number) => {
@@ -431,7 +439,7 @@ export function RoundDashboard({ clubId, recruitmentId, roundId }: Props) {
           <NoSlotSection
             detail={detail}
             onExclude={setExcludeTarget}
-            onManualAssign={setAssignTarget}
+            onManualAssign={openAssignDialog}
           />
         )}
 
@@ -439,7 +447,7 @@ export function RoundDashboard({ clubId, recruitmentId, roundId }: Props) {
         <RoundMemberTable
           detail={detail}
           onExclude={setExcludeTarget}
-          onManualAssign={setAssignTarget}
+          onManualAssign={openAssignDialog}
         />
 
         {/* 슬롯 섹션 */}

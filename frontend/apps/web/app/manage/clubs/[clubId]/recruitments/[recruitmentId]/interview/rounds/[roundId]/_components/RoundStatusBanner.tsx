@@ -13,7 +13,7 @@ import { ButtonSpinner } from '@/components/loading/Spinner';
 // 상태 배너 — 상태 뱃지 + 단일 next action (DRAFT→이어서 작성(인원 0 이면 정리하기) / COLLECTING·ASSIGNING→자동배정 /
 // ASSIGNING→확정) + 조기 배정 UX ① 전원 응답 배너 + ASSIGNING draft 안내·남은 자리 안내.
 
-/** 상태 배너의 id — 확정 성공으로 [확정]이 사라진 뒤 포커스를 받는 자리다(RoundDashboard 의 포커스 표지). */
+/** 상태 배너의 id — 확정·라운드 취소가 성공해 누른 버튼([확정]·동작 막대)이 사라진 뒤 포커스를 받는 자리다(RoundDashboard 의 포커스 표지). */
 export const ROUND_STATUS_BANNER_ID = 'round-status-banner';
 
 type RoundStatusBannerProps = {
@@ -128,7 +128,7 @@ export function RoundStatusBanner({
           <span className="shrink-0 rounded-full bg-warm/20 px-2 py-0.5 text-xs font-semibold text-warm-deep">
             draft
           </span>
-          <span className="min-w-0 break-keep">확정 전까지 지원자에게 통지되지 않습니다</span>
+          <span className="break-keep">확정 전까지 지원자에게 통지되지 않습니다</span>
         </div>
       )}
 

@@ -1745,7 +1745,7 @@ describe('라운드 현황 다듬기 — 창·레이아웃', () => {
 
     // 좁은 폭에서 '않습니 / 다' 처럼 음절 사이에서 끊기지 않게 — 글만 따로 접고 칩은 첫 줄에 붙인다.
     const draftNotice = screen.getByText('확정 전까지 지원자에게 통지되지 않습니다');
-    expect(draftNotice).toHaveClass('break-keep', 'min-w-0');
+    expect(draftNotice).toHaveClass('break-keep');
     expect(screen.getByText('draft')).toHaveClass('shrink-0');
     expect(draftNotice.parentElement).toHaveClass('items-start');
   });
@@ -1781,7 +1781,7 @@ const DETAIL_HOLDER_MOVED_TO_22_CONFIRMED = {
 /** 확정 단계에서 다른 운영진이 슬롯 11 을 지운 뒤 — 배정은 400 InvalidSlotSelection */
 const DETAIL_SCHEDULED_SLOT_B_DELETED = { ...DETAIL_SCHEDULED, slots: [SLOT_A] };
 const INVALID_SLOT_MESSAGE = '선택한 슬롯이 유효하지 않습니다.';
-const RESCHEDULED_FEEDBACK = '홍길동의 면접 일정이 변경되었습니다. 지원자에게 일정 변경 알림이 발송됩니다.';
+const RESCHEDULED_FEEDBACK = '홍길동 님의 면접 일정이 변경되었습니다. 지원자에게 일정 변경 알림이 발송됩니다.';
 const roundBanner = (name: string) => screen.getByRole('group', { name });
 
 describe('라운드 현황 다듬기 — 일정 변경 문맥', () => {
@@ -1810,7 +1810,7 @@ describe('라운드 현황 다듬기 — 일정 변경 문맥', () => {
 
       expect(within(dialog).getByRole('heading', { name: '홍길동 일정 변경' })).toBeInTheDocument();
       const [currentSlotRadio, otherSlotRadio] = within(dialog).getAllByRole('radio');
-      // 같은 슬롯으로 보내도 서버는 일정을 다시 만들고 지원자에게 일정 변경 알림을 보낸다 — 지금 일정 그대로면 보낼 것이 없다.
+      // 같은 슬롯은 서버가 바꾸지 않는다(204, #1702) — 지금 일정 그대로면 보낼 것이 없어 끈다.
       expect(currentSlotRadio).toBeChecked();
       expect(currentSlotRadio!.closest('label')).toHaveTextContent('· 지금 일정');
       expect(otherSlotRadio!.closest('label')).not.toHaveTextContent('지금 일정');
@@ -1833,7 +1833,7 @@ describe('라운드 현황 다듬기 — 일정 변경 문맥', () => {
     expect(assignRequestBodies).toEqual([{ slotId: SLOT_B.slotId, expectedRoundStatus: 'SCHEDULED' }]);
   });
 
-  it('배정 검토 단계의 창은 제목이 수동 배정이고 지금 일정 표지가 없으며, 성공 문구도 그대로다', async () => {
+  it('배정 검토 단계의 창은 제목이 수동 배정이고 지금 일정 표지가 없으며, 성공 문구는 슬롯 배정 안내다', async () => {
     server.use(
       http.get(`*/interview-rounds/${ROUND_ID}`, () =>
         HttpResponse.json({ ok: true, data: DETAIL_ASSIGNING_HOLDER_PENDING, message: null }),
@@ -1854,7 +1854,7 @@ describe('라운드 현황 다듬기 — 일정 변경 문맥', () => {
     expect(within(dialog).getByRole('button', { name: '배정' })).toBeEnabled();
     await userEvent.click(within(dialog).getByRole('button', { name: '배정' }));
 
-    expect(await screen.findByText('오세훈에게 슬롯이 배정되었습니다.')).toBeInTheDocument();
+    expect(await screen.findByText('오세훈 님에게 슬롯이 배정되었습니다.')).toBeInTheDocument();
   });
 
   it('409 뒤 다시 받은 확정 상세에서 그 멤버가 다른 슬롯으로 옮겨졌으면, 창은 다시 받은 지금 일정을 기준으로 [배정]을 끈다', async () => {
@@ -1896,7 +1896,8 @@ describe('라운드 현황 다듬기 — 일정 변경 문맥', () => {
     server.use(
       http.get(`*/interview-rounds/${ROUND_ID}`, () => {
         detailGetCount += 1;
-        const data = detailGetCount === 1 ? DETAIL_SCHEDULED : DETAIL_SCHEDULED_SLOT_B_DELETED;
+        // 1 = 처음, 2 = [일정 변경]을 열 때 다시 받기 — 슬롯은 배정 요청이 거절된 뒤(3)에야 지워진 것으로 받는다.
+        const data = detailGetCount <= 2 ? DETAIL_SCHEDULED : DETAIL_SCHEDULED_SLOT_B_DELETED;
         return HttpResponse.json({ ok: true, data, message: null });
       }),
       http.put(`*/interview-rounds/${ROUND_ID}/members/1/schedule`, () =>
@@ -1904,10 +1905,12 @@ describe('라운드 현황 다듬기 — 일정 변경 문맥', () => {
       ),
     );
 
-    renderDashboard();
+    const { queryClient } = renderDashboard();
     await screen.findByText('확정');
     await userEvent.click(within(memberRow('홍길동')!).getByRole('button', { name: '일정 변경' }));
     const dialog = await screen.findByRole('dialog');
+    await waitFor(() => expect(detailGetCount).toBe(2));
+    await waitFor(() => expect(queryClient.isFetching({ queryKey: interviewRoundKeys.detail(ROUND_ID) })).toBe(0));
     await userEvent.click(within(dialog).getAllByRole('radio')[1]!);
     await userEvent.click(within(dialog).getByRole('button', { name: '배정' }));
 
@@ -1915,7 +1918,7 @@ describe('라운드 현황 다듬기 — 일정 변경 문맥', () => {
     await waitFor(() => expect(within(dialog).getAllByRole('radio')).toHaveLength(1));
     expect(within(dialog).queryByRole('radio', { checked: true })).not.toBeInTheDocument();
     expect(within(dialog).getByRole('button', { name: '배정' })).toBeDisabled();
-    expect(detailGetCount).toBe(2);
+    expect(detailGetCount).toBe(3);
   });
 
   it('멤버를 제외하면 조사 없이 "OOO 님이 제외되었습니다." 로 알린다', async () => {
@@ -2227,31 +2230,34 @@ describe('라운드 현황 다듬기 — 포커스 스크롤 분기', () => {
 });
 
 describe('라운드 현황 다듬기 — 일정 변경 창이 열린 동안 다른 탭이 그 멤버 일정을 옮김', () => {
-  /** 처음엔 오세훈이 21 에 확정 배정, 다시 받으면 다른 탭이 22 로 옮긴 상세 */
+  /** 처음엔 오세훈이 21 에 확정 배정(창을 열 때 다시 받아도 21), 그 다음 다시 받으면 다른 탭이 22 로 옮긴 상세 */
   function serveHolderMovedTo22OnRefetch() {
     let detailGetCount = 0;
     server.use(
       http.get(`*/interview-rounds/${ROUND_ID}`, () => {
         detailGetCount += 1;
-        const data = detailGetCount === 1 ? DETAIL_HOLDER_PENDING_CONFIRMED : DETAIL_HOLDER_MOVED_TO_22_CONFIRMED;
+        const data = detailGetCount <= 2 ? DETAIL_HOLDER_PENDING_CONFIRMED : DETAIL_HOLDER_MOVED_TO_22_CONFIRMED;
         return HttpResponse.json({ ok: true, data, message: null });
       }),
     );
     return () => detailGetCount;
   }
 
-  async function openHolderReschedule() {
+  async function openHolderReschedule(detailGetCount: () => number) {
     const { queryClient } = renderDashboard();
     await screen.findByText('확정');
     await userEvent.click(within(memberRow('오세훈')!).getByRole('button', { name: '일정 변경' }));
     const dialog = await screen.findByRole('dialog');
+    // 열 때 다시 받기(GET 2)가 끝난 뒤 조작한다.
+    await waitFor(() => expect(detailGetCount()).toBe(2));
+    await waitFor(() => expect(queryClient.isFetching({ queryKey: interviewRoundKeys.detail(ROUND_ID) })).toBe(0));
     const [slot20Radio, slot21Radio, slot22Radio] = within(dialog).getAllByRole('radio');
     return { queryClient, dialog, slot20Radio: slot20Radio!, slot21Radio: slot21Radio!, slot22Radio: slot22Radio! };
   }
 
   it('아무것도 고르지 않았으면 선택이 다시 받은 지금 일정(22)을 따라 [배정]이 꺼진 채다 — 낡은 21 로 되돌리지 않는다', async () => {
     const detailGetCount = serveHolderMovedTo22OnRefetch();
-    const { queryClient, dialog, slot21Radio, slot22Radio } = await openHolderReschedule();
+    const { queryClient, dialog, slot21Radio, slot22Radio } = await openHolderReschedule(detailGetCount);
     expect(slot21Radio).toBeChecked();
 
     await queryClient.invalidateQueries({ queryKey: interviewRoundKeys.detail(ROUND_ID) });
@@ -2262,12 +2268,12 @@ describe('라운드 현황 다듬기 — 일정 변경 창이 열린 동안 다�
     expect(slot22Radio).toBeChecked();
     expect(slot21Radio).not.toBeChecked();
     expect(within(dialog).getByRole('button', { name: '배정' })).toBeDisabled();
-    expect(detailGetCount()).toBe(2);
+    expect(detailGetCount()).toBe(3);
   });
 
   it('다른 슬롯(20)을 골랐다가 지금 일정(21)을 다시 고르면 손대지 않은 것으로 돌아가, 다시 받은 지금 일정(22)을 따른다', async () => {
-    serveHolderMovedTo22OnRefetch();
-    const { queryClient, dialog, slot20Radio, slot21Radio, slot22Radio } = await openHolderReschedule();
+    const detailGetCount = serveHolderMovedTo22OnRefetch();
+    const { queryClient, dialog, slot20Radio, slot21Radio, slot22Radio } = await openHolderReschedule(detailGetCount);
     await userEvent.click(slot20Radio);
     await userEvent.click(slot21Radio);
     expect(within(dialog).getByRole('button', { name: '배정' })).toBeDisabled();
@@ -2282,8 +2288,8 @@ describe('라운드 현황 다듬기 — 일정 변경 창이 열린 동안 다�
   });
 
   it('먼저 다른 슬롯(20)을 골랐으면 다시 받아도 그 선택이 남는다', async () => {
-    serveHolderMovedTo22OnRefetch();
-    const { queryClient, dialog, slot20Radio, slot22Radio } = await openHolderReschedule();
+    const detailGetCount = serveHolderMovedTo22OnRefetch();
+    const { queryClient, dialog, slot20Radio, slot22Radio } = await openHolderReschedule(detailGetCount);
     await userEvent.click(slot20Radio);
 
     await queryClient.invalidateQueries({ queryKey: interviewRoundKeys.detail(ROUND_ID) });
@@ -2292,5 +2298,244 @@ describe('라운드 현황 다듬기 — 일정 변경 창이 열린 동안 다�
     expect(slot20Radio).toBeChecked();
     expect(slot22Radio).not.toBeChecked();
     expect(within(dialog).getByRole('button', { name: '배정' })).toBeEnabled();
+  });
+});
+
+describe('라운드 현황 후속 — 결과를 정한 멤버의 배정 동작', () => {
+  const decidedMember = (memberId: number, userName: string, status: string, applicationResult?: string | null) => ({
+    memberId, applicationId: memberId, userName, studentId: `2025${memberId}`, status, unresponded: false,
+    alternativeAvailabilityText: null, selectedSlotCount: 1, assignedSlotId: status === 'ASSIGNED' ? SLOT_A.slotId : null,
+    ...(applicationResult === undefined ? {} : { applicationResult }),
+  });
+  /** 표·가능없음 섹션의 행은 모두 이름 + 학번으로 읽히는 group 이다(표의 memberRow 는 가능없음 행을 찾지 못한다) */
+  const findMemberGroup = (name: string) => screen.findByRole('group', { name: new RegExp(`^${name} `) });
+
+  const DETAIL_SCHEDULED_WITH_DECIDED_ASSIGNED = {
+    ...DETAIL_SCHEDULED,
+    members: [
+      decidedMember(301, '가합격', 'ASSIGNED', 'ACCEPTED'),
+      decidedMember(302, '나불합', 'ASSIGNED', 'REJECTED'),
+      decidedMember(303, '다미정', 'ASSIGNED', null),
+      decidedMember(304, '라옛날', 'ASSIGNED'),
+      decidedMember(305, '마이상', 'ASSIGNED', 'INTERVIEW_PENDING'),
+    ],
+  };
+  /** #1659 이전에 결과를 정해 남은 멤버·총동연 일괄 불합격 — 제외되지 않은 채 결과가 실린다 */
+  const DETAIL_ASSIGNING_WITH_DECIDED_REMAINING = {
+    ...DETAIL_ASSIGNING,
+    counts: { ...DETAIL_ASSIGNING.counts, noAvailableSlotCount: 2 },
+    members: [
+      decidedMember(311, '바일괄', 'RESPONDED', 'REJECTED'),
+      decidedMember(312, '사이전', 'ASSIGNED', 'ACCEPTED'),
+      decidedMember(313, '아미정', 'RESPONDED', null),
+      decidedMember(314, '자가능', 'NO_AVAILABLE_SLOT', 'REJECTED'),
+      decidedMember(315, '차가능', 'NO_AVAILABLE_SLOT', null),
+    ],
+  };
+
+  it.each(['가합격', '나불합'])('확정 라운드에서 결과가 정해진 배정 멤버(%s)는 [일정 변경] 대신 이유를 보인다 — 배지는 배정됨 그대로', async (name) => {
+    server.use(
+      http.get(`*/interview-rounds/${ROUND_ID}`, () =>
+        HttpResponse.json({ ok: true, data: DETAIL_SCHEDULED_WITH_DECIDED_ASSIGNED, message: null }),
+      ),
+    );
+
+    renderDashboard();
+    const row = await findMemberGroup(name);
+
+    expect(within(row).queryByRole('button', { name: '일정 변경' })).not.toBeInTheDocument();
+    expect(within(row).getByText('결과 확정 — 일정 변경 불가')).toBeInTheDocument();
+    expect(within(row).getByText('배정됨')).toBeInTheDocument();
+  });
+
+  it.each([
+    { name: '다미정', why: '결과 없음(null)' },
+    { name: '라옛날', why: '옛 백엔드(필드 없음)' },
+    { name: '마이상', why: '모르는 결과 값 — 알려진 값만 막는다' },
+  ])('확정 라운드 배정 멤버가 $why 이면 [일정 변경]이 그대로다 — 배지도 배정됨', async ({ name }) => {
+    server.use(
+      http.get(`*/interview-rounds/${ROUND_ID}`, () =>
+        HttpResponse.json({ ok: true, data: DETAIL_SCHEDULED_WITH_DECIDED_ASSIGNED, message: null }),
+      ),
+    );
+
+    renderDashboard();
+    const row = await findMemberGroup(name);
+
+    expect(within(row).getByRole('button', { name: '일정 변경' })).toBeInTheDocument();
+    expect(within(row).queryByText(/결과 확정/)).not.toBeInTheDocument();
+    expect(within(row).getByText('배정됨')).toBeInTheDocument();
+  });
+
+  it.each([
+    { name: '바일괄', why: '표 — 응답 완료 + 불합격(총동연 일괄 불합격)' },
+    { name: '사이전', why: '표 — 배정됨 + 합격(#1659 이전)' },
+    { name: '자가능', why: '가능없음 섹션 — 가능없음 + 불합격' },
+  ])('배정 검토 단계에서 결과가 정해졌는데 남은 멤버($why)는 [수동 배정] 대신 이유를 보이고 [제외]는 둔다', async ({ name }) => {
+    server.use(
+      http.get(`*/interview-rounds/${ROUND_ID}`, () =>
+        HttpResponse.json({ ok: true, data: DETAIL_ASSIGNING_WITH_DECIDED_REMAINING, message: null }),
+      ),
+    );
+
+    renderDashboard();
+    const row = await findMemberGroup(name);
+
+    expect(within(row).queryByRole('button', { name: '수동 배정' })).not.toBeInTheDocument();
+    expect(within(row).getByText('결과 확정 — 수동 배정 불가')).toBeInTheDocument();
+    expect(within(row).getByRole('button', { name: '제외' })).toBeInTheDocument();
+  });
+
+  it.each(['아미정', '차가능'])('배정 검토 단계에서 결과가 없는 멤버(%s)는 [수동 배정]이 그대로다', async (name) => {
+    server.use(
+      http.get(`*/interview-rounds/${ROUND_ID}`, () =>
+        HttpResponse.json({ ok: true, data: DETAIL_ASSIGNING_WITH_DECIDED_REMAINING, message: null }),
+      ),
+    );
+
+    renderDashboard();
+    const row = await findMemberGroup(name);
+
+    expect(within(row).getByRole('button', { name: '수동 배정' })).toBeInTheDocument();
+    expect(within(row).queryByText(/결과 확정/)).not.toBeInTheDocument();
+  });
+});
+
+describe('라운드 현황 후속 — 일정 변경 창을 열 때 다시 받기·라운드 취소 뒤 포커스', () => {
+  const waitForFocusGuardTick = () => new Promise((resolve) => setTimeout(resolve, 0));
+  const DETAIL_CANCELLED = { ...DETAIL_COLLECTING_BEFORE_DEADLINE, status: 'CANCELLED' };
+
+  it('확정 단계 [일정 변경]을 열면 상세를 다시 받아, 창을 닫은 사이 다른 탭이 옮긴 일정을 지금 일정으로 보인다', async () => {
+    let detailGetCount = 0;
+    server.use(
+      http.get(`*/interview-rounds/${ROUND_ID}`, () => {
+        detailGetCount += 1;
+        const data = detailGetCount === 1 ? DETAIL_HOLDER_PENDING_CONFIRMED : DETAIL_HOLDER_MOVED_TO_22_CONFIRMED;
+        return HttpResponse.json({ ok: true, data, message: null });
+      }),
+    );
+
+    renderDashboard();
+    await screen.findByText('확정');
+    await userEvent.click(within(memberRow('오세훈')!).getByRole('button', { name: '일정 변경' }));
+    const dialog = await screen.findByRole('dialog');
+    const [, slot21Radio, slot22Radio] = within(dialog).getAllByRole('radio');
+
+    await waitFor(() => expect(slot22Radio!.closest('label')).toHaveTextContent('· 지금 일정'));
+    expect(slot21Radio!.closest('label')).not.toHaveTextContent('지금 일정');
+    expect(slot22Radio).toBeChecked();
+    expect(within(dialog).getByRole('button', { name: '배정' })).toBeDisabled();
+    expect(detailGetCount).toBe(2);
+  });
+
+  it('배정 검토 단계 [수동 배정]은 열 때 다시 받지 않는다', async () => {
+    let detailGetCount = 0;
+    server.use(
+      http.get(`*/interview-rounds/${ROUND_ID}`, () => {
+        detailGetCount += 1;
+        return HttpResponse.json({ ok: true, data: DETAIL_ASSIGNING_HOLDER_PENDING, message: null });
+      }),
+    );
+
+    const { queryClient } = renderDashboard();
+    await screen.findByText('배정 검토 중');
+    // 다시 받기는 클릭 핸들러 안에서 동기로 '받는 중'이 된다 — 시간으로 기다리지 않고 바로 본다.
+    fireEvent.click(within(memberRow('오세훈')!).getByRole('button', { name: '수동 배정' }));
+    expect(queryClient.isFetching({ queryKey: interviewRoundKeys.detail(ROUND_ID) })).toBe(0);
+    await screen.findByRole('dialog');
+    expect(detailGetCount).toBe(1);
+  });
+
+  it('확정 단계 [일정 변경]을 열고 다시 받기가 오기 전에 [취소]로 닫으면 표지가 남아, 그 뒤 포커스가 빠진 채 다시 받기가 오면 그 멤버 행으로 간다(받아들인 동작)', async () => {
+    let releaseRefetch: () => void = () => {};
+    const refetchGate = new Promise<void>((resolve) => {
+      releaseRefetch = resolve;
+    });
+    let detailGetCount = 0;
+    server.use(
+      http.get(`*/interview-rounds/${ROUND_ID}`, async () => {
+        detailGetCount += 1;
+        if (detailGetCount >= 2) await refetchGate;
+        return HttpResponse.json({ ok: true, data: DETAIL_SCHEDULED, message: null });
+      }),
+    );
+
+    try {
+      renderDashboard();
+      await screen.findByText('확정');
+      const rescheduleButton = within(memberRow('홍길동')!).getByRole('button', { name: '일정 변경' });
+      await userEvent.click(rescheduleButton);
+      const dialog = await screen.findByRole('dialog');
+      await waitFor(() => expect(detailGetCount).toBe(2));
+
+      // 열 때 다시 받기를 붙잡은 채 닫는다 — 닫힘 정리는 '받는 중'이라 멤버 행 표지를 남긴다.
+      await userEvent.click(within(dialog).getByRole('button', { name: '취소' }));
+      await waitFor(() => expect(rescheduleButton).toHaveFocus());
+      await waitForFocusGuardTick();
+      rescheduleButton.blur();
+
+      releaseRefetch();
+      await waitFor(() => expect(screen.getByRole('group', { name: /^홍길동 / })).toHaveFocus());
+    } finally {
+      releaseRefetch();
+    }
+  });
+
+  // userEvent 는 [라운드 취소]에 포커스를 주고(닫히면 공용 복귀가 그리로 돌려놓는다), fireEvent 는 주지 않는다(Safari 경로) — 둘 다 막대가 사라진 뒤 배너로 간다.
+  it.each([
+    { clickPath: 'userEvent(버튼에 포커스)', clickButton: (button: HTMLElement) => userEvent.click(button) },
+    { clickPath: 'fireEvent(포커스 없음 — Safari)', clickButton: async (button: HTMLElement) => { fireEvent.click(button); } },
+  ])('[라운드 취소]가 성공해 동작 막대가 사라지면 포커스가 상태 배너(취소 1차 면접)로 간다 — $clickPath', async ({ clickButton }) => {
+    let detailGetCount = 0;
+    server.use(
+      http.get(`*/interview-rounds/${ROUND_ID}`, () => {
+        detailGetCount += 1;
+        const data = detailGetCount === 1 ? DETAIL_COLLECTING_BEFORE_DEADLINE : DETAIL_CANCELLED;
+        return HttpResponse.json({ ok: true, data, message: null });
+      }),
+      http.post(`*/interview-rounds/${ROUND_ID}/cancel`, () =>
+        HttpResponse.json({ ok: true, data: null, message: null }),
+      ),
+    );
+
+    renderDashboard();
+    await screen.findByText('응답 수집 중');
+    await clickButton(screen.getByRole('button', { name: '라운드 취소' }));
+    const dialog = await screen.findByRole('dialog');
+    await clickButton(within(dialog).getByRole('button', { name: '라운드 취소하기' }));
+
+    await waitFor(() => expect(screen.getByRole('group', { name: '취소 1차 면접' })).toHaveFocus());
+    expect(screen.queryByRole('button', { name: '라운드 취소' })).not.toBeInTheDocument();
+  });
+
+  it('[라운드 취소]가 실패하면(500) 표지를 세우지 않는다 — 그 뒤 포커스가 빠진 채 오는 다시 받기가 배너로 끌어오지 않는다', async () => {
+    let detailGetCount = 0;
+    server.use(
+      http.get(`*/interview-rounds/${ROUND_ID}`, () => {
+        detailGetCount += 1;
+        const data = detailGetCount === 1 ? DETAIL_COLLECTING_BEFORE_DEADLINE : DETAIL_CANCELLED;
+        return HttpResponse.json({ ok: true, data, message: null });
+      }),
+      http.post(`*/interview-rounds/${ROUND_ID}/cancel`, () =>
+        HttpResponse.json({ ok: false, data: null, message: SERVER_ERROR_MESSAGE }, { status: 500 }),
+      ),
+    );
+
+    const { queryClient } = renderDashboard();
+    await screen.findByText('응답 수집 중');
+    const cancelRoundButton = screen.getByRole('button', { name: '라운드 취소' });
+    await userEvent.click(cancelRoundButton);
+    const dialog = await screen.findByRole('dialog');
+    await userEvent.click(within(dialog).getByRole('button', { name: '라운드 취소하기' }));
+    expect(await within(dialog).findByRole('alert')).toHaveTextContent(SERVER_ERROR_MESSAGE);
+    await userEvent.click(within(dialog).getByRole('button', { name: '취소' }));
+    await waitFor(() => expect(cancelRoundButton).toHaveFocus());
+
+    // 표지를 세우지 않는 갱신(다른 탭이 취소)이 와도 배너로 끌려가지 않는다.
+    cancelRoundButton.blur();
+    await queryClient.invalidateQueries({ queryKey: interviewRoundKeys.detail(ROUND_ID) });
+    await waitFor(() => expect(screen.queryByRole('button', { name: '라운드 취소' })).not.toBeInTheDocument());
+    await waitForFocusGuardTick();
+    expect(document.body).toHaveFocus();
   });
 });

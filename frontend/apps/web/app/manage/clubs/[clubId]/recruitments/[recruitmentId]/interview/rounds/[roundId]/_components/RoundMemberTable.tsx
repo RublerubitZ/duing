@@ -3,10 +3,15 @@
 import type { InterviewRoundDetail, InterviewRoundDetailMember } from '@duing/types';
 import { cn } from '@/app/_lib/cn';
 import { formatSlotRange } from '@/components/interview/_utils/localDateTime';
-import { roundMemberBadge } from './memberStatusLabels';
+import { isDecidedApplicationResult, roundMemberBadge } from './memberStatusLabels';
 
 // 면접 대상 멤버 테이블 — 상태 뱃지·파생 미응답 강조·배정 슬롯 표기 + 행 액션
 // ([수동 배정] ASSIGNING 한정 / [제외] 비터미널(DRAFT·COLLECTING·ASSIGNING) 한정).
+// 결과(합격·불합격)가 정해진 지원은 서버가 배정·일정 변경을 거절한다(#1702, 409) — [수동 배정]·[일정 변경] 대신 그 자리에 이유를 적는다.
+// [제외]는 결과를 정해 남은 진행 중 멤버를 운영진이 치울 길이라 둔다.
+
+/** 결과를 정한 멤버의 배정 동작 자리 — 숨긴 버튼과 같은 기하라 행 높이·글 시작선이 같다 */
+const RESULT_DECIDED_NOTE_CLASS = 'px-3 py-2 text-[13px] text-charcoal-3 sm:px-2 sm:py-1 sm:text-xs';
 
 /** 멤버 행의 id — 표와 가능없음 섹션이 함께 쓴다(한 멤버는 둘 중 한 곳에만 있다). 창이 닫힌 뒤 포커스를 보낼 자리다. */
 export function roundMemberRowId(memberId: number) {
@@ -38,6 +43,7 @@ export function RoundMemberTable({ detail, onExclude, onManualAssign }: RoundMem
           const assignedSlot =
             member.assignedSlotId !== null ? slotById.get(member.assignedSlotId) : undefined;
           const memberBadge = roundMemberBadge(member);
+          const isResultDecided = isDecidedApplicationResult(member.applicationResult);
 
           return (
             // 탭 순서 밖(클릭·스크립트로만 포커스를 받는다), 이름에 학번을 붙여 동명이인을 가른다 — 표 컨테이너가 overflow-hidden 이라 포커스 표시는 안쪽 outline.
@@ -82,8 +88,10 @@ export function RoundMemberTable({ detail, onExclude, onManualAssign }: RoundMem
                 </div>
               </div>
               <div className="flex flex-wrap items-center gap-1.5 sm:shrink-0">
-                {/* 수동 배정 — ASSIGNING 한정 */}
-                {status === 'ASSIGNING' && member.status !== 'EXCLUDED' && (
+                {/* 수동 배정 — ASSIGNING 한정, 결과가 정해졌으면 이유 */}
+                {status === 'ASSIGNING' && member.status !== 'EXCLUDED' && (isResultDecided ? (
+                  <span className={RESULT_DECIDED_NOTE_CLASS}>결과 확정 — 수동 배정 불가</span>
+                ) : (
                   <button
                     type="button"
                     onClick={() => onManualAssign(member)}
@@ -91,9 +99,11 @@ export function RoundMemberTable({ detail, onExclude, onManualAssign }: RoundMem
                   >
                     수동 배정
                   </button>
-                )}
-                {/* 일정 변경 — SCHEDULED + ASSIGNED 멤버 한정 (BE#13 재조정) */}
-                {status === 'SCHEDULED' && member.status === 'ASSIGNED' && (
+                ))}
+                {/* 일정 변경 — SCHEDULED + ASSIGNED 멤버 한정 (BE#13 재조정), 결과가 정해졌으면 이유 */}
+                {status === 'SCHEDULED' && member.status === 'ASSIGNED' && (isResultDecided ? (
+                  <span className={RESULT_DECIDED_NOTE_CLASS}>결과 확정 — 일정 변경 불가</span>
+                ) : (
                   <button
                     type="button"
                     onClick={() => onManualAssign(member)}
@@ -101,7 +111,7 @@ export function RoundMemberTable({ detail, onExclude, onManualAssign }: RoundMem
                   >
                     일정 변경
                   </button>
-                )}
+                ))}
                 {/* 제외 — 비터미널 상태 + EXCLUDED 아닌 멤버 */}
                 {canExclude && member.status !== 'EXCLUDED' && (
                   <button

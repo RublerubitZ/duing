@@ -20,7 +20,7 @@ import { ButtonSpinner } from '@/components/loading/Spinner';
 
 // 수동 배정 모달 — ASSIGNING 한정 + SCHEDULED 일정 변경(재배정) 겸용.
 // roundStatus 가 SCHEDULED 면 제목·진행 문구를 일정 변경으로 바꾸고, "변경 시 지원자에게 일정 변경 알림이 발송됩니다" 안내와
-// 지금 일정 표지를 보이며, 지금 일정 그대로면 [배정]을 끈다(같은 슬롯이어도 서버가 지원자에게 일정 변경 알림을 보낸다).
+// 지금 일정 표지를 보이며, 지금 일정 그대로면 [배정]을 끈다(같은 슬롯은 서버가 바꾸지 않는다(204, #1702) — 보낼 것이 없다).
 
 type MemberAssignModalProps = {
   /** 지금 상세의 그 멤버 — 지금 일정(assignedSlotId) 판정과, 아직 고르지 않은 동안의 선택에 쓴다 */
