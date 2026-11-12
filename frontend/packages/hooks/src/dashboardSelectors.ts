@@ -104,12 +104,18 @@ export function buildActionItems(inputs: RecruitmentDashboardInput[], now: Date)
       }
     }
 
-    // 결과 미확정: SCHEDULED 라운드에 배정됐지만 합/불 미결정인 인원(배정됨 ∩ 미결정).
-    // interviewPending에는 대기열 인원도 포함되므로 candidateCount를 빼서 배정 인원만 센다.
+    // 결과 미확정: 확정(SCHEDULED) 라운드에 배정됐지만 합/불이 아직 없는 인원.
+    // 면접 대상(interviewPending) = 대기열(candidateCount) + 진행 중(초안·응답 수집·배정 검토) 라운드 멤버 + 확정 라운드에서 결과를 기다리는 멤버다 —
+    // 한 지원은 취소되지 않은 라운드에 제외되지 않은 멤버로 하나만 들고(라운드 생성 가드), 진행 중 라운드의 제외 안 된 멤버는 모두 면접 대상이다(결과를 정하면 서버가 뺀다, #1659).
+    // 그래서 앞의 둘을 빼면 확정 라운드 몫만 남는다. 확정 라운드 인원은 결과를 정한 배정 멤버도 세어 쓸 수 없고, 취소 라운드 멤버는 대기열로 돌아가 빼지 않는다.
     // (대기열 인원은 INTERVIEW_ROUND_NEEDED 소관. candidateCount 미로딩이면 단정 불가라 생성하지 않는다.)
+    // shortcut: #1659 전에 결과를 정한 진행 중 라운드 멤버(백필 안 함)는 인원에 남아 그만큼 적게 센다, 그런 행이 문제가 되면 BE 라운드 요약에 결과 대기 인원을 싣는다.
     const scheduledRounds = (rounds ?? []).filter((round) => round.status === 'SCHEDULED');
     if (scheduledRounds.length > 0 && stats !== undefined && candidateCount !== undefined) {
-      const assignedPendingCount = stats.interviewPending - candidateCount;
+      const inProgressMemberCount = (rounds ?? [])
+        .filter((round) => round.status !== 'SCHEDULED' && round.status !== 'CANCELLED')
+        .reduce((sum, round) => sum + round.totalMemberCount, 0);
+      const assignedPendingCount = stats.interviewPending - candidateCount - inProgressMemberCount;
       if (assignedPendingCount > 0) {
         // 단일 SCHEDULED 라운드면 그 라운드로 귀속, 복수면 모집 단위로만 노출
         const attributedRound = scheduledRounds.length === 1 ? scheduledRounds[0] : undefined;

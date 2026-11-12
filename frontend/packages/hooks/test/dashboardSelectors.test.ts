@@ -174,6 +174,96 @@ describe('buildActionItems', () => {
     expect(pending?.roundTitle).toBeUndefined();
   });
 
+  it.each<InterviewRoundSummary['status']>(['DRAFT', 'COLLECTING', 'ASSIGNING'])(
+    '진행 중(%s) 라운드 멤버는 결과 미확정에서 뺀다 — 확정 라운드에서 결과를 기다리는 사람만 센다',
+    (inProgressStatus) => {
+      const items = buildActionItems(
+        [
+          dashboardInput({
+            stats: stats({ interviewPending: 7 }), // 1차 결과 대기 1 + 2차 멤버 4 + 대기열 2
+            candidateCount: 2,
+            rounds: [
+              round({ roundId: 8, title: '2차 면접', status: inProgressStatus, totalMemberCount: 4, respondedMemberCount: 4 }),
+              round({ roundId: 7, title: '1차 면접', status: 'SCHEDULED' }),
+            ],
+          }),
+        ],
+        NOW,
+      );
+      expect(items.find((item) => item.type === 'INTERVIEW_RESULT_PENDING')).toMatchObject({
+        count: 1,
+        roundId: 7,
+        roundTitle: '1차 면접',
+      });
+    },
+  );
+
+  it.each([
+    ['진행 중 라운드 몫만 남음(0)', 7],
+    ['계산이 음수(옛 데이터·순간 어긋남)', 4],
+  ])('확정 라운드에 결과를 기다리는 사람이 없으면 결과 미확정을 만들지 않는다 — %s', (_name, interviewPending) => {
+    const items = buildActionItems(
+      [
+        dashboardInput({
+          stats: stats({ interviewPending }), // 2차 멤버 5 + 대기열 2 = 7 이 정상값
+          candidateCount: 2,
+          rounds: [
+            round({ roundId: 8, title: '2차 면접', status: 'COLLECTING', totalMemberCount: 5, respondedMemberCount: 5 }),
+            round({ roundId: 7, title: '1차 면접', status: 'SCHEDULED' }),
+          ],
+        }),
+      ],
+      NOW,
+    );
+    expect(items.some((item) => item.type === 'INTERVIEW_RESULT_PENDING')).toBe(false);
+  });
+
+  it('취소 라운드 인원은 빼지 않는다 — 그 멤버는 대기열로 돌아가 이미 빠졌다', () => {
+    const items = buildActionItems(
+      [
+        dashboardInput({
+          stats: stats({ interviewPending: 3 }), // 1차 결과 대기 1 + 대기열 2(취소된 2차에서 돌아온 사람 포함)
+          candidateCount: 2,
+          rounds: [
+            round({ roundId: 8, title: '2차 면접', status: 'CANCELLED', totalMemberCount: 4, respondedMemberCount: 4 }),
+            round({ roundId: 7, title: '1차 면접', status: 'SCHEDULED' }),
+          ],
+        }),
+      ],
+      NOW,
+    );
+    expect(items.find((item) => item.type === 'INTERVIEW_RESULT_PENDING')).toMatchObject({ count: 1, roundId: 7 });
+  });
+
+  it('확정 라운드가 둘이고 진행 중 라운드가 있으면 진행 중 인원을 뺀 합계를 라운드 이름 없이 낸다', () => {
+    const items = buildActionItems(
+      [
+        dashboardInput({
+          stats: stats({ interviewPending: 9 }), // 1차·2차 결과 대기 각 1 + 3차 멤버 5 + 대기열 2
+          candidateCount: 2,
+          rounds: [
+            round({ roundId: 9, title: '3차 면접', status: 'COLLECTING', totalMemberCount: 5, respondedMemberCount: 2 }),
+            round({ roundId: 8, title: '2차 면접', status: 'SCHEDULED' }),
+            round({ roundId: 7, title: '1차 면접', status: 'SCHEDULED' }),
+          ],
+        }),
+      ],
+      NOW,
+    );
+    const pending = items.find((item) => item.type === 'INTERVIEW_RESULT_PENDING');
+    expect(pending?.count).toBe(2);
+    expect(pending?.roundId).toBeUndefined();
+    expect(pending?.roundTitle).toBeUndefined();
+  });
+
+  it('확정 라운드가 없으면 계산이 양수여도 결과 미확정을 만들지 않는다 — 진행 중 라운드 인원이 먼저 줄어든 순간 어긋남', () => {
+    const items = buildActionItems([dashboardInput({
+      stats: stats({ interviewPending: 6 }), candidateCount: 2,
+      rounds: [round({ roundId: 8, title: '2차 면접', status: 'COLLECTING', totalMemberCount: 3, respondedMemberCount: 3 })],
+    })], NOW);
+    expect(items.some((item) => item.type === 'INTERVIEW_RESULT_PENDING')).toBe(false);
+  });
+
   it('대기열 미로딩(candidateCount undefined)이면 결과 미확정을 만들지 않는다', () => {
     const items = buildActionItems(
       [dashboardInput({ stats: stats({ interviewPending: 4 }), candidateCount: undefined, rounds: [round({ status: 'SCHEDULED' })] })],
