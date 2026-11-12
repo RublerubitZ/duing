@@ -1106,7 +1106,8 @@ describe('배정 검토 — 빈 자리 안내', () => {
             ...DETAIL_ASSIGNING_FREED_SEAT,
             members: [
               MEMBER_DECIDED,
-              { ...MEMBER_WANTS_20, applicationResult },
+              // 멤버 id 와 지원 id 를 갈라 둔다 — 409 명단은 지원 id(102)로만 온다
+              { ...MEMBER_WANTS_20, memberId: 9102, applicationResult },
               { ...MEMBER_WANTS_21, applicationResult: null },
               MEMBER_HOLDS_21,
             ],
@@ -1143,6 +1144,8 @@ describe('배정 검토 — 빈 자리 안내', () => {
     );
     expect(within(dialog).getByText('최유리').closest('li')).toHaveTextContent('선택 슬롯 3개');
     expect(within(dialog).getByText('최유리').closest('li')).not.toHaveTextContent('고른 시간에 빈 자리 있음');
+    // 명단에서 빼지 않는다 — 강제 확정의 제외 인원에 그대로 든다
+    expect(within(dialog).getByRole('button', { name: '강제 확정 (미처리 2명 제외)' })).toBeInTheDocument();
   });
 
   it('확정이 거부되면 창은 바로 열리고, 빈 자리 표시는 라운드 상세를 다시 받은 뒤에 보인다', async () => {
@@ -1199,6 +1202,48 @@ describe('배정 검토 — 빈 자리 안내', () => {
     expect(
       screen.getByText('응답했으나 배정받지 못한 지원자 2명 · 남은 자리 3개 — 고른 시간이 아닐 수 있습니다'),
     ).toHaveClass('break-keep');
+  });
+
+  /** 배정받지 못한 응답자 최유리·한지민의 지원 결과만 바꾼 상세 — undefined 는 필드 없음(옛 백엔드) */
+  const freedSeatDetailWithResults = (yuriResult: string | null | undefined, jiminResult: string | null | undefined) => ({
+    ...DETAIL_ASSIGNING_FREED_SEAT,
+    members: [
+      MEMBER_DECIDED,
+      { ...MEMBER_WANTS_20, ...(yuriResult === undefined ? {} : { applicationResult: yuriResult }) },
+      { ...MEMBER_WANTS_21, ...(jiminResult === undefined ? {} : { applicationResult: jiminResult }) },
+      MEMBER_HOLDS_21,
+    ],
+  });
+
+  it('배정받지 못한 응답자가 모두 결과를 정한 사람이면 남은 자리 안내 띠가 보이지 않는다 — 수동 배정이 막혀 있다', async () => {
+    server.use(
+      http.get(`*/interview-rounds/${ROUND_ID}`, () =>
+        HttpResponse.json({ ok: true, data: freedSeatDetailWithResults('REJECTED', 'ACCEPTED'), message: null }),
+      ),
+    );
+
+    renderDashboard();
+    await screen.findByText('배정 검토 중');
+
+    expect(screen.queryByText(/응답했으나 배정받지 못한 지원자/)).not.toBeInTheDocument();
+  });
+
+  it.each([
+    { why: '결과를 정한 사람과 필드 없는 사람이 섞임', yuriResult: 'REJECTED', jiminResult: undefined, count: 1 },
+    { why: '결과 없음(null)과 모르는 값', yuriResult: null, jiminResult: 'INTERVIEW_PENDING', count: 2 },
+  ])('남은 자리 안내 띠는 결과를 정하지 않은 응답자만 센다 — $why', async ({ yuriResult, jiminResult, count }) => {
+    server.use(
+      http.get(`*/interview-rounds/${ROUND_ID}`, () =>
+        HttpResponse.json({ ok: true, data: freedSeatDetailWithResults(yuriResult, jiminResult), message: null }),
+      ),
+    );
+
+    renderDashboard();
+    await screen.findByText('배정 검토 중');
+
+    expect(
+      screen.getByText(`응답했으나 배정받지 못한 지원자 ${count}명 · 남은 자리 3개 — 고른 시간이 아닐 수 있습니다`),
+    ).toBeInTheDocument();
   });
 
   it.each([
