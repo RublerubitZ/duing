@@ -61,7 +61,8 @@ function RoundCard({ round, clubId, recruitmentId }: RoundCardProps) {
             )}
             className="btn btn-primary btn-sm min-h-11 shrink-0"
           >
-            이어서 작성
+            {/* 인원 0 초안은 이어 쓸 수 없다 — 같은 마법사가 폐기를 안내한다 */}
+            {round.totalMemberCount === 0 ? '정리하기' : '이어서 작성'}
           </Link>
         ) : (
           <Link

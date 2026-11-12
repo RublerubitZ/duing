@@ -2048,3 +2048,34 @@ describe('라운드 현황 다듬기 — 확정 성공 뒤 상태 배너로 포�
     expect(document.body).toHaveFocus();
   });
 });
+
+describe('라운드 현황 다듬기 — 초안 배너', () => {
+  const DETAIL_DRAFT = {
+    ...DETAIL_COLLECTING_BEFORE_DEADLINE,
+    status: 'DRAFT',
+    availabilityDeadline: null,
+    requestSequence: 0,
+  };
+  /** 인원 0 초안 — 전원 결과 확정·제외로 비EXCLUDED 0 명 */
+  const DETAIL_EMPTY_DRAFT = {
+    ...DETAIL_DRAFT,
+    counts: { ...DETAIL_DRAFT.counts, totalMemberCount: 0, invitedCount: 0, respondedCount: 0, excludedCount: 2, unrespondedCount: 0 },
+    members: DETAIL_DRAFT.members.map((member) => ({ ...member, status: 'EXCLUDED', unresponded: false })),
+  };
+  const WIZARD_HREF = `/manage/clubs/${CLUB_ID}/recruitments/${RECRUITMENT_ID}/interview/rounds/new`;
+
+  it.each([
+    { name: '인원 0 초안은 정리하기', detail: DETAIL_EMPTY_DRAFT, linkName: '정리하기', otherLinkName: '이어서 작성' },
+    { name: '인원 있는 초안은 이어서 작성', detail: DETAIL_DRAFT, linkName: '이어서 작성', otherLinkName: '정리하기' },
+  ])('$name 링크로 마법사에 간다', async ({ detail, linkName, otherLinkName }) => {
+    server.use(
+      http.get(`*/interview-rounds/${ROUND_ID}`, () => HttpResponse.json({ ok: true, data: detail, message: null })),
+    );
+
+    renderDashboard();
+    await screen.findByText('작성 중');
+
+    expect(screen.getByRole('link', { name: linkName })).toHaveAttribute('href', WIZARD_HREF);
+    expect(screen.queryByRole('link', { name: otherLinkName })).not.toBeInTheDocument();
+  });
+});

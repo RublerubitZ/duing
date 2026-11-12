@@ -80,6 +80,8 @@ describe('presentDashboardTask — 모집 업무', () => {
 
   it.each<[string, Partial<ActionItem>, Pick<TaskRowModel, 'actionLabel' | 'href' | 'chip'>]>([
     ['DRAFT', { roundStatus: 'DRAFT' }, { actionLabel: '이어서 작성', href: '/manage/clubs/10/recruitments/1/interview/rounds/new', chip: null }],
+    // 인원 0 초안은 마법사 창이 '폐기해주세요'라고 안내한다 — 같은 곳으로 가되 '정리하기' 문맥으로.
+    ['DRAFT·인원 없음', { roundStatus: 'DRAFT', draftWithoutMembers: true }, { actionLabel: '정리하기', href: '/manage/clubs/10/recruitments/1/interview/rounds/new', chip: null }],
     [
       'COLLECTING·응답 마감 D-2',
       { roundStatus: 'COLLECTING', daysLeft: 2 },
@@ -94,6 +96,23 @@ describe('presentDashboardTask — 모집 업무', () => {
   ])('면접 일정 미확정 %s → 라운드 상태별 처리 문구·이동·응답 마감 칩', (_name, roundFields, expectedRow) => {
     const row = presentDashboardTask(10, recruitment({ type: 'INTERVIEW_ROUND_UNCONFIRMED', roundId: 7, roundTitle: '1차 면접', ...roundFields }), NOW);
     expect({ actionLabel: row.actionLabel, href: row.href, chip: row.chip }).toEqual(expectedRow);
+  });
+});
+
+describe('presentDashboardTask — 인원 없는 초안', () => {
+  const emptyDraft = { type: 'INTERVIEW_ROUND_UNCONFIRMED', roundId: 7, roundTitle: '1차 면접', roundStatus: 'DRAFT', draftWithoutMembers: true } as const;
+
+  it.each(['home', 'recruitment'] as const)('%s 변형은 업무명이 면접 라운드 정리 필요이고 맥락은 그대로다', (variant) => {
+    const row = presentDashboardTask(10, recruitment(emptyDraft), NOW, { variant });
+    expect(row.label).toBe('면접 라운드 정리 필요');
+    expect(row.actionLabel).toBe('정리하기');
+    expect(row.context).toBe(variant === 'home' ? '신입 부원 모집 · 1차 면접' : '1차 면접');
+  });
+
+  it('인원 있는 초안은 지금 문구 그대로다', () => {
+    const row = presentDashboardTask(10, recruitment({ ...emptyDraft, draftWithoutMembers: undefined }), NOW);
+    expect(row.label).toBe('면접 일정 미확정');
+    expect(row.actionLabel).toBe('이어서 작성');
   });
 });
 

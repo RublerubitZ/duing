@@ -4,7 +4,7 @@ import { APPLICATION_STATUS_OPERATOR_LABEL } from '@/app/_constants/application-
 import { BOOKING_STATUS_META, bookingDateLabel, bookingTimeLabel } from '@/app/_lib/bookingDisplay';
 import { waitingDaysTone } from '@/components/dashboard/dashboardChipTone';
 
-import { ACTION_ITEM_TYPE_LABEL, OPERATION_ITEM_TYPE_LABEL } from './dashboard-labels';
+import { ACTION_ITEM_TYPE_LABEL, DRAFT_WITHOUT_MEMBERS_LABEL, OPERATION_ITEM_TYPE_LABEL } from './dashboard-labels';
 
 import type { ActionItem, ActionItemType, DashboardTask, DashboardTaskGroupKey, OperationItem } from '@duing/types';
 import type { DashboardChipTone } from '@/components/dashboard/dashboardChipTone';
@@ -42,7 +42,7 @@ const ACTION_ITEM_ACTION_LABEL: Record<ActionItemType, string> = {
 /** 면접 일정 미확정은 라운드 상태마다 다음 단계가 다르다 — 배정 검토(ASSIGNING) 줄은 표 그대로(선택 규칙은 미확정 줄에 늘 roundStatus 를 싣는다). */
 function recruitmentActionLabel(item: ActionItem): string {
   if (item.type === 'INTERVIEW_ROUND_UNCONFIRMED') {
-    if (item.roundStatus === 'DRAFT') return '이어서 작성';
+    if (item.roundStatus === 'DRAFT') return item.draftWithoutMembers ? '정리하기' : '이어서 작성';
     if (item.roundStatus === 'COLLECTING') return '자동 배정';
   }
   return ACTION_ITEM_ACTION_LABEL[item.type];
@@ -125,7 +125,10 @@ export function pendingDaysChip(pendingDays: number): TaskChip {
 function presentRecruitment(clubId: number, item: ActionItem, variant: TaskRowVariant): TaskRowModel {
   return {
     key: `${item.type}-${item.recruitmentId}-${item.roundId ?? ''}`,
-    label: variant === 'recruitment' ? recruitmentDetailLabel(item) : ACTION_ITEM_TYPE_LABEL[item.type],
+    // 인원 없는 초안 줄엔 인원이 실리지 않아 두 변형 모두 같은 업무명이다.
+    label: item.draftWithoutMembers
+      ? DRAFT_WITHOUT_MEMBERS_LABEL
+      : variant === 'recruitment' ? recruitmentDetailLabel(item) : ACTION_ITEM_TYPE_LABEL[item.type],
     context: variant === 'recruitment' ? recruitmentDetailContext(item) : recruitmentContext(item),
     // 미확정 줄의 daysLeft 는 응답이 다 모인 응답 수집 라운드에만 실린다 — 묶음·순서를 정한 그 기한을 칩으로 보인다.
     chip:

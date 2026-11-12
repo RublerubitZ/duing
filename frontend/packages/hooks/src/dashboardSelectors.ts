@@ -100,7 +100,12 @@ export function buildActionItems(inputs: RecruitmentDashboardInput[], now: Date)
         // 응답 수는 인원 수를 넘지 않아 이 갈래는 응답이 다 모인 라운드다 — 다음 단계인 자동 배정은 운영진이 눌러야 하고 대신 하는 잡이 없다.
         items.push({ type: 'INTERVIEW_ROUND_UNCONFIRMED', ...roundBase, roundStatus: round.status, daysLeft });
       } else if (round.status === 'DRAFT' || round.status === 'ASSIGNING') {
-        items.push({ type: 'INTERVIEW_ROUND_UNCONFIRMED', ...roundBase, roundStatus: round.status });
+        // 인원 0 초안은 발송할 수 없어 마법사가 폐기를 안내한다 — 표지는 그때만 싣는다(키 자체를 빼야 다른 줄 모양이 그대로다).
+        const draftWithoutMembers = round.status === 'DRAFT' && round.totalMemberCount === 0;
+        items.push({
+          type: 'INTERVIEW_ROUND_UNCONFIRMED', ...roundBase, roundStatus: round.status,
+          ...(draftWithoutMembers ? { draftWithoutMembers: true } : {}),
+        });
       }
     }
 

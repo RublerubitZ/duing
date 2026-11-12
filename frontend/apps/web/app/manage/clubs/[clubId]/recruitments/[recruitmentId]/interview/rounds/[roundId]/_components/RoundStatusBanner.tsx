@@ -10,7 +10,7 @@ import {
 } from '@/components/interview/interviewRoundStatusLabels';
 import { ButtonSpinner } from '@/components/loading/Spinner';
 
-// 상태 배너 — 상태 뱃지 + 단일 next action (DRAFT→이어서 작성 / COLLECTING·ASSIGNING→자동배정 /
+// 상태 배너 — 상태 뱃지 + 단일 next action (DRAFT→이어서 작성(인원 0 이면 정리하기) / COLLECTING·ASSIGNING→자동배정 /
 // ASSIGNING→확정) + 조기 배정 UX ① 전원 응답 배너 + ASSIGNING draft 안내·남은 자리 안내.
 
 /** 상태 배너의 id — 확정 성공으로 [확정]이 사라진 뒤 포커스를 받는 자리다(RoundDashboard 의 포커스 표지). */
@@ -100,7 +100,7 @@ export function RoundStatusBanner({
             </button>
           )}
 
-          {/* DRAFT → 이어서 작성 */}
+          {/* DRAFT → 이어서 작성 — 인원 0 이면 이어 쓸 수 없어 정리하기(같은 마법사가 폐기를 안내한다) */}
           {status === 'DRAFT' && (
             <Link
               href={toRoute(
@@ -108,7 +108,7 @@ export function RoundStatusBanner({
               )}
               className="rounded-md bg-ink px-3 py-1.5 text-sm font-medium text-white hover:bg-ink-deep"
             >
-              이어서 작성
+              {counts.totalMemberCount === 0 ? '정리하기' : '이어서 작성'}
             </Link>
           )}
         </div>
