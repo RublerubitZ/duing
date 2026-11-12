@@ -359,6 +359,7 @@ class LeaderInterviewDecidedApplicantControllerTest extends InterviewControllerT
         InterviewSlot slot = saveSlot(round, "2026-06-20T14:00:00", 1);
         Application decided = saveMember(round, "검토중불합격자", RoundMemberStatus.RESPONDED, slot);
         decide(decided, "REJECTED");
+        assertThat(memberStatusOf(round, decided)).isEqualTo(RoundMemberStatus.EXCLUDED);
 
         // 멤버도 EXCLUDED 지만 결과 검사가 제외 검사보다 먼저라 원인 문구가 나간다.
         assign(round, decided, slot)

@@ -271,7 +271,7 @@ class LeaderInterviewRescheduleControllerTest extends InterviewControllerTestSup
 
     @Test
     @DisplayName("확정된 라운드에서 지금 일정과 같은 슬롯을 보내면 아무것도 바뀌지 않고 알림도 없다")
-    void scheduledRoundIdempotentReassignToSameSlotSucceeds() {
+    void scheduledRoundSameSlotIsNoOpWithoutNotification() {
         InterviewRound round = saveRound(RoundStatus.SCHEDULED);
         InterviewSlot slot = saveSlot(round, "2026-07-08T10:00:00", 1);
         Application application = saveInterviewPendingApplication(recruitment, "멱등재배정확정");

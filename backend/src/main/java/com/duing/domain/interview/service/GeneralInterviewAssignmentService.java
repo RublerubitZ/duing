@@ -140,7 +140,8 @@ public class GeneralInterviewAssignmentService implements InterviewAssignmentSer
                 .orElseThrow(InterviewException.InvalidSlotSelection::new);
         InterviewRoundMember member = getLockedMemberOfRound(roundId, memberId);
         // 결과를 정한 지원은 일정을 바꾸지 않는다 — 확정 라운드는 결과 확정 정리 대상이 아니라 ASSIGNED 로 남는다(#1659).
-        // 지원서는 잠그지 않는다: 결과 확정이 지원서 → 멤버 순으로 잠가, 멤버를 쥔 채 지원서를 잠그면 교착이다.
+        // 지원서는 잠그지 않는다: 결과 확정(지원서 → 멤버)·응답 API(지원서 → 슬롯)가 지원서를 먼저 잠가, 슬롯·멤버를 쥔 채 잠그면 교착이다.
+        // 잠그지 않아도 되는 이유 — 배정 검토는 결과 확정이 멤버 잠금을 기다렸다가 정리하고, 확정 단계는 커밋 뒤 리스너가 알림을 거른다.
         if (applicationRepository.findStatusById(member.getApplicationId())
                 .filter(ApplicationStatus::isTerminal)
                 .isPresent()) {
@@ -157,6 +158,7 @@ public class GeneralInterviewAssignmentService implements InterviewAssignmentSer
         if (activeSchedule.filter(schedule -> schedule.getSlotId().equals(slotId)).isPresent()) {
             return;
         }
+        // 삭제는 count 앞 — count 쿼리의 자동 flush 가 soft delete 를 INSERT 보다 먼저 보낸다(활성 배정 유니크 uq_interview_schedule_active_per_round).
         activeSchedule.ifPresent(interviewScheduleRepository::delete);
         long assignedCount = interviewScheduleRepository
                 .countBySlotIdAndStatus(slotId, InterviewScheduleStatus.ASSIGNED);
