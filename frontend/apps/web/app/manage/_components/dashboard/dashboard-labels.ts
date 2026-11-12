@@ -13,6 +13,9 @@ export const ACTION_ITEM_TYPE_LABEL: Record<ActionItemType, string> = {
   CLOSED_RECRUITMENT_UNDECIDED: `마감 모집 결과 ${APPLICATION_UNDECIDED_LABEL}`,
 };
 
+/** 남은 면접 대상이 없는 초안 줄(ActionItem.draftWithoutMembers) — 면접 일정 미확정 대신. 마법사 창이 폐기를 안내한다. */
+export const DRAFT_WITHOUT_MEMBERS_LABEL = '면접 라운드 정리 필요';
+
 export const OPERATION_ITEM_TYPE_LABEL: Record<OperationItemType, string> = {
   JOIN_REQUESTS_PENDING: '가입 요청',
   FEE_OVERDUE: '회비 연체',

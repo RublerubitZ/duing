@@ -65,11 +65,16 @@ export function RoundWizard({ clubId, recruitmentId }: Props) {
     if (!draftRound) return;
     setDiscardError(null);
     try {
-      await cancelMutation.mutateAsync();
+      // 화면이 본 단계(초안)를 싣는다 — 창이 열린 사이 발송·정리됐으면 서버가 409 로 막고 훅이 목록을 다시 받는다.
+      await cancelMutation.mutateAsync('DRAFT');
       setDraftDismissed(true);
       setStep(1);
-    } catch {
-      setDiscardError('라운드 폐기 중 오류가 발생했습니다. 다시 시도해주세요.');
+    } catch (discardFailure) {
+      setDiscardError(
+        discardFailure instanceof ApiError && discardFailure.status === 409
+          ? discardFailure.message
+          : '라운드 폐기 중 오류가 발생했습니다. 다시 시도해주세요.',
+      );
     }
   };
 
@@ -100,6 +105,10 @@ export function RoundWizard({ clubId, recruitmentId }: Props) {
 
   // selectedApplicationIds — Step2 에 전달할 id 배열
   const selectedApplicationIds = Array.from(selectedMap.keys());
+
+  // 폐기가 거절된 뒤 다시 받은 목록에 초안이 없으면 창이 내려간다 — 설명 없이 1단계에 놓이지 않게 창 밖에 알린다.
+  const draftGoneAfterFailedDiscard =
+    discardError !== null && roundId === null && !draftDismissed && draftRound === null && step === 1;
 
   // 마운트 뒤 첫 응답 전에는 낡은 캐시로 창을 열지 않는다 — 첫 응답 뒤의 무효화로는 단계를 내리지 않는다.
   const isAwaitingFirstRoundsResponse = roundsQuery.isFetching && !roundsQuery.isFetchedAfterMount;
@@ -132,10 +141,18 @@ export function RoundWizard({ clubId, recruitmentId }: Props) {
           clubId={clubId}
           recruitmentId={recruitmentId}
           isPending={cancelMutation.isPending}
+          // 거절 뒤 목록을 다시 받는 동안도 막는다 — 그사이 [이어하기]를 누르면 발송된 라운드로 2단계에 들어간다.
+          isRefreshing={discardError !== null && roundsQuery.isFetching}
           onResume={handleResume}
           onDiscard={handleDiscard}
           discardError={discardError}
         />
+      )}
+
+      {draftGoneAfterFailedDiscard && (
+        <p role="alert" className="mb-4 break-keep rounded-md border border-coral/20 bg-coral/5 px-3 py-2 text-sm text-coral-deep">
+          작성 중이던 라운드가 그사이 발송되었거나 정리되었습니다. 면접 관리에서 지금 상태를 확인해주세요.
+        </p>
       )}
 
       <div className="rounded-lg border border-line bg-white p-6">

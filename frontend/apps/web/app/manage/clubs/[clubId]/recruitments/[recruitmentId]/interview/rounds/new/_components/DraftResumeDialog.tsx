@@ -25,7 +25,10 @@ type Props = {
   draftRound: InterviewRoundSummary;
   clubId: number;
   recruitmentId: number;
+  /** 폐기 요청이 나가 있다 — 스피너·aria-busy·'라운드 폐기 중' 낭독 */
   isPending: boolean;
+  /** 폐기가 거절돼 목록을 다시 받는 중 — 버튼만 끈다(폐기 요청은 끝나 '폐기 중'이라 알리지 않는다) */
+  isRefreshing: boolean;
   onResume: () => void;
   onDiscard: () => void;
   /** 폐기 실패 시 표시할 인라인 에러 메시지 */
@@ -37,6 +40,7 @@ export function DraftResumeDialog({
   clubId,
   recruitmentId,
   isPending,
+  isRefreshing,
   onResume,
   onDiscard,
   discardError,
@@ -44,12 +48,13 @@ export function DraftResumeDialog({
   const resumeRef = useRef<HTMLButtonElement | null>(null);
   const landingLinkRef = useRef<HTMLAnchorElement | null>(null);
   const hasNoMembers = draftRound.totalMemberCount === 0;
+  const isLocked = isPending || isRefreshing;
 
   const discardButton = (
     <button
       type="button"
       onClick={onDiscard}
-      disabled={isPending}
+      disabled={isLocked}
       className={hasNoMembers ? 'btn btn-danger btn-sm' : 'btn btn-danger-quiet btn-sm'}
     >
       {isPending && <ButtonSpinner />}폐기하고 새로 만들기
@@ -60,6 +65,7 @@ export function DraftResumeDialog({
     <Dialog open>
       <DialogContent
         className="max-w-sm"
+        busy={isPending}
         // ESC·바깥 클릭 no-op — 명시적 버튼 선택을 강제한다(인원 0 이면 폐기·면접 관리로).
         onPointerDownOutside={(event) => event.preventDefault()}
         onEscapeKeyDown={(event) => event.preventDefault()}
@@ -84,15 +90,16 @@ export function DraftResumeDialog({
               </>
             ) : (
               <>
-                <span className="block text-charcoal-2">이어서 작성하거나, 폐기하고 새로운 라운드를 만들 수 있습니다.</span>
-                <span className="block text-xs text-charcoal-3">폐기 시 해당 라운드의 면접 대상자들이 대기열로 돌아갑니다.</span>
+                <span className="block break-keep text-charcoal-2">이어서 작성하거나, 폐기하고 새로운 라운드를 만들 수 있습니다.</span>
+                <span className="block break-keep text-xs text-charcoal-3">폐기 시 해당 라운드의 면접 대상자들이 대기열로 돌아갑니다.</span>
               </>
             )}
           </DialogDescription>
         </DialogHeader>
 
+        {/* 서버 문구라 어절 단위로 접고, 줄보다 긴 한 어절만 글자 단위로 쪼갠다(창은 grid — anywhere 가 최소 폭도 줄인다) */}
         {discardError && (
-          <p role="alert" className="text-sm text-coral-deep">
+          <p role="alert" className="text-sm text-coral-deep break-keep [overflow-wrap:anywhere]">
             {discardError}
           </p>
         )}
@@ -104,11 +111,11 @@ export function DraftResumeDialog({
               <Link
                 ref={landingLinkRef}
                 href={toRoute(`/manage/clubs/${clubId}/recruitments/${recruitmentId}/interview`)}
-                // 폐기 요청 중에는 나가지 않는다 — 진행 중 파괴 동작의 닫힘 차단과 같은 규칙.
+                // 폐기 요청 중(거절 뒤 다시 받는 동안 포함)에는 나가지 않는다 — 진행 중 파괴 동작의 닫힘 차단과 같은 규칙.
                 onClick={(event) => {
-                  if (isPending) event.preventDefault();
+                  if (isLocked) event.preventDefault();
                 }}
-                aria-disabled={isPending || undefined}
+                aria-disabled={isLocked || undefined}
                 className="btn btn-ghost btn-sm aria-disabled:cursor-not-allowed aria-disabled:opacity-50 aria-disabled:hover:bg-transparent aria-disabled:hover:text-charcoal-2"
               >
                 면접 관리로
@@ -122,7 +129,7 @@ export function DraftResumeDialog({
                 ref={resumeRef}
                 type="button"
                 onClick={onResume}
-                disabled={isPending}
+                disabled={isLocked}
                 className="btn btn-primary btn-sm disabled:opacity-50"
               >
                 이어하기
@@ -130,6 +137,8 @@ export function DraftResumeDialog({
             </>
           )}
         </DialogFooter>
+        {/* 폐기 진행을 화면 낭독기에도 알린다 — 버튼 밖 sr-only 상태 리전(#914, 라운드 현황의 AutoAssignDialog·MemberAssignModal 과 같은 관례) */}
+        <span role="status" className="sr-only">{isPending ? '라운드 폐기 중' : null}</span>
       </DialogContent>
     </Dialog>
   );

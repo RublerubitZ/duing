@@ -106,12 +106,23 @@ describe('buildActionItems', () => {
     ['ASSIGNING', { status: 'ASSIGNING', availabilityDeadline: '2026-06-10' }, [{ type: 'INTERVIEW_ROUND_UNCONFIRMED', ...roundLine, roundStatus: 'ASSIGNING' }]],
     ['ASSIGNING 응답 0/1', { status: 'ASSIGNING', totalMemberCount: 1, respondedMemberCount: 0, availabilityDeadline: '2026-06-10' }, [{ type: 'INTERVIEW_ROUND_UNCONFIRMED', ...roundLine, roundStatus: 'ASSIGNING' }]],
     ['ASSIGNING 인원 0', { status: 'ASSIGNING', totalMemberCount: 0, respondedMemberCount: 0, availabilityDeadline: '2026-06-10' }, []],
-    ['DRAFT 인원 0', { status: 'DRAFT', totalMemberCount: 0, respondedMemberCount: 0, availabilityDeadline: '2026-06-10' }, [{ type: 'INTERVIEW_ROUND_UNCONFIRMED', ...roundLine, roundStatus: 'DRAFT' }]],
+    ['DRAFT 인원 0', { status: 'DRAFT', totalMemberCount: 0, respondedMemberCount: 0, availabilityDeadline: '2026-06-10' }, [{ type: 'INTERVIEW_ROUND_UNCONFIRMED', ...roundLine, roundStatus: 'DRAFT', draftWithoutMembers: true }]],
     ['SCHEDULED', { status: 'SCHEDULED', availabilityDeadline: '2026-06-10' }, []],
     ['CANCELLED', { status: 'CANCELLED', availabilityDeadline: '2026-06-10' }, []],
   ])('라운드 상태별 할 일 줄(진행 중이면 한 줄, 인원 0 인 응답 수집·배정 검토는 없음) — %s', (_name, roundOverrides, expectedItems) => {
     const items = buildActionItems([dashboardInput({ rounds: [round({ roundId: 7, ...roundOverrides })] })], NOW);
     expect(items).toEqual(expectedItems);
+  });
+
+  // toEqual 은 값이 undefined 인 키를 없는 키와 같게 본다 — 인원이 있는 초안·다른 단계 줄에는 키 자체가 없어야 한다.
+  it.each<[string, Partial<InterviewRoundSummary>]>([
+    ['인원 있는 초안', { status: 'DRAFT', totalMemberCount: 1, respondedMemberCount: 0 }],
+    ['배정 검토', { status: 'ASSIGNING' }],
+    ['응답이 다 모인 응답 수집', { status: 'COLLECTING' }],
+  ])('%s 줄에는 인원 없는 초안 표지가 없다', (_name, roundOverrides) => {
+    const [item] = buildActionItems([dashboardInput({ rounds: [round({ roundId: 7, ...roundOverrides })] })], NOW);
+    expect(item).toBeDefined();
+    expect(item).not.toHaveProperty('draftWithoutMembers');
   });
 
   it('SCHEDULED 라운드 + 배정 인원(interviewPending-대기열) 존재 → 결과 미확정, 단일 라운드 귀속', () => {

@@ -266,13 +266,60 @@ describe('useCancelInterviewRoundMutation (스펙 §10.1 — 재큐잉)', () => 
     const { result } = renderHook(() => useCancelInterviewRoundMutation(10, 42), {
       wrapper: makeWrapper(queryClient),
     });
-    result.current.mutate();
+    result.current.mutate(undefined);
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
 
     expect(queryClient.getQueryState(interviewRoundKeys.list(10))?.isInvalidated).toBe(true);
     expect(queryClient.getQueryState(interviewRoundKeys.candidates(10))?.isInvalidated).toBe(true);
     expect(queryClient.getQueryState(interviewRoundKeys.detail(42))?.isInvalidated).toBe(true);
     expect(queryClient.getQueryState(statsQueryKeys.summary(10))?.isInvalidated).toBe(true);
+  });
+});
+
+describe('useCancelInterviewRoundMutation — 기대 단계', () => {
+  it('넘긴 기대 단계를 쿼리로 싣는다', async () => {
+    const queryClient = newQueryClient();
+    let capturedUrl: string | null = null;
+    server.use(
+      http.post('*/leader/interview-rounds/42/cancel', ({ request }) => {
+        capturedUrl = request.url;
+        return HttpResponse.json({ ok: true, data: null, message: null });
+      }),
+    );
+
+    const { result } = renderHook(() => useCancelInterviewRoundMutation(10, 42), {
+      wrapper: makeWrapper(queryClient),
+    });
+    result.current.mutate('DRAFT');
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+
+    expect(capturedUrl).toContain('expectedRoundStatus=DRAFT');
+  });
+
+  it.each<[number, string, boolean]>([
+    [409, '목록·대기열이 invalidate 된다 — 화면이 본 단계와 다르다는 신호(마법사의 낡은 초안 목록)', true],
+    [500, '목록·대기열은 유지된다', false],
+  ])('%i 응답으로 실패하면 %s', async (status, _label, invalidated) => {
+    const queryClient = newQueryClient();
+    server.use(
+      http.post('*/leader/interview-rounds/42/cancel', () =>
+        HttpResponse.json(
+          { ok: false, data: null, message: '라운드 단계가 바뀌었습니다. 최신 상태를 확인한 뒤 다시 시도해주세요.' },
+          { status },
+        ),
+      ),
+    );
+    queryClient.setQueryData(interviewRoundKeys.list(10), []);
+    queryClient.setQueryData(interviewRoundKeys.candidates(10), []);
+
+    const { result } = renderHook(() => useCancelInterviewRoundMutation(10, 42), {
+      wrapper: makeWrapper(queryClient),
+    });
+    result.current.mutate('DRAFT');
+    await waitFor(() => expect(result.current.isError).toBe(true));
+
+    expect(queryClient.getQueryState(interviewRoundKeys.list(10))?.isInvalidated).toBe(invalidated);
+    expect(queryClient.getQueryState(interviewRoundKeys.candidates(10))?.isInvalidated).toBe(invalidated);
   });
 });
 
@@ -526,6 +573,7 @@ describe('useAssignMemberScheduleMutation (스펙 §10.1 — 배정 detail 만)'
 
   it.each<[number, string, boolean]>([
     [409, 'detail queryKey 가 invalidate 된다 — 화면의 상세가 낡았다는 신호', true],
+    [400, 'detail queryKey 가 invalidate 된다 — 고른 슬롯이 그사이 지워졌다는 신호(InvalidSlotSelection)', true],
     [500, 'detail queryKey 는 유지된다', false],
   ])('%i 응답으로 실패하면 %s', async (status, _label, invalidated) => {
     const queryClient = newQueryClient();

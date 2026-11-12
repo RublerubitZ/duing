@@ -91,13 +91,14 @@ export function ConfirmRoundDialog({
                 return (
                   <li
                     key={member.applicationId}
-                    className="flex items-center justify-between gap-2 rounded-md border border-warm/40 bg-warm/10 px-3 py-1.5 text-sm"
+                    className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-warm/40 bg-warm/10 px-3 py-1.5 text-sm"
                   >
-                    {/* 이름·오른쪽 문구 모두 어절 단위로 접고(break-keep), 한 어절이 폭을 넘을 때만 글자 단위로 쪼갠다(anywhere — flex 최소 폭도 줄인다) — 줄바꿈은 오른쪽이 맡는다 */}
-                    <span className="max-w-[40%] shrink-0 font-medium text-charcoal break-keep [overflow-wrap:anywhere]">
+                    {/* 이름·오른쪽 문구 모두 어절 단위로 접고(break-keep), 줄 전체보다 긴 한 어절만 글자 단위로 쪼갠다(anywhere).
+                        이름 + 오른쪽 8rem(줄바꿈 없는 시간 한 덩어리 폭)이 한 줄에 안 들어가면 오른쪽 문구가 이름 아래 줄로 내려간다 — 이름은 쪼개지 않는다 */}
+                    <span className="font-medium text-charcoal break-keep [overflow-wrap:anywhere]">
                       {member.applicantName}
                     </span>
-                    <span className="text-right text-xs text-warm-deep break-keep [overflow-wrap:anywhere]">
+                    <span className="grow basis-32 text-right text-xs text-warm-deep break-keep [overflow-wrap:anywhere]">
                       {`선택 슬롯 ${member.selectedSlotIds.length}개`}
                       {freeSeatSlots.length > 0 && (
                         <>

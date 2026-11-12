@@ -71,6 +71,11 @@ export type InterviewRoundDetailMember = {
   alternativeAvailabilityText: string | null;
   selectedSlotCount: number;
   assignedSlotId: number | null;
+  /**
+   * 지원 결과 — 결과가 정해졌으면 ACCEPTED·REJECTED, 아니면 null(백엔드 스펙 기준 이름). 멤버 상태와 따로 실린다.
+   * 옛 백엔드는 필드가 없다(undefined).
+   */
+  applicationResult?: ApplicationStatus | null;
 };
 
 // = RoundDetailResponse.Slot (nested record)

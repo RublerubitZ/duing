@@ -19,6 +19,8 @@ export type ActionItem = {
   roundTitle?: string;
   /** 라운드 상태 — INTERVIEW_ROUND_UNCONFIRMED 에만. 같은 줄 이름 아래 묶음·버튼·이동을 상태별로 나누는 데 쓴다. */
   roundStatus?: InterviewRoundStatus;
+  /** 남은 면접 대상이 없는 초안 — INTERVIEW_ROUND_UNCONFIRMED·DRAFT 에만(아니면 키가 없다). 이어 쓸 수 없어 정리(폐기)로 안내한다. */
+  draftWithoutMembers?: true;
   /** 검토 대기 인원, 미응답 인원 등 맥락 수치 */
   count?: number;
   /** 마감/기한까지 남은 일수. 음수면 경과 */

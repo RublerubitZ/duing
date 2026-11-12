@@ -257,4 +257,19 @@ describe('InterviewRoundsLanding — 면접 관리 랜딩', () => {
       expect(capturedIncludeUndecided).toBe('false');
     });
   });
+
+  it('인원 0 초안 카드는 이어서 작성 대신 정리하기로 마법사에 간다', async () => {
+    server.use(
+      http.get(`*/recruitments/${RECRUITMENT_ID}/interview-rounds`, () =>
+        HttpResponse.json({ ok: true, data: [{ ...DRAFT_ROUND, totalMemberCount: 0 }], message: null }),
+      ),
+      EMPTY_CANDIDATES_HANDLER,
+    );
+
+    renderLanding();
+
+    const cleanupLink = await screen.findByRole('link', { name: '정리하기' });
+    expect(cleanupLink).toHaveAttribute('href', `/manage/clubs/${CLUB_ID}/recruitments/${RECRUITMENT_ID}/interview/rounds/new`);
+    expect(screen.queryByRole('link', { name: '이어서 작성' })).not.toBeInTheDocument();
+  });
 });

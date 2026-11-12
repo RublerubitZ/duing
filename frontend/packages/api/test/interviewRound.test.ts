@@ -202,3 +202,33 @@ describe('interviewRounds.confirm — 409 payload 보존', () => {
     expect(capturedUrl).toContain('force=false');
   });
 });
+
+describe('interviewRounds.cancel — 기대 단계', () => {
+  it('기대 단계를 넘기면 ?expectedRoundStatus= 로 싣는다(본문 없는 POST 그대로)', async () => {
+    let capturedUrl: string | null = null;
+    server.use(
+      http.post('*/leader/interview-rounds/42/cancel', ({ request }) => {
+        capturedUrl = request.url;
+        return HttpResponse.json({ ok: true, data: null, message: null });
+      }),
+    );
+
+    await client.interviewRounds.cancel(42, 'DRAFT');
+
+    expect(capturedUrl).toMatch(/\/leader\/interview-rounds\/42\/cancel\?expectedRoundStatus=DRAFT$/);
+  });
+
+  it('기대 단계가 없으면 쿼리를 붙이지 않는다 — 빈 값(?expectedRoundStatus=)은 서버 검사를 끈다', async () => {
+    let capturedUrl: string | null = null;
+    server.use(
+      http.post('*/leader/interview-rounds/42/cancel', ({ request }) => {
+        capturedUrl = request.url;
+        return HttpResponse.json({ ok: true, data: null, message: null });
+      }),
+    );
+
+    await client.interviewRounds.cancel(42);
+
+    expect(capturedUrl).toMatch(/\/leader\/interview-rounds\/42\/cancel$/);
+  });
+});

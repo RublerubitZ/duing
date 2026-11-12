@@ -12,11 +12,13 @@ import { Spinner } from '@/components/loading/Spinner';
 // BE#6 이 생성 최신순(createdAtDesc)으로 반환 — 계약 확정.
 // 라운드 없음·전부 CANCELLED 이면 "면접 대상 선정 전" 취급.
 // 인원 0 응답 수집·배정 검토 라운드는 기다릴 응답도 검토할 배정도 없어 건너뛴다 — 그것뿐이면 "라운드 인원 없음"(대기열에 사람이 있을 수 있어 모집 전체를 말하지 않는다).
+// 인원 0 초안은 건너뛰지 않는다(새 라운드 생성을 막는다) — 이어 쓸 수 없어 "라운드 정리 필요"(마법사가 폐기를 안내한다).
 // useInterview=false 모집은 부모에서 미렌더링.
 
 type StageLabel =
   | '면접 대상 선정 전'
   | '라운드 작성 중'
+  | '라운드 정리 필요'
   | `응답 대기 ${number}/${number}`
   | '배정 검토 중'
   | '면접 확정'
@@ -25,6 +27,8 @@ type StageLabel =
 const STAGE_CHIP_CLASS: Record<string, string> = {
   '면접 대상 선정 전': 'bg-paper text-charcoal-2 ring-1 ring-inset ring-line',
   '라운드 작성 중': 'bg-paper text-charcoal-2 ring-1 ring-inset ring-line',
+  // 대기·주의 — 운영진이 치워야 새 라운드를 만들 수 있다.
+  '라운드 정리 필요': 'bg-warm/10 text-warm-deep',
   '배정 검토 중': 'bg-warm/10 text-warm-deep',
   '면접 확정': 'bg-sage/10 text-sage-deep',
   '라운드 인원 없음': 'bg-paper text-charcoal-2 ring-1 ring-inset ring-line',
@@ -42,7 +46,7 @@ function resolveStageLabel(rounds: InterviewRoundSummary[]): StageLabel {
 
   switch (activeRound.status) {
     case 'DRAFT':
-      return '라운드 작성 중';
+      return activeRound.totalMemberCount === 0 ? '라운드 정리 필요' : '라운드 작성 중';
     case 'COLLECTING':
       return `응답 대기 ${activeRound.respondedMemberCount}/${activeRound.totalMemberCount}`;
     case 'ASSIGNING':
