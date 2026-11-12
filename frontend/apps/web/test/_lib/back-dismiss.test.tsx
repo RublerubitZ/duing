@@ -509,7 +509,7 @@ describe('useBackDismiss', () => {
 
     // 테스트가 부른 1회 + 자동 스킵 정확히 10회 — 더 적으면 스킵이 죽은 것이고, 더 많으면 상한이 샌 것이다.
     expect(backCallsAtCap).toBe(11);
-    // 15개를 다 건너뛰지는 못했으므로 여전히 잔존 엔트리 위에 있다.
+    // 15개를 다 건너뛰지는 못했으므로 상한에 걸린 시점에는 아직 잔존 엔트리 위에 있다(회복용 뒤로가기 전 값).
     expect(tokenAtCap).toBe('stale-doc-skip-cap');
     backSpy.mockRestore();
   });
