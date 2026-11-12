@@ -97,8 +97,9 @@ export function DraftResumeDialog({
           </DialogDescription>
         </DialogHeader>
 
+        {/* 서버 문구라 어절 단위로 접고, 줄보다 긴 한 어절만 글자 단위로 쪼갠다(창은 grid — anywhere 가 최소 폭도 줄인다) */}
         {discardError && (
-          <p role="alert" className="text-sm text-coral-deep">
+          <p role="alert" className="text-sm text-coral-deep break-keep [overflow-wrap:anywhere]">
             {discardError}
           </p>
         )}

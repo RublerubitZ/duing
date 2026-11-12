@@ -150,7 +150,7 @@ export function RoundWizard({ clubId, recruitmentId }: Props) {
       )}
 
       {draftGoneAfterFailedDiscard && (
-        <p role="alert" className="mb-4 rounded-md border border-coral/20 bg-coral/5 px-3 py-2 text-sm text-coral-deep">
+        <p role="alert" className="mb-4 break-keep rounded-md border border-coral/20 bg-coral/5 px-3 py-2 text-sm text-coral-deep">
           작성 중이던 라운드가 그사이 발송되었거나 정리되었습니다. 면접 관리에서 지금 상태를 확인해주세요.
         </p>
       )}

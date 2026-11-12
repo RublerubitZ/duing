@@ -1155,9 +1155,14 @@ describe('RoundWizard — 폐기가 화면이 본 단계(초안)를 싣기', () 
     renderWizard();
     await userEvent.click(await screen.findByRole('button', { name: /폐기하고 새로 만들기/ }));
 
-    expect(await within(screen.getByRole('dialog')).findByRole('alert')).toHaveTextContent(STALE_ROUND_MESSAGE);
+    const dialogAlert = await within(screen.getByRole('dialog')).findByRole('alert');
+    expect(dialogAlert).toHaveTextContent(STALE_ROUND_MESSAGE);
+    // 좁은 폭에서 '시도 / 해주세요' 처럼 음절 사이에서 끊기지 않게 — 서버 문구라 줄보다 긴 한 어절만 글자 단위로 쪼갠다.
+    expect(dialogAlert).toHaveClass('break-keep', '[overflow-wrap:anywhere]');
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
     expect(screen.getByRole('alert')).toHaveTextContent(DRAFT_GONE_NOTICE);
+    // 창 밖 고정 문구도 '정리되었습니 / 다.' 처럼 끊기지 않게.
+    expect(screen.getByRole('alert')).toHaveClass('break-keep');
     expect(await screen.findByText('미결정(지원 완료·보류)', { selector: 'h3' })).toBeInTheDocument();
     expect(roundListRequests.count).toBe(2);
   });
