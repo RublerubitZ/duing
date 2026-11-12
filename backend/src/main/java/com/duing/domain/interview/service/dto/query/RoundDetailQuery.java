@@ -1,5 +1,6 @@
 package com.duing.domain.interview.service.dto.query;
 
+import com.duing.domain.application.entity.ApplicationStatus;
 import com.duing.domain.interview.entity.InterviewRound;
 import com.duing.domain.interview.entity.InterviewSlot;
 import com.duing.domain.interview.entity.RoundMemberStatus;
@@ -39,7 +40,8 @@ public record RoundDetailQuery(
             boolean unresponded,
             String alternativeAvailabilityText,
             long selectedSlotCount,
-            Long assignedSlotId
+            Long assignedSlotId,
+            ApplicationStatus applicationResult
     ) {}
 
     public record SlotLine(
@@ -75,7 +77,10 @@ public record RoundDetailQuery(
                         line.status().isUnresponded(deadlinePassed),
                         line.alternativeAvailabilityText(),
                         selectionCountByApplicationId.getOrDefault(line.applicationId(), 0L),
-                        assignedSlotIdByApplicationId.get(line.applicationId())))
+                        assignedSlotIdByApplicationId.get(line.applicationId()),
+                        // 그 지원서의 현재 결과 — 합격·불합격이면 그 값, 아니면 null. 멤버 상태나 제외 이유와 상관없이 실린다
+                        // (운영진이 먼저 뺀 뒤 결과를 정한 멤버도 결과가 실린다).
+                        line.applicationStatus().isTerminal() ? line.applicationStatus() : null))
                 .toList();
 
         long invited = countByStatus(memberLines, RoundMemberStatus.INVITED);

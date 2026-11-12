@@ -2,6 +2,8 @@ package com.duing.domain.interview.controller;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.hasKey;
+import static org.hamcrest.Matchers.nullValue;
 
 import com.duing.common.TestcontainersConfiguration;
 import com.duing.common.fixture.InterviewRoundFixture;
@@ -200,6 +202,66 @@ class LeaderInterviewDecidedApplicantControllerTest extends InterviewControllerT
                         equalTo("EXCLUDED"));
     }
 
+    // 결과를 정해 빠진 인원이 운영진이 직접 뺀 인원과 같은 '제외됨'으로만 보이지 않게, 라운드 상세가 지원 결과를 함께 싣는다.
+    @Test
+    @DisplayName("라운드 상세의 인원은 지원 결과를 함께 싣는다 — 결과를 정한 인원은 합격·불합격, 결과가 없으면 운영진이 직접 뺀 인원도 비어 있다")
+    void roundDetailCarriesApplicationResultOfMembers() {
+        InterviewRound round = saveRound(RoundStatus.COLLECTING);
+        InterviewSlot slot = saveSlot(round, "2026-06-20T14:00:00", 3);
+        Application accepted = saveMember(round, "합격으로빠진응답자", RoundMemberStatus.RESPONDED, slot);
+        Application rejected = saveMember(round, "불합격으로빠진응답자", RoundMemberStatus.RESPONDED, slot);
+        Application preExcluded = saveMember(round, "먼저제외된응답자", RoundMemberStatus.EXCLUDED);
+        Application undecided = saveMember(round, "결과없는응답자", RoundMemberStatus.RESPONDED, slot);
+        // 운영진이 직접 뺐고 결과는 정하지 않은 인원 — 화면이 '제외됨'으로 남겨야 하는 대비 사례.
+        Application directlyExcluded = saveMember(round, "직접제외만된응답자", RoundMemberStatus.EXCLUDED);
+
+        decide(accepted, "ACCEPTED");
+        decide(rejected, "REJECTED");
+        decide(preExcluded, "REJECTED");
+
+        givenLeader()
+                .when().get(ROUND_PATH, round.getId())
+                .then().statusCode(HttpStatus.OK.value())
+                .body(memberField(accepted, "status"), equalTo("EXCLUDED"))
+                .body(memberField(accepted, "applicationResult"), equalTo("ACCEPTED"))
+                .body(memberField(rejected, "status"), equalTo("EXCLUDED"))
+                .body(memberField(rejected, "applicationResult"), equalTo("REJECTED"))
+                .body(memberField(preExcluded, "status"), equalTo("EXCLUDED"))
+                .body(memberField(preExcluded, "applicationResult"), equalTo("REJECTED"))
+                .body(memberField(undecided, "status"), equalTo("RESPONDED"))
+                // 키가 있어야 한다 — 값이 null 일 때 키를 빼는 직렬화(NON_NULL)로 바뀌면 프론트는 undefined 를 받는다.
+                .body(memberLine(undecided), hasKey("applicationResult"))
+                .body(memberField(undecided, "applicationResult"), nullValue())
+                .body(memberField(directlyExcluded, "status"), equalTo("EXCLUDED"))
+                .body(memberLine(directlyExcluded), hasKey("applicationResult"))
+                .body(memberField(directlyExcluded, "applicationResult"), nullValue());
+    }
+
+    @Test
+    @DisplayName("정리 대상이 아닌 라운드(확정·취소)의 인원도 결과를 정하면 지원 결과가 함께 실리고 인원 상태는 그대로다")
+    void finishedRoundsDetailCarriesResultWithoutChangingMemberStatus() {
+        InterviewRound cancelledRound = saveRound(RoundStatus.CANCELLED);
+        InterviewRound scheduledRound = saveRound(RoundStatus.SCHEDULED);
+        InterviewSlot cancelledSlot = saveSlot(cancelledRound, "2026-06-19T14:00:00", 1);
+        InterviewSlot slot = saveSlot(scheduledRound, "2026-06-20T14:00:00", 1);
+        Application interviewed = saveMember(cancelledRound, "다시면접본합격자", RoundMemberStatus.RESPONDED, cancelledSlot);
+        addMember(scheduledRound, interviewed, RoundMemberStatus.ASSIGNED, slot);
+        saveSchedule(scheduledRound, interviewed, slot);
+
+        decide(interviewed, "ACCEPTED");
+
+        givenLeader()
+                .when().get(ROUND_PATH, scheduledRound.getId())
+                .then().statusCode(HttpStatus.OK.value())
+                .body(memberField(interviewed, "status"), equalTo("ASSIGNED"))
+                .body(memberField(interviewed, "applicationResult"), equalTo("ACCEPTED"));
+        givenLeader()
+                .when().get(ROUND_PATH, cancelledRound.getId())
+                .then().statusCode(HttpStatus.OK.value())
+                .body(memberField(interviewed, "status"), equalTo("RESPONDED"))
+                .body(memberField(interviewed, "applicationResult"), equalTo("ACCEPTED"));
+    }
+
     @Test
     @DisplayName("일괄 변경으로 결과를 정해도 진행 중 라운드에서 제외되고 가능 시간 응답이 지워진다")
     void bulkResultReleasesInProgressMembership() {
@@ -237,6 +299,15 @@ class LeaderInterviewDecidedApplicantControllerTest extends InterviewControllerT
 
     private RequestSpecification givenLeader() {
         return RestAssured.given().header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken);
+    }
+
+    /** 라운드 상세 응답에서 그 지원의 인원 한 줄을 가리키는 GPath. */
+    private static String memberLine(Application application) {
+        return "data.members.find { it.applicationId == " + application.getId() + " }";
+    }
+
+    private static String memberField(Application application, String field) {
+        return memberLine(application) + "." + field;
     }
 
     private void decide(Application application, String resultStatus) {

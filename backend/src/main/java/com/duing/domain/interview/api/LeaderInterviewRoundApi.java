@@ -101,7 +101,9 @@ public interface LeaderInterviewRoundApi {
     @Operation(
             summary = "면접 라운드 상세 dashboard",
             description = "상태별 카운트 카드, 멤버 테이블(파생 미응답 — 마감 경과 && 초대 상태, 가능 슬롯 없음 멤버의 대체 가능시간 텍스트, "
-                    + "선택 슬롯 수, 배정 슬롯), 슬롯 목록(시작 시각 오름차순, 슬롯별 선택/배정 수)을 반환한다."
+                    + "선택 슬롯 수, 배정 슬롯), 슬롯 목록(시작 시각 오름차순, 슬롯별 선택/배정 수)을 반환한다. "
+                    + "멤버의 applicationResult — 그 지원서의 현재 결과. 합격·불합격이면 그 값(ACCEPTED·REJECTED), 아니면 null. "
+                    + "멤버 상태나 제외 이유와 상관없이 실린다(운영진이 먼저 뺀 뒤 결과를 정한 멤버도 결과가 실린다)."
     )
     @GetMapping("/leader/interview-rounds/{roundId}")
     ResponseEntity<ApiResponse<RoundDetailResponse>> getRoundDetail(

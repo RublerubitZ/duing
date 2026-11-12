@@ -103,7 +103,8 @@ public class InterviewRoundMemberRepositoryImpl implements InterviewRoundMemberR
                         user.name,
                         user.studentId,
                         interviewRoundMember.status,
-                        interviewRoundMember.alternativeAvailabilityText))
+                        interviewRoundMember.alternativeAvailabilityText,
+                        application.status))
                 .from(interviewRoundMember)
                 .join(application).on(
                         application.id.eq(interviewRoundMember.applicationId)
