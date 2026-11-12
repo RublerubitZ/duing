@@ -1163,11 +1163,14 @@ describe('RoundWizard — 폐기가 화면이 본 단계(초안)를 싣기', () 
     expect(screen.getByRole('alert')).toHaveTextContent(DRAFT_GONE_NOTICE);
     // 창 밖 고정 문구도 '정리되었습니 / 다.' 처럼 끊기지 않게.
     expect(screen.getByRole('alert')).toHaveClass('break-keep');
+    // 창이 내려가며 body 로 빠진 포커스를 이 알림이 받는다(탭 순서 밖).
+    expect(screen.getByRole('alert')).toHaveAttribute('tabindex', '-1');
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveFocus());
     expect(await screen.findByText('미결정(지원 완료·보류)', { selector: 'h3' })).toBeInTheDocument();
     expect(roundListRequests.count).toBe(2);
   });
 
-  it('409 로 거절되고 다시 받은 목록에 다른 초안이 있으면 창이 그 초안으로 다시 그려지고 서버 문구가 남는다', async () => {
+  it('409 로 거절되고 다시 받은 목록에 다른 초안이 있으면 창이 그 초안으로 다시 그려지고, 옛 초안의 서버 문구는 남지 않는다', async () => {
     serveCountedRoundLists([DRAFT_ROUND_SUMMARY], [OTHER_DRAFT_ROUND_SUMMARY]);
     server.use(CANCEL_REJECTED_AS_STALE, CANDIDATES_HANDLER);
 
@@ -1176,7 +1179,8 @@ describe('RoundWizard — 폐기가 화면이 본 단계(초안)를 싣기', () 
 
     const dialog = screen.getByRole('dialog');
     expect(await within(dialog).findByText('3차 면접')).toBeInTheDocument();
-    expect(within(dialog).getByRole('alert')).toHaveTextContent(STALE_ROUND_MESSAGE);
+    // 서버 문구는 2차 면접의 폐기 거절이다 — 3차 면접 창에는 남기지 않는다(폐기 오류는 그 라운드에 묶는다).
+    expect(within(dialog).queryByRole('alert')).not.toBeInTheDocument();
     await waitFor(() => expect(within(dialog).getByRole('button', { name: /이어하기/ })).toBeEnabled());
     expect(screen.queryByText(DRAFT_GONE_NOTICE)).not.toBeInTheDocument();
   });
