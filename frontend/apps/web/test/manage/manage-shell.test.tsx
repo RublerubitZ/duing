@@ -136,6 +136,8 @@ describe('ManageShell — 접기·푸터', () => {
     await user.click(screen.getByRole('button', { name: '로그아웃' }));
 
     await waitFor(() => expect(addToast).toHaveBeenCalledWith(expectedToast, { variant: 'error' }));
+    // 토스트는 그 문구 하나뿐이다 — 막혔으면 '로그아웃하지 못했습니다' 를 따로 띄우지 않는다.
+    expect(addToast).toHaveBeenCalledTimes(1);
     expect(hardReplaceSpy).not.toHaveBeenCalled();
   });
 

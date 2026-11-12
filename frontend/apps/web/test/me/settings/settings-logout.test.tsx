@@ -105,6 +105,10 @@ describe('SettingsPage logout', () => {
 
     expect(await screen.findByText(expectedToast)).toBeInTheDocument();
     expect(hardReplaceSpy).not.toHaveBeenCalled();
+    // 막혔으면 '로그아웃하지 못했습니다' 는 뜨지 않는다(오프라인 행은 그 문구 하나).
+    expect(screen.queryAllByText(/로그아웃하지 못했습니다/)).toHaveLength(
+      expectedToast === OFFLINE_LOGOUT_TEXT ? 1 : 0,
+    );
   });
 
   it('로그아웃 실패 시 이동하지 않고 오류를 표시한 뒤 재시도할 수 있다', async () => {

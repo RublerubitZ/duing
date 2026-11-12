@@ -81,7 +81,8 @@ export function recordLoggedInSessionUser(userId: number): void {
 }
 
 // 다른 탭이 로그인 상태를 바꿔 이 문서의 요청을 막을 때의 안내 — 안내 토스트·막힌 요청의 오류가 같이 쓴다(같은 문구라 겹친 토스트는 ToastProvider 가 거른다).
-// 표지가 지워졌으면 로그아웃인지 만료인지 이 탭에선 가를 수 없어(둘 다 표지를 지운다) 결과만 말한다.
+// 표지가 지워졌으면 왜 지워졌는지(로그아웃·만료 등) 이 탭에선 가를 수 없어 결과만 말한다.
+// 한계: 다른 계정으로 바뀐 탭이 표지 쓰기에 실패해 지운 경우(writeSessionUser)·다른 탭의 localStorage.clear() 에도 이 문구가 뜬다 — 드물고 새로고침하면 지금 쿠키로 바로잡혀 받아들인다.
 export const SESSION_ENDED_MESSAGE = '로그아웃되었어요. 이 화면에서는 저장되지 않아요.';
 export const SESSION_SWITCHED_MESSAGE =
   '다른 탭에서 로그인 상태가 바뀌었어요. 이 화면에서는 저장되지 않아요.';

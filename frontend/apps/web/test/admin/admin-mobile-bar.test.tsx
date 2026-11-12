@@ -127,5 +127,9 @@ describe('AdminMobileBar', () => {
 
     expect(await screen.findByText(expectedToast)).toBeInTheDocument();
     expect(hardReplaceSpy).not.toHaveBeenCalled();
+    // 막혔으면 '로그아웃하지 못했습니다' 는 뜨지 않는다(오프라인 행은 그 문구 하나).
+    expect(screen.queryAllByText(/로그아웃하지 못했습니다/)).toHaveLength(
+      expectedToast === OFFLINE_LOGOUT_TEXT ? 1 : 0,
+    );
   });
 });
