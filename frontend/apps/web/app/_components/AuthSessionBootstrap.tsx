@@ -13,15 +13,11 @@ import {
   hadSession,
   markHadSession,
   SESSION_USER_KEY,
-  sessionUserDiverged,
+  sessionChangeNotice,
   setConfirmedSessionUser,
   writeSessionUser,
 } from '@/app/_lib/authBoot';
 import posthog from 'posthog-js';
-
-// 새로고침 대기 중에도, 나가기 확인 창을 취소해 막힌 채 남은 뒤에도 맞는 문구 — 이 문서의 요청은 더 나가지 않는다.
-const SESSION_SWITCHED_MESSAGE =
-  '다른 탭에서 로그인 상태가 바뀌었어요. 이 화면에서는 저장되지 않아요.';
 
 export function AuthSessionBootstrap() {
   const [attempt, setAttempt] = useState(0);
@@ -35,7 +31,8 @@ export function AuthSessionBootstrap() {
 
   const previousStateRef = useRef({ status, isVerified });
   // 요청 막기·새로고침은 문서당 한 번 — 나가기 확인 창(고친 내용이 있는 폼의 beforeunload)을 신호마다 띄우지 않는다.
-  const reloadStartedRef = useRef(false);
+  // null 이 아니면 막힌 문서이고, 값은 처음 막을 때의 안내 문구다(뒤이은 신호에도 같은 문구 — 다시 계산하면 다른 토스트가 겹친다).
+  const blockedNoticeRef = useRef<string | null>(null);
 
   // had-session 플래그와 PostHog 신원은 "서버로 확인된" 전이만 따라간다.
   // 시드(미검증 authenticated)에 플래그를 다시 심으면 스텔 플래그가 스스로를 영속시키고,
@@ -44,7 +41,7 @@ export function AuthSessionBootstrap() {
   // 호출부마다 심는 대신 스토어 전이 한 곳에서만 갱신한다(빠지는 곳 방지 — 기존 주석 계약 유지).
   useEffect(() => {
     // 막힌 문서는 건드리지 않는다 — 늦게 끝난 clearSession 이 공유 had-session 을 지우고 PostHog 신원을 끊지 않게.
-    if (reloadStartedRef.current) return;
+    if (blockedNoticeRef.current !== null) return;
     if (isVerified && status === 'authenticated') markHadSession(true);
     else if (isVerified && status === 'unauthenticated') {
       markHadSession(false);
@@ -59,7 +56,7 @@ export function AuthSessionBootstrap() {
   // 그 전환에 had-session·PostHog 분기를 다시 돌리지 않는다.
   useEffect(() => {
     // 막힌 문서는 쓰지 않는다 — 늦게 끝난 요청(비밀번호 변경 성공의 clearSession 등)이 다른 탭의 값을 지우면 멀쩡한 탭이 새로고침된다.
-    if (reloadStartedRef.current) return;
+    if (blockedNoticeRef.current !== null) return;
     if (!isVerified) return;
     let sessionUser: string | null = null;
     if (status === 'authenticated') {
@@ -136,8 +133,8 @@ export function AuthSessionBootstrap() {
   // 공유해 이 화면의 요청이 이미 바뀐 계정으로 나간다. 소프트 이동은 언마운트 정리의 저장을 바뀐 쿠키로 보낸다.
   // 놓친 storage 이벤트(동결 탭·bfcache)는 다시 보일 때·복원될 때 값을 다시 읽어 메운다.
   useEffect(() => {
-    const showSessionSwitchedNotice = () =>
-      addToast(SESSION_SWITCHED_MESSAGE, {
+    const showSessionChangeNotice = (notice: string) =>
+      addToast(notice, {
         variant: 'error',
         durationMs: 0,
         action: {
@@ -146,21 +143,22 @@ export function AuthSessionBootstrap() {
             window.location.reload();
             // 누르면 토스트가 먼저 닫힌다 — 나가기 확인 창을 다시 취소해도 안내 없이 막힌 채 남지 않게 다시 띄운다
             // (닫히는 중인 토스트는 중복으로 걸러지지 않고, 이동이 진행되면 문서가 버려져 무해하다).
-            showSessionSwitchedNotice();
+            showSessionChangeNotice(notice);
           },
         },
       });
     const checkSessionUser = () => {
       // 이미 막은 문서 — 닫힌 안내만 다시 띄운다(떠 있으면 ToastProvider 가 같은 문구를 거른다).
-      if (reloadStartedRef.current) {
-        showSessionSwitchedNotice();
+      if (blockedNoticeRef.current !== null) {
+        showSessionChangeNotice(blockedNoticeRef.current);
         return;
       }
-      if (!sessionUserDiverged()) return;
-      reloadStartedRef.current = true;
-      showSessionSwitchedNotice();
-      // 하드 이동은 응답이 커밋될 때까지 이 문서가 살아 있다 — 그 사이 요청이 바뀐 계정 쿠키로 나가지 않게 오프라인으로 취급한다.
-      registerConnectivityAdapter(() => false);
+      const notice = sessionChangeNotice();
+      if (notice === null) return;
+      blockedNoticeRef.current = notice;
+      showSessionChangeNotice(notice);
+      // 하드 이동은 응답이 커밋될 때까지 이 문서가 살아 있다 — 그 사이 요청이 바뀐 계정 쿠키로 나가지 않게 막고, 안내와 같은 문구로 실패시킨다.
+      registerConnectivityAdapter(() => notice);
       window.location.reload();
     };
     // 다른 키(토큰 갱신 시각 등)의 쓰기는 거른다 — key 가 null 이면 다른 탭의 localStorage.clear() 다.

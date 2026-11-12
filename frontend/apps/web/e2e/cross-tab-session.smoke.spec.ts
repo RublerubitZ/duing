@@ -38,6 +38,9 @@ const FOREIGN_SESSION_USER = 'e2e-other-tab-user';
 const SESSION_USER_KEY = 'duing:auth:session-user';
 // 새로고침 판별 표지 — 앱의 data-had-session 과 겹치지 않는 이름.
 const RELOAD_MARKER = 'data-e2e-cross-tab-marker';
+// 앱의 막힌 로그아웃 문구(app/_lib/authBoot.ts) — 리터럴로 적는다.
+const LOGOUT_BLOCKED_TEXT = '로그아웃하지 못했어요. 다른 탭에서 로그인 상태가 바뀌었어요 — 새로고침한 뒤 다시 로그아웃해주세요.';
+const ENDED_TEXT = '로그아웃되었어요. 이 화면에서는 저장되지 않아요.';
 
 // trace 에는 로그인 요청 본문이 평문으로 남고, 실패 스크린샷에는 실명·학번이 든 화면이 남는다.
 test.use({ trace: 'off', screenshot: 'off' });
@@ -142,6 +145,12 @@ async function reopenConfirmed(page: Page, path: string, userId: number): Promis
   await expect.poll(() => sharedSessionUser(page), { timeout: ROUTE_TIMEOUT_MS }).toBe(String(userId));
 }
 
+// 헤더 사용자 메뉴의 로그아웃. 트리거 이름은 '<이름>님' 이라 끝말로 찾는다 — 로케이터 문자열에 실명을 적지 않는다(실패 기록 자체는 helpers 머리말 참고).
+async function logoutFromUserMenu(page: Page): Promise<void> {
+  await page.getByRole('banner').getByRole('button', { name: /님$/ }).click({ timeout: ROUTE_TIMEOUT_MS });
+  await page.getByRole('menuitem', { name: '로그아웃', exact: true }).click({ timeout: ROUTE_TIMEOUT_MS });
+}
+
 // 문의 작성 화면의 '내 문의' 링크 — 클라이언트 이동이라 문서는 그대로다.
 async function openInquiryList(page: Page): Promise<void> {
   await page.getByRole('main').getByRole('link', { name: '내 문의', exact: true }).click({ timeout: ROUTE_TIMEOUT_MS });
@@ -240,6 +249,19 @@ test('다른 탭이 사용자를 바꿨는데 이 탭이 아직 이벤트를 못
   });
   // 목록 요청은 이동 뒤에만 나간다(위 대조) — 이 문서의 다른 첫 조회가 쓰기 전에 나갔어도 상관없게 그 경로만 본다(networkidle 에 기대지 않는다).
   expect(blockedRequests.map((requestUrl) => requestUrl.pathname)).not.toContain(MY_INQUIRIES_PATH);
+
+  // 같은 문서의 로그아웃도 막혀(나가면 다른 계정 세션을 끝낸다) '네트워크' 대신 누를 때의 상태를 보인다 — 표지에 다른 사용자가 있으면 로그아웃되지 않았다.
+  // 잘못 뜬 실패 문구는 원인 문구가 보인 그 순간에 센다 — 재시도 단언은 토스트(5초)가 사라진 뒤에 거저 통과할 수 있다.
+  const offlineLogoutToast = memberTab.getByText(/로그아웃하지 못했습니다/);
+  await logoutFromUserMenu(memberTab);
+  await expect(memberTab.getByText(LOGOUT_BLOCKED_TEXT, { exact: true })).toBeVisible({ timeout: ROUTE_TIMEOUT_MS });
+  expect(await offlineLogoutToast.count()).toBe(0);
+  // 다른 탭이 로그아웃·만료로 표지를 지운 경우 — 누를 때 표지가 비어 있어 로그아웃 문구를 보인다.
+  await writeSharedSessionUser(memberTab, null);
+  await logoutFromUserMenu(memberTab);
+  await expect(memberTab.getByText(ENDED_TEXT, { exact: true })).toBeVisible({ timeout: ROUTE_TIMEOUT_MS });
+  expect(await offlineLogoutToast.count()).toBe(0);
+  expect(blockedRequests.map((requestUrl) => requestUrl.pathname)).not.toContain(LOGOUT_PATH);
   await expect(memberTab.locator(`html[${RELOAD_MARKER}]`)).toHaveCount(1);
 });
 

@@ -61,6 +61,51 @@ describe('connectivity fail-fast', () => {
     expect(receivedRequests).toEqual([`GET ${BASE_URL}/users/me`]);
   });
 
+  it('어댑터가 문자열을 돌려주면 요청 없이 그 문구로 ApiError(NETWORK)로 거부한다', async () => {
+    registerConnectivityAdapter(() => '다른 탭에서 로그인 상태가 바뀌었어요.');
+    await expect(client.users.me()).rejects.toMatchObject({
+      name: 'ApiError',
+      status: 0,
+      code: 'NETWORK',
+      message: '다른 탭에서 로그인 상태가 바뀌었어요.',
+    });
+  });
+
+  it('빈 문자열도 막힘이다 — 참·거짓이 아니라 타입으로 본다', async () => {
+    registerConnectivityAdapter(() => '');
+    await expect(client.users.me()).rejects.toMatchObject({
+      name: 'ApiError',
+      code: 'NETWORK',
+      message: '',
+    });
+  });
+
+  it('요청 없이 부르는 가드도 문자열을 막힘으로 본다 — 401 뒤 갱신·재시도가 나가지 않는다', async () => {
+    let meRequestCount = 0;
+    let refreshRequestCount = 0;
+    server.use(
+      http.get(`${BASE_URL}/users/me`, () => {
+        meRequestCount += 1;
+        return HttpResponse.json(
+          { ok: false, data: null, message: '인증이 필요합니다.' },
+          { status: 401 },
+        );
+      }),
+      // 갱신이 새면 성공해 재시도까지 나가게 둔다 — 핸들러가 없으면 MSW 오류가 'unavailable' 로 삼켜져 원 401 만으로는 가르지 못한다.
+      http.post(`${BASE_URL}/auth/web/refresh`, () => {
+        refreshRequestCount += 1;
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+    // 보내는 요청은 통과시키고(서버에 닿은 뒤 막힌 흉내), 요청 없이 부르는 가드에만 막힘 문구를 준다.
+    registerConnectivityAdapter((request?: Request) => (request === undefined ? '막힘' : true));
+    const cookieClient = createApiClient({ baseUrl: BASE_URL, authTransport: 'cookie' });
+
+    await expect(cookieClient.users.me()).rejects.toMatchObject({ status: 401 });
+    expect(refreshRequestCount).toBe(0);
+    expect(meRequestCount).toBe(1);
+  });
+
   it('어댑터 미등록이면 요청이 정상 진행된다', async () => {
     server.use(
       http.get('*/users/me', () =>

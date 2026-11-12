@@ -172,14 +172,13 @@ import type {
   UpdateFederationInquiryPayload,
 } from '@duing/types';
 import { clearToken, readToken, writeToken } from './token';
-import { isKnownOffline } from './connectivity';
+import { blockedRequestMessage, isKnownOffline } from './connectivity';
 import { createRefreshCoordinator } from './refresh-coordinator';
 import type { RefreshOutcome } from './refresh-coordinator';
 import {
   ApiError,
   BLOB_BODY_READ_TIMEOUT_MS,
   JSON_BODY_READ_TIMEOUT_MS,
-  NETWORK_ERROR_MESSAGE,
   REQUEST_TIMEOUT_MS,
   cleanParams,
   readBodyWithTimeout,
@@ -694,9 +693,10 @@ export function createApiClient(options: CreateApiClientOptions): DuingApiClient
     hooks: {
       beforeRequest: [
         async (request) => {
-          // 확실한 오프라인이면 타임아웃까지 기다리지 않고 즉시 실패시킨다. (스펙 §3.3)
-          if (isKnownOffline(request)) {
-            throw new ApiError(0, NETWORK_ERROR_MESSAGE, undefined, 'NETWORK');
+          // 확실한 오프라인이면 타임아웃까지 기다리지 않고 즉시 실패시킨다(스펙 §3.3). 막힘이면 어댑터가 준 원인 문구로 — 코드는 같은 NETWORK.
+          const blockedMessage = blockedRequestMessage(request);
+          if (blockedMessage !== null) {
+            throw new ApiError(0, blockedMessage, undefined, 'NETWORK');
           }
           if (authTransport === 'bearer') {
             const token = await readToken();

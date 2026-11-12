@@ -24,7 +24,7 @@ import {
   SESSION_USER_KEY,
   consumeBootSessionRestore,
   recordLoggedInSessionUser,
-  sessionUserDiverged,
+  sessionChangeNotice,
   webConnectivityAdapter,
 } from '@/app/_lib/authBoot';
 
@@ -112,6 +112,8 @@ function throwBlocked(): never {
 }
 
 const SWITCHED_TEXT = '다른 탭에서 로그인 상태가 바뀌었어요. 이 화면에서는 저장되지 않아요.';
+// 표지가 지워졌을 때 — 이 탭은 로그아웃인지 만료인지 가를 수 없어 결과만 말한다.
+const ENDED_TEXT = '로그아웃되었어요. 이 화면에서는 저장되지 않아요.';
 // 다른 탭이 공유 표지를 바꿨다는 알림만 보낸다(값은 그대로) — 저장소를 못 쓰는 사례·이미 둔 값에 쓴다.
 const storageChanged = (newValue: string | null) =>
   window.dispatchEvent(new StorageEvent('storage', { key: SESSION_USER_KEY, newValue }));
@@ -238,16 +240,49 @@ describe('공유 사용자 표지 — 다른 탭의 바뀜', () => {
 
     expect(reloadSpy).toHaveBeenCalledTimes(1);
     expect(await screen.findByText(SWITCHED_TEXT)).toBeInTheDocument();
-    // 새로고침 응답을 기다리는 동안 이 문서의 요청은 바뀐 계정 쿠키로 나가지 않는다.
-    await expect(apiClient.users.me()).rejects.toMatchObject({ code: 'NETWORK' });
+    // 새로고침 응답을 기다리는 동안 이 문서의 요청은 바뀐 계정 쿠키로 나가지 않고, '인터넷 연결' 이 아니라 안내와 같은 문구로 실패한다.
+    await expect(apiClient.users.me()).rejects.toMatchObject({
+      code: 'NETWORK',
+      message: SWITCHED_TEXT,
+    });
     expect(meRequestCount).toBe(1);
+    // 떠나는 문서는 로그인도 막는다(#1694) — 로그인 화면은 NETWORK 면 이 문구를 그대로 보인다.
+    await expect(
+      apiClient.auth.login({ studentId: OTHER_MEMBER.studentId, password: 'x', rememberMe: false }),
+    ).rejects.toMatchObject({ code: 'NETWORK', message: SWITCHED_TEXT });
   });
 
-  it('다른 탭이 로그아웃하면 새로고침한다', async () => {
+  it('다른 탭이 로그아웃하거나 세션 만료로 표지를 지우면 로그아웃 안내로 막고 새로고침한다', async () => {
     await renderVerifiedMember();
 
     act(() => otherTabWrites(null));
 
+    expect(reloadSpy).toHaveBeenCalledTimes(1);
+    expect(await screen.findByText(ENDED_TEXT)).toBeInTheDocument();
+    expect(screen.queryByText(SWITCHED_TEXT)).toBeNull();
+    await expect(apiClient.users.me()).rejects.toMatchObject({
+      code: 'NETWORK',
+      message: ENDED_TEXT,
+    });
+  });
+
+  it('막힌 문서는 처음 막은 원인의 문구를 유지한다 — 그 뒤 다른 탭이 로그인해도 안내·막힌 요청 모두 로그아웃 문구', async () => {
+    const user = userEvent.setup();
+    await renderVerifiedMember();
+    act(() => otherTabWrites(null));
+    expect(await screen.findByText(ENDED_TEXT)).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: '알림 닫기' }));
+    await waitFor(() => expect(screen.queryByText(ENDED_TEXT)).toBeNull());
+
+    // 다시 계산하면 계정 전환 문구가 겹쳐 뜬다 — 처음 문구 하나만 다시 띄운다.
+    act(() => otherTabWrites('3'));
+    expect(await screen.findAllByText(ENDED_TEXT)).toHaveLength(1);
+    expect(screen.queryByText(SWITCHED_TEXT)).toBeNull();
+    await expect(apiClient.users.me()).rejects.toMatchObject({
+      code: 'NETWORK',
+      message: ENDED_TEXT,
+    });
     expect(reloadSpy).toHaveBeenCalledTimes(1);
   });
 
@@ -352,21 +387,46 @@ describe('공유 사용자 표지 — 다른 탭의 바뀜', () => {
     expect(reloadSpy).not.toHaveBeenCalled();
   });
 
-  it('쓰기만 실패한 탭은 남의 옛 값이 남아 있어도 새로고침을 되풀이하지 않는다', async () => {
+  it('쓰기에 실패한 탭은 남은 옛 값을 지워 다른 탭이 알아채게 하고, 자기는 비교하지 않아 요청이 나가고 새로고침하지 않는다', async () => {
     registerConnectivityAdapter(webConnectivityAdapter);
     window.localStorage.setItem(SESSION_USER_KEY, '9');
     vi.spyOn(Storage.prototype, 'setItem').mockImplementation(throwBlocked);
 
     renderBootstrap();
-    await waitFor(() => expect(useAuthStore.getState().isVerified).toBe(true));
+    // 옛 값(9)이 남으면 9 를 확인한 다른 탭은 이 탭의 계정(1)을 모른다 — 지워야 그 탭들이 새로고침해 다시 확인한다.
+    await waitFor(() => expect(window.localStorage.getItem(SESSION_USER_KEY)).toBeNull());
+    expect(useAuthStore.getState().isVerified).toBe(true);
     await expectRequestGoesOut();
 
     act(() => {
       tabBecomesVisible();
-      storageChanged('9');
+      storageChanged(null);
     });
 
     expect(reloadSpy).not.toHaveBeenCalled();
+  });
+
+  it('쓰기에 실패해도 표지가 이미 쓰려던 값이면 지우지 않는다 — 같은 사용자를 확인한 다른 탭을 흔들지 않는다', async () => {
+    window.localStorage.setItem(SESSION_USER_KEY, '1');
+    const setItemSpy = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(throwBlocked);
+
+    renderBootstrap();
+    // 쓰기를 시도한 뒤라야 '그대로' 가 거저 나오지 않는다 — 지우기는 같은 effect 안에서 곧바로 일어난다.
+    await waitFor(() => expect(setItemSpy).toHaveBeenCalledWith(SESSION_USER_KEY, '1'));
+
+    expect(window.localStorage.getItem(SESSION_USER_KEY)).toBe('1');
+  });
+
+  it('로그인 직후 쓰기도 실패하면 옛 값을 지우고 이 탭은 비교하지 않는다', async () => {
+    registerConnectivityAdapter(webConnectivityAdapter);
+    await renderVerifiedMember();
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(throwBlocked);
+
+    recordLoggedInSessionUser(OTHER_MEMBER.id);
+
+    expect(window.localStorage.getItem(SESSION_USER_KEY)).toBeNull();
+    expect(sessionChangeNotice()).toBeNull();
+    await expectRequestGoesOut();
   });
 
   it('알려진 한계 — 확인 뒤 쓰기에 실패한 탭은 그때부터 비교하지 않는다', async () => {
@@ -375,6 +435,8 @@ describe('공유 사용자 표지 — 다른 탭의 바뀜', () => {
     const setItemSpy = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(throwBlocked);
     act(() => useAuthStore.getState().setSession(OTHER_MEMBER));
     setItemSpy.mockRestore();
+    // 이 탭이 쓰던 옛 값(1)은 지운다 — 1 을 확인한 다른 탭이 이 탭의 전환(2)을 알아채게.
+    expect(window.localStorage.getItem(SESSION_USER_KEY)).toBeNull();
     await expectRequestGoesOut();
 
     act(() => otherTabWrites('3'));
@@ -457,13 +519,28 @@ describe('공유 사용자 표지 — 다른 탭의 바뀜', () => {
     // 깨어난 동결 탭 흉내 — 저장소엔 다른 탭의 쓰기가 보이지만 이 문서는 아직 이벤트를 처리하지 않았다.
     window.localStorage.setItem(SESSION_USER_KEY, '2');
 
-    await expect(apiClient.users.me()).rejects.toMatchObject({ code: 'NETWORK' });
+    await expect(apiClient.users.me()).rejects.toMatchObject({
+      code: 'NETWORK',
+      message: SWITCHED_TEXT,
+    });
     expect(meRequestCount).toBe(1);
     expect(reloadSpy).not.toHaveBeenCalled();
 
     // 새로고침은 지금처럼 이벤트가 맡는다.
     act(() => storageChanged('2'));
     expect(reloadSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('다른 탭이 표지를 지웠는데 이벤트를 아직 못 받았으면 요청은 로그아웃 문구로 막힌다', async () => {
+    registerConnectivityAdapter(webConnectivityAdapter);
+    await renderVerifiedMember();
+    window.localStorage.removeItem(SESSION_USER_KEY);
+
+    await expect(apiClient.users.me()).rejects.toMatchObject({
+      code: 'NETWORK',
+      message: ENDED_TEXT,
+    });
+    expect(meRequestCount).toBe(1);
   });
 
   it('요청이 서버에 닿은 사이 다른 탭이 사용자를 바꾸고 401 이 오면 갱신·재시도 없이 실패한다', async () => {
@@ -539,7 +616,7 @@ describe('공유 사용자 표지 — 다른 탭의 바뀜', () => {
     unmount();
     window.localStorage.setItem(SESSION_USER_KEY, '2');
 
-    expect(sessionUserDiverged()).toBe(false);
+    expect(sessionChangeNotice()).toBeNull();
     await expect(apiClient.users.me()).resolves.toMatchObject({ id: 1 });
   });
 
