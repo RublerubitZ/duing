@@ -3,6 +3,7 @@
 import type {
   CreateInterviewRoundPayload,
   CreateRoundSlotsPayload,
+  InterviewRoundStatus,
   UpdateInterviewRoundPayload,
   UpdateInterviewSlotPayload,
 } from '@duing/types';
@@ -247,8 +248,15 @@ export function useAssignMemberScheduleMutation(roundId: number) {
   const client = useApiClient();
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ memberId, slotId }: { memberId: number; slotId: number }) =>
-      client.interviewRounds.assignMemberSchedule(roundId, memberId, { slotId }),
+    mutationFn: ({
+      memberId,
+      slotId,
+      expectedRoundStatus,
+    }: {
+      memberId: number;
+      slotId: number;
+      expectedRoundStatus: InterviewRoundStatus;
+    }) => client.interviewRounds.assignMemberSchedule(roundId, memberId, { slotId, expectedRoundStatus }),
     onSuccess: () => {
       queryClient.invalidateQueries({
         queryKey: interviewRoundKeys.detail(roundId),

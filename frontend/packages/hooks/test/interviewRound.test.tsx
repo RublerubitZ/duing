@@ -515,7 +515,7 @@ describe('useAssignMemberScheduleMutation (스펙 §10.1 — 배정 detail 만)'
     const { result } = renderHook(() => useAssignMemberScheduleMutation(42), {
       wrapper: makeWrapper(queryClient),
     });
-    result.current.mutate({ memberId: 7, slotId: 99 });
+    result.current.mutate({ memberId: 7, slotId: 99, expectedRoundStatus: 'ASSIGNING' });
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
 
     expect(queryClient.getQueryState(interviewRoundKeys.detail(42))?.isInvalidated).toBe(true);
@@ -542,7 +542,7 @@ describe('useAssignMemberScheduleMutation (스펙 §10.1 — 배정 detail 만)'
     const { result } = renderHook(() => useAssignMemberScheduleMutation(42), {
       wrapper: makeWrapper(queryClient),
     });
-    result.current.mutate({ memberId: 7, slotId: 99 });
+    result.current.mutate({ memberId: 7, slotId: 99, expectedRoundStatus: 'ASSIGNING' });
     await waitFor(() => expect(result.current.isError).toBe(true));
 
     expect(queryClient.getQueryState(interviewRoundKeys.detail(42))?.isInvalidated).toBe(invalidated);
@@ -580,7 +580,7 @@ describe('useAssignMemberScheduleMutation (스펙 §10.1 — 배정 detail 만)'
       );
       await waitFor(() => expect(result.current.detail.isSuccess).toBe(true));
 
-      result.current.assign.mutate({ memberId: 7, slotId: 99 });
+      result.current.assign.mutate({ memberId: 7, slotId: 99, expectedRoundStatus: 'ASSIGNING' });
 
       // 재조회를 붙잡은 동안 — onError 가 무효화를 돌려주면(return) 오류 기록이 재조회 뒤로 밀려 여기서 시간 초과한다.
       await waitFor(() => expect(result.current.assign.isError).toBe(true));

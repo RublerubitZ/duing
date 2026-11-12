@@ -508,7 +508,7 @@ shadcn(Radix) 프리미티브는 **동작·접근성이 중요한 컴포넌트**
 
 **확인 모달 실패 정책:** 공용 `ConfirmDialog` 는 실패해도 모달을 닫지 않고 `errorMessage` 로 모달 **안에서** 안내한다. 화면 본문에 그리면 스크림·`aria-hidden` 뒤에 갇힌다. 새 확인 모달을 만들지 말고 공용 `ConfirmDialog` 를 쓴다. (근거: 이슈 #826)
 
-**아직 이 규칙 밖인 것(후속):** 관리자 개별 다이얼로그(`AdminClubDeleteDialog` 등) — 자체 `errorMessage` 는 있으나 `role="alert"` 없음 · 슬롯 배정(`MemberAssignModal`) — 창 안 문구 자리가 없어 실패하면 창을 닫고 본문 피드백(자동배정 창과 같다) · 일괄 처리 — 부분 성공 결과라 **의도적 예외** · 시설 예약 폼 — 닫고 토스트(토스트는 스크림 위라 도달 가능).
+**아직 이 규칙 밖인 것(후속):** 관리자 개별 다이얼로그(`AdminClubDeleteDialog` 등) — 자체 `errorMessage` 는 있으나 `role="alert"` 없음 · 자동배정 확인(`AutoAssignDialog`) — 실패하면 창을 닫고 본문 피드백 · 일괄 처리 — 부분 성공 결과라 **의도적 예외** · 시설 예약 폼 — 닫고 토스트(토스트는 스크림 위라 도달 가능).
 
 **토큰:** 스크림 `bg-ink/35`, 패널 `bg-card`(시트 `rounded-t-xl` / 중앙 `rounded-lg`)·`shadow-3` — **두잉 토큰 고정, stone 금지.** **금지:** 중앙 Dialog 안 긴 세로 스크롤(상하 잘림) · 키보드가 액션 가리는 배치 · 파괴 액션을 스크림/Esc 로 실행.
 

@@ -1,6 +1,7 @@
 'use client';
 
 import type { InterviewRoundDetail, InterviewRoundDetailMember } from '@duing/types';
+import { roundMemberRowId } from './RoundMemberTable';
 import { ROUND_SLOTS_SECTION_ID } from './RoundSlotsSection';
 
 // 가능없음(NO_AVAILABLE_SLOT) 멤버 전용 섹션 — 대체 가능시간 텍스트 +
@@ -47,14 +48,21 @@ export function NoSlotSection({ detail, onExclude, onManualAssign }: NoSlotSecti
       </div>
       <div className="space-y-2">
         {noSlotMembers.map((member) => (
+          // 표의 행과 같은 규칙 — 창이 닫힌 뒤 포커스를 받는 자리(RoundMemberTable 주석)
           <div
             key={member.memberId}
-            className="flex items-start justify-between gap-3 rounded-md bg-white px-4 py-3"
+            id={roundMemberRowId(member.memberId)}
+            role="group"
+            aria-labelledby={`${roundMemberRowId(member.memberId)}-name ${roundMemberRowId(member.memberId)}-student`}
+            tabIndex={-1}
+            className="flex items-start justify-between gap-3 rounded-md bg-white px-4 py-3 focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ink"
           >
             <div className="min-w-0">
               <div className="flex items-center gap-2">
-                <span className="text-sm font-medium text-ink-deep">{member.userName}</span>
-                <span className="text-xs text-charcoal-3">{member.studentId}</span>
+                <span id={`${roundMemberRowId(member.memberId)}-name`} className="text-sm font-medium text-ink-deep">
+                  {member.userName}
+                </span>
+                <span id={`${roundMemberRowId(member.memberId)}-student`} className="text-xs text-charcoal-3">{member.studentId}</span>
               </div>
               {member.alternativeAvailabilityText && (
                 <p className="mt-1 text-sm text-charcoal-2">
