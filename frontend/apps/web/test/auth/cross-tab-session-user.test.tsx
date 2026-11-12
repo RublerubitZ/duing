@@ -387,21 +387,46 @@ describe('공유 사용자 표지 — 다른 탭의 바뀜', () => {
     expect(reloadSpy).not.toHaveBeenCalled();
   });
 
-  it('쓰기만 실패한 탭은 남의 옛 값이 남아 있어도 새로고침을 되풀이하지 않는다', async () => {
+  it('쓰기에 실패한 탭은 남은 옛 값을 지워 다른 탭이 알아채게 하고, 자기는 비교하지 않아 요청이 나가고 새로고침하지 않는다', async () => {
     registerConnectivityAdapter(webConnectivityAdapter);
     window.localStorage.setItem(SESSION_USER_KEY, '9');
     vi.spyOn(Storage.prototype, 'setItem').mockImplementation(throwBlocked);
 
     renderBootstrap();
-    await waitFor(() => expect(useAuthStore.getState().isVerified).toBe(true));
+    // 옛 값(9)이 남으면 9 를 확인한 다른 탭은 이 탭의 계정(1)을 모른다 — 지워야 그 탭들이 새로고침해 다시 확인한다.
+    await waitFor(() => expect(window.localStorage.getItem(SESSION_USER_KEY)).toBeNull());
+    expect(useAuthStore.getState().isVerified).toBe(true);
     await expectRequestGoesOut();
 
     act(() => {
       tabBecomesVisible();
-      storageChanged('9');
+      storageChanged(null);
     });
 
     expect(reloadSpy).not.toHaveBeenCalled();
+  });
+
+  it('쓰기에 실패해도 표지가 이미 쓰려던 값이면 지우지 않는다 — 같은 사용자를 확인한 다른 탭을 흔들지 않는다', async () => {
+    window.localStorage.setItem(SESSION_USER_KEY, '1');
+    const setItemSpy = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(throwBlocked);
+
+    renderBootstrap();
+    // 쓰기를 시도한 뒤라야 '그대로' 가 거저 나오지 않는다 — 지우기는 같은 effect 안에서 곧바로 일어난다.
+    await waitFor(() => expect(setItemSpy).toHaveBeenCalledWith(SESSION_USER_KEY, '1'));
+
+    expect(window.localStorage.getItem(SESSION_USER_KEY)).toBe('1');
+  });
+
+  it('로그인 직후 쓰기도 실패하면 옛 값을 지우고 이 탭은 비교하지 않는다', async () => {
+    registerConnectivityAdapter(webConnectivityAdapter);
+    await renderVerifiedMember();
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(throwBlocked);
+
+    recordLoggedInSessionUser(OTHER_MEMBER.id);
+
+    expect(window.localStorage.getItem(SESSION_USER_KEY)).toBeNull();
+    expect(sessionChangeNotice()).toBeNull();
+    await expectRequestGoesOut();
   });
 
   it('알려진 한계 — 확인 뒤 쓰기에 실패한 탭은 그때부터 비교하지 않는다', async () => {
@@ -410,6 +435,8 @@ describe('공유 사용자 표지 — 다른 탭의 바뀜', () => {
     const setItemSpy = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(throwBlocked);
     act(() => useAuthStore.getState().setSession(OTHER_MEMBER));
     setItemSpy.mockRestore();
+    // 이 탭이 쓰던 옛 값(1)은 지운다 — 1 을 확인한 다른 탭이 이 탭의 전환(2)을 알아채게.
+    expect(window.localStorage.getItem(SESSION_USER_KEY)).toBeNull();
     await expectRequestGoesOut();
 
     act(() => otherTabWrites('3'));

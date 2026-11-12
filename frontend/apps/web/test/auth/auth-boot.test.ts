@@ -15,6 +15,7 @@ import {
   setConfirmedSessionUser,
   startBootSessionRestore,
   webConnectivityAdapter,
+  writeSessionUser,
 } from '@/app/_lib/authBoot';
 
 const API_BASE_URL = 'http://localhost:8080/api/v1';
@@ -181,5 +182,30 @@ describe('sessionChangeMessageOf — 탭 사이 막힘으로 실패한 요청의
     ['계정 전환 문구여도 ApiError 가 아닌 Error', new Error(SWITCHED_TEXT), null],
   ])('%s', (_label, error, expected) => {
     expect(sessionChangeMessageOf(error)).toBe(expected);
+  });
+});
+
+describe('공유 사용자 표지 — 쓰기 실패', () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  const throwQuota = () => {
+    throw new DOMException('quota', 'QuotaExceededError');
+  };
+
+  it('쓰기에 실패하면 남은 다른 값을 지우고 실패를 돌려준다', () => {
+    window.localStorage.setItem(SESSION_USER_KEY, '9');
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(throwQuota);
+
+    expect(writeSessionUser('1')).toBe(false);
+    expect(window.localStorage.getItem(SESSION_USER_KEY)).toBeNull();
+  });
+
+  // 부트스트랩 effect 안에서 던지면 화면 테스트로는 드러나지 않는다 — 함수 단위로 지킨다.
+  it('쓰기와 지우기가 모두 실패해도 던지지 않고 실패를 돌려준다', () => {
+    window.localStorage.setItem(SESSION_USER_KEY, '9');
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(throwQuota);
+    vi.spyOn(Storage.prototype, 'removeItem').mockImplementation(throwQuota);
+
+    expect(writeSessionUser('1')).toBe(false);
   });
 });

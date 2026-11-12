@@ -42,6 +42,15 @@ export function writeSessionUser(value: string | null): boolean {
     else window.localStorage.setItem(SESSION_USER_KEY, value);
     return true;
   } catch {
+    // 새 사용자를 못 쓰면(용량 초과 등) 남은 다른 값을 지운다 — 옛 값이 남으면 다른 탭이 바뀐 걸 모른다(지워지면 새로고침해 지금 쿠키로 다시 확인한다).
+    // 이미 같은 값이면 두어 같은 사용자 탭을 흔들지 않는다. 그래도 실패로 돌려준다 — 이 탭은 비교하지 않는다(지운 값과 비교하면 자기 요청을 막는다).
+    if (value !== null && readSessionUser() !== value) {
+      try {
+        window.localStorage.removeItem(SESSION_USER_KEY);
+      } catch {
+        // 지우기도 못 하는 저장소 — 다른 탭이 모를 수 있다(전과 같다).
+      }
+    }
     return false;
   }
 }
