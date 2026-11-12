@@ -24,7 +24,7 @@ import {
   SESSION_USER_KEY,
   consumeBootSessionRestore,
   recordLoggedInSessionUser,
-  sessionUserDiverged,
+  sessionChangeNotice,
   webConnectivityAdapter,
 } from '@/app/_lib/authBoot';
 
@@ -112,6 +112,8 @@ function throwBlocked(): never {
 }
 
 const SWITCHED_TEXT = '다른 탭에서 로그인 상태가 바뀌었어요. 이 화면에서는 저장되지 않아요.';
+// 표지가 지워졌을 때 — 이 탭은 로그아웃인지 만료인지 가를 수 없어 결과만 말한다.
+const ENDED_TEXT = '로그아웃되었어요. 이 화면에서는 저장되지 않아요.';
 // 다른 탭이 공유 표지를 바꿨다는 알림만 보낸다(값은 그대로) — 저장소를 못 쓰는 사례·이미 둔 값에 쓴다.
 const storageChanged = (newValue: string | null) =>
   window.dispatchEvent(new StorageEvent('storage', { key: SESSION_USER_KEY, newValue }));
@@ -238,16 +240,49 @@ describe('공유 사용자 표지 — 다른 탭의 바뀜', () => {
 
     expect(reloadSpy).toHaveBeenCalledTimes(1);
     expect(await screen.findByText(SWITCHED_TEXT)).toBeInTheDocument();
-    // 새로고침 응답을 기다리는 동안 이 문서의 요청은 바뀐 계정 쿠키로 나가지 않는다.
-    await expect(apiClient.users.me()).rejects.toMatchObject({ code: 'NETWORK' });
+    // 새로고침 응답을 기다리는 동안 이 문서의 요청은 바뀐 계정 쿠키로 나가지 않고, '인터넷 연결' 이 아니라 안내와 같은 문구로 실패한다.
+    await expect(apiClient.users.me()).rejects.toMatchObject({
+      code: 'NETWORK',
+      message: SWITCHED_TEXT,
+    });
     expect(meRequestCount).toBe(1);
+    // 떠나는 문서는 로그인도 막는다(#1694) — 로그인 화면은 NETWORK 면 이 문구를 그대로 보인다.
+    await expect(
+      apiClient.auth.login({ studentId: OTHER_MEMBER.studentId, password: 'x', rememberMe: false }),
+    ).rejects.toMatchObject({ code: 'NETWORK', message: SWITCHED_TEXT });
   });
 
-  it('다른 탭이 로그아웃하면 새로고침한다', async () => {
+  it('다른 탭이 로그아웃하거나 세션 만료로 표지를 지우면 로그아웃 안내로 막고 새로고침한다', async () => {
     await renderVerifiedMember();
 
     act(() => otherTabWrites(null));
 
+    expect(reloadSpy).toHaveBeenCalledTimes(1);
+    expect(await screen.findByText(ENDED_TEXT)).toBeInTheDocument();
+    expect(screen.queryByText(SWITCHED_TEXT)).toBeNull();
+    await expect(apiClient.users.me()).rejects.toMatchObject({
+      code: 'NETWORK',
+      message: ENDED_TEXT,
+    });
+  });
+
+  it('막힌 문서는 처음 막은 원인의 문구를 유지한다 — 그 뒤 다른 탭이 로그인해도 안내·막힌 요청 모두 로그아웃 문구', async () => {
+    const user = userEvent.setup();
+    await renderVerifiedMember();
+    act(() => otherTabWrites(null));
+    expect(await screen.findByText(ENDED_TEXT)).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: '알림 닫기' }));
+    await waitFor(() => expect(screen.queryByText(ENDED_TEXT)).toBeNull());
+
+    // 다시 계산하면 계정 전환 문구가 겹쳐 뜬다 — 처음 문구 하나만 다시 띄운다.
+    act(() => otherTabWrites('3'));
+    expect(await screen.findAllByText(ENDED_TEXT)).toHaveLength(1);
+    expect(screen.queryByText(SWITCHED_TEXT)).toBeNull();
+    await expect(apiClient.users.me()).rejects.toMatchObject({
+      code: 'NETWORK',
+      message: ENDED_TEXT,
+    });
     expect(reloadSpy).toHaveBeenCalledTimes(1);
   });
 
@@ -457,13 +492,28 @@ describe('공유 사용자 표지 — 다른 탭의 바뀜', () => {
     // 깨어난 동결 탭 흉내 — 저장소엔 다른 탭의 쓰기가 보이지만 이 문서는 아직 이벤트를 처리하지 않았다.
     window.localStorage.setItem(SESSION_USER_KEY, '2');
 
-    await expect(apiClient.users.me()).rejects.toMatchObject({ code: 'NETWORK' });
+    await expect(apiClient.users.me()).rejects.toMatchObject({
+      code: 'NETWORK',
+      message: SWITCHED_TEXT,
+    });
     expect(meRequestCount).toBe(1);
     expect(reloadSpy).not.toHaveBeenCalled();
 
     // 새로고침은 지금처럼 이벤트가 맡는다.
     act(() => storageChanged('2'));
     expect(reloadSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('다른 탭이 표지를 지웠는데 이벤트를 아직 못 받았으면 요청은 로그아웃 문구로 막힌다', async () => {
+    registerConnectivityAdapter(webConnectivityAdapter);
+    await renderVerifiedMember();
+    window.localStorage.removeItem(SESSION_USER_KEY);
+
+    await expect(apiClient.users.me()).rejects.toMatchObject({
+      code: 'NETWORK',
+      message: ENDED_TEXT,
+    });
+    expect(meRequestCount).toBe(1);
   });
 
   it('요청이 서버에 닿은 사이 다른 탭이 사용자를 바꾸고 401 이 오면 갱신·재시도 없이 실패한다', async () => {
@@ -539,7 +589,7 @@ describe('공유 사용자 표지 — 다른 탭의 바뀜', () => {
     unmount();
     window.localStorage.setItem(SESSION_USER_KEY, '2');
 
-    expect(sessionUserDiverged()).toBe(false);
+    expect(sessionChangeNotice()).toBeNull();
     await expect(apiClient.users.me()).resolves.toMatchObject({ id: 1 });
   });
 

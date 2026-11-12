@@ -71,20 +71,28 @@ export function recordLoggedInSessionUser(userId: number): void {
   setConfirmedSessionUser(writeSessionUser(sessionUser) ? sessionUser : undefined);
 }
 
-// 공유 표지가 이 탭이 확인한 사용자와 다른가. 확인 전이면 저장소를 읽지 않고, 읽지 못하면 비교하지 않는다.
-export function sessionUserDiverged(): boolean {
-  if (confirmedSessionUser === undefined) return false;
+// 다른 탭이 로그인 상태를 바꿔 이 문서의 요청을 막을 때의 안내 — 안내 토스트·막힌 요청의 오류가 같이 쓴다(같은 문구라 겹친 토스트는 ToastProvider 가 거른다).
+// 표지가 지워졌으면 로그아웃인지 만료인지 이 탭에선 가를 수 없어(둘 다 표지를 지운다) 결과만 말한다.
+export const SESSION_ENDED_MESSAGE = '로그아웃되었어요. 이 화면에서는 저장되지 않아요.';
+export const SESSION_SWITCHED_MESSAGE =
+  '다른 탭에서 로그인 상태가 바뀌었어요. 이 화면에서는 저장되지 않아요.';
+
+// 공유 표지가 이 탭이 확인한 사용자와 다르면 그 안내 문구, 같거나 비교하지 않으면 null. 확인 전이면 저장소를 읽지 않고, 읽지 못하면 비교하지 않는다.
+export function sessionChangeNotice(): string | null {
+  if (confirmedSessionUser === undefined) return null;
   const sharedSessionUser = readSessionUser();
-  return sharedSessionUser !== undefined && sharedSessionUser !== confirmedSessionUser;
+  if (sharedSessionUser === undefined || sharedSessionUser === confirmedSessionUser) return null;
+  return sharedSessionUser === null ? SESSION_ENDED_MESSAGE : SESSION_SWITCHED_MESSAGE;
 }
 
 // 웹 연결 어댑터(providers 가 등록, 요청마다 불린다) — 다른 탭이 사용자를 바꿨으면 이벤트를 아직 못 받았어도(깨어난 동결 탭) 막는다.
 // navigator.onLine 은 명시적 false 만 오프라인으로 본다(서버의 Node 전역 navigator 엔 onLine 이 없다).
 // 로그인은 막지 않는다 — 쿠키도 함께 나가지만 서버 웹 로그인은 기존 인증 쿠키를 읽지 않고 입력한 자격 증명으로만 답해 다른 계정 데이터가 새지 않는다(동시 로그인의 늦은 탭).
-export function webConnectivityAdapter(request?: Request): boolean {
+// 막을 때는 안내 문구를 돌려준다 — 막힌 요청이 '인터넷 연결' 대신 원인 문구로 실패한다(packages/api 연결 어댑터 계약).
+export function webConnectivityAdapter(request?: Request): boolean | string {
   if (typeof navigator !== 'undefined' && navigator.onLine === false) return false;
   if (request !== undefined && isWebLoginRequest(request)) return true;
-  return !sessionUserDiverged();
+  return sessionChangeNotice() ?? true;
 }
 
 // §9.2 3단 시드의 클라이언트 층(신호 없음 행) — 로컬 이력이 있으면 authenticated 로 추정한다.

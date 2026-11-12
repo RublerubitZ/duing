@@ -11,7 +11,7 @@ import { setStorage } from '@duing/storage';
 import { useAuthStore } from '@duing/stores';
 
 import { LoginFormPanel } from '@/app/(auth)/login/_components/LoginFormPanel';
-import { SESSION_USER_KEY, sessionUserDiverged, setConfirmedSessionUser } from '@/app/_lib/authBoot';
+import { SESSION_USER_KEY, sessionChangeNotice, setConfirmedSessionUser } from '@/app/_lib/authBoot';
 import { PROFILE_CHECK_SNOOZE_KEY } from '@/app/_lib/profileCheckSnooze';
 
 // LoginForm 은 useRouter 뿐 아니라 useSearchParams(next 파라미터)도 사용한다 —
@@ -374,10 +374,10 @@ describe('LoginFormPanel — 탭 사이 사용자 표지', () => {
     window.localStorage.setItem(SESSION_USER_KEY, '9');
     setConfirmedSessionUser('9');
     let sharedSessionUserAtNavigation: string | null = null;
-    let divergedAtNavigation: boolean | null = null;
+    let noticeAtNavigation: string | null | undefined;
     hardReplaceSpy.mockImplementationOnce(() => {
       sharedSessionUserAtNavigation = window.localStorage.getItem(SESSION_USER_KEY);
-      divergedAtNavigation = sessionUserDiverged();
+      noticeAtNavigation = sessionChangeNotice();
     });
     server.use(
       http.post(`${BASE}/auth/web/login`, () =>
@@ -394,6 +394,6 @@ describe('LoginFormPanel — 탭 사이 사용자 표지', () => {
     await waitFor(() => expect(hardReplaceSpy).toHaveBeenCalledWith('/me'));
     expect(sharedSessionUserAtNavigation).toBe(String(TEST_USER.id));
     // 확인값이 옛 값이면 부트스트랩 effect 전까지 이 탭의 요청이 막힌다.
-    expect(divergedAtNavigation).toBe(false);
+    expect(noticeAtNavigation).toBeNull();
   });
 });

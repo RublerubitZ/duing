@@ -9,13 +9,16 @@ import {
   hadSession,
   markHadSession,
   seedAuthFromLocalHistory,
-  sessionUserDiverged,
+  sessionChangeNotice,
   setConfirmedSessionUser,
   startBootSessionRestore,
   webConnectivityAdapter,
 } from '@/app/_lib/authBoot';
 
 const API_BASE_URL = 'http://localhost:8080/api/v1';
+// 문구는 리터럴로 적는다 — 상수를 import 하면 문구가 바뀌어도 통과한다.
+const ENDED_TEXT = '로그아웃되었어요. 이 화면에서는 저장되지 않아요.';
+const SWITCHED_TEXT = '다른 탭에서 로그인 상태가 바뀌었어요. 이 화면에서는 저장되지 않아요.';
 const TEST_USER: User = {
   id: 1, studentId: '20240001', name: '홍길동', phone: '010-1234-5678',
   grade: 'FRESHMAN', role: 'STUDENT',
@@ -95,22 +98,23 @@ describe('공유 사용자 표지 — 요청 시점 판정', () => {
     else window.localStorage.setItem(SESSION_USER_KEY, value);
   }
 
-  it.each<[string, boolean, string | null, string | null]>([
-    ['같은 사용자', false, '1', '1'],
-    ['다른 탭이 다른 계정으로 로그인', true, '1', '2'],
-    ['다른 탭이 로그아웃(표지 없음)', true, '1', null],
-    ['비로그인 확인 탭에서 다른 탭이 로그인', true, null, '2'],
-    ['둘 다 비로그인', false, null, null],
-  ])('%s → 다름 = %s', (_label, diverged, confirmed, shared) => {
+  // 표지가 지워졌으면 로그아웃인지 만료인지 이 탭에선 가를 수 없다 — 결과(로그아웃)만 말한다.
+  it.each<[string, string | null, string | null, string | null]>([
+    ['같은 사용자', null, '1', '1'],
+    ['다른 탭이 다른 계정으로 로그인', SWITCHED_TEXT, '1', '2'],
+    ['다른 탭이 로그아웃하거나 세션이 만료됨(표지 없음)', ENDED_TEXT, '1', null],
+    ['비로그인 확인 탭에서 다른 탭이 로그인', SWITCHED_TEXT, null, '2'],
+    ['둘 다 비로그인', null, null, null],
+  ])('%s → 안내 문구', (_label, notice, confirmed, shared) => {
     setConfirmedSessionUser(confirmed);
     shareSessionUser(shared);
-    expect(sessionUserDiverged()).toBe(diverged);
+    expect(sessionChangeNotice()).toBe(notice);
   });
 
   it('확인 전이면 저장소를 읽지 않고 다르지 않다고 본다', () => {
     shareSessionUser('2');
     const getItemSpy = vi.spyOn(Storage.prototype, 'getItem');
-    expect(sessionUserDiverged()).toBe(false);
+    expect(sessionChangeNotice()).toBeNull();
     expect(getItemSpy).not.toHaveBeenCalled();
   });
 
@@ -119,7 +123,7 @@ describe('공유 사용자 표지 — 요청 시점 판정', () => {
     vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
       throw new DOMException('blocked', 'SecurityError');
     });
-    expect(sessionUserDiverged()).toBe(false);
+    expect(sessionChangeNotice()).toBeNull();
   });
 
   it('연결 어댑터 — 명시적 오프라인이면 false', () => {
@@ -132,24 +136,31 @@ describe('공유 사용자 표지 — 요청 시점 판정', () => {
     expect(webConnectivityAdapter()).toBe(true);
     setConfirmedSessionUser('1');
     shareSessionUser('2');
-    expect(webConnectivityAdapter()).toBe(false);
+    expect(webConnectivityAdapter()).toBe(SWITCHED_TEXT);
   });
 
-  it('연결 어댑터 — 온라인이어도 다른 탭이 사용자를 바꿨으면 false', () => {
+  // 막을 때는 원인 문구를 돌려준다 — packages/api 가 그 문구로 요청을 실패시킨다('인터넷 연결' 대신).
+  it('연결 어댑터 — 온라인이어도 다른 탭이 사용자를 바꿨으면 계정 전환 문구', () => {
     setConfirmedSessionUser('1');
     shareSessionUser('2');
-    expect(webConnectivityAdapter()).toBe(false);
+    expect(webConnectivityAdapter()).toBe(SWITCHED_TEXT);
   });
 
-  it.each<[string, string, string, boolean]>([
+  it('연결 어댑터 — 다른 탭이 표지를 지웠으면(로그아웃·만료) 로그아웃 문구', () => {
+    setConfirmedSessionUser('1');
+    shareSessionUser(null);
+    expect(webConnectivityAdapter()).toBe(ENDED_TEXT);
+  });
+
+  it.each<[string, string, string, boolean | string]>([
     ['로그인은 보낸다', 'POST', 'auth/web/login', true],
-    ['로그아웃은 막는다', 'POST', 'auth/web/logout', false],
-    ['가입은 막는다', 'POST', 'auth/signup', false],
-    ['다른 요청은 막는다', 'GET', 'users/me', false],
-  ])('연결 어댑터 — 다른 탭이 사용자를 바꿨어도 %s', (_label, method, path, allowed) => {
+    ['로그아웃은 막는다', 'POST', 'auth/web/logout', SWITCHED_TEXT],
+    ['가입은 막는다', 'POST', 'auth/signup', SWITCHED_TEXT],
+    ['다른 요청은 막는다', 'GET', 'users/me', SWITCHED_TEXT],
+  ])('연결 어댑터 — 다른 탭이 사용자를 바꿨어도 %s', (_label, method, path, verdict) => {
     setConfirmedSessionUser('1');
     shareSessionUser('2');
-    expect(webConnectivityAdapter(new Request(`${API_BASE_URL}/${path}`, { method }))).toBe(allowed);
+    expect(webConnectivityAdapter(new Request(`${API_BASE_URL}/${path}`, { method }))).toBe(verdict);
   });
 
   it('연결 어댑터 — 명시적 오프라인이면 로그인 요청도 false', () => {
