@@ -86,7 +86,8 @@ export function MemberAssignModal({
                     name="slot-assign"
                     value={slot.slotId}
                     checked={selectedSlotId === slot.slotId}
-                    onChange={() => setSelection({ slotId: slot.slotId, roundStatus })}
+                    // 지금 일정을 다시 고르면 손대지 않은 것으로 돌린다 — 고정하면 다른 탭이 옮긴 뒤 낡은 슬롯이 남는다.
+                    onChange={() => setSelection({ slotId: slot.slotId === member.assignedSlotId ? null : slot.slotId, roundStatus })}
                     className="accent-ink"
                   />
                   <span className="text-sm text-charcoal">

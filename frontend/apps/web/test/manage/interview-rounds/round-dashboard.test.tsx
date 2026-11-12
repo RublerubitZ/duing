@@ -1470,10 +1470,10 @@ describe('라운드 현황 — 멤버 동작 창이 닫힌 뒤 돌아갈 버튼�
   }
 
   it.each([
-    { name: '제외가 409 로 거절돼 그 멤버가 제외된 상세', actionLabel: '제외', confirmLabel: '제외하기', rejection: HOLDER_EXCLUDE_REJECTED, refetchedDetail: DETAIL_ASSIGNING_HOLDER_DECIDED },
-    { name: '수동 배정이 409 로 거절돼 그 멤버가 제외된 상세', actionLabel: '수동 배정', confirmLabel: '배정', rejection: HOLDER_ASSIGN_REJECTED, refetchedDetail: DETAIL_ASSIGNING_HOLDER_DECIDED },
-    { name: '수동 배정이 409 로 거절돼 확정으로 바뀐 상세([수동 배정]이 [일정 변경]으로)', actionLabel: '수동 배정', confirmLabel: '배정', rejection: HOLDER_ASSIGN_REJECTED, refetchedDetail: DETAIL_HOLDER_PENDING_CONFIRMED },
-  ])('$name 를 창이 열린 동안 받고 [취소]로 닫으면 그 멤버 행으로 간다', async ({ actionLabel, confirmLabel, rejection, refetchedDetail }) => {
+    { name: '제외가 409 로 거절돼 그 멤버가 제외된 상세', actionLabel: '제외', confirmLabel: '제외하기', rejection: HOLDER_EXCLUDE_REJECTED, refetchedDetail: DETAIL_ASSIGNING_HOLDER_DECIDED, isAssignDialog: false },
+    { name: '수동 배정이 409 로 거절돼 그 멤버가 제외된 상세', actionLabel: '수동 배정', confirmLabel: '배정', rejection: HOLDER_ASSIGN_REJECTED, refetchedDetail: DETAIL_ASSIGNING_HOLDER_DECIDED, isAssignDialog: true },
+    { name: '수동 배정이 409 로 거절돼 확정으로 바뀐 상세([수동 배정]이 [일정 변경]으로)', actionLabel: '수동 배정', confirmLabel: '배정', rejection: HOLDER_ASSIGN_REJECTED, refetchedDetail: DETAIL_HOLDER_PENDING_CONFIRMED, isAssignDialog: true },
+  ])('$name 를 창이 열린 동안 받고 [취소]로 닫으면 그 멤버 행으로 간다', async ({ actionLabel, confirmLabel, rejection, refetchedDetail, isAssignDialog }) => {
     let detailGetCount = 0;
     server.use(
       http.get(`*/interview-rounds/${ROUND_ID}`, () => {
@@ -1494,6 +1494,11 @@ describe('라운드 현황 — 멤버 동작 창이 닫힌 뒤 돌아갈 버튼�
     await waitFor(() =>
       expect(within(memberRow('오세훈')!).queryByRole('button', { name: actionLabel, hidden: true })).not.toBeInTheDocument(),
     );
+    if (isAssignDialog) {
+      // 손대지 않고 보낸 선택은 다시 받은 상세에서 지금 일정이 없어졌거나(제외) 단계가 바뀌었으면(확정) 비워져 다시 보낼 수 없다.
+      expect(within(dialog).queryByRole('radio', { checked: true })).not.toBeInTheDocument();
+      expect(within(dialog).getByRole('button', { name: '배정' })).toBeDisabled();
+    }
 
     await userEvent.click(within(dialog).getByRole('button', { name: '취소' }));
     await waitFor(() => expect(screen.getByRole('group', { name: /^오세훈 / })).toHaveFocus());
@@ -2258,6 +2263,22 @@ describe('라운드 현황 다듬기 — 일정 변경 창이 열린 동안 다�
     expect(slot21Radio).not.toBeChecked();
     expect(within(dialog).getByRole('button', { name: '배정' })).toBeDisabled();
     expect(detailGetCount()).toBe(2);
+  });
+
+  it('다른 슬롯(20)을 골랐다가 지금 일정(21)을 다시 고르면 손대지 않은 것으로 돌아가, 다시 받은 지금 일정(22)을 따른다', async () => {
+    serveHolderMovedTo22OnRefetch();
+    const { queryClient, dialog, slot20Radio, slot21Radio, slot22Radio } = await openHolderReschedule();
+    await userEvent.click(slot20Radio);
+    await userEvent.click(slot21Radio);
+    expect(within(dialog).getByRole('button', { name: '배정' })).toBeDisabled();
+
+    await queryClient.invalidateQueries({ queryKey: interviewRoundKeys.detail(ROUND_ID) });
+
+    // 21 로 고정되면 다시 받은 뒤 21 이 골라진 채 [배정]이 켜져, 지원자를 옛 일정으로 되돌린다.
+    await waitFor(() => expect(slot22Radio.closest('label')).toHaveTextContent('· 지금 일정'));
+    expect(slot22Radio).toBeChecked();
+    expect(slot21Radio).not.toBeChecked();
+    expect(within(dialog).getByRole('button', { name: '배정' })).toBeDisabled();
   });
 
   it('먼저 다른 슬롯(20)을 골랐으면 다시 받아도 그 선택이 남는다', async () => {

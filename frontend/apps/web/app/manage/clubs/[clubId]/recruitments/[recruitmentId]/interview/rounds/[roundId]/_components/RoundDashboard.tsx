@@ -562,6 +562,7 @@ export function RoundDashboard({ clubId, recruitmentId, roundId }: Props) {
       {assignTarget && (
         <MemberAssignModal
           // 연 때의 사본이 아니라 지금 상세의 그 멤버 — 409 뒤 다시 받은 상세에서 지금 일정이 바뀌었을 수 있다.
+          // 지금 일정 판정과 함께, 아직 고르지 않은 동안의 선택 출처이기도 하다.
           member={detail.members.find((detailMember) => detailMember.memberId === assignTarget.memberId) ?? assignTarget}
           slots={detail.slots}
           roundStatus={status}
