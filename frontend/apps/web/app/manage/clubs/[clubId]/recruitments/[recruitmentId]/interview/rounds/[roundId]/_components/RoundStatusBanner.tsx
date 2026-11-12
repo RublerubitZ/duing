@@ -13,6 +13,9 @@ import { ButtonSpinner } from '@/components/loading/Spinner';
 // 상태 배너 — 상태 뱃지 + 단일 next action (DRAFT→이어서 작성 / COLLECTING·ASSIGNING→자동배정 /
 // ASSIGNING→확정) + 조기 배정 UX ① 전원 응답 배너 + ASSIGNING draft 안내·남은 자리 안내.
 
+/** 상태 배너의 id — 확정 성공으로 [확정]이 사라진 뒤 포커스를 받는 자리다(RoundDashboard 의 포커스 표지). */
+export const ROUND_STATUS_BANNER_ID = 'round-status-banner';
+
 type RoundStatusBannerProps = {
   detail: InterviewRoundDetail;
   clubId: number;
@@ -49,10 +52,19 @@ export function RoundStatusBanner({
     status === 'ASSIGNING' && unassignedRespondedCount > 0 && freeSeatCount > 0;
 
   return (
-    <div className="rounded-xl border border-line bg-white px-5 py-4">
+    // 탭 순서 밖(클릭·스크립트로만 포커스를 받는다), 단계 배지 + 제목으로 읽힌다 — 포커스 표시는 멤버 행과 같은 안쪽 outline.
+    // 포커스로 스크롤될 때 모바일 sticky 상단바에 가리지 않게 위 여백을 둔다(콘솔 scroll-mt 관례).
+    <div
+      id={ROUND_STATUS_BANNER_ID}
+      role="group"
+      aria-labelledby={`${ROUND_STATUS_BANNER_ID}-status ${ROUND_STATUS_BANNER_ID}-title`}
+      tabIndex={-1}
+      className="scroll-mt-16 rounded-xl border border-line bg-white px-5 py-4 focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ink md:scroll-mt-6"
+    >
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <span
+            id={`${ROUND_STATUS_BANNER_ID}-status`}
             className={cn(
               'rounded-full px-3 py-1 text-sm font-medium',
               ROUND_STATUS_BADGE_CLASS[status],
@@ -60,7 +72,7 @@ export function RoundStatusBanner({
           >
             {ROUND_STATUS_LABEL[status]}
           </span>
-          <span className="text-base font-semibold text-ink-deep">{detail.title}</span>
+          <span id={`${ROUND_STATUS_BANNER_ID}-title`} className="text-base font-semibold text-ink-deep">{detail.title}</span>
         </div>
 
         <div className="flex items-center gap-2">

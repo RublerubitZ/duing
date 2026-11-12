@@ -243,6 +243,7 @@ export function useRoundAutoAssignMutation(recruitmentId: number, roundId: numbe
  * 수동 배정/재배정 (BE#11 — 배정 검토 단계 한정)
  * 성공 → detail(roundId) invalidate
  * 409 → detail(roundId) invalidate (화면의 상세가 낡았을 수 있다 — 다른 운영진이 결과를 정해 제외된 멤버 등)
+ * 400 → detail(roundId) invalidate (고른 슬롯이 그사이 지워졌다 — InvalidSlotSelection, 화면이 보내는 값으로 받을 수 있는 400 은 이것뿐)
  */
 export function useAssignMemberScheduleMutation(roundId: number) {
   const client = useApiClient();
@@ -263,8 +264,8 @@ export function useAssignMemberScheduleMutation(roundId: number) {
       });
     },
     onError: (assignError) => {
-      // 409 = 화면의 상세가 낡았을 수 있다 — return 하면 재조회가 끝날 때까지 오류 기록·호출부 안내가 밀린다.
-      if (assignError instanceof ApiError && assignError.status === 409) {
+      // 409·400 = 화면의 상세가 낡았을 수 있다(400 은 지워진 슬롯) — return 하면 재조회가 끝날 때까지 오류 기록·호출부 안내가 밀린다.
+      if (assignError instanceof ApiError && (assignError.status === 409 || assignError.status === 400)) {
         void queryClient.invalidateQueries({ queryKey: interviewRoundKeys.detail(roundId) });
       }
     },

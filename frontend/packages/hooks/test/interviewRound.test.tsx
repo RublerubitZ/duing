@@ -526,6 +526,7 @@ describe('useAssignMemberScheduleMutation (스펙 §10.1 — 배정 detail 만)'
 
   it.each<[number, string, boolean]>([
     [409, 'detail queryKey 가 invalidate 된다 — 화면의 상세가 낡았다는 신호', true],
+    [400, 'detail queryKey 가 invalidate 된다 — 고른 슬롯이 그사이 지워졌다는 신호(InvalidSlotSelection)', true],
     [500, 'detail queryKey 는 유지된다', false],
   ])('%i 응답으로 실패하면 %s', async (status, _label, invalidated) => {
     const queryClient = newQueryClient();

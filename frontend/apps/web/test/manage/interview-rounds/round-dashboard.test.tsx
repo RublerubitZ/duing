@@ -6,7 +6,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { setupServer } from 'msw/node';
 import { http, HttpResponse } from 'msw';
 import { createApiClient } from '@duing/api';
-import { ApiClientProvider } from '@duing/hooks';
+import { ApiClientProvider, interviewRoundKeys } from '@duing/hooks';
 import { RoundDashboard } from '@/app/manage/clubs/[clubId]/recruitments/[recruitmentId]/interview/rounds/[roundId]/_components/RoundDashboard';
 import { InterviewRoundsLanding } from '@/app/manage/clubs/[clubId]/recruitments/[recruitmentId]/interview/_pages/InterviewRoundsLanding';
 
@@ -379,11 +379,15 @@ function renderDashboard(roundId = ROUND_ID) {
     );
   }
 
-  return render(
-    <Wrapper>
-      <RoundDashboard clubId={CLUB_ID} recruitmentId={RECRUITMENT_ID} roundId={roundId} />
-    </Wrapper>,
-  );
+  // queryClient 는 표지를 세우지 않는 '관계없는 다시 받기'(invalidateQueries)를 일으키는 데 쓴다.
+  return {
+    ...render(
+      <Wrapper>
+        <RoundDashboard clubId={CLUB_ID} recruitmentId={RECRUITMENT_ID} roundId={roundId} />
+      </Wrapper>,
+    ),
+    queryClient,
+  };
 }
 
 function renderLanding() {
@@ -996,9 +1000,9 @@ describe('RoundDashboard — 면접 라운드 dashboard', () => {
     // 모달에 일정 변경 알림 안내 문구가 있어야 한다
     expect(screen.getByText('변경 시 지원자에게 일정 변경 알림이 발송됩니다.')).toBeInTheDocument();
 
-    // 슬롯 라디오 선택 후 배정 → PUT 요청
+    // 지금 일정(홍길동 = 슬롯 10)이 아닌 슬롯을 골라 배정 → PUT 요청
     const slotRadios = within(screen.getByRole('dialog')).getAllByRole('radio');
-    await userEvent.click(slotRadios[0]!);
+    await userEvent.click(slotRadios[1]!);
     await userEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: '배정' }));
 
     await waitFor(() => {
@@ -1420,8 +1424,8 @@ describe('라운드 현황 — 멤버 동작 창이 닫힌 뒤 돌아갈 버튼�
   // 다시 받은 상세가 그려진 뒤 포커스 처리(effect 가 건 setTimeout 0)가 돌 틈 — '그대로 둔다' 단언 앞에 둔다(실측: waitFor 가 끝난 시점엔 아직 안 돌았다).
   const waitForFocusGuardTick = () => new Promise((resolve) => setTimeout(resolve, 0));
 
-  /** 오세훈 제외가 성공하고 그 뒤 상세 다시 받기를 붙잡아 둔다(세 번째 받기부터는 laterDetail) — 놓아주는 함수를 돌려준다 */
-  function serveHolderExcludeSuccessWithHeldRefetch(laterDetail = { ...DETAIL_ASSIGNING_HOLDER_DECIDED, status: 'SCHEDULED' }) {
+  /** 오세훈 제외가 성공하고 그 뒤 상세 다시 받기를 붙잡아 둔다(세 번째 받기부터는 확정된 상세) — 놓아주는 함수를 돌려준다 */
+  function serveHolderExcludeSuccessWithHeldRefetch() {
     let releaseRefetch: () => void = () => {};
     const refetchGate = new Promise<void>((resolve) => {
       releaseRefetch = resolve;
@@ -1437,22 +1441,18 @@ describe('라운드 현황 — 멤버 동작 창이 닫힌 뒤 돌아갈 버튼�
           await refetchGate;
           return HttpResponse.json({ ok: true, data: DETAIL_ASSIGNING_HOLDER_DECIDED, message: null });
         }
-        return HttpResponse.json({ ok: true, data: laterDetail, message: null });
+        return HttpResponse.json({ ok: true, data: { ...DETAIL_ASSIGNING_HOLDER_DECIDED, status: 'SCHEDULED' }, message: null });
       }),
       http.post(`*/interview-rounds/${ROUND_ID}/members/${MEMBER_HOLDS_21.memberId}/exclude`, () =>
         HttpResponse.json({ ok: true, data: null, message: null }),
       ),
-      http.post(`*/interview-rounds/${ROUND_ID}/confirm`, () =>
-        HttpResponse.json({ ok: true, data: { assignedMemberCount: 1, excludedMemberCount: 1 }, message: null }),
-      ),
-      http.post(`*/interview-rounds/${ROUND_ID}/cancel`, () => HttpResponse.json({ ok: true, data: null, message: null })),
     );
     return () => releaseRefetch();
   }
 
   /** 오세훈 행의 [제외] → [제외하기] 뒤 창이 닫히고 포커스가 [제외] 버튼으로 돌아올 때까지 */
   async function excludeHolderAndWaitForClose() {
-    renderDashboard();
+    const { queryClient } = renderDashboard();
     await screen.findByText('배정 검토 중');
     const excludeButton = within(memberRow('오세훈')!).getByRole('button', { name: '제외' });
     await userEvent.click(excludeButton);
@@ -1462,6 +1462,7 @@ describe('라운드 현황 — 멤버 동작 창이 닫힌 뒤 돌아갈 버튼�
     await waitFor(() => expect(excludeButton).toHaveFocus());
     await waitForFocusGuardTick();
     expect(excludeButton).toHaveFocus();
+    return queryClient;
   }
 
   it.each([
@@ -1498,15 +1499,16 @@ describe('라운드 현황 — 멤버 동작 창이 닫힌 뒤 돌아갈 버튼�
   it('제외가 성공하면 다시 받는 동안엔 [제외] 버튼에 남고, 다시 받아 버튼이 사라지면 그 멤버 행으로 간다 — 그 뒤의 관계없는 다시 받기는 끌어오지 않는다', async () => {
     const releaseRefetch = serveHolderExcludeSuccessWithHeldRefetch();
     try {
-      await excludeHolderAndWaitForClose();
+      const queryClient = await excludeHolderAndWaitForClose();
 
       releaseRefetch();
       const holderRow = screen.getByRole('group', { name: /^오세훈 / });
       await waitFor(() => expect(holderRow).toHaveFocus());
 
-      // 표지는 그 갱신 한 번으로 지워진다 — 포커스가 빠진 채 관계없는 다시 받기(확정 성공)가 와도 행으로 끌려가지 않는다
+      // 표지는 그 갱신 한 번으로 지워진다 — 포커스가 빠진 채 관계없는 다시 받기가 와도 행으로 끌려가지 않는다.
+      // 계기는 표지를 세우지 않는 갱신이어야 한다(확정 성공은 배너 표지를 세워 이 가드를 가린다).
       holderRow.blur();
-      fireEvent.click(screen.getByRole('button', { name: /^확정$/ })); // fireEvent 는 포커스를 옮기지 않는다
+      await queryClient.invalidateQueries({ queryKey: interviewRoundKeys.detail(ROUND_ID) });
       await waitFor(() => expect(screen.queryByText('배정 검토 중')).not.toBeInTheDocument());
       await waitForFocusGuardTick();
       expect(document.body).toHaveFocus();
@@ -1531,16 +1533,22 @@ describe('라운드 현황 — 멤버 동작 창이 닫힌 뒤 돌아갈 버튼�
     }
   });
 
-  it('다시 받기를 기다리는 동안 다른 창(라운드 취소)을 열면 표지가 지워져, 그 창의 결과로 버튼이 사라져도 멤버 행에 끌려가지 않는다', async () => {
-    const releaseRefetch = serveHolderExcludeSuccessWithHeldRefetch({ ...DETAIL_ASSIGNING_HOLDER_DECIDED, status: 'CANCELLED' });
+  it('다시 받기를 기다리는 동안 다른 창(라운드 취소)을 열었다 닫으면 표지가 지워져, 붙잡아 둔 다시 받기로 버튼이 사라져도 멤버 행에 끌려가지 않는다', async () => {
+    const releaseRefetch = serveHolderExcludeSuccessWithHeldRefetch();
     try {
       // 다시 받기를 붙잡아 표지가 남아 있다
       await excludeHolderAndWaitForClose();
 
-      await userEvent.click(screen.getByRole('button', { name: '라운드 취소' }));
-      await userEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: '라운드 취소하기' }));
-      // 취소 성공의 무효화가 붙잡힌 받기를 끊고 취소된 상세를 받는다 — [라운드 취소]가 사라져 포커스가 빠진다
-      await waitFor(() => expect(screen.queryByRole('button', { name: '라운드 취소' })).not.toBeInTheDocument());
+      // 멤버 창이 아닌 창을 열었다 그냥 닫는다 — 열 때 표지가 지워지고, 닫힘은 표지를 세우지 않는다
+      const cancelRoundButton = screen.getByRole('button', { name: '라운드 취소' });
+      await userEvent.click(cancelRoundButton);
+      await userEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: '취소' }));
+      await waitFor(() => expect(cancelRoundButton).toHaveFocus());
+      cancelRoundButton.blur();
+
+      // 붙잡아 둔 다시 받기가 오세훈의 [제외]를 없앤다 — 표지가 남았다면 여기서 행으로 끌려간다
+      releaseRefetch();
+      await waitFor(() => expect(memberRow('오세훈')).toHaveTextContent('제외됨'));
       await waitForFocusGuardTick();
       expect(document.body).toHaveFocus();
     } finally {
@@ -1548,7 +1556,7 @@ describe('라운드 현황 — 멤버 동작 창이 닫힌 뒤 돌아갈 버튼�
     }
   });
 
-  it('그냥 [취소]로 닫으면 표지가 남지 않아, 나중의 관계없는 갱신(확정 성공으로 [확정]이 사라짐)이 멤버 행으로 끌어오지 않는다', async () => {
+  it('그냥 [취소]로 닫으면 표지가 남지 않아, 나중의 관계없는 다시 받기가 멤버 행으로 끌어오지 않는다', async () => {
     let detailGetCount = 0;
     server.use(
       http.get(`*/interview-rounds/${ROUND_ID}`, () => {
@@ -1556,12 +1564,9 @@ describe('라운드 현황 — 멤버 동작 창이 닫힌 뒤 돌아갈 버튼�
         const data = detailGetCount === 1 ? DETAIL_ASSIGNING_HOLDER_PENDING : { ...DETAIL_ASSIGNING_HOLDER_PENDING, status: 'SCHEDULED' };
         return HttpResponse.json({ ok: true, data, message: null });
       }),
-      http.post(`*/interview-rounds/${ROUND_ID}/confirm`, () =>
-        HttpResponse.json({ ok: true, data: { assignedMemberCount: 1, excludedMemberCount: 0 }, message: null }),
-      ),
     );
 
-    renderDashboard();
+    const { queryClient } = renderDashboard();
     await screen.findByText('배정 검토 중');
     const excludeButton = within(memberRow('오세훈')!).getByRole('button', { name: '제외' });
     await userEvent.click(excludeButton);
@@ -1569,8 +1574,9 @@ describe('라운드 현황 — 멤버 동작 창이 닫힌 뒤 돌아갈 버튼�
     await waitFor(() => expect(excludeButton).toHaveFocus());
     await waitForFocusGuardTick();
 
-    // [확정]을 누르면 포커스가 그 버튼으로 가고, 확정된 상세로 버튼이 사라지면 body 로 빠진다
-    await userEvent.click(screen.getByRole('button', { name: /^확정$/ }));
+    // 포커스가 빠진 채 관계없는 다시 받기(표지를 세우지 않는 갱신)가 와도 멤버 행으로 끌려가지 않는다
+    excludeButton.blur();
+    await queryClient.invalidateQueries({ queryKey: interviewRoundKeys.detail(ROUND_ID) });
     await waitFor(() => expect(screen.queryByText('배정 검토 중')).not.toBeInTheDocument());
     await waitForFocusGuardTick();
     expect(document.body).toHaveFocus();
@@ -1754,5 +1760,291 @@ describe('라운드 현황 다듬기 — 창·레이아웃', () => {
     expect(nameCell).not.toHaveClass('max-w-[40%]');
     expect(nameCell).not.toHaveClass('shrink-0');
     expect(nameCell.nextElementSibling).toHaveClass('grow', 'basis-32');
+  });
+});
+
+/** 배정 검토 화면에서 [배정]을 누르기 전에 다른 운영진이 확정하면서 오세훈을 22 로 옮겼다 — 창이 연 때의 사본(21)이 아니라 이 상세를 봐야 한다 */
+const DETAIL_HOLDER_MOVED_TO_22_CONFIRMED = {
+  ...DETAIL_ASSIGNING_HOLDER_PENDING,
+  status: 'SCHEDULED',
+  members: [{ ...MEMBER_WANTS_20, status: 'EXCLUDED' }, { ...MEMBER_HOLDS_21, status: 'ASSIGNED', assignedSlotId: OPEN_SLOT_22.slotId }],
+};
+/** 확정 단계에서 다른 운영진이 슬롯 11 을 지운 뒤 — 배정은 400 InvalidSlotSelection */
+const DETAIL_SCHEDULED_SLOT_B_DELETED = { ...DETAIL_SCHEDULED, slots: [SLOT_A] };
+const INVALID_SLOT_MESSAGE = '선택한 슬롯이 유효하지 않습니다.';
+const RESCHEDULED_FEEDBACK = '홍길동의 면접 일정이 변경되었습니다. 지원자에게 일정 변경 알림이 발송됩니다.';
+const roundBanner = (name: string) => screen.getByRole('group', { name });
+
+describe('라운드 현황 다듬기 — 일정 변경 문맥', () => {
+  it('확정 라운드의 일정 변경 창은 제목이 일정 변경이고, 지금 일정이 골라진 채로는 [배정]이 꺼진다 — 다른 슬롯을 고르면 켜지고, 성공하면 알림 안내가 뜬다', async () => {
+    let releaseAssign: () => void = () => {};
+    const assignGate = new Promise<void>((resolve) => {
+      releaseAssign = resolve;
+    });
+    const assignRequestBodies: unknown[] = [];
+    server.use(
+      http.get(`*/interview-rounds/${ROUND_ID}`, () =>
+        HttpResponse.json({ ok: true, data: DETAIL_SCHEDULED, message: null }),
+      ),
+      http.put(`*/interview-rounds/${ROUND_ID}/members/1/schedule`, async ({ request }) => {
+        assignRequestBodies.push(await request.json());
+        await assignGate;
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+
+    try {
+      renderDashboard();
+      await screen.findByText('확정');
+      await userEvent.click(within(memberRow('홍길동')!).getByRole('button', { name: '일정 변경' }));
+      const dialog = await screen.findByRole('dialog');
+
+      expect(within(dialog).getByRole('heading', { name: '홍길동 일정 변경' })).toBeInTheDocument();
+      const [currentSlotRadio, otherSlotRadio] = within(dialog).getAllByRole('radio');
+      // 같은 슬롯으로 보내도 서버는 일정을 다시 만들고 지원자에게 일정 변경 알림을 보낸다 — 지금 일정 그대로면 보낼 것이 없다.
+      expect(currentSlotRadio).toBeChecked();
+      expect(currentSlotRadio!.closest('label')).toHaveTextContent('· 지금 일정');
+      expect(otherSlotRadio!.closest('label')).not.toHaveTextContent('지금 일정');
+      expect(within(dialog).getByRole('button', { name: '배정' })).toBeDisabled();
+
+      await userEvent.click(otherSlotRadio!);
+      expect(within(dialog).getByRole('button', { name: '배정' })).toBeEnabled();
+      await userEvent.click(currentSlotRadio!);
+      expect(within(dialog).getByRole('button', { name: '배정' })).toBeDisabled();
+      await userEvent.click(otherSlotRadio!);
+      await userEvent.click(within(dialog).getByRole('button', { name: '배정' }));
+
+      // 요청을 붙잡은 동안 — 진행 문구도 일정 변경 문맥
+      await waitFor(() => expect(within(dialog).getByRole('status')).toHaveTextContent('일정 변경 중'));
+    } finally {
+      releaseAssign();
+    }
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    expect(await screen.findByText(RESCHEDULED_FEEDBACK)).toBeInTheDocument();
+    expect(assignRequestBodies).toEqual([{ slotId: SLOT_B.slotId, expectedRoundStatus: 'SCHEDULED' }]);
+  });
+
+  it('배정 검토 단계의 창은 제목이 수동 배정이고 지금 일정 표지가 없으며, 성공 문구도 그대로다', async () => {
+    server.use(
+      http.get(`*/interview-rounds/${ROUND_ID}`, () =>
+        HttpResponse.json({ ok: true, data: DETAIL_ASSIGNING_HOLDER_PENDING, message: null }),
+      ),
+      http.put(`*/interview-rounds/${ROUND_ID}/members/${MEMBER_HOLDS_21.memberId}/schedule`, () =>
+        new HttpResponse(null, { status: 204 }),
+      ),
+    );
+
+    renderDashboard();
+    await screen.findByText('배정 검토 중');
+    await userEvent.click(within(memberRow('오세훈')!).getByRole('button', { name: '수동 배정' }));
+    const dialog = await screen.findByRole('dialog');
+
+    expect(within(dialog).getByRole('heading', { name: '오세훈 수동 배정' })).toBeInTheDocument();
+    expect(dialog).not.toHaveTextContent('지금 일정');
+    // 배정 검토의 같은 슬롯 재배정은 알림이 없는 무해한 동작이라 막지 않는다.
+    expect(within(dialog).getByRole('button', { name: '배정' })).toBeEnabled();
+    await userEvent.click(within(dialog).getByRole('button', { name: '배정' }));
+
+    expect(await screen.findByText('오세훈에게 슬롯이 배정되었습니다.')).toBeInTheDocument();
+  });
+
+  it('409 뒤 다시 받은 확정 상세에서 그 멤버가 다른 슬롯으로 옮겨졌으면, 창은 다시 받은 지금 일정을 기준으로 [배정]을 끈다', async () => {
+    let detailGetCount = 0;
+    server.use(
+      http.get(`*/interview-rounds/${ROUND_ID}`, () => {
+        detailGetCount += 1;
+        const data = detailGetCount === 1 ? DETAIL_ASSIGNING_HOLDER_PENDING : DETAIL_HOLDER_MOVED_TO_22_CONFIRMED;
+        return HttpResponse.json({ ok: true, data, message: null });
+      }),
+      http.put(`*/interview-rounds/${ROUND_ID}/members/${MEMBER_HOLDS_21.memberId}/schedule`, () =>
+        HttpResponse.json({ ok: false, data: null, message: STALE_ROUND_MESSAGE }, { status: 409 }),
+      ),
+    );
+
+    renderDashboard();
+    await screen.findByText('배정 검토 중');
+    await userEvent.click(within(memberRow('오세훈')!).getByRole('button', { name: '수동 배정' }));
+    const dialog = await screen.findByRole('dialog');
+    await userEvent.click(within(dialog).getAllByRole('radio')[2]!);
+    await userEvent.click(within(dialog).getByRole('button', { name: '배정' }));
+    expect(await within(dialog).findByRole('alert')).toHaveTextContent(STALE_ROUND_MESSAGE);
+
+    // 확정 상세로 다시 그려진다 — 제목이 바뀌고, 지금 일정 표지는 연 때의 21 이 아니라 다시 받은 22 에 붙는다
+    expect(await within(dialog).findByRole('heading', { name: '오세훈 일정 변경' })).toBeInTheDocument();
+    const [, slot21Radio, slot22Radio] = within(dialog).getAllByRole('radio');
+    expect(slot22Radio!.closest('label')).toHaveTextContent('· 지금 일정');
+    expect(slot21Radio!.closest('label')).not.toHaveTextContent('지금 일정');
+
+    await userEvent.click(slot22Radio!);
+    expect(within(dialog).getByRole('button', { name: '배정' })).toBeDisabled();
+    await userEvent.click(slot21Radio!);
+    expect(within(dialog).getByRole('button', { name: '배정' })).toBeEnabled();
+    expect(detailGetCount).toBe(2);
+  });
+
+  it('확정 단계에서 그사이 지워진 슬롯으로 배정하면(400) 창 안에 서버 문구가 뜨고 상세를 다시 받아, 사라진 슬롯의 선택이 풀린다', async () => {
+    let detailGetCount = 0;
+    server.use(
+      http.get(`*/interview-rounds/${ROUND_ID}`, () => {
+        detailGetCount += 1;
+        const data = detailGetCount === 1 ? DETAIL_SCHEDULED : DETAIL_SCHEDULED_SLOT_B_DELETED;
+        return HttpResponse.json({ ok: true, data, message: null });
+      }),
+      http.put(`*/interview-rounds/${ROUND_ID}/members/1/schedule`, () =>
+        HttpResponse.json({ ok: false, data: null, message: INVALID_SLOT_MESSAGE }, { status: 400 }),
+      ),
+    );
+
+    renderDashboard();
+    await screen.findByText('확정');
+    await userEvent.click(within(memberRow('홍길동')!).getByRole('button', { name: '일정 변경' }));
+    const dialog = await screen.findByRole('dialog');
+    await userEvent.click(within(dialog).getAllByRole('radio')[1]!);
+    await userEvent.click(within(dialog).getByRole('button', { name: '배정' }));
+
+    expect(await within(dialog).findByRole('alert')).toHaveTextContent(INVALID_SLOT_MESSAGE);
+    await waitFor(() => expect(within(dialog).getAllByRole('radio')).toHaveLength(1));
+    expect(within(dialog).queryByRole('radio', { checked: true })).not.toBeInTheDocument();
+    expect(within(dialog).getByRole('button', { name: '배정' })).toBeDisabled();
+    expect(detailGetCount).toBe(2);
+  });
+
+  it('멤버를 제외하면 조사 없이 "OOO 님이 제외되었습니다." 로 알린다', async () => {
+    let detailGetCount = 0;
+    server.use(
+      http.get(`*/interview-rounds/${ROUND_ID}`, () => {
+        detailGetCount += 1;
+        const data = detailGetCount === 1 ? DETAIL_ASSIGNING_HOLDER_PENDING : DETAIL_ASSIGNING_HOLDER_DECIDED;
+        return HttpResponse.json({ ok: true, data, message: null });
+      }),
+      http.post(`*/interview-rounds/${ROUND_ID}/members/${MEMBER_HOLDS_21.memberId}/exclude`, () =>
+        HttpResponse.json({ ok: true, data: null, message: null }),
+      ),
+    );
+
+    renderDashboard();
+    await screen.findByText('배정 검토 중');
+    await userEvent.click(within(memberRow('오세훈')!).getByRole('button', { name: '제외' }));
+    await userEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: '제외하기' }));
+
+    expect(await screen.findByText('오세훈 님이 제외되었습니다.')).toBeInTheDocument();
+    expect(screen.queryByText(/\(가\)/)).not.toBeInTheDocument();
+  });
+});
+
+describe('라운드 현황 다듬기 — 확정 성공 뒤 상태 배너로 포커스', () => {
+  const waitForFocusGuardTick = () => new Promise((resolve) => setTimeout(resolve, 0));
+  const SCHEDULED_AFTER_CONFIRM = { ...DETAIL_ASSIGNING_HOLDER_PENDING, status: 'SCHEDULED' };
+
+  // userEvent 는 [확정]에 포커스를 주고, fireEvent 는 주지 않는다(클릭이 버튼에 포커스를 주지 않는 Safari 경로) — 둘 다 body 로 빠진 뒤 배너로 간다.
+  it.each([
+    { clickPath: 'userEvent(버튼에 포커스)', clickConfirm: (button: HTMLElement) => userEvent.click(button) },
+    { clickPath: 'fireEvent(포커스 없음 — Safari)', clickConfirm: (button: HTMLElement) => fireEvent.click(button) },
+  ])('[확정]이 성공해 버튼이 사라지면 포커스가 상태 배너(단계·제목으로 읽힘)로 간다 — $clickPath', async ({ clickConfirm }) => {
+    let detailGetCount = 0;
+    server.use(
+      http.get(`*/interview-rounds/${ROUND_ID}`, () => {
+        detailGetCount += 1;
+        const data = detailGetCount === 1 ? DETAIL_ASSIGNING_HOLDER_PENDING : SCHEDULED_AFTER_CONFIRM;
+        return HttpResponse.json({ ok: true, data, message: null });
+      }),
+      http.post(`*/interview-rounds/${ROUND_ID}/confirm`, () =>
+        HttpResponse.json({ ok: true, data: { assignedMemberCount: 1, excludedMemberCount: 0 }, message: null }),
+      ),
+    );
+
+    renderDashboard();
+    await screen.findByText('배정 검토 중');
+    expect(roundBanner('배정 검토 중 1차 면접')).toHaveAttribute('tabindex', '-1');
+    await clickConfirm(screen.getByRole('button', { name: /^확정$/ }));
+
+    await waitFor(() => expect(roundBanner('확정 1차 면접')).toHaveFocus());
+    expect(screen.queryByRole('button', { name: /^확정$/ })).not.toBeInTheDocument();
+  });
+
+  it('강제 확정이 성공해 창이 닫히고 [확정]이 사라지면 상태 배너로 간다', async () => {
+    let detailGetCount = 0;
+    server.use(
+      http.get(`*/interview-rounds/${ROUND_ID}`, () => {
+        detailGetCount += 1;
+        const data = detailGetCount <= 2 ? DETAIL_ASSIGNING_FREED_SEAT : { ...DETAIL_ASSIGNING_FREED_SEAT, status: 'SCHEDULED' };
+        return HttpResponse.json({ ok: true, data, message: null });
+      }),
+      http.post(`*/interview-rounds/${ROUND_ID}/confirm`, ({ request }) =>
+        new URL(request.url).searchParams.get('force') === 'true'
+          ? HttpResponse.json({ ok: true, data: { assignedMemberCount: 1, excludedMemberCount: 2 }, message: null })
+          : HttpResponse.json({ ok: false, data: FREED_SEAT_UNRESOLVED_PAYLOAD, message: '미처리 멤버가 있습니다.' }, { status: 409 }),
+      ),
+    );
+
+    renderDashboard();
+    await screen.findByText('배정 검토 중');
+    await userEvent.click(screen.getByRole('button', { name: /^확정$/ }));
+    const dialog = await screen.findByRole('dialog');
+    await userEvent.click(within(dialog).getByRole('button', { name: /강제 확정/ }));
+
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    await waitFor(() => expect(roundBanner('확정 1차 면접')).toHaveFocus());
+  });
+
+  it('확정 성공 뒤 다시 받기를 붙잡은 동안 사용자가 옮긴 포커스는 다시 받은 상세로 [확정]이 사라져도 그대로 둔다', async () => {
+    let releaseRefetch: () => void = () => {};
+    const refetchGate = new Promise<void>((resolve) => {
+      releaseRefetch = resolve;
+    });
+    let detailGetCount = 0;
+    server.use(
+      http.get(`*/interview-rounds/${ROUND_ID}`, async () => {
+        detailGetCount += 1;
+        if (detailGetCount === 1) return HttpResponse.json({ ok: true, data: DETAIL_ASSIGNING_HOLDER_PENDING, message: null });
+        await refetchGate;
+        return HttpResponse.json({ ok: true, data: SCHEDULED_AFTER_CONFIRM, message: null });
+      }),
+      http.post(`*/interview-rounds/${ROUND_ID}/confirm`, () =>
+        HttpResponse.json({ ok: true, data: { assignedMemberCount: 1, excludedMemberCount: 0 }, message: null }),
+      ),
+    );
+
+    try {
+      renderDashboard();
+      await screen.findByText('배정 검토 중');
+      await userEvent.click(screen.getByRole('button', { name: /^확정$/ }));
+      await screen.findByText('확정 완료 — 1명 알림');
+
+      const backLink = screen.getByRole('link', { name: '면접 관리로 돌아가기' });
+      backLink.focus();
+      releaseRefetch();
+      await waitFor(() => expect(screen.queryByText('배정 검토 중')).not.toBeInTheDocument());
+      await waitForFocusGuardTick();
+      expect(backLink).toHaveFocus();
+    } finally {
+      releaseRefetch();
+    }
+  });
+
+  it('확정이 실패하면(500) 표지를 세우지 않는다 — 그 뒤 포커스가 빠진 채 오는 관계없는 다시 받기가 배너로 끌어오지 않는다', async () => {
+    let detailGetCount = 0;
+    server.use(
+      http.get(`*/interview-rounds/${ROUND_ID}`, () => {
+        detailGetCount += 1;
+        const data = detailGetCount === 1 ? DETAIL_ASSIGNING_HOLDER_PENDING : SCHEDULED_AFTER_CONFIRM;
+        return HttpResponse.json({ ok: true, data, message: null });
+      }),
+      http.post(`*/interview-rounds/${ROUND_ID}/confirm`, () =>
+        HttpResponse.json({ ok: false, data: null, message: SERVER_ERROR_MESSAGE }, { status: 500 }),
+      ),
+    );
+
+    const { queryClient } = renderDashboard();
+    await screen.findByText('배정 검토 중');
+    const confirmButton = screen.getByRole('button', { name: /^확정$/ });
+    await userEvent.click(confirmButton);
+    expect(await screen.findByRole('alert')).toHaveTextContent(SERVER_ERROR_MESSAGE);
+
+    confirmButton.blur();
+    await queryClient.invalidateQueries({ queryKey: interviewRoundKeys.detail(ROUND_ID) });
+    await waitFor(() => expect(screen.queryByText('배정 검토 중')).not.toBeInTheDocument());
+    await waitForFocusGuardTick();
+    expect(document.body).toHaveFocus();
   });
 });
