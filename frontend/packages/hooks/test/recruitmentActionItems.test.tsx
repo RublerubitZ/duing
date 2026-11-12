@@ -40,8 +40,8 @@ const CLOSED = { status: 'CLOSED', displayStatus: 'CLOSED', effectivelyOpen: fal
 
 function statsBody(over: Partial<StatsSummary> = {}): StatsSummary {
   return {
-    // 면접 대상 9 = 대기열 2 + 진행 중 라운드 6(1차 배정 검토 3 + 2차 응답 수집 3) + 확정 3차에서 결과를 기다리는 1
-    total: 12, submitted: 2, onHold: 1, interviewPending: 9, accepted: 0, rejected: 0, capacity: 20, ratio: 0,
+    // 면접 대상 9 = 대기열 2 + 진행 중 라운드 6(1차 배정 검토 3 + 2차 응답 수집 3) + 확정 3차에서 결과를 기다리는 1, 합격 1 = 3차의 나머지 1명
+    total: 13, submitted: 2, onHold: 1, interviewPending: 9, accepted: 1, rejected: 0, capacity: 20, ratio: 0,
     oldestPendingSubmittedAt: '2026-06-03T01:00:00Z', // KST 6/3 → 6/12 기준 9일
     ...over,
   };
@@ -201,7 +201,7 @@ describe('parity — 같은 응답이면 상세 묶음 = 홈 항목 중 그 모�
     ['진행 중 + 면접 안 씀', recruitment({ useInterview: false })],
     ['마감 자체 폼 + 면접 사용', recruitment(CLOSED)],
   ])('%s', async (_name, target) => {
-    scenario(target, statsBody({ interviewPending: target.status === 'CLOSED' ? 4 : 9 }));
+    scenario(target, statsBody(target.status === 'CLOSED' ? { interviewPending: 4 } : {}));
     const { result } = renderHook(
       () => ({ home: useClubActionItems(CLUB_ID), detail: useRecruitmentActionItems(target) }),
       { wrapper: makeWrapper(newQueryClient()) },
