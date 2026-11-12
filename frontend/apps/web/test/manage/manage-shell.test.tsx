@@ -1,8 +1,13 @@
 import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi, beforeAll, afterAll } from 'vitest';
+import { ApiError, NETWORK_ERROR_MESSAGE } from '@duing/api';
 import type { ManagedClub, User } from '@duing/types';
 
+// 로그아웃 실패 문구 — 리터럴로 적는다(상수를 import 하면 문구가 바뀌어도 통과한다).
+const SWITCHED_TEXT = '다른 탭에서 로그인 상태가 바뀌었어요. 이 화면에서는 저장되지 않아요.';
+const ENDED_TEXT = '로그아웃되었어요. 이 화면에서는 저장되지 않아요.';
+const OFFLINE_LOGOUT_TEXT = '로그아웃하지 못했습니다. 네트워크 연결 후 다시 시도해 주세요.';
 const pushSpy = vi.fn();
 const replaceSpy = vi.fn();
 vi.mock('@/app/_lib/useGuardedRouter', () => ({
@@ -65,6 +70,7 @@ describe('ManageShell — 접기·푸터', () => {
     replaceSpy.mockReset();
     hardReplaceSpy.mockClear();
     logoutSpy.mockClear();
+    addToast.mockClear();
   });
 
   it('접기 토글 시 localStorage 에 저장되고, 재마운트(새로고침) 후에도 접힘이 유지된다', async () => {
@@ -115,6 +121,22 @@ describe('ManageShell — 접기·푸터', () => {
 
     expect(logoutSpy).toHaveBeenCalledTimes(1);
     expect(hardReplaceSpy).toHaveBeenCalledWith('/');
+  });
+
+  // 다른 탭의 로그인 상태 바뀜으로 막혔으면 그 원인 문구, 진짜 오프라인이면 지금 문구 그대로.
+  it.each([
+    ['다른 탭의 계정 전환으로 막힘', SWITCHED_TEXT, SWITCHED_TEXT],
+    ['다른 탭의 로그아웃·만료로 막힘', ENDED_TEXT, ENDED_TEXT],
+    ['진짜 오프라인', NETWORK_ERROR_MESSAGE, OFFLINE_LOGOUT_TEXT],
+  ])('로그아웃 실패 문구 — %s', async (_label, rejectedMessage, expectedToast) => {
+    logoutSpy.mockRejectedValueOnce(new ApiError(0, rejectedMessage, undefined, 'NETWORK'));
+    const user = userEvent.setup();
+    render(<ManageShell currentClubId={1}>본문</ManageShell>);
+
+    await user.click(screen.getByRole('button', { name: '로그아웃' }));
+
+    await waitFor(() => expect(addToast).toHaveBeenCalledWith(expectedToast, { variant: 'error' }));
+    expect(hardReplaceSpy).not.toHaveBeenCalled();
   });
 
   // 드로어 안 링크를 미저장 이탈 가드가 capture 에서 멈추면 래퍼 onClick 이 실행되지 않아 드로어가

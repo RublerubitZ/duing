@@ -8,6 +8,7 @@ import { CircleHelp, LogOut, PanelLeftClose, PanelLeftOpen } from 'lucide-react'
 import type { ManagedClub } from '@duing/types';
 import { useLogout, useManagedClubsQuery, useMeQuery } from '@duing/hooks';
 import { useToast } from '@/app/_components/toast/ToastProvider';
+import { sessionChangeMessageOf } from '@/app/_lib/authBoot';
 import { skipNextOverlayReclaim } from '@/app/_lib/backDismiss';
 import { cn } from '@/app/_lib/cn';
 import { clearOperatorLocalState } from '@/app/_lib/operatorLocalState';
@@ -116,10 +117,13 @@ function ManageSidebarFooter({ collapsed }: { collapsed: boolean }) {
       // back() 이 진행 중인 이동을 취소할 수 있으므로(#855 실측 경합), 다음 닫힘 1회의 회수를 건너뛴다.
       skipNextOverlayReclaim();
       window.location.replace('/');
-    } catch {
-      addToast('로그아웃하지 못했습니다. 네트워크 연결 후 다시 시도해 주세요.', {
-        variant: 'error',
-      });
+    } catch (logoutError) {
+      // 다른 탭의 로그인 상태 바뀜으로 막혔으면 네트워크가 아니라 그 원인을 보인다(오프라인·타임아웃은 아래 문구 그대로).
+      addToast(
+        sessionChangeMessageOf(logoutError) ??
+          '로그아웃하지 못했습니다. 네트워크 연결 후 다시 시도해 주세요.',
+        { variant: 'error' },
+      );
     } finally {
       setLoggingOut(false);
     }

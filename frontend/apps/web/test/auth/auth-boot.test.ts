@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { ApiError, NETWORK_ERROR_MESSAGE } from '@duing/api';
 import { useAuthStore } from '@duing/stores';
 import type { User } from '@duing/types';
 
@@ -9,6 +10,7 @@ import {
   hadSession,
   markHadSession,
   seedAuthFromLocalHistory,
+  sessionChangeMessageOf,
   sessionChangeNotice,
   setConfirmedSessionUser,
   startBootSessionRestore,
@@ -166,5 +168,18 @@ describe('공유 사용자 표지 — 요청 시점 판정', () => {
   it('연결 어댑터 — 명시적 오프라인이면 로그인 요청도 false', () => {
     vi.stubGlobal('navigator', { onLine: false });
     expect(webConnectivityAdapter(new Request(`${API_BASE_URL}/auth/web/login`, { method: 'POST' }))).toBe(false);
+  });
+});
+
+describe('sessionChangeMessageOf — 탭 사이 막힘으로 실패한 요청의 문구', () => {
+  // 막힘 문구를 단 NETWORK ApiError 만 그 문구 — 진짜 오프라인·다른 코드·일반 Error 는 호출부의 지금 문구가 남게 null.
+  it.each<[string, unknown, string | null]>([
+    ['계정 전환 문구의 NETWORK', new ApiError(0, SWITCHED_TEXT, undefined, 'NETWORK'), SWITCHED_TEXT],
+    ['로그아웃 문구의 NETWORK', new ApiError(0, ENDED_TEXT, undefined, 'NETWORK'), ENDED_TEXT],
+    ['진짜 오프라인(인터넷 연결 문구)', new ApiError(0, NETWORK_ERROR_MESSAGE, undefined, 'NETWORK'), null],
+    ['계정 전환 문구여도 TIMEOUT 코드', new ApiError(0, SWITCHED_TEXT, undefined, 'TIMEOUT'), null],
+    ['계정 전환 문구여도 ApiError 가 아닌 Error', new Error(SWITCHED_TEXT), null],
+  ])('%s', (_label, error, expected) => {
+    expect(sessionChangeMessageOf(error)).toBe(expected);
   });
 });

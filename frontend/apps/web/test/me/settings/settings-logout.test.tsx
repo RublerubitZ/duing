@@ -2,8 +2,15 @@ import { beforeEach, describe, expect, it, vi, beforeAll, afterAll } from 'vites
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
+import { ApiError, NETWORK_ERROR_MESSAGE } from '@duing/api';
+
 import { ToastProvider } from '@/app/_components/toast/ToastProvider';
 
+// 로그아웃 실패 문구 — 리터럴로 적는다(상수를 import 하면 문구가 바뀌어도 통과한다).
+const SWITCHED_TEXT = '다른 탭에서 로그인 상태가 바뀌었어요. 이 화면에서는 저장되지 않아요.';
+const ENDED_TEXT = '로그아웃되었어요. 이 화면에서는 저장되지 않아요.';
+const OFFLINE_LOGOUT_TEXT =
+  '로그아웃하지 못했습니다. 네트워크 연결 후 다시 시도하고 이 기기를 떠나지 마세요.';
 const mockLogout = vi.fn();
 const mockReplace = vi.fn();
 
@@ -77,6 +84,27 @@ describe('SettingsPage logout', () => {
 
     await waitFor(() => expect(hardReplaceSpy).toHaveBeenCalledWith('/'));
     expect(mockLogout).toHaveBeenCalledTimes(1);
+  });
+
+  // 다른 탭의 로그인 상태 바뀜으로 막혔으면 그 원인 문구, 진짜 오프라인이면 지금 문구 그대로.
+  it.each([
+    ['다른 탭의 계정 전환으로 막힘', SWITCHED_TEXT, SWITCHED_TEXT],
+    ['다른 탭의 로그아웃·만료로 막힘', ENDED_TEXT, ENDED_TEXT],
+    ['진짜 오프라인', NETWORK_ERROR_MESSAGE, OFFLINE_LOGOUT_TEXT],
+  ])('로그아웃 실패 문구 — %s', async (_label, rejectedMessage, expectedToast) => {
+    mockLogout.mockRejectedValueOnce(new ApiError(0, rejectedMessage, undefined, 'NETWORK'));
+    const user = userEvent.setup();
+    render(
+      <ToastProvider>
+        <SettingsPage />
+      </ToastProvider>,
+    );
+
+    await user.click(screen.getByRole('button', { name: '로그아웃' }));
+    await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: '로그아웃' }));
+
+    expect(await screen.findByText(expectedToast)).toBeInTheDocument();
+    expect(hardReplaceSpy).not.toHaveBeenCalled();
   });
 
   it('로그아웃 실패 시 이동하지 않고 오류를 표시한 뒤 재시도할 수 있다', async () => {

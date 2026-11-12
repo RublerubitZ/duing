@@ -5,13 +5,17 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { setupServer } from 'msw/node';
 import { http, HttpResponse } from 'msw';
-import { createApiClient } from '@duing/api';
+import { ApiError, NETWORK_ERROR_MESSAGE, createApiClient } from '@duing/api';
 import { ApiClientProvider } from '@duing/hooks';
 import { useAuthStore } from '@duing/stores';
 
 import { AdminMobileBar } from '@/app/admin/_components/AdminMobileBar';
 import { ToastProvider } from '@/app/_components/toast/ToastProvider';
 
+// 로그아웃 실패 문구 — 리터럴로 적는다(상수를 import 하면 문구가 바뀌어도 통과한다).
+const SWITCHED_TEXT = '다른 탭에서 로그인 상태가 바뀌었어요. 이 화면에서는 저장되지 않아요.';
+const ENDED_TEXT = '로그아웃되었어요. 이 화면에서는 저장되지 않아요.';
+const OFFLINE_LOGOUT_TEXT = '로그아웃하지 못했습니다. 네트워크 연결 후 다시 시도해 주세요.';
 const mockUsePathname = vi.fn(() => '/admin');
 vi.mock('next/navigation', () => ({
   usePathname: () => mockUsePathname(),
@@ -104,5 +108,24 @@ describe('AdminMobileBar', () => {
     await user.click(drawer.getByRole('button', { name: '로그아웃' }));
     await waitFor(() => expect(hardReplaceSpy).toHaveBeenCalledWith('/'));
     expect(logoutSpy).toHaveBeenCalledTimes(1);
+  });
+
+  // 다른 탭의 로그인 상태 바뀜으로 막혔으면 그 원인 문구, 진짜 오프라인이면 지금 문구 그대로.
+  it.each([
+    ['다른 탭의 계정 전환으로 막힘', SWITCHED_TEXT, SWITCHED_TEXT],
+    ['다른 탭의 로그아웃·만료로 막힘', ENDED_TEXT, ENDED_TEXT],
+    ['진짜 오프라인', NETWORK_ERROR_MESSAGE, OFFLINE_LOGOUT_TEXT],
+  ])('드로어 로그아웃 실패 문구 — %s', async (_label, rejectedMessage, expectedToast) => {
+    useAuthStore.setState({ status: 'authenticated', isVerified: true, user: null });
+    logoutSpy.mockRejectedValueOnce(new ApiError(0, rejectedMessage, undefined, 'NETWORK'));
+    const user = userEvent.setup();
+    render(<AdminMobileBar />);
+
+    await user.click(screen.getByRole('button', { name: '관리 메뉴 열기' }));
+    const drawer = within(await screen.findByRole('dialog', { name: '관리 메뉴' }));
+    await user.click(drawer.getByRole('button', { name: '로그아웃' }));
+
+    expect(await screen.findByText(expectedToast)).toBeInTheDocument();
+    expect(hardReplaceSpy).not.toHaveBeenCalled();
   });
 });

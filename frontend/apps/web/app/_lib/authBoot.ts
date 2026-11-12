@@ -1,4 +1,4 @@
-import { isWebLoginRequest } from '@duing/api';
+import { ApiError, isWebLoginRequest } from '@duing/api';
 import { useAuthStore } from '@duing/stores';
 
 import type { User } from '@duing/types';
@@ -76,6 +76,15 @@ export function recordLoggedInSessionUser(userId: number): void {
 export const SESSION_ENDED_MESSAGE = '로그아웃되었어요. 이 화면에서는 저장되지 않아요.';
 export const SESSION_SWITCHED_MESSAGE =
   '다른 탭에서 로그인 상태가 바뀌었어요. 이 화면에서는 저장되지 않아요.';
+
+// 탭 사이 막힘으로 실패한 요청이면 그 안내 문구, 아니면 null — 실패 문구를 직접 정하는 곳(로그아웃)이 네트워크 대신 원인을 보이게.
+// 진짜 오프라인·타임아웃·서버 오류는 null 이라 호출부의 지금 문구가 그대로 남는다.
+export function sessionChangeMessageOf(error: unknown): string | null {
+  if (!(error instanceof ApiError) || error.code !== 'NETWORK') return null;
+  return error.message === SESSION_ENDED_MESSAGE || error.message === SESSION_SWITCHED_MESSAGE
+    ? error.message
+    : null;
+}
 
 // 공유 표지가 이 탭이 확인한 사용자와 다르면 그 안내 문구, 같거나 비교하지 않으면 null. 확인 전이면 저장소를 읽지 않고, 읽지 못하면 비교하지 않는다.
 export function sessionChangeNotice(): string | null {

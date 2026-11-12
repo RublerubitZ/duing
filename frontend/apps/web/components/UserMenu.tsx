@@ -6,6 +6,7 @@ import { useGuardedRouter } from '@/app/_lib/useGuardedRouter';
 
 import { useLogout, useMeQuery, useMyClubsQuery } from '@duing/hooks';
 
+import { sessionChangeMessageOf } from '@/app/_lib/authBoot';
 import { toRoute } from '@/app/_lib/route';
 import { useSeededAuthStatus } from '@/app/_lib/useSeededAuthStatus';
 import { useToast } from '@/app/_components/toast/ToastProvider';
@@ -57,9 +58,11 @@ export function UserMenu({
     try {
       await logout();
       router.refresh();
-    } catch {
+    } catch (logoutError) {
+      // 다른 탭의 로그인 상태 바뀜으로 막혔으면 네트워크가 아니라 그 원인을 보인다(오프라인·타임아웃은 아래 문구 그대로).
       addToast(
-        '로그아웃하지 못했습니다. 네트워크 연결 후 다시 시도하고 이 기기를 떠나지 마세요.',
+        sessionChangeMessageOf(logoutError) ??
+          '로그아웃하지 못했습니다. 네트워크 연결 후 다시 시도하고 이 기기를 떠나지 마세요.',
         { variant: 'error' },
       );
     }

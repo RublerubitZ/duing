@@ -14,6 +14,7 @@ import {
 } from '@duing/hooks';
 import { COLLEGE_DISPLAY_NAME, GRADE_DISPLAY_NAME, isCollege, type Grade } from '@duing/types';
 
+import { sessionChangeMessageOf } from '@/app/_lib/authBoot';
 import { skipNextOverlayReclaim } from '@/app/_lib/backDismiss';
 import { clearOperatorLocalState } from '@/app/_lib/operatorLocalState';
 import { toRoute } from '@/app/_lib/route';
@@ -178,9 +179,11 @@ export function SettingsPage() {
       // back() 이 진행 중인 이동을 취소할 수 있으므로(#855 실측 경합), 다음 닫힘 1회의 회수를 건너뛴다.
       skipNextOverlayReclaim();
       window.location.replace('/');
-    } catch {
+    } catch (logoutError) {
+      // 다른 탭의 로그인 상태 바뀜으로 막혔으면 네트워크가 아니라 그 원인을 보인다(오프라인·타임아웃은 아래 문구 그대로).
       addToast(
-        '로그아웃하지 못했습니다. 네트워크 연결 후 다시 시도하고 이 기기를 떠나지 마세요.',
+        sessionChangeMessageOf(logoutError) ??
+          '로그아웃하지 못했습니다. 네트워크 연결 후 다시 시도하고 이 기기를 떠나지 마세요.',
         { variant: 'error' },
       );
     } finally {
