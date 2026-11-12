@@ -521,8 +521,9 @@ export type DuingApiClient = {
     // PATCH /leader/interview-rounds/{roundId}
     update(roundId: number, payload: UpdateInterviewRoundPayload): Promise<void>;
     // === 면접 라운드 취소 ===
-    // POST /leader/interview-rounds/{roundId}/cancel
-    cancel(roundId: number): Promise<void>;
+    // POST /leader/interview-rounds/{roundId}/cancel?expectedRoundStatus=
+    // expectedRoundStatus = 화면이 본 라운드 단계(마법사의 폐기는 DRAFT) — 서버가 검증하면 다를 때 409(옛 서버는 무시한다)
+    cancel(roundId: number, expectedRoundStatus?: InterviewRoundStatus): Promise<void>;
     // === 슬롯 일괄 생성 (BE#4) ===
     // POST /leader/interview-rounds/{roundId}/slots
     createSlots(roundId: number, payload: CreateRoundSlotsPayload): Promise<CreateRoundSlotsResult>;
@@ -1437,8 +1438,14 @@ export function createApiClient(options: CreateApiClientOptions): DuingApiClient
         ),
       update: (roundId, payload) =>
         jsonVoid(http.patch(`leader/interview-rounds/${roundId}`, { json: payload })),
-      cancel: (roundId) =>
-        jsonVoid(http.post(`leader/interview-rounds/${roundId}/cancel`)),
+      // 값이 없으면 searchParams 를 넘기지 않는다 — 빈 값(?expectedRoundStatus=)은 서버 검사를 끄고, ky 는 빈 searchParams 에도 '?' 를 붙인다.
+      cancel: (roundId, expectedRoundStatus) =>
+        jsonVoid(
+          http.post(
+            `leader/interview-rounds/${roundId}/cancel`,
+            expectedRoundStatus === undefined ? undefined : { searchParams: { expectedRoundStatus } },
+          ),
+        ),
       createSlots: (roundId, payload) =>
         jsonOk<CreateRoundSlotsResult>(
           http.post(`leader/interview-rounds/${roundId}/slots`, { json: payload }),

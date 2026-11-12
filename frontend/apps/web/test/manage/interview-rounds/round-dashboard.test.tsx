@@ -822,13 +822,15 @@ describe('RoundDashboard — 면접 라운드 dashboard', () => {
 
   it('13. 라운드 취소는 대기열 복귀 안내 확인 후 실행된다', async () => {
     let cancelCalled = false;
+    let cancelUrl = '';
 
     server.use(
       http.get(`*/interview-rounds/${ROUND_ID}`, () =>
         HttpResponse.json({ ok: true, data: DETAIL_COLLECTING_BEFORE_DEADLINE, message: null }),
       ),
-      http.post(`*/interview-rounds/${ROUND_ID}/cancel`, () => {
+      http.post(`*/interview-rounds/${ROUND_ID}/cancel`, ({ request }) => {
         cancelCalled = true;
+        cancelUrl = request.url;
         return HttpResponse.json({ ok: true, data: null, message: null });
       }),
     );
@@ -854,6 +856,8 @@ describe('RoundDashboard — 면접 라운드 dashboard', () => {
 
     await waitFor(() => {
       expect(cancelCalled).toBe(true);
+      // 현황의 [라운드 취소]는 진행 중 단계 취소가 의도된 동작이라 기대 단계를 싣지 않는다(키도 없다).
+      expect(cancelUrl).toMatch(/\/cancel$/);
     });
   });
 
@@ -2077,5 +2081,64 @@ describe('라운드 현황 다듬기 — 초안 배너', () => {
 
     expect(screen.getByRole('link', { name: linkName })).toHaveAttribute('href', WIZARD_HREF);
     expect(screen.queryByRole('link', { name: otherLinkName })).not.toBeInTheDocument();
+  });
+});
+
+describe('라운드 현황 다듬기 — 결과를 정한 제외 멤버', () => {
+  const resultMember = (memberId: number, userName: string, status: string, applicationResult?: string | null) => ({
+    memberId, applicationId: memberId, userName, studentId: `2024${memberId}`, status, unresponded: false,
+    alternativeAvailabilityText: null, selectedSlotCount: 0, assignedSlotId: status === 'ASSIGNED' ? SLOT_A.slotId : null,
+    ...(applicationResult === undefined ? {} : { applicationResult }),
+  });
+  /** 백엔드 스펙 기준 applicationResult — 멤버 상태와 독립이라 여러 조합이 온다 */
+  const DETAIL_SCHEDULED_WITH_RESULTS = {
+    ...DETAIL_SCHEDULED,
+    members: [
+      resultMember(201, '강합격', 'EXCLUDED', 'ACCEPTED'),
+      resultMember(202, '노불합', 'EXCLUDED', 'REJECTED'),
+      resultMember(203, '도제외', 'EXCLUDED', null),
+      resultMember(204, '류옛날', 'EXCLUDED'),
+      resultMember(205, '문확정', 'ASSIGNED', 'ACCEPTED'),
+      resultMember(206, '박이상', 'EXCLUDED', 'INTERVIEW_PENDING'),
+    ],
+  };
+  const DETAIL_ASSIGNING_WITH_BULK_REJECTED = {
+    ...DETAIL_ASSIGNING,
+    members: [resultMember(207, '서일괄', 'RESPONDED', 'REJECTED')],
+  };
+
+  it.each([
+    { name: '강합격', label: '합격', badgeClass: 'bg-sage/10 text-sage-deep', why: 'EXCLUDED + 합격 → 합격(긍정)' },
+    { name: '노불합', label: '불합격', badgeClass: 'bg-paper text-charcoal-2 ring-1 ring-inset ring-line', why: 'EXCLUDED + 불합격 → 불합격(중립·종료)' },
+    { name: '도제외', label: '제외됨', badgeClass: 'bg-coral/10 text-coral-deep', why: 'EXCLUDED + 결과 없음 → 제외됨' },
+    { name: '류옛날', label: '제외됨', badgeClass: 'bg-coral/10 text-coral-deep', why: '옛 백엔드(필드 없음) → 제외됨' },
+    { name: '문확정', label: '배정됨', badgeClass: 'bg-sky/10 text-sky-deep', why: '확정 라운드 ASSIGNED + 결과 → 배정됨(일정이 이 표의 정보)' },
+    { name: '박이상', label: '제외됨', badgeClass: 'bg-coral/10 text-coral-deep', why: '알려지지 않은 결과 값 → 제외됨(아는 값만)' },
+  ])('$why', async ({ name, label, badgeClass }) => {
+    server.use(
+      http.get(`*/interview-rounds/${ROUND_ID}`, () =>
+        HttpResponse.json({ ok: true, data: DETAIL_SCHEDULED_WITH_RESULTS, message: null }),
+      ),
+    );
+
+    renderDashboard();
+    await screen.findByText(name);
+
+    const badge = within(memberRow(name)!).getByText(label);
+    expect(badge).toHaveClass(...badgeClass.split(' '));
+  });
+
+  it('진행 중 라운드의 응답 완료 멤버에 일괄 불합격이 실려도 지금 상태 그대로다', async () => {
+    server.use(
+      http.get(`*/interview-rounds/${ROUND_ID}`, () =>
+        HttpResponse.json({ ok: true, data: DETAIL_ASSIGNING_WITH_BULK_REJECTED, message: null }),
+      ),
+    );
+
+    renderDashboard();
+    await screen.findByText('서일괄');
+
+    expect(within(memberRow('서일괄')!).getByText('응답 완료')).toBeInTheDocument();
+    expect(within(memberRow('서일괄')!).queryByText('불합격')).not.toBeInTheDocument();
   });
 });

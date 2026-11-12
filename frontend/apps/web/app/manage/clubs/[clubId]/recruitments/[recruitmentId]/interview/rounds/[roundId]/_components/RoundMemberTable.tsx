@@ -3,7 +3,7 @@
 import type { InterviewRoundDetail, InterviewRoundDetailMember } from '@duing/types';
 import { cn } from '@/app/_lib/cn';
 import { formatSlotRange } from '@/components/interview/_utils/localDateTime';
-import { MEMBER_STATUS_LABEL, MEMBER_STATUS_CLASS } from './memberStatusLabels';
+import { roundMemberBadge } from './memberStatusLabels';
 
 // 면접 대상 멤버 테이블 — 상태 뱃지·파생 미응답 강조·배정 슬롯 표기 + 행 액션
 // ([수동 배정] ASSIGNING 한정 / [제외] 비터미널(DRAFT·COLLECTING·ASSIGNING) 한정).
@@ -37,6 +37,7 @@ export function RoundMemberTable({ detail, onExclude, onManualAssign }: RoundMem
         {displayMembers.map((member) => {
           const assignedSlot =
             member.assignedSlotId !== null ? slotById.get(member.assignedSlotId) : undefined;
+          const memberBadge = roundMemberBadge(member);
 
           return (
             // 탭 순서 밖(클릭·스크립트로만 포커스를 받는다), 이름에 학번을 붙여 동명이인을 가른다 — 표 컨테이너가 overflow-hidden 이라 포커스 표시는 안쪽 outline.
@@ -65,13 +66,8 @@ export function RoundMemberTable({ detail, onExclude, onManualAssign }: RoundMem
                     )}
                   </div>
                   <div className="mt-0.5 flex items-center gap-2">
-                    <span
-                      className={cn(
-                        'rounded-full px-2 py-0.5 text-xs',
-                        MEMBER_STATUS_CLASS[member.status] ?? 'bg-graysoft text-charcoal-2',
-                      )}
-                    >
-                      {MEMBER_STATUS_LABEL[member.status] ?? member.status}
+                    <span className={cn('rounded-full px-2 py-0.5 text-xs', memberBadge.className)}>
+                      {memberBadge.label}
                     </span>
                     <span className="text-xs text-charcoal-3">
                       선택 {member.selectedSlotCount}개

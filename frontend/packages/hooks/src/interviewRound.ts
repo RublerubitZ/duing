@@ -132,15 +132,17 @@ export function useUpdateInterviewRoundMutation(recruitmentId: number, roundId: 
 }
 
 /**
- * 면접 라운드 취소
+ * 면접 라운드 취소 — 변수 = 화면이 본 라운드 단계(선택, 마법사의 폐기는 'DRAFT'. 없으면 싣지 않는다)
  * 성공 → detail(roundId) + list(recruitmentId) + candidates(recruitmentId) invalidate
  * (취소 시 상태 전이가 detail 에 반영 + 멤버 대기열 복귀 — 재큐잉이므로 candidates 포함 §10.1)
+ * 409 → list(recruitmentId) + candidates(recruitmentId) invalidate (화면의 목록이 낡았다 — 그사이 발송·정리된 초안 등)
  */
 export function useCancelInterviewRoundMutation(recruitmentId: number, roundId: number) {
   const client = useApiClient();
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: () => client.interviewRounds.cancel(roundId),
+    mutationFn: (expectedRoundStatus?: InterviewRoundStatus) =>
+      client.interviewRounds.cancel(roundId, expectedRoundStatus),
     onSuccess: () => {
       queryClient.invalidateQueries({
         queryKey: interviewRoundKeys.detail(roundId),
@@ -153,6 +155,13 @@ export function useCancelInterviewRoundMutation(recruitmentId: number, roundId: 
       });
       // 진행 중 라운드가 줄면 모집의 자동 마감 전망(통계 요약)이 바뀐다(#1572).
       queryClient.invalidateQueries({ queryKey: statsQueryKeys.byRecruitment(recruitmentId) });
+    },
+    onError: (cancelError) => {
+      // 409 = 화면이 본 단계와 다르다 — 다른 운영진이 정리했으면 멤버가 대기열로 돌아와 후보도 바뀐다. return 하면 재조회가 끝날 때까지 호출부 안내가 밀린다.
+      if (cancelError instanceof ApiError && cancelError.status === 409) {
+        void queryClient.invalidateQueries({ queryKey: interviewRoundKeys.list(recruitmentId) });
+        void queryClient.invalidateQueries({ queryKey: interviewRoundKeys.candidates(recruitmentId) });
+      }
     },
   });
 }

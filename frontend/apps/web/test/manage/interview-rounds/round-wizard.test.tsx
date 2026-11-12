@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll, afterEach } from 'vitest';
 import type { ReactNode } from 'react';
-import { render, screen, waitFor, fireEvent } from '@testing-library/react';
+import { render, screen, waitFor, within, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { setupServer } from 'msw/node';
@@ -1111,5 +1111,134 @@ describe('RoundWizard — 면접 라운드 생성 wizard', () => {
     expect(queryClient.getQueryState(roundListKey)?.status).toBe('error');
     expect(screen.getByLabelText(/시작 날짜/)).toBeInTheDocument();
     expect(screen.queryByText('서버 오류')).not.toBeInTheDocument();
+  });
+});
+
+describe('RoundWizard — 폐기가 화면이 본 단계(초안)를 싣기', () => {
+  const STALE_ROUND_MESSAGE = '라운드 단계가 바뀌었습니다. 최신 상태를 확인한 뒤 다시 시도해주세요.';
+  const DRAFT_GONE_NOTICE = '작성 중이던 라운드가 그사이 발송되었거나 정리되었습니다. 면접 관리에서 지금 상태를 확인해주세요.';
+  const SENT_ROUND_SUMMARY = { ...DRAFT_ROUND_SUMMARY, status: 'COLLECTING' };
+  const OTHER_DRAFT_ROUND_SUMMARY = { ...DRAFT_ROUND_SUMMARY, roundId: ROUND_ID + 1, title: '3차 면접' };
+  const CANCEL_REJECTED_AS_STALE = http.post(`*/interview-rounds/${ROUND_ID}/cancel`, () =>
+    HttpResponse.json({ ok: false, data: null, message: STALE_ROUND_MESSAGE }, { status: 409 }),
+  );
+  const CANDIDATES_HANDLER = http.get(`*/recruitments/${RECRUITMENT_ID}/interview-round-candidates`, handleCandidatesRequest);
+
+  it('[폐기]는 기대 단계 DRAFT 를 쿼리로 실어 보낸다', async () => {
+    let cancelUrl = '';
+    server.use(
+      http.get(`*/recruitments/${RECRUITMENT_ID}/interview-rounds`, () =>
+        HttpResponse.json({ ok: true, data: [DRAFT_ROUND_SUMMARY], message: null }),
+      ),
+      http.post(`*/interview-rounds/${ROUND_ID}/cancel`, ({ request }) => {
+        cancelUrl = request.url;
+        return HttpResponse.json({ ok: true, data: null, message: null });
+      }),
+      CANDIDATES_HANDLER,
+    );
+
+    renderWizard();
+    await userEvent.click(await screen.findByRole('button', { name: /폐기하고 새로 만들기/ }));
+
+    await waitFor(() => expect(cancelUrl).not.toBe(''));
+    // MSW 경로 매칭은 쿼리를 보지 않는다 — 쿼리는 URL 로 직접 본다.
+    expect(new URL(cancelUrl).searchParams.get('expectedRoundStatus')).toBe('DRAFT');
+  });
+
+  it('409 로 거절되고 다시 받은 목록에 초안이 없으면 창이 닫히고, 1단계 위에 그사이 발송·정리됐다는 알림이 남는다', async () => {
+    const roundListRequests = serveCountedRoundLists([DRAFT_ROUND_SUMMARY], [SENT_ROUND_SUMMARY]);
+    server.use(CANCEL_REJECTED_AS_STALE, CANDIDATES_HANDLER);
+
+    renderWizard();
+    await userEvent.click(await screen.findByRole('button', { name: /폐기하고 새로 만들기/ }));
+
+    expect(await within(screen.getByRole('dialog')).findByRole('alert')).toHaveTextContent(STALE_ROUND_MESSAGE);
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    expect(screen.getByRole('alert')).toHaveTextContent(DRAFT_GONE_NOTICE);
+    expect(await screen.findByText('미결정(지원 완료·보류)', { selector: 'h3' })).toBeInTheDocument();
+    expect(roundListRequests.count).toBe(2);
+  });
+
+  it('409 로 거절되고 다시 받은 목록에 다른 초안이 있으면 창이 그 초안으로 다시 그려지고 서버 문구가 남는다', async () => {
+    serveCountedRoundLists([DRAFT_ROUND_SUMMARY], [OTHER_DRAFT_ROUND_SUMMARY]);
+    server.use(CANCEL_REJECTED_AS_STALE, CANDIDATES_HANDLER);
+
+    renderWizard();
+    await userEvent.click(await screen.findByRole('button', { name: /폐기하고 새로 만들기/ }));
+
+    const dialog = screen.getByRole('dialog');
+    expect(await within(dialog).findByText('3차 면접')).toBeInTheDocument();
+    expect(within(dialog).getByRole('alert')).toHaveTextContent(STALE_ROUND_MESSAGE);
+    await waitFor(() => expect(within(dialog).getByRole('button', { name: /이어하기/ })).toBeEnabled());
+    expect(screen.queryByText(DRAFT_GONE_NOTICE)).not.toBeInTheDocument();
+  });
+
+  it('409 뒤 목록을 다시 받는 동안에는 [이어하기]·[폐기]가 꺼진다 — 그사이 발송된 라운드로 2단계에 들어가지 않게', async () => {
+    let releaseRefetch: () => void = () => {};
+    const refetchGate = new Promise<void>((resolve) => {
+      releaseRefetch = resolve;
+    });
+    let roundListRequestCount = 0;
+    server.use(
+      http.get(`*/recruitments/${RECRUITMENT_ID}/interview-rounds`, async () => {
+        roundListRequestCount += 1;
+        if (roundListRequestCount === 1) return HttpResponse.json({ ok: true, data: [DRAFT_ROUND_SUMMARY], message: null });
+        await refetchGate;
+        return HttpResponse.json({ ok: true, data: [OTHER_DRAFT_ROUND_SUMMARY], message: null });
+      }),
+      CANCEL_REJECTED_AS_STALE,
+      CANDIDATES_HANDLER,
+    );
+
+    try {
+      renderWizard();
+      await userEvent.click(await screen.findByRole('button', { name: /폐기하고 새로 만들기/ }));
+      const dialog = screen.getByRole('dialog');
+      expect(await within(dialog).findByRole('alert')).toHaveTextContent(STALE_ROUND_MESSAGE);
+
+      // 다시 받기를 붙잡은 동안 — 창은 아직 낡은 초안(2차 면접)을 보인다
+      expect(within(dialog).getByText('2차 면접')).toBeInTheDocument();
+      expect(within(dialog).getByRole('button', { name: /이어하기/ })).toBeDisabled();
+      expect(within(dialog).getByRole('button', { name: /폐기하고 새로 만들기/ })).toBeDisabled();
+      expect(roundListRequestCount).toBe(2);
+
+      releaseRefetch();
+      expect(await within(dialog).findByText('3차 면접')).toBeInTheDocument();
+      await waitFor(() => expect(within(dialog).getByRole('button', { name: /이어하기/ })).toBeEnabled());
+    } finally {
+      releaseRefetch();
+    }
+  });
+
+  it('처음부터 초안이 없으면 1단계 위에 그사이 발송·정리됐다는 알림이 없다 — 폐기가 거절된 뒤에만 보인다', async () => {
+    server.use(
+      http.get(`*/recruitments/${RECRUITMENT_ID}/interview-rounds`, handleEmptyRoundList),
+      CANDIDATES_HANDLER,
+    );
+
+    renderWizard();
+
+    expect(await screen.findByText('미결정(지원 완료·보류)', { selector: 'h3' })).toBeInTheDocument();
+    expect(screen.queryByText(DRAFT_GONE_NOTICE)).not.toBeInTheDocument();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
+
+  it('409 가 아닌 실패(500)는 지금 문구 그대로이고 목록을 다시 받지 않는다', async () => {
+    const roundListRequests = serveCountedRoundLists([DRAFT_ROUND_SUMMARY], [DRAFT_ROUND_SUMMARY]);
+    server.use(
+      http.post(`*/interview-rounds/${ROUND_ID}/cancel`, () =>
+        HttpResponse.json({ ok: false, data: null, message: '서버 오류' }, { status: 500 }),
+      ),
+      CANDIDATES_HANDLER,
+    );
+    const queryClient = createWizardQueryClient();
+
+    renderWizard(queryClient);
+    await userEvent.click(await screen.findByRole('button', { name: /폐기하고 새로 만들기/ }));
+
+    expect(await within(screen.getByRole('dialog')).findByRole('alert')).toHaveTextContent('라운드 폐기 중 오류가 발생했습니다. 다시 시도해주세요.');
+    expect(queryClient.isFetching({ queryKey: roundListKey })).toBe(0);
+    expect(roundListRequests.count).toBe(1);
+    expect(within(screen.getByRole('dialog')).getByRole('button', { name: /이어하기/ })).toBeEnabled();
   });
 });

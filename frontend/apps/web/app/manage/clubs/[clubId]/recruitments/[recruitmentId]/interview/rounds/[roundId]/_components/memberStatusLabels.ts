@@ -1,6 +1,13 @@
 // 라운드 멤버 상태 뱃지 라벨·스타일 — RoundMemberTable·ConfirmRoundDialog 공용.
 // 알 수 없는 상태값은 호출부에서 `?? fallback` 으로 원문 노출한다.
 
+import type { InterviewRoundDetailMember } from '@duing/types';
+import {
+  APPLICATION_STATUS_OPERATOR_LABEL,
+  isTerminalApplicationStatus,
+  type TerminalApplicationStatus,
+} from '@/app/_constants/application-status';
+
 export const MEMBER_STATUS_LABEL: Record<string, string> = {
   INVITED: '초대됨',
   RESPONDED: '응답 완료',
@@ -16,3 +23,28 @@ export const MEMBER_STATUS_CLASS: Record<string, string> = {
   ASSIGNED: 'bg-sky/10 text-sky-deep',
   EXCLUDED: 'bg-coral/10 text-coral-deep',
 };
+
+/** 결과를 정해 라운드에서 빠진 멤버의 배지 — 콘솔 상태 배지 규약(DESIGN.md): 합격 = 긍정, 불합격 = 중립(종료). */
+const DECIDED_RESULT_CLASS: Record<TerminalApplicationStatus, string> = {
+  ACCEPTED: 'bg-sage/10 text-sage-deep',
+  REJECTED: 'bg-paper text-charcoal-2 ring-1 ring-inset ring-line',
+};
+
+/**
+ * 라운드 표의 멤버 배지. EXCLUDED 이면서 지원 결과가 아는 값(합격·불합격)이면 '제외됨' 대신 그 결과를 보인다(사용자 결정 1 —
+ * 운영진이 먼저 뺀 뒤 결과가 난 사람도 지금 결과로). 확정 라운드의 ASSIGNED·진행 중 멤버에 결과가 실려도, 필드가 없는 옛 백엔드도,
+ * 모르는 값도 지금 멤버 상태 그대로다.
+ */
+export function roundMemberBadge(member: Pick<InterviewRoundDetailMember, 'status' | 'applicationResult'>): {
+  label: string;
+  className: string;
+} {
+  const { applicationResult } = member;
+  if (member.status === 'EXCLUDED' && applicationResult != null && isTerminalApplicationStatus(applicationResult)) {
+    return { label: APPLICATION_STATUS_OPERATOR_LABEL[applicationResult], className: DECIDED_RESULT_CLASS[applicationResult] };
+  }
+  return {
+    label: MEMBER_STATUS_LABEL[member.status] ?? member.status,
+    className: MEMBER_STATUS_CLASS[member.status] ?? 'bg-graysoft text-charcoal-2',
+  };
+}
