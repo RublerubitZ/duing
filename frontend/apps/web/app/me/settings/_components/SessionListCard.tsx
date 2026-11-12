@@ -31,6 +31,13 @@ function sessionErrorMessage(error: unknown, fallback: string): string {
   return error instanceof ApiError ? error.message : `${fallback} 잠시 후 다시 시도해 주세요.`;
 }
 
+// 막힌 폐기는 닫을 때까지 남긴다(로그아웃 네 곳과 같다 — 공용 기기에서 '못 했다' 가 5초 뒤 사라지지 않게).
+function sessionErrorToastOptions(error: unknown) {
+  return sessionChangeMessageOf(error) !== null
+    ? { variant: 'error' as const, durationMs: 0 }
+    : { variant: 'error' as const };
+}
+
 const PLATFORM_LABEL: Record<SessionPlatform, string> = {
   WEB: '웹',
   IOS: 'iOS',
@@ -96,9 +103,10 @@ export function SessionListCard() {
     revokeMutation.mutate(sessionId, {
       onSuccess: () => addToast('해당 기기에서 로그아웃했어요.'),
       onError: (revokeError) =>
-        addToast(sessionErrorMessage(revokeError, '기기를 로그아웃하지 못했어요.'), {
-          variant: 'error',
-        }),
+        addToast(
+          sessionErrorMessage(revokeError, '기기를 로그아웃하지 못했어요.'),
+          sessionErrorToastOptions(revokeError),
+        ),
     });
   };
 
@@ -115,7 +123,10 @@ export function SessionListCard() {
         window.location.replace('/');
       },
       onError: (logoutError) =>
-        addToast(sessionErrorMessage(logoutError, '로그아웃하지 못했어요.'), { variant: 'error' }),
+        addToast(
+          sessionErrorMessage(logoutError, '로그아웃하지 못했어요.'),
+          sessionErrorToastOptions(logoutError),
+        ),
     });
   };
 

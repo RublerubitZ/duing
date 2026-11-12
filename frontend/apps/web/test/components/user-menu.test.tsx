@@ -1,6 +1,6 @@
 import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it, vi, beforeEach } from 'vitest';
+import { afterEach, describe, expect, it, vi, beforeEach } from 'vitest';
 
 import { ApiError, NETWORK_ERROR_MESSAGE } from '@duing/api';
 import { useAuthStore, type AuthStatus } from '@duing/stores';
@@ -64,6 +64,8 @@ function setStatus(status: AuthStatus) {
 }
 
 describe('UserMenu', () => {
+  afterEach(() => vi.useRealTimers());
+
   beforeEach(() => {
     useAuthStore.setState(useAuthStore.getInitialState(), true);
     mockLogout.mockReset().mockResolvedValue(undefined);
@@ -131,7 +133,9 @@ describe('UserMenu', () => {
     setStatus('authenticated');
     if (sharedSessionUser !== null) window.localStorage.setItem(SESSION_USER_KEY, sharedSessionUser);
     mockLogout.mockRejectedValueOnce(new ApiError(0, rejectedMessage, undefined, 'NETWORK'));
-    const user = userEvent.setup();
+    // 기본 시간(5초)을 흘려 토스트가 남는지 본다 — 실제 시간도 흐르게 둬 userEvent·findBy 대기는 그대로 돈다.
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
     renderMenu();
 
     await user.click(screen.getByRole('button', { name: /홍길동님/ }));
@@ -143,6 +147,9 @@ describe('UserMenu', () => {
     expect(screen.queryAllByText(/로그아웃하지 못했습니다/)).toHaveLength(
       expectedToast === OFFLINE_LOGOUT_TEXT ? 1 : 0,
     );
+    // 막혔으면 닫을 때까지 남고(공용 기기에서 '못 했다' 가 사라지지 않게), 막히지 않은 실패는 기본 시간 뒤 닫힌다.
+    act(() => vi.advanceTimersByTime(6_000));
+    expect(screen.queryAllByText(expectedToast)).toHaveLength(expectedToast === OFFLINE_LOGOUT_TEXT ? 0 : 1);
   });
 
   it('로그아웃 실패 시 오류를 알리고 세션 화면을 유지해 다시 시도할 수 있다', async () => {

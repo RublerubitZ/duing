@@ -1,5 +1,5 @@
-import { beforeEach, describe, expect, it, vi, beforeAll, afterAll } from 'vitest';
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi, beforeAll, afterAll } from 'vitest';
+import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
 import { ApiError, NETWORK_ERROR_MESSAGE } from '@duing/api';
@@ -60,6 +60,7 @@ describe('SettingsPage logout', () => {
     hardReplaceSpy.mockClear();
     window.localStorage.removeItem(SESSION_USER_KEY);
   });
+  afterEach(() => vi.useRealTimers());
 
   // 계정 카드는 "한 번 더 확인 후 진행"이라고 안내한다 — 버튼이 바로 세션을 끊으면 안내와 어긋난다.
   it('로그아웃은 확인 모달을 거치고, 취소하면 세션을 끊지 않는다', async () => {
@@ -100,7 +101,9 @@ describe('SettingsPage logout', () => {
   ])('로그아웃 실패 문구 — %s', async (_label, rejectedMessage, sharedSessionUser, expectedToast) => {
     if (sharedSessionUser !== null) window.localStorage.setItem(SESSION_USER_KEY, sharedSessionUser);
     mockLogout.mockRejectedValueOnce(new ApiError(0, rejectedMessage, undefined, 'NETWORK'));
-    const user = userEvent.setup();
+    // 기본 시간(5초)을 흘려 토스트가 남는지 본다 — 실제 시간도 흐르게 둬 userEvent·findBy 대기는 그대로 돈다.
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
     render(
       <ToastProvider>
         <SettingsPage />
@@ -116,6 +119,9 @@ describe('SettingsPage logout', () => {
     expect(screen.queryAllByText(/로그아웃하지 못했습니다/)).toHaveLength(
       expectedToast === OFFLINE_LOGOUT_TEXT ? 1 : 0,
     );
+    // 막혔으면 닫을 때까지 남고(공용 기기에서 '못 했다' 가 사라지지 않게), 막히지 않은 실패는 기본 시간 뒤 닫힌다.
+    act(() => vi.advanceTimersByTime(6_000));
+    expect(screen.queryAllByText(expectedToast)).toHaveLength(expectedToast === OFFLINE_LOGOUT_TEXT ? 0 : 1);
   });
 
   it('로그아웃 실패 시 이동하지 않고 오류를 표시한 뒤 재시도할 수 있다', async () => {

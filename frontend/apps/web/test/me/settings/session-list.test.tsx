@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeAll, afterAll, afterEach, beforeEach } from 'vitest';
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { setupServer } from 'msw/node';
@@ -72,6 +72,7 @@ beforeEach(() => {
   useAuthStore.setState({ status: 'authenticated', user: null });
 });
 afterEach(() => {
+  vi.useRealTimers();
   server.resetHandlers();
   registerConnectivityAdapter(null);
   replaceSpy.mockReset();
@@ -257,7 +258,9 @@ describe('SessionListCard', () => {
     ['전체 로그아웃 — 진짜 오프라인', '모든 기기에서 로그아웃', '모두 로그아웃', false, '인터넷 연결을 확인해주세요.'],
   ])('%s', async (_label, triggerName, confirmName, adapterVerdict, expectedToast) => {
     stubSessions(SESSIONS);
-    const user = userEvent.setup();
+    // 기본 시간(5초)을 흘려 토스트가 남는지 본다 — 실제 시간도 흐르게 둬 userEvent·findBy 대기는 그대로 돈다.
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
     renderCard();
     const trigger = await screen.findByRole('button', { name: triggerName });
 
@@ -269,6 +272,9 @@ describe('SessionListCard', () => {
     expect(await screen.findByText(expectedToast)).toBeInTheDocument();
     expect(screen.queryByText(ENDED_TEXT)).toBeNull();
     expect(hardReplaceSpy).not.toHaveBeenCalled();
+    // 막혔으면 닫을 때까지 남고(공용 기기에서 '못 했다' 가 사라지지 않게), 막히지 않은 실패는 기본 시간 뒤 닫힌다.
+    act(() => vi.advanceTimersByTime(6_000));
+    expect(screen.queryAllByText(expectedToast)).toHaveLength(expectedToast === LOGOUT_BLOCKED_TEXT ? 1 : 0);
   });
 
   // 로그아웃은 되돌릴 수 없다 — 누른 즉시 요청이 나가지 않고 확인 모달을 한 단계 거친다.
