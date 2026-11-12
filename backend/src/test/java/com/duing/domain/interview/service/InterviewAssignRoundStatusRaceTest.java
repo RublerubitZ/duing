@@ -23,6 +23,7 @@ import com.duing.domain.recruitment.entity.Recruitment;
 import com.duing.domain.user.entity.User;
 import java.time.LocalDateTime;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -113,7 +114,7 @@ class InterviewAssignRoundStatusRaceTest extends InterviewControllerTestSupport 
                 () -> roundService.cancelRound(round.getId(), RoundStatus.DRAFT, leader.getId()));
 
         assertThat(cancelFailure)
-                .as("초안이라고 본 폐기는 RoundStatusChanged 로 거절돼야 한다 — 실패하면 잠금 앞 선조회·검사 누락 중 하나(래치 타임아웃이면 잠금 조회 누락)")
+                .as("초안이라고 본 폐기는 RoundStatusChanged 로 거절돼야 한다 — 실패하면 잠금 앞 선조회·검사 누락 중 하나")
                 .isInstanceOf(InterviewException.RoundStatusChanged.class);
         assertThat(interviewRoundRepository.findById(round.getId()).orElseThrow().getStatus())
                 .isEqualTo(RoundStatus.COLLECTING);
@@ -124,7 +125,7 @@ class InterviewAssignRoundStatusRaceTest extends InterviewControllerTestSupport 
                 round.getId(), member.getId(), slot.getId(), RoundStatus.ASSIGNING, leader.getId()));
 
         assertThat(assignFailure)
-                .as("낡은 배정 검토 화면의 배정은 RoundStatusChanged 로 거절돼야 한다 — 실패하면 잠금 앞 선조회·검사 누락 중 하나(래치 타임아웃이면 잠금 조회 누락)")
+                .as("낡은 배정 검토 화면의 배정은 RoundStatusChanged 로 거절돼야 한다 — 실패하면 잠금 앞 선조회·검사 누락 중 하나")
                 .isInstanceOf(InterviewException.RoundStatusChanged.class);
         assertThat(interviewScheduleRepository.findByRoundIdAndApplicationIdAndStatus(
                 round.getId(), member.getApplicationId(), InterviewScheduleStatus.ASSIGNED)).isEmpty();
@@ -160,7 +161,17 @@ class InterviewAssignRoundStatusRaceTest extends InterviewControllerTestSupport 
         });
 
         Throwable writeFailure = write.get(TASK_TIMEOUT_SECONDS, TimeUnit.SECONDS);
-        transition.get(TASK_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+        try {
+            transition.get(TASK_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+        } catch (ExecutionException transitionFailure) {
+            // 래치 타임아웃만 남지 않게 — 쓰기가 실제로 던진 예외도 함께 보인다.
+            AssertionError lockQueryNotReached = new AssertionError(
+                    "전이가 커밋되지 못했다 — 쓰기가 잠금 조회(findByIdForUpdate)에 닿지 않았다", transitionFailure.getCause());
+            if (writeFailure != null) {
+                lockQueryNotReached.addSuppressed(writeFailure);
+            }
+            throw lockQueryNotReached;
+        }
         return writeFailure;
     }
 

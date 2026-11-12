@@ -128,12 +128,12 @@ public interface LeaderInterviewRoundApi {
                     + "면접 대상 상태 그대로 후보 대기열로 복귀한다 — 새 라운드에서 재선정하면 된다. "
                     + "확정된 라운드는 터미널이라 취소할 수 없다. 취소 알림은 발송되지 않는다. "
                     + "expectedRoundStatus(선택) — 요청자가 화면에서 본 라운드 단계. 있고 실제 단계와 다르면 409(라운드 단계가 바뀜). "
-                    + "없으면 검사하지 않는다. 라운드 만들기의 '작성 중인 라운드' 폐기는 DRAFT 를 싣는다."
+                    + "없으면 검사하지 않는다. 초안만 취소하려는 화면(예: 라운드 만들기의 작성 중 라운드 폐기)은 DRAFT 를 싣는다."
     )
     @PostMapping("/leader/interview-rounds/{roundId}/cancel")
     ResponseEntity<ApiResponse<Void>> cancelRound(
             @PathVariable Long roundId,
-            @Parameter(description = "요청자가 화면에서 본 라운드 단계 — 실제 단계와 다르면 409", example = "DRAFT")
+            @Parameter(description = "요청자가 화면에서 본 라운드 단계 — 실제 단계와 다르면 409. 빈 값은 없는 것과 같다(검사하지 않음)", example = "DRAFT")
             @RequestParam(required = false) RoundStatus expectedRoundStatus,
             @Parameter(hidden = true) @AuthenticationPrincipal UserPrincipal currentUser
     );

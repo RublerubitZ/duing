@@ -201,7 +201,9 @@ class LeaderInterviewRoundManageControllerTest extends InterviewControllerTestSu
     @DisplayName("타 동아리 사용자는 화면 단계를 실어 보내도 라운드 단계를 알 수 없고 미존재와 같은 404 다")
     void cancelByOutsiderWithExpectedStatusIsNotFound() {
         InterviewRound collectingRound = saveRound(RoundStatus.COLLECTING, LocalDateTime.now().plusDays(3));
-        User outsider = saveUser("타인폐기");
+        User outsider = saveUser("다른동아리회장");
+        Club otherClub = saveActiveClub("다른동아리");
+        clubMemberRepository.save(ClubMember.asLeader(otherClub, outsider));
         String outsiderToken = jwtTokenProvider.createToken(outsider.getId(), outsider.getRole().name());
 
         RestAssured.given().header(HttpHeaders.AUTHORIZATION, "Bearer " + outsiderToken)
@@ -230,7 +232,7 @@ class LeaderInterviewRoundManageControllerTest extends InterviewControllerTestSu
     }
 
     @Test
-    @DisplayName("단계 값이 비어 있으면 보내지 않은 것과 같아 단계 확인 없이 취소된다 — 화면은 값이 없으면 키를 빼고 보내야 한다")
+    @DisplayName("단계 값이 비어 있으면 검사가 꺼져(없는 것과 같다) 응답 수집 중 라운드도 취소된다 — 초안만 취소하려면 DRAFT 를 실어야 한다")
     void cancelWithEmptyExpectedStatusSkipsCheck() {
         InterviewRound collectingRound = saveRound(RoundStatus.COLLECTING, LocalDateTime.now().plusDays(3));
 
