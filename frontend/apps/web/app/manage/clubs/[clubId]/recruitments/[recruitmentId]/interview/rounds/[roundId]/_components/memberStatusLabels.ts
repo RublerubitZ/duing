@@ -1,5 +1,5 @@
 // 라운드 멤버 상태 뱃지 라벨·스타일 — RoundMemberTable(roundMemberBadge)·ConfirmRoundDialog 공용.
-// 결과 판정(isDecidedApplicationResult)은 표의 결과 배지와 표·가능없음 섹션의 배정 동작 숨김이 함께 쓴다.
+// 결과 판정(isDecidedApplicationResult)은 표의 결과 배지, 표·가능없음 섹션의 배정 동작 숨김, 확정 409 창의 빈 자리 표시 숨김이 함께 쓴다.
 // 알 수 없는 상태값은 원문을 그대로 보인다 — 표는 roundMemberBadge 안에서, 확정 409 창은 호출부의 `?? fallback` 으로.
 
 import type { InterviewRoundDetailMember } from '@duing/types';

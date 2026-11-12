@@ -17,12 +17,14 @@ import { ButtonSpinner } from '@/components/loading/Spinner';
 import { formatSlotRange } from '@/components/interview/_utils/localDateTime';
 
 // 확정 409 모달 — UnresolvedMembersPayload 의 미응답·응답했으나 미배정 두 그룹을 분리 렌더하고
-// 강제 확정(force=true)을 제안한다. 강제 확정 실패 메시지는 모달 내부에 노출. 고른 슬롯에 빈 자리가 있는 미배정 응답자는 표시한다.
+// 강제 확정(force=true)을 제안한다. 강제 확정 실패 메시지는 모달 내부에 노출. 고른 슬롯에 빈 자리가 있는 미배정 응답자는 표시한다(결과를 정한 지원은 빼고).
 
 type ConfirmRoundDialogProps = {
   unresolvedPayload: UnresolvedMembersPayload;
   /** 라운드 상세의 슬롯 — 고른 슬롯에 지금 빈 자리가 있는지 판정. null = 상세를 다시 받는 중, 판정 보류 */
   slots: InterviewRoundDetailSlot[] | null;
+  /** 결과(합격·불합격)를 정한 지원 — 표에서 수동 배정이 막혀 있으니 빈 자리 표시를 붙이지 않는다(명단에는 남긴다) */
+  decidedApplicationIds: ReadonlySet<number>;
   onForceConfirm: () => void;
   onCancel: () => void;
   isPending: boolean;
@@ -33,6 +35,7 @@ type ConfirmRoundDialogProps = {
 export function ConfirmRoundDialog({
   unresolvedPayload,
   slots,
+  decidedApplicationIds,
   onForceConfirm,
   onCancel,
   isPending,
@@ -95,7 +98,9 @@ export function ConfirmRoundDialog({
               <p className="mb-1 text-xs font-semibold text-warm-deep">응답했으나 미배정</p>
               <ul className="space-y-1">
                 {unresolvedPayload.respondedUnassigned.map((member) => {
-                  const freeSeatSlots = freeSlots.filter((slot) => member.selectedSlotIds.includes(slot.slotId));
+                  const freeSeatSlots = decidedApplicationIds.has(member.applicationId)
+                    ? []
+                    : freeSlots.filter((slot) => member.selectedSlotIds.includes(slot.slotId));
                   return (
                     <li
                       key={member.applicationId}

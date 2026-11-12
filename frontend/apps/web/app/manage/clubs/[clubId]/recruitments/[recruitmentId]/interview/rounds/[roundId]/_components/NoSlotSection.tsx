@@ -75,7 +75,7 @@ export function NoSlotSection({ detail, onExclude, onManualAssign }: NoSlotSecti
                   </p>
                 )}
                 {status === 'ASSIGNING' && isResultDecided && (
-                  <p className="mt-1 text-xs text-charcoal-3">{RESULT_DECIDED_MANUAL_ASSIGN_NOTE}</p>
+                  <p className="mt-1 break-keep text-xs text-charcoal-3">{RESULT_DECIDED_MANUAL_ASSIGN_NOTE}</p>
                 )}
               </div>
               <div className="flex shrink-0 items-center gap-1">

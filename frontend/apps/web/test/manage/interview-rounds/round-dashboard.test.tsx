@@ -1097,6 +1097,54 @@ describe('배정 검토 — 빈 자리 안내', () => {
     expect(within(dialog).getByText('최유리').nextElementSibling).toHaveClass('break-keep', '[overflow-wrap:anywhere]');
   });
 
+  it.each(['ACCEPTED', 'REJECTED'])('확정이 거부돼도 결과(%s)가 정해진 미배정 응답자는 명단에 남되 빈 자리 표시가 없다 — 표에서 수동 배정이 막혀 있다', async (applicationResult) => {
+    server.use(
+      http.get(`*/interview-rounds/${ROUND_ID}`, () =>
+        HttpResponse.json({
+          ok: true,
+          data: {
+            ...DETAIL_ASSIGNING_FREED_SEAT,
+            members: [
+              MEMBER_DECIDED,
+              { ...MEMBER_WANTS_20, applicationResult },
+              { ...MEMBER_WANTS_21, applicationResult: null },
+              MEMBER_HOLDS_21,
+            ],
+          },
+          message: null,
+        }),
+      ),
+      // 최유리(결과 정함)·한지민(결과 없음) 모두 빈 자리가 있는 22 를 골랐다
+      http.post(`*/interview-rounds/${ROUND_ID}/confirm`, () =>
+        HttpResponse.json(
+          {
+            ok: false,
+            data: {
+              ...FREED_SEAT_UNRESOLVED_PAYLOAD,
+              respondedUnassigned: [
+                { applicationId: 102, applicantName: '최유리', selectedSlotIds: [21, 22, 20] },
+                { applicationId: 103, applicantName: '한지민', selectedSlotIds: [22] },
+              ],
+            },
+            message: '미처리 멤버가 있습니다.',
+          },
+          { status: 409 },
+        ),
+      ),
+    );
+
+    renderDashboard();
+    await screen.findByText('배정 검토 중');
+    await userEvent.click(screen.getByRole('button', { name: /^확정$/ }));
+    const dialog = await screen.findByRole('dialog');
+
+    await waitFor(() =>
+      expect(within(dialog).getByText('한지민').closest('li')).toHaveTextContent('선택 슬롯 1개 · 고른 시간에 빈 자리 있음(7월 15일 15:00 ~ 15:30)'),
+    );
+    expect(within(dialog).getByText('최유리').closest('li')).toHaveTextContent('선택 슬롯 3개');
+    expect(within(dialog).getByText('최유리').closest('li')).not.toHaveTextContent('고른 시간에 빈 자리 있음');
+  });
+
   it('확정이 거부되면 창은 바로 열리고, 빈 자리 표시는 라운드 상세를 다시 받은 뒤에 보인다', async () => {
     let releaseRefetch: () => void = () => {};
     const refetchGate = new Promise<void>((resolve) => {
@@ -2344,7 +2392,8 @@ describe('라운드 현황 후속 — 결과를 정한 멤버의 배정 동작',
     const row = await findMemberGroup(name);
 
     expect(within(row).queryByRole('button', { name: '일정 변경' })).not.toBeInTheDocument();
-    expect(within(row).getByText('결과 확정 — 일정 변경 불가')).toBeInTheDocument();
+    // 좁은 폭에서 '불 / 가' 처럼 음절 사이에서 끊기지 않게.
+    expect(within(row).getByText('결과 확정 — 일정 변경 불가')).toHaveClass('break-keep');
     expect(within(row).getByText('배정됨')).toBeInTheDocument();
   });
 
@@ -2382,7 +2431,8 @@ describe('라운드 현황 후속 — 결과를 정한 멤버의 배정 동작',
     const row = await findMemberGroup(name);
 
     expect(within(row).queryByRole('button', { name: '수동 배정' })).not.toBeInTheDocument();
-    expect(within(row).getByText('결과 확정 — 수동 배정 불가')).toBeInTheDocument();
+    // 좁은 폭에서 '불 / 가' 처럼 음절 사이에서 끊기지 않게(표·가능없음 섹션 모두).
+    expect(within(row).getByText('결과 확정 — 수동 배정 불가')).toHaveClass('break-keep');
     expect(within(row).getByRole('button', { name: '제외' })).toBeInTheDocument();
   });
 

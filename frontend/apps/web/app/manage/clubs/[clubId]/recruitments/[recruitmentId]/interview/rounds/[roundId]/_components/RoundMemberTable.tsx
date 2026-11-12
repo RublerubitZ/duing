@@ -16,7 +16,7 @@ import {
 // [제외]는 결과를 정해 남은 진행 중 멤버를 운영진이 치울 길이라 둔다.
 
 /** 결과를 정한 멤버의 배정 동작 자리 — 숨긴 버튼과 같은 기하라 행 높이·글 시작선이 같다 */
-const RESULT_DECIDED_NOTE_CLASS = 'px-3 py-2 text-[13px] text-charcoal-3 sm:px-2 sm:py-1 sm:text-xs';
+const RESULT_DECIDED_NOTE_CLASS = 'break-keep px-3 py-2 text-[13px] text-charcoal-3 sm:px-2 sm:py-1 sm:text-xs';
 
 /** 멤버 행의 id — 표와 가능없음 섹션이 함께 쓴다(한 멤버는 둘 중 한 곳에만 있다). 창이 닫힌 뒤 포커스를 보낼 자리다. */
 export function roundMemberRowId(memberId: number) {

@@ -30,6 +30,7 @@ import { RoundStatusBanner, ROUND_STATUS_BANNER_ID } from './RoundStatusBanner';
 import { RoundCountCards } from './RoundCountCards';
 import { RoundMemberTable, roundMemberRowId } from './RoundMemberTable';
 import { NoSlotSection } from './NoSlotSection';
+import { isDecidedApplicationResult } from './memberStatusLabels';
 import { RoundSlotsSection } from './RoundSlotsSection';
 import { ArrowLeft } from '@/components/duing/Icon';
 
@@ -514,6 +515,13 @@ export function RoundDashboard({ clubId, recruitmentId, roundId }: Props) {
           unresolvedPayload={confirmDialogPayload}
           // 409 뒤 상세를 다시 받는 동안엔 낡은 정원·배정으로 빈 자리를 판정하지 않는다(null = 보류) — 다 받은 뒤 표시
           slots={detailQuery.isFetching ? null : detail.slots}
+          decidedApplicationIds={
+            new Set(
+              detail.members
+                .filter((member) => isDecidedApplicationResult(member.applicationResult))
+                .map((member) => member.applicationId),
+            )
+          }
           onForceConfirm={handleForceConfirm}
           onCancel={() => {
             setConfirmDialogPayload(null);
