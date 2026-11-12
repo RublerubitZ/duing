@@ -19,6 +19,7 @@ public interface InterviewAssignmentService {
      * expectedRoundStatus 는 요청자가 화면에서 본 단계 — 있고 잠근 라운드의 단계와 다르면 RoundStatusChanged(409),
      * null 이면 검사하지 않는다(옛 클라이언트).
      * 결과가 정해진(합격·불합격) 지원은 단계와 무관하게 ApplicationAlreadyDecided(409).
+     * 지금 배정과 같은 슬롯이면 아무것도 바꾸지 않는다(알림 없음).
      */
     void assignSchedule(Long roundId, Long memberId, Long slotId, RoundStatus expectedRoundStatus, Long currentUserId);
 

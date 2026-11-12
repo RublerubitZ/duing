@@ -30,6 +30,7 @@ import java.time.LocalDateTime;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
@@ -149,8 +150,14 @@ public class GeneralInterviewAssignmentService implements InterviewAssignmentSer
             throw new InterviewException.MemberTransitionNotAllowed();
         }
 
-        // 본인 기존 배정을 먼저 비워야 "만석 슬롯 내 본인 재배정(멱등)" 이 자연 통과한다.
-        removeActiveSchedule(roundId, member.getApplicationId());
+        Optional<InterviewSchedule> activeSchedule = interviewScheduleRepository
+                .findByRoundIdAndApplicationIdAndStatus(roundId, member.getApplicationId(),
+                        InterviewScheduleStatus.ASSIGNED);
+        // 지금 배정과 같은 슬롯이면 바꿀 것이 없다 — 지웠다 다시 만들면 확정 단계에서 지원자에게 일정 변경 알림이 나간다.
+        if (activeSchedule.filter(schedule -> schedule.getSlotId().equals(slotId)).isPresent()) {
+            return;
+        }
+        activeSchedule.ifPresent(interviewScheduleRepository::delete);
         long assignedCount = interviewScheduleRepository
                 .countBySlotIdAndStatus(slotId, InterviewScheduleStatus.ASSIGNED);
         if (assignedCount >= slot.getCapacity()) {

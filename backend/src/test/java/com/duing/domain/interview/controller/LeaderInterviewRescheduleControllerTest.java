@@ -270,27 +270,30 @@ class LeaderInterviewRescheduleControllerTest extends InterviewControllerTestSup
     }
 
     @Test
-    @DisplayName("같은 슬롯으로 다시 옮기는 멱등 재배정도 성공한다")
+    @DisplayName("확정된 라운드에서 지금 일정과 같은 슬롯을 보내면 아무것도 바뀌지 않고 알림도 없다")
     void scheduledRoundIdempotentReassignToSameSlotSucceeds() {
         InterviewRound round = saveRound(RoundStatus.SCHEDULED);
         InterviewSlot slot = saveSlot(round, "2026-07-08T10:00:00", 1);
         Application application = saveInterviewPendingApplication(recruitment, "멱등재배정확정");
         InterviewRoundMember member = saveMember(round, application, RoundMemberStatus.ASSIGNED);
-        interviewScheduleRepository.save(InterviewScheduleFixture.assigned(
+        // 지금 일정이 확정으로 정해진 경우 — 앞선 일정 변경 알림이 없어 이벤트가 나가면 알림 행이 반드시 생긴다.
+        InterviewSchedule confirmedSchedule = interviewScheduleRepository.save(InterviewScheduleFixture.assigned(
                 application.getId(), slot.getId(), round.getId()));
 
-        // 같은 슬롯으로 재배정 — BE#10 전례(ASSIGNING 멱등)를 SCHEDULED 에서 확인
         givenLeader()
                 .contentType(ContentType.JSON)
-                .body(Map.of("slotId", slot.getId()))
+                .body(Map.of("slotId", slot.getId(), "expectedRoundStatus", "SCHEDULED"))
                 .when().put(SCHEDULE_PATH, round.getId(), member.getId())
                 .then().statusCode(HttpStatus.NO_CONTENT.value());
 
-        Optional<InterviewSchedule> activeSchedule = interviewScheduleRepository
+        // 이벤트 0건의 대리 단언 — @RecordApplicationEvents 는 테스트 스레드 ThreadLocal 이라 요청 스레드의 이벤트를 받지 못한다.
+        assertThat(notificationRepository.countByUserIdAndReadAtIsNull(application.getUser().getId())).isZero();
+        InterviewSchedule activeSchedule = interviewScheduleRepository
                 .findByRoundIdAndApplicationIdAndStatus(
-                        round.getId(), application.getId(), InterviewScheduleStatus.ASSIGNED);
-        assertThat(activeSchedule).isPresent();
-        assertThat(activeSchedule.orElseThrow().getSlotId()).isEqualTo(slot.getId());
+                        round.getId(), application.getId(), InterviewScheduleStatus.ASSIGNED)
+                .orElseThrow();
+        assertThat(activeSchedule.getId()).isEqualTo(confirmedSchedule.getId());
+        assertThat(activeSchedule.getSlotId()).isEqualTo(slot.getId());
     }
 
     @Test
@@ -441,6 +444,25 @@ class LeaderInterviewRescheduleControllerTest extends InterviewControllerTestSup
                 .body(Map.of("slotId", slot.getId(), "expectedRoundStatus", "ASSIGNING"))
                 .when().put(SCHEDULE_PATH, round.getId(), member.getId())
                 .then().statusCode(HttpStatus.NOT_FOUND.value());
+    }
+
+    @Test
+    @DisplayName("지금 일정과 같은 슬롯이어도 낡은 배정 검토 화면에서 보내면 단계가 바뀌었다는 문구로 거절된다")
+    void staleScreenSameSlotGetsStatusChangedMessage() {
+        InterviewRound round = saveRound(RoundStatus.SCHEDULED);
+        InterviewSlot slot = saveSlot(round, "2026-07-13T10:00:00", 1);
+        Application application = saveInterviewPendingApplication(recruitment, "낡은화면같은슬롯");
+        InterviewRoundMember member = saveMember(round, application, RoundMemberStatus.ASSIGNED);
+        interviewScheduleRepository.save(InterviewScheduleFixture.assigned(
+                application.getId(), slot.getId(), round.getId()));
+
+        givenLeader()
+                .contentType(ContentType.JSON)
+                .body(Map.of("slotId", slot.getId(), "expectedRoundStatus", "ASSIGNING"))
+                .when().put(SCHEDULE_PATH, round.getId(), member.getId())
+                .then().statusCode(HttpStatus.CONFLICT.value())
+                // 같은 슬롯 생략이 기대 단계 검사보다 앞이면 낡은 화면이 204 를 받는다
+                .body("message", org.hamcrest.Matchers.equalTo(ROUND_STATUS_CHANGED_MESSAGE));
     }
 
     // ── 헬퍼 ─────────────────────────────────────────────────────────────────
