@@ -2,7 +2,7 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { describe, it, expect, beforeAll, beforeEach, afterEach, afterAll, vi } from 'vitest';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { setupServer } from 'msw/node';
-import { http, HttpResponse, delay } from 'msw';
+import { http, HttpResponse } from 'msw';
 import { createApiClient } from '@duing/api';
 import { ApiClientProvider } from '@duing/hooks';
 import {
@@ -100,16 +100,26 @@ describe('NewRecruitmentPage — 임시저장 복원', () => {
   // 폼은 마운트 때 한 번만 임시저장을 읽는다 — 작성자 id 없이 먼저 마운트하면 하드 리로드에서
   // 복원 배너가 영영 뜨지 않는다. 그래서 me 를 기다린 뒤 폼을 띄운다.
   it('작성자 정보를 기다렸다가 폼을 띄워 저장해 둔 초안 배너를 보여준다', async () => {
+    // me 응답은 붙잡아 둔다 — 고정 지연이면 모집 목록 응답이 그보다 늦을 때 me 가 먼저 끝나 이 게이트가 그려지지 않는다.
+    let releaseMe: () => void = () => {};
+    const meReleased = new Promise<void>((resolve) => {
+      releaseMe = resolve;
+    });
     server.use(
       http.get('*/users/me', async () => {
-        await delay(20);
+        await meReleased;
         return HttpResponse.json({ ok: true, message: null, data: { id: ME_ID, name: '운영진' } });
       }),
     );
     saveRecruitmentDraft(DRAFT_OWNER, { title: '새로고침 전에 쓰던 제목' });
     renderPage();
 
-    expect(await screen.findByRole('status', { name: '작성자 정보 불러오는 중' })).toBeInTheDocument();
+    // 대기가 실패해도 붙잡은 응답을 푼다 — 안 풀면 요청이 케이스가 끝난 뒤에도 남는다.
+    try {
+      expect(await screen.findByRole('status', { name: '작성자 정보 불러오는 중' })).toBeInTheDocument();
+    } finally {
+      releaseMe();
+    }
 
     expect(await screen.findByRole('button', { name: '이어서 쓰기' })).toBeInTheDocument();
   });
