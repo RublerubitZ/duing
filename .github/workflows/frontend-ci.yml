@@ -22,6 +22,10 @@ jobs:
     defaults:
       run:
         working-directory: frontend
+    # .npmrc·환경변수로 bail=false 가 들어오면 pnpm 9 는 `pnpm <스크립트>` 의 실패를 삼켜 초록이 된다 — env 로 고정한다(pnpm 9.12.0 실측, 메이저를 올리면 pnpm_config_bail 로 바꿀 것).
+    # run 줄에 `--no-bail` 을 붙이면 CLI 가 env 를 이겨 같은 구멍이 생긴다(package.json 의 test 는 안쪽 -r 에 --no-bail).
+    env:
+      npm_config_bail: 'true'
 
     steps:
       - name: Checkout
@@ -71,8 +75,4 @@ jobs:
         run: pnpm typecheck
 
       - name: Test
-        # pnpm test = `pnpm -r --no-bail test`(package.json) — 한 패키지가 실패해도 나머지를 끝까지 돌리고 종료 코드는 실패로 남는다.
-        # 바깥 pnpm run 이 bail=false 면 실패를 삼켜 초록이 된다 — env 로 bail 을 고정한다. 바깥을 `pnpm --no-bail test` 로 바꾸는 것은 env 로도 못 막는다(pnpm 9.12.0 실측).
-        env:
-          npm_config_bail: 'true'
         run: pnpm test
