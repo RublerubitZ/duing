@@ -40,8 +40,8 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional(readOnly = true)
 public class GeneralInterviewAssignmentService implements InterviewAssignmentService {
 
-    private static final Set<RoundStatus> EXCLUDABLE_ROUND_STATUSES =
-            Set.of(RoundStatus.DRAFT, RoundStatus.COLLECTING, RoundStatus.ASSIGNING);
+    // 운영진 제외는 진행 중 라운드에서만 — 결과 확정 정리(releaseOnResultDecided)와 같은 집합이어야 한다.
+    private static final Set<RoundStatus> EXCLUDABLE_ROUND_STATUSES = RoundStatus.inProgressSet();
 
     // §6.4 — ASSIGNING(draft 수동 배정)·SCHEDULED(확정 후 개별 재배정) 허용.
     // CANCELLED 는 집합에 없으므로 종결 상태가 새지 않는다.

@@ -8,6 +8,7 @@ import com.duing.domain.interview.controller.dto.response.CreateInterviewRoundRe
 import com.duing.domain.interview.controller.dto.response.RoundCandidateResponse;
 import com.duing.domain.interview.controller.dto.response.RoundDetailResponse;
 import com.duing.domain.interview.controller.dto.response.RoundSummaryResponse;
+import com.duing.domain.interview.entity.RoundStatus;
 import com.duing.domain.interview.service.InterviewRoundService;
 import com.duing.global.auth.UserPrincipal;
 import com.duing.global.response.ApiResponse;
@@ -112,9 +113,10 @@ public class LeaderInterviewRoundController implements LeaderInterviewRoundApi {
     @Override
     public ResponseEntity<ApiResponse<Void>> cancelRound(
             @PathVariable Long roundId,
+            @RequestParam(required = false) RoundStatus expectedRoundStatus,
             @AuthenticationPrincipal UserPrincipal currentUser
     ) {
-        interviewRoundService.cancelRound(roundId, currentUser.id());
+        interviewRoundService.cancelRound(roundId, expectedRoundStatus, currentUser.id());
         return ResponseEntity.noContent().build();
     }
 }
