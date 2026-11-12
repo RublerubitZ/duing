@@ -25,7 +25,10 @@ type Props = {
   draftRound: InterviewRoundSummary;
   clubId: number;
   recruitmentId: number;
+  /** 폐기 요청이 나가 있다 — 스피너·aria-busy·'라운드 폐기 중' 낭독 */
   isPending: boolean;
+  /** 폐기가 거절돼 목록을 다시 받는 중 — 버튼만 끈다(폐기 요청은 끝나 '폐기 중'이라 알리지 않는다) */
+  isRefreshing: boolean;
   onResume: () => void;
   onDiscard: () => void;
   /** 폐기 실패 시 표시할 인라인 에러 메시지 */
@@ -37,6 +40,7 @@ export function DraftResumeDialog({
   clubId,
   recruitmentId,
   isPending,
+  isRefreshing,
   onResume,
   onDiscard,
   discardError,
@@ -44,12 +48,13 @@ export function DraftResumeDialog({
   const resumeRef = useRef<HTMLButtonElement | null>(null);
   const landingLinkRef = useRef<HTMLAnchorElement | null>(null);
   const hasNoMembers = draftRound.totalMemberCount === 0;
+  const isLocked = isPending || isRefreshing;
 
   const discardButton = (
     <button
       type="button"
       onClick={onDiscard}
-      disabled={isPending}
+      disabled={isLocked}
       className={hasNoMembers ? 'btn btn-danger btn-sm' : 'btn btn-danger-quiet btn-sm'}
     >
       {isPending && <ButtonSpinner />}폐기하고 새로 만들기
@@ -105,11 +110,11 @@ export function DraftResumeDialog({
               <Link
                 ref={landingLinkRef}
                 href={toRoute(`/manage/clubs/${clubId}/recruitments/${recruitmentId}/interview`)}
-                // 폐기 요청 중에는 나가지 않는다 — 진행 중 파괴 동작의 닫힘 차단과 같은 규칙.
+                // 폐기 요청 중(거절 뒤 다시 받는 동안 포함)에는 나가지 않는다 — 진행 중 파괴 동작의 닫힘 차단과 같은 규칙.
                 onClick={(event) => {
-                  if (isPending) event.preventDefault();
+                  if (isLocked) event.preventDefault();
                 }}
-                aria-disabled={isPending || undefined}
+                aria-disabled={isLocked || undefined}
                 className="btn btn-ghost btn-sm aria-disabled:cursor-not-allowed aria-disabled:opacity-50 aria-disabled:hover:bg-transparent aria-disabled:hover:text-charcoal-2"
               >
                 면접 관리로
@@ -123,7 +128,7 @@ export function DraftResumeDialog({
                 ref={resumeRef}
                 type="button"
                 onClick={onResume}
-                disabled={isPending}
+                disabled={isLocked}
                 className="btn btn-primary btn-sm disabled:opacity-50"
               >
                 이어하기
@@ -131,7 +136,7 @@ export function DraftResumeDialog({
             </>
           )}
         </DialogFooter>
-        {/* 폐기 진행을 화면 낭독기에도 알린다 — 버튼 밖 sr-only 상태 리전(#914, 같은 폴더 밖 창들과 같은 관례) */}
+        {/* 폐기 진행을 화면 낭독기에도 알린다 — 버튼 밖 sr-only 상태 리전(#914, 라운드 현황의 AutoAssignDialog·MemberAssignModal 과 같은 관례) */}
         <span role="status" className="sr-only">{isPending ? '라운드 폐기 중' : null}</span>
       </DialogContent>
     </Dialog>

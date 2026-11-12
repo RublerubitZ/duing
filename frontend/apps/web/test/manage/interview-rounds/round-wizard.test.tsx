@@ -840,8 +840,9 @@ describe('RoundWizard — 면접 라운드 생성 wizard', () => {
       await waitFor(() => expect(landingLink).toHaveAttribute('aria-disabled', 'true'));
       expect(fireEvent.click(landingLink)).toBe(false);
       // 폐기 진행을 화면 낭독기에도 알린다(#914 — 버튼 밖 sr-only 상태 리전 + 창 aria-busy).
-      expect(screen.getByRole('status')).toHaveTextContent('라운드 폐기 중');
-      expect(screen.getByRole('dialog')).toHaveAttribute('aria-busy', 'true');
+      const dialog = screen.getByRole('dialog');
+      expect(within(dialog).getByRole('status')).toHaveTextContent('라운드 폐기 중');
+      expect(dialog).toHaveAttribute('aria-busy', 'true');
     } finally {
       releaseCancel();
     }
@@ -869,8 +870,9 @@ describe('RoundWizard — 면접 라운드 생성 wizard', () => {
 
     try {
       await userEvent.click(await screen.findByRole('button', { name: /폐기하고 새로 만들기/ }));
-      await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('라운드 폐기 중'));
-      expect(screen.getByRole('dialog')).toHaveAttribute('aria-busy', 'true');
+      const dialog = screen.getByRole('dialog');
+      await waitFor(() => expect(within(dialog).getByRole('status')).toHaveTextContent('라운드 폐기 중'));
+      expect(dialog).toHaveAttribute('aria-busy', 'true');
     } finally {
       releaseCancel();
     }
@@ -1026,8 +1028,9 @@ describe('RoundWizard — 면접 라운드 생성 wizard', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('라운드 폐기 중 오류가 발생했습니다. 다시 시도해주세요.');
     expect(screen.getByRole('link', { name: '면접 관리로' })).not.toHaveAttribute('aria-disabled');
     // 진행이 끝나면 진행 문구를 비우고 창도 바쁘지 않다.
-    expect(screen.getByRole('status')).toBeEmptyDOMElement();
-    expect(screen.getByRole('dialog')).toHaveAttribute('aria-busy', 'false');
+    const dialog = screen.getByRole('dialog');
+    expect(within(dialog).getByRole('status')).toBeEmptyDOMElement();
+    expect(dialog).toHaveAttribute('aria-busy', 'false');
   });
 
   it.each([
@@ -1173,7 +1176,7 @@ describe('RoundWizard — 폐기가 화면이 본 단계(초안)를 싣기', () 
     expect(screen.queryByText(DRAFT_GONE_NOTICE)).not.toBeInTheDocument();
   });
 
-  it('409 뒤 목록을 다시 받는 동안에는 [이어하기]·[폐기]가 꺼진다 — 그사이 발송된 라운드로 2단계에 들어가지 않게', async () => {
+  it('409 뒤 목록을 다시 받는 동안에는 [이어하기]·[폐기]가 꺼진다 — 그사이 발송된 라운드로 2단계에 들어가지 않게, 폐기 중이라고 알리지는 않는다', async () => {
     let releaseRefetch: () => void = () => {};
     const refetchGate = new Promise<void>((resolve) => {
       releaseRefetch = resolve;
@@ -1199,8 +1202,13 @@ describe('RoundWizard — 폐기가 화면이 본 단계(초안)를 싣기', () 
       // 다시 받기를 붙잡은 동안 — 창은 아직 낡은 초안(2차 면접)을 보인다
       expect(within(dialog).getByText('2차 면접')).toBeInTheDocument();
       expect(within(dialog).getByRole('button', { name: /이어하기/ })).toBeDisabled();
-      expect(within(dialog).getByRole('button', { name: /폐기하고 새로 만들기/ })).toBeDisabled();
+      const discardButton = within(dialog).getByRole('button', { name: /폐기하고 새로 만들기/ });
+      expect(discardButton).toBeDisabled();
       expect(roundListRequestCount).toBe(2);
+      // 폐기 요청은 이미 끝났다 — 목록을 받는 동안의 버튼 끄기를 '폐기 중'(스피너·busy·낭독)으로 알리지 않는다.
+      expect(within(dialog).getByRole('status')).not.toHaveTextContent('라운드 폐기 중');
+      expect(dialog).toHaveAttribute('aria-busy', 'false');
+      expect(discardButton.querySelector('svg.animate-spin')).toBeNull();
 
       releaseRefetch();
       expect(await within(dialog).findByText('3차 면접')).toBeInTheDocument();

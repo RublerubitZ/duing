@@ -301,7 +301,7 @@ export function dashboardTaskGroupOf(task: DashboardTask): DashboardTaskGroupKey
     case 'INTERVIEW_RESULT_PENDING':
       return 'NOW';
     case 'INTERVIEW_ROUND_UNCONFIRMED':
-      // 초안은 운영진이 아직 쓰는 중일 수 있고, 대기열의 '라운드 생성 필요'와 같은 단계라 처리 대기.
+      // 초안은 운영진이 아직 쓰는 중이거나(인원 0 이면) 치워야 할 뿐이고, 대기열의 '라운드 생성 필요'와 같은 단계라 처리 대기.
       if (task.item.roundStatus === 'DRAFT') return 'WAITING';
       // 응답 마감 날짜(KST)까지는 재응답이 열려 있을 수 있어 기다린다 — 당일은 마감 시각이 지나도 처리 대기(응답 미수집 줄과 같은 날짜 기준).
       if (task.item.roundStatus === 'COLLECTING') return task.item.daysLeft !== undefined && task.item.daysLeft < 0 ? 'NOW' : 'WAITING';

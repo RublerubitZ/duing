@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll, afterEach } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, afterEach, vi } from 'vitest';
 import type { ReactNode } from 'react';
 import { render, screen, waitFor, within, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -1931,7 +1931,9 @@ describe('라운드 현황 다듬기 — 일정 변경 문맥', () => {
     await userEvent.click(within(memberRow('오세훈')!).getByRole('button', { name: '제외' }));
     await userEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: '제외하기' }));
 
-    expect(await screen.findByText('오세훈 님이 제외되었습니다.')).toBeInTheDocument();
+    // 창이 닫힌 뒤 페이지 상태 리전으로 읽힌다(창이 열린 동안 본문은 aria-hidden).
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    expect(screen.getByRole('status')).toHaveTextContent('오세훈 님이 제외되었습니다.');
     expect(screen.queryByText(/\(가\)/)).not.toBeInTheDocument();
   });
 });
@@ -2140,5 +2142,81 @@ describe('라운드 현황 다듬기 — 결과를 정한 제외 멤버', () => 
 
     expect(within(memberRow('서일괄')!).getByText('응답 완료')).toBeInTheDocument();
     expect(within(memberRow('서일괄')!).queryByText('불합격')).not.toBeInTheDocument();
+  });
+});
+
+describe('라운드 현황 다듬기 — 포커스 스크롤 분기', () => {
+  /** HTMLElement.focus 를 감싸 어느 요소가 어떤 옵션으로 포커스를 받았는지 모은다 — 실제 포커스는 그대로 옮긴다 */
+  function recordFocusCalls() {
+    const focusCalls: Array<{ element: HTMLElement; options: FocusOptions | undefined }> = [];
+    const originalFocus = HTMLElement.prototype.focus;
+    const focusSpy = vi.spyOn(HTMLElement.prototype, 'focus').mockImplementation(function (this: HTMLElement, options?: FocusOptions) {
+      focusCalls.push({ element: this, options });
+      originalFocus.call(this, options);
+    });
+    return { focusCalls, restore: () => focusSpy.mockRestore() };
+  }
+
+  it('멤버 행은 화면이 튀지 않게 스크롤 없이(preventScroll: true) 포커스를 받는다', async () => {
+    let detailGetCount = 0;
+    server.use(
+      http.get(`*/interview-rounds/${ROUND_ID}`, () => {
+        detailGetCount += 1;
+        const data = detailGetCount === 1 ? DETAIL_ASSIGNING_HOLDER_PENDING : DETAIL_ASSIGNING_HOLDER_DECIDED;
+        return HttpResponse.json({ ok: true, data, message: null });
+      }),
+      http.post(`*/interview-rounds/${ROUND_ID}/members/${MEMBER_HOLDS_21.memberId}/exclude`, () =>
+        HttpResponse.json({ ok: false, data: null, message: MEMBER_ALREADY_EXCLUDED_MESSAGE }, { status: 409 }),
+      ),
+    );
+    const { focusCalls, restore } = recordFocusCalls();
+    try {
+      renderDashboard();
+      await screen.findByText('배정 검토 중');
+      await userEvent.click(within(memberRow('오세훈')!).getByRole('button', { name: '제외' }));
+      const dialog = await screen.findByRole('dialog');
+      await userEvent.click(within(dialog).getByRole('button', { name: '제외하기' }));
+      await within(dialog).findByRole('alert');
+      await waitFor(() =>
+        expect(within(memberRow('오세훈')!).queryByRole('button', { name: '제외', hidden: true })).not.toBeInTheDocument(),
+      );
+      await userEvent.click(within(dialog).getByRole('button', { name: '취소' }));
+
+      const holderRow = screen.getByRole('group', { name: /^오세훈 / });
+      await waitFor(() => expect(holderRow).toHaveFocus());
+      expect(focusCalls.filter((focusCall) => focusCall.element === holderRow).map((focusCall) => focusCall.options)).toEqual([
+        { preventScroll: true },
+      ]);
+    } finally {
+      restore();
+    }
+  });
+
+  it('상태 배너는 [확정]을 누른 뒤 스크롤해 화면 밖이면 보이게(preventScroll: false) 포커스를 받는다', async () => {
+    let detailGetCount = 0;
+    server.use(
+      http.get(`*/interview-rounds/${ROUND_ID}`, () => {
+        detailGetCount += 1;
+        const data = detailGetCount === 1 ? DETAIL_ASSIGNING_HOLDER_PENDING : { ...DETAIL_ASSIGNING_HOLDER_PENDING, status: 'SCHEDULED' };
+        return HttpResponse.json({ ok: true, data, message: null });
+      }),
+      http.post(`*/interview-rounds/${ROUND_ID}/confirm`, () =>
+        HttpResponse.json({ ok: true, data: { assignedMemberCount: 1, excludedMemberCount: 0 }, message: null }),
+      ),
+    );
+    const { focusCalls, restore } = recordFocusCalls();
+    try {
+      renderDashboard();
+      await screen.findByText('배정 검토 중');
+      await userEvent.click(screen.getByRole('button', { name: /^확정$/ }));
+
+      const banner = await screen.findByRole('group', { name: '확정 1차 면접' });
+      await waitFor(() => expect(banner).toHaveFocus());
+      expect(focusCalls.filter((focusCall) => focusCall.element === banner).map((focusCall) => focusCall.options)).toEqual([
+        { preventScroll: false },
+      ]);
+    } finally {
+      restore();
+    }
   });
 });

@@ -140,8 +140,9 @@ export function RoundWizard({ clubId, recruitmentId }: Props) {
           draftRound={draftRound}
           clubId={clubId}
           recruitmentId={recruitmentId}
+          isPending={cancelMutation.isPending}
           // 거절 뒤 목록을 다시 받는 동안도 막는다 — 그사이 [이어하기]를 누르면 발송된 라운드로 2단계에 들어간다.
-          isPending={cancelMutation.isPending || (discardError !== null && roundsQuery.isFetching)}
+          isRefreshing={discardError !== null && roundsQuery.isFetching}
           onResume={handleResume}
           onDiscard={handleDiscard}
           discardError={discardError}

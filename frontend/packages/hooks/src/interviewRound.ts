@@ -347,6 +347,7 @@ export function useConfirmRoundMutation(recruitmentId: number, roundId: number) 
   return useMutation({
     mutationFn: (force: boolean) =>
       client.interviewRounds.confirm(roundId, force),
+    // 무효화를 return 하지 않는다 — 현황 화면 포커스 표지가 이 순서에 기댄다(호출부 onSuccess 가 다시 받은 상세보다 먼저 돈다).
     onSuccess: () => {
       queryClient.invalidateQueries({
         queryKey: interviewRoundKeys.detail(roundId),

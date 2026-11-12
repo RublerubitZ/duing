@@ -6,7 +6,7 @@ import { describe, expect, it } from 'vitest';
 
 // `.btn:disabled` 는 딤 처리만 하고, 변형별 hover 효과는 각 변형이 `:disabled:hover` 로 되돌린다(globals.css 주석의 약속).
 // 되돌림이 빠진 변형은 꺼진 버튼 위에서도 hover 틴트가 떠 눌릴 것처럼 보인다(#1685 초안 창의 [폐기하고 새로 만들기]).
-// btn-ghost 도 같은 틈이 있지만 공용 창 취소 버튼 다수에 걸려 따로 다룬다(스펙 Out of Scope).
+// btn-ghost 도 같은 틈이 있지만 공용 창 취소 버튼 다수의 모양이 함께 바뀌어 이 변경에 넣지 않고 따로 다룬다.
 const GLOBALS_CSS = readFileSync(resolve(__dirname, '../../app/globals.css'), 'utf-8');
 
 describe('버튼 변형의 비활성 hover 되돌림', () => {
