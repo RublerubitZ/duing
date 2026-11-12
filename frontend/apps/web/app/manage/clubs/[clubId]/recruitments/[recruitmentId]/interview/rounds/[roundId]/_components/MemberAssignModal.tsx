@@ -56,8 +56,9 @@ export function MemberAssignModal({
         if (!open && !isPending) onCancel();
       }}
     >
+      {/* 슬롯이 많으면 창이 화면을 넘는다 — 높이에 상한을 두고 목록만 스크롤해 제목·안내·실패 문구·버튼은 늘 보이게 한다 */}
       <DialogContent
-        className="max-w-sm"
+        className="flex max-h-[calc(100dvh-4rem)] max-w-sm flex-col"
         aria-describedby={undefined}
         busy={isPending}
       >
@@ -65,29 +66,31 @@ export function MemberAssignModal({
           <DialogTitle>{member.userName} 수동 배정</DialogTitle>
         </DialogHeader>
 
-        <fieldset>
-          <legend className="mb-2 text-sm font-medium text-charcoal-2">슬롯 선택</legend>
-          <div className="space-y-2">
-            {slots.map((slot) => (
-              <label
-                key={slot.slotId}
-                className="flex cursor-pointer items-center gap-3 rounded-md border border-line px-3 py-2 transition-colors hover:bg-sage-tint"
-              >
-                <input
-                  type="radio"
-                  name="slot-assign"
-                  value={slot.slotId}
-                  checked={selectedSlotId === slot.slotId}
-                  onChange={() => setSelection({ slotId: slot.slotId, roundStatus })}
-                  className="accent-ink"
-                />
-                <span className="text-sm text-charcoal">
-                  {formatSlotRange(slot.startTime, slot.endTime)} · 정원 {slot.capacity}명
-                </span>
-              </label>
-            ))}
-          </div>
-        </fieldset>
+        <div className="min-h-0 overflow-y-auto">
+          <fieldset>
+            <legend className="mb-2 text-sm font-medium text-charcoal-2">슬롯 선택</legend>
+            <div className="space-y-2">
+              {slots.map((slot) => (
+                <label
+                  key={slot.slotId}
+                  className="flex cursor-pointer items-center gap-3 rounded-md border border-line px-3 py-2 transition-colors hover:bg-sage-tint"
+                >
+                  <input
+                    type="radio"
+                    name="slot-assign"
+                    value={slot.slotId}
+                    checked={selectedSlotId === slot.slotId}
+                    onChange={() => setSelection({ slotId: slot.slotId, roundStatus })}
+                    className="accent-ink"
+                  />
+                  <span className="text-sm text-charcoal">
+                    {formatSlotRange(slot.startTime, slot.endTime)} · 정원 {slot.capacity}명
+                  </span>
+                </label>
+              ))}
+            </div>
+          </fieldset>
+        </div>
 
         {roundStatus === 'SCHEDULED' && (
           <p className="rounded-md bg-sky/10 px-3 py-2 text-xs text-sky-deep">

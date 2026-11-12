@@ -1686,3 +1686,73 @@ describe('InterviewRoundsLanding — 비DRAFT 카드 dashboard 링크', () => {
     expect(href).toContain(`rounds/${ROUND_ID}`);
   });
 });
+
+describe('라운드 현황 다듬기 — 창·레이아웃', () => {
+  it('수동 배정 창은 슬롯 목록만 스크롤하고, 제목·확정 안내·실패 문구·버튼은 스크롤 밖에 둔다', async () => {
+    server.use(
+      http.get(`*/interview-rounds/${ROUND_ID}`, () =>
+        HttpResponse.json({ ok: true, data: DETAIL_SCHEDULED, message: null }),
+      ),
+      http.put(`*/interview-rounds/${ROUND_ID}/members/:memberId/schedule`, () =>
+        HttpResponse.json({ ok: false, data: null, message: SERVER_ERROR_MESSAGE }, { status: 500 }),
+      ),
+    );
+
+    renderDashboard();
+    await screen.findByText('확정');
+    await userEvent.click(screen.getAllByRole('button', { name: '일정 변경' })[0]!);
+    const dialog = await screen.findByRole('dialog');
+    await userEvent.click(within(dialog).getAllByRole('radio')[1]!);
+    await userEvent.click(within(dialog).getByRole('button', { name: '배정' }));
+    const alert = await within(dialog).findByRole('alert');
+
+    // 슬롯이 많으면 창이 화면을 넘는다 — 창 높이에 상한을 두고 목록만 스크롤한다.
+    expect(dialog).toHaveClass('max-h-[calc(100dvh-4rem)]', 'flex', 'flex-col');
+    const scrollArea = within(dialog).getAllByRole('radio')[0]!.closest('.overflow-y-auto');
+    expect(scrollArea).not.toBeNull();
+    expect(scrollArea).toHaveClass('min-h-0');
+    expect(scrollArea).not.toContainElement(alert);
+    expect(scrollArea).not.toContainElement(within(dialog).getByRole('button', { name: '배정' }));
+    expect(scrollArea).not.toContainElement(within(dialog).getByRole('button', { name: '취소' }));
+    expect(scrollArea).not.toContainElement(within(dialog).getByText('변경 시 지원자에게 일정 변경 알림이 발송됩니다.'));
+    expect(scrollArea).not.toContainElement(within(dialog).getByRole('heading'));
+  });
+
+  it('배정 검토 draft 띠의 글은 어절 단위로 접히고, 칩은 줄어들지 않는다', async () => {
+    server.use(
+      http.get(`*/interview-rounds/${ROUND_ID}`, () =>
+        HttpResponse.json({ ok: true, data: DETAIL_ASSIGNING, message: null }),
+      ),
+    );
+
+    renderDashboard();
+    await screen.findByText('배정 검토 중');
+
+    // 좁은 폭에서 '않습니 / 다' 처럼 음절 사이에서 끊기지 않게 — 글만 따로 접고 칩은 첫 줄에 붙인다.
+    const draftNotice = screen.getByText('확정 전까지 지원자에게 통지되지 않습니다');
+    expect(draftNotice).toHaveClass('break-keep', 'min-w-0');
+    expect(screen.getByText('draft')).toHaveClass('shrink-0');
+    expect(draftNotice.parentElement).toHaveClass('items-start');
+  });
+
+  it('확정 409 창의 사람 줄은 이름을 쪼개지 않고, 한 줄에 안 들어가면 오른쪽 문구를 이름 아래로 내린다', async () => {
+    server.use(
+      http.get(`*/interview-rounds/${ROUND_ID}`, () =>
+        HttpResponse.json({ ok: true, data: DETAIL_ASSIGNING_FREED_SEAT, message: null }),
+      ),
+      CONFIRM_REJECTED_FREED_SEAT_HANDLER,
+    );
+
+    renderDashboard();
+    await screen.findByText('배정 검토 중');
+    await userEvent.click(screen.getByRole('button', { name: /^확정$/ }));
+    const dialog = await screen.findByRole('dialog');
+
+    const nameCell = within(dialog).getByText('최유리');
+    // 이름 칸 40% 상한은 320 폭에서 8자 이름을 '7자 / 1자' 로 쪼갰다 — 상한 대신 줄을 접는다(오른쪽은 시간 한 덩어리 폭 8rem 아래로 줄지 않는다).
+    expect(nameCell.closest('li')).toHaveClass('flex-wrap');
+    expect(nameCell).not.toHaveClass('max-w-[40%]');
+    expect(nameCell).not.toHaveClass('shrink-0');
+    expect(nameCell.nextElementSibling).toHaveClass('grow', 'basis-32');
+  });
+});

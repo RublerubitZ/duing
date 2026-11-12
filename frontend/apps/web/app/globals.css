@@ -239,6 +239,9 @@ body {
   .btn-danger-quiet {
     @apply bg-transparent text-danger hover:bg-danger/5;
   }
+  .btn-danger-quiet:disabled:hover {
+    @apply bg-transparent;
+  }
   .btn-big {
     @apply px-7 py-4 text-base rounded-lg;
   }

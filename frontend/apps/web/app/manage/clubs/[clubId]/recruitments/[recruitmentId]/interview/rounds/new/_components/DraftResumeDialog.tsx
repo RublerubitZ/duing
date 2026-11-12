@@ -60,6 +60,7 @@ export function DraftResumeDialog({
     <Dialog open>
       <DialogContent
         className="max-w-sm"
+        busy={isPending}
         // ESC·바깥 클릭 no-op — 명시적 버튼 선택을 강제한다(인원 0 이면 폐기·면접 관리로).
         onPointerDownOutside={(event) => event.preventDefault()}
         onEscapeKeyDown={(event) => event.preventDefault()}
@@ -84,8 +85,8 @@ export function DraftResumeDialog({
               </>
             ) : (
               <>
-                <span className="block text-charcoal-2">이어서 작성하거나, 폐기하고 새로운 라운드를 만들 수 있습니다.</span>
-                <span className="block text-xs text-charcoal-3">폐기 시 해당 라운드의 면접 대상자들이 대기열로 돌아갑니다.</span>
+                <span className="block break-keep text-charcoal-2">이어서 작성하거나, 폐기하고 새로운 라운드를 만들 수 있습니다.</span>
+                <span className="block break-keep text-xs text-charcoal-3">폐기 시 해당 라운드의 면접 대상자들이 대기열로 돌아갑니다.</span>
               </>
             )}
           </DialogDescription>
@@ -130,6 +131,8 @@ export function DraftResumeDialog({
             </>
           )}
         </DialogFooter>
+        {/* 폐기 진행을 화면 낭독기에도 알린다 — 버튼 밖 sr-only 상태 리전(#914, 같은 폴더 밖 창들과 같은 관례) */}
+        <span role="status" className="sr-only">{isPending ? '라운드 폐기 중' : null}</span>
       </DialogContent>
     </Dialog>
   );

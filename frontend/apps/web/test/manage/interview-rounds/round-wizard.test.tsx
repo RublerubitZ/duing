@@ -570,8 +570,9 @@ describe('RoundWizard — 면접 라운드 생성 wizard', () => {
     const resumeDiscardButton = screen.getByRole('button', { name: /폐기하고 새로 만들기/ });
     expect(resumeDiscardButton).toHaveClass('btn', 'btn-danger-quiet', 'btn-sm');
     expect(resumeDiscardButton.nextElementSibling).toBe(screen.getByRole('button', { name: /이어하기/ }));
-    expect(screen.getByText('이어서 작성하거나, 폐기하고 새로운 라운드를 만들 수 있습니다.')).toBeInTheDocument();
-    expect(screen.getByText('폐기 시 해당 라운드의 면접 대상자들이 대기열로 돌아갑니다.')).toBeInTheDocument();
+    // 좁은 폭에서 '만들 수 있습니 / 다' 처럼 음절 사이에서 끊기지 않게(인원 0 판과 같은 규칙).
+    expect(screen.getByText('이어서 작성하거나, 폐기하고 새로운 라운드를 만들 수 있습니다.')).toHaveClass('break-keep');
+    expect(screen.getByText('폐기 시 해당 라운드의 면접 대상자들이 대기열로 돌아갑니다.')).toHaveClass('break-keep');
     expect(screen.queryByText(EMPTY_DRAFT_BODY_TEXT)).not.toBeInTheDocument();
     expect(screen.queryByRole('link', { name: '면접 관리로' })).not.toBeInTheDocument();
 
@@ -838,11 +839,42 @@ describe('RoundWizard — 면접 라운드 생성 wizard', () => {
       await userEvent.click(discardButton);
       await waitFor(() => expect(landingLink).toHaveAttribute('aria-disabled', 'true'));
       expect(fireEvent.click(landingLink)).toBe(false);
+      // 폐기 진행을 화면 낭독기에도 알린다(#914 — 버튼 밖 sr-only 상태 리전 + 창 aria-busy).
+      expect(screen.getByRole('status')).toHaveTextContent('라운드 폐기 중');
+      expect(screen.getByRole('dialog')).toHaveAttribute('aria-busy', 'true');
     } finally {
       releaseCancel();
     }
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
     expect(screen.getByText('미결정(지원 완료·보류)', { selector: 'h3' })).toBeInTheDocument();
+  });
+
+  it('인원 있는 초안 창도 폐기 진행 중에는 창 안 상태 리전에 라운드 폐기 중을 알린다', async () => {
+    let releaseCancel: () => void = () => {};
+    const cancelResponseGate = new Promise<void>((resolve) => {
+      releaseCancel = resolve;
+    });
+    server.use(
+      http.get(`*/recruitments/${RECRUITMENT_ID}/interview-rounds`, () =>
+        HttpResponse.json({ ok: true, data: [DRAFT_ROUND_SUMMARY], message: null }),
+      ),
+      http.post(`*/interview-rounds/${ROUND_ID}/cancel`, async () => {
+        await cancelResponseGate;
+        return HttpResponse.json({ ok: true, data: null, message: null });
+      }),
+      http.get(`*/recruitments/${RECRUITMENT_ID}/interview-round-candidates`, handleCandidatesRequest),
+    );
+
+    renderWizard();
+
+    try {
+      await userEvent.click(await screen.findByRole('button', { name: /폐기하고 새로 만들기/ }));
+      await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('라운드 폐기 중'));
+      expect(screen.getByRole('dialog')).toHaveAttribute('aria-busy', 'true');
+    } finally {
+      releaseCancel();
+    }
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
   });
 
   it('15. 인원 0 초안 창의 면접 관리로는 href 가 면접 관리 랜딩이고 이동을 막지 않는다', async () => {
@@ -993,6 +1025,9 @@ describe('RoundWizard — 면접 라운드 생성 wizard', () => {
     await userEvent.click(await screen.findByRole('button', { name: /폐기하고 새로 만들기/ }));
     expect(await screen.findByRole('alert')).toHaveTextContent('라운드 폐기 중 오류가 발생했습니다. 다시 시도해주세요.');
     expect(screen.getByRole('link', { name: '면접 관리로' })).not.toHaveAttribute('aria-disabled');
+    // 진행이 끝나면 진행 문구를 비우고 창도 바쁘지 않다.
+    expect(screen.getByRole('status')).toBeEmptyDOMElement();
+    expect(screen.getByRole('dialog')).toHaveAttribute('aria-busy', 'false');
   });
 
   it.each([

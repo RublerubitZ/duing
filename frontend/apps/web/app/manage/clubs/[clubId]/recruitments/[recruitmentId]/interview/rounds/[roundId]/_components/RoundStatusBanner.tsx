@@ -111,11 +111,12 @@ export function RoundStatusBanner({
 
       {/* ASSIGNING — 배정안은 draft 상태임을 안내 */}
       {status === 'ASSIGNING' && (
-        <div className="mt-3 flex items-center gap-2 rounded-md bg-warm/10 px-4 py-2 text-sm text-warm-deep">
-          <span className="rounded-full bg-warm/20 px-2 py-0.5 text-xs font-semibold text-warm-deep">
+        // 좁은 폭에서 글이 음절 사이에서 끊기지 않게 글만 따로 접고, 칩은 줄어들지 않은 채 첫 줄에 붙인다.
+        <div className="mt-3 flex items-start gap-2 rounded-md bg-warm/10 px-4 py-2 text-sm text-warm-deep">
+          <span className="shrink-0 rounded-full bg-warm/20 px-2 py-0.5 text-xs font-semibold text-warm-deep">
             draft
           </span>
-          확정 전까지 지원자에게 통지되지 않습니다
+          <span className="min-w-0 break-keep">확정 전까지 지원자에게 통지되지 않습니다</span>
         </div>
       )}
 
