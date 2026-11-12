@@ -23,7 +23,7 @@ import { ButtonSpinner } from '@/components/loading/Spinner';
 // 지금 일정 표지를 보이며, 지금 일정 그대로면 [배정]을 끈다(같은 슬롯이어도 서버가 지원자에게 일정 변경 알림을 보낸다).
 
 type MemberAssignModalProps = {
-  /** 지금 상세의 그 멤버 — 지금 일정(assignedSlotId) 판정에 쓴다. 처음 골라 둘 슬롯은 연 때의 값으로 정해진다 */
+  /** 지금 상세의 그 멤버 — 지금 일정(assignedSlotId) 판정과, 아직 고르지 않은 동안의 선택에 쓴다 */
   member: InterviewRoundDetailMember;
   slots: InterviewRoundDetailSlot[];
   /** 지금 화면의 라운드 단계 — SCHEDULED 면 일정 변경 알림 안내 문구 노출 */
@@ -45,10 +45,12 @@ export function MemberAssignModal({
   errorMessage,
 }: MemberAssignModalProps) {
   // 고른 슬롯은 고른 때의 단계와 함께 둔다 — 다시 받은 상세에서 그 슬롯이 사라졌거나 단계가 바뀌었으면(확정 뒤엔 알림이 나간다) 다시 골라야 한다.
-  const [selection, setSelection] = useState({ slotId: member.assignedSlotId, roundStatus });
+  // slotId null = 아직 고르지 않음 — 그동안은 그때그때의 지금 일정을 따른다(창이 열린 사이 다른 탭이 옮긴 일정을 낡은 슬롯으로 되돌리지 않게).
+  const [selection, setSelection] = useState<{ slotId: number | null; roundStatus: InterviewRoundStatus }>({ slotId: null, roundStatus });
+  const candidateSlotId = selection.slotId ?? member.assignedSlotId;
   const selectedSlotId =
-    selection.roundStatus === roundStatus && slots.some((slot) => slot.slotId === selection.slotId)
-      ? selection.slotId
+    selection.roundStatus === roundStatus && slots.some((slot) => slot.slotId === candidateSlotId)
+      ? candidateSlotId
       : null;
   const isReschedule = roundStatus === 'SCHEDULED';
   const keepsCurrentSchedule = isReschedule && selectedSlotId === member.assignedSlotId;

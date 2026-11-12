@@ -2220,3 +2220,56 @@ describe('라운드 현황 다듬기 — 포커스 스크롤 분기', () => {
     }
   });
 });
+
+describe('라운드 현황 다듬기 — 일정 변경 창이 열린 동안 다른 탭이 그 멤버 일정을 옮김', () => {
+  /** 처음엔 오세훈이 21 에 확정 배정, 다시 받으면 다른 탭이 22 로 옮긴 상세 */
+  function serveHolderMovedTo22OnRefetch() {
+    let detailGetCount = 0;
+    server.use(
+      http.get(`*/interview-rounds/${ROUND_ID}`, () => {
+        detailGetCount += 1;
+        const data = detailGetCount === 1 ? DETAIL_HOLDER_PENDING_CONFIRMED : DETAIL_HOLDER_MOVED_TO_22_CONFIRMED;
+        return HttpResponse.json({ ok: true, data, message: null });
+      }),
+    );
+    return () => detailGetCount;
+  }
+
+  async function openHolderReschedule() {
+    const { queryClient } = renderDashboard();
+    await screen.findByText('확정');
+    await userEvent.click(within(memberRow('오세훈')!).getByRole('button', { name: '일정 변경' }));
+    const dialog = await screen.findByRole('dialog');
+    const [slot20Radio, slot21Radio, slot22Radio] = within(dialog).getAllByRole('radio');
+    return { queryClient, dialog, slot20Radio: slot20Radio!, slot21Radio: slot21Radio!, slot22Radio: slot22Radio! };
+  }
+
+  it('아무것도 고르지 않았으면 선택이 다시 받은 지금 일정(22)을 따라 [배정]이 꺼진 채다 — 낡은 21 로 되돌리지 않는다', async () => {
+    const detailGetCount = serveHolderMovedTo22OnRefetch();
+    const { queryClient, dialog, slot21Radio, slot22Radio } = await openHolderReschedule();
+    expect(slot21Radio).toBeChecked();
+
+    await queryClient.invalidateQueries({ queryKey: interviewRoundKeys.detail(ROUND_ID) });
+
+    // 옛 슬롯(21)이 골라진 채 [배정]이 켜지면, 누르는 순간 지원자를 옛 일정으로 되돌리고 변경 알림까지 보낸다.
+    await waitFor(() => expect(slot22Radio.closest('label')).toHaveTextContent('· 지금 일정'));
+    expect(slot21Radio.closest('label')).not.toHaveTextContent('지금 일정');
+    expect(slot22Radio).toBeChecked();
+    expect(slot21Radio).not.toBeChecked();
+    expect(within(dialog).getByRole('button', { name: '배정' })).toBeDisabled();
+    expect(detailGetCount()).toBe(2);
+  });
+
+  it('먼저 다른 슬롯(20)을 골랐으면 다시 받아도 그 선택이 남는다', async () => {
+    serveHolderMovedTo22OnRefetch();
+    const { queryClient, dialog, slot20Radio, slot22Radio } = await openHolderReschedule();
+    await userEvent.click(slot20Radio);
+
+    await queryClient.invalidateQueries({ queryKey: interviewRoundKeys.detail(ROUND_ID) });
+
+    await waitFor(() => expect(slot22Radio.closest('label')).toHaveTextContent('· 지금 일정'));
+    expect(slot20Radio).toBeChecked();
+    expect(slot22Radio).not.toBeChecked();
+    expect(within(dialog).getByRole('button', { name: '배정' })).toBeEnabled();
+  });
+});
