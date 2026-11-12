@@ -6,8 +6,8 @@ import { renderHook } from '@testing-library/react';
 describe('hooks 테스트 환경', () => {
   // 두 테스트 모두 시작할 때 앞 테스트의 렌더가 없는지 본다 — 셔플로 어느 쪽이 먼저 돌아도 뒤의 것이 잡는다.
   it.each(['첫째', '둘째'])('%s: 앞 테스트의 렌더가 정리돼 있고 act 환경이 켜져 있다', () => {
-    expect(document.body.childElementCount).toBe(0);
-    expect(Reflect.get(globalThis, 'IS_REACT_ACT_ENVIRONMENT')).toBe(true);
+    expect(document.body.childElementCount, '앞 테스트의 렌더가 남음 — hooks vitest.config.ts 의 globals: true 확인').toBe(0);
+    expect(Reflect.get(globalThis, 'IS_REACT_ACT_ENVIRONMENT'), 'act 환경이 꺼짐 — hooks vitest.config.ts 의 globals: true 확인').toBe(true);
     renderHook(() => null);
   });
 });
