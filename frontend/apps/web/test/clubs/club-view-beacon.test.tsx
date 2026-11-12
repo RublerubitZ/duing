@@ -104,6 +104,10 @@ describe('동아리 상세 조회 기록 비콘', () => {
   beforeEach(() => {
     window.localStorage.clear();
   });
+  // 방문자 키를 못 만드는 테스트가 getItem·randomUUID 를 던지게 바꾼다 — 되돌리지 않으면 셔플에서 뒤 테스트가 키 없이 돈다.
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
 
   it('상세 페이지에 들어가면 이 브라우저의 방문자 키로 조회가 기록된다', async () => {
     const recordedBodies = seed();

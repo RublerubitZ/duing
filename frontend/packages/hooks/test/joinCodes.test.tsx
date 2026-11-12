@@ -467,9 +467,11 @@ describe('가입 요청 훅', () => {
       await result.current.mutateAsync().catch(() => undefined);
     });
 
-    expect(result.current.isError).toBe(true);
+    // 무효화는 onSettled 에서 동기로 끝나 act 직후에 본다 — waitFor 뒤에 두면 늦어진 무효화가 폴링 유예로 통과한다.
     expect(
       queryClient.getQueryState(clubQueryKeys.joinCodeCheck('ABCD1234'))?.isInvalidated,
     ).toBe(true);
+    // TanStack 은 뮤테이션 상태를 setTimeout(0) 으로 React 에 알린다 — act 가 그보다 먼저 끝날 수 있어 렌더를 기다린다.
+    await waitFor(() => expect(result.current.isError).toBe(true));
   });
 });
