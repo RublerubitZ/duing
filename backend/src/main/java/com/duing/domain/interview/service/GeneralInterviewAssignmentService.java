@@ -1,5 +1,7 @@
 package com.duing.domain.interview.service;
 
+import com.duing.domain.application.entity.ApplicationStatus;
+import com.duing.domain.application.repository.ApplicationRepository;
 import com.duing.domain.interview.entity.InterviewAvailability;
 import com.duing.domain.interview.entity.InterviewRound;
 import com.duing.domain.interview.entity.InterviewRoundMember;
@@ -53,6 +55,7 @@ public class GeneralInterviewAssignmentService implements InterviewAssignmentSer
     private final InterviewAvailabilityRepository interviewAvailabilityRepository;
     private final InterviewSlotRepository interviewSlotRepository;
     private final InterviewScheduleRepository interviewScheduleRepository;
+    private final ApplicationRepository applicationRepository;
     private final InterviewRoundAccessor interviewRoundAccessor;
     private final InterviewMatchingService interviewMatchingService;
     private final ApplicationEventPublisher eventPublisher;
@@ -135,6 +138,13 @@ public class GeneralInterviewAssignmentService implements InterviewAssignmentSer
         InterviewSlot slot = interviewSlotRepository.findByIdAndRoundIdForUpdate(slotId, roundId)
                 .orElseThrow(InterviewException.InvalidSlotSelection::new);
         InterviewRoundMember member = getLockedMemberOfRound(roundId, memberId);
+        // 결과를 정한 지원은 일정을 바꾸지 않는다 — 확정 라운드는 결과 확정 정리 대상이 아니라 ASSIGNED 로 남는다(#1659).
+        // 지원서는 잠그지 않는다: 결과 확정이 지원서 → 멤버 순으로 잠가, 멤버를 쥔 채 지원서를 잠그면 교착이다.
+        if (applicationRepository.findStatusById(member.getApplicationId())
+                .filter(ApplicationStatus::isTerminal)
+                .isPresent()) {
+            throw new InterviewException.ApplicationAlreadyDecided();
+        }
         if (member.getStatus() == RoundMemberStatus.EXCLUDED) {
             throw new InterviewException.MemberTransitionNotAllowed();
         }

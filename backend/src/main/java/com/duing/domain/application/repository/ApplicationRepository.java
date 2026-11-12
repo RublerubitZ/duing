@@ -68,6 +68,13 @@ public interface ApplicationRepository extends JpaRepository<Application, Long>,
     Optional<Long> findClubIdByApplicationId(@Param("applicationId") Long applicationId);
 
     /**
+     * 상태만 읽는 경량 조회 — 지원서 엔티티(답변 jsonb)를 1차 캐시에 올리지 않는다(ClubRepository#findStatusById 와 같은 모양).
+     * 면접 수동 배정이 결과를 정한 지원을 거절할 때 쓴다. soft delete 된 지원은 @SQLRestriction 으로 빈 값이다.
+     */
+    @Query("SELECT a.status FROM Application a WHERE a.id = :applicationId")
+    Optional<ApplicationStatus> findStatusById(@Param("applicationId") Long applicationId);
+
+    /**
      * 배치 잡 등에서 다건 페치 조인 조회용. {@link #findWithRecruitmentAndClubById} 의 plural 버전으로,
      * recruitment → club, user, recruitment → form(nullable) 을 한 번에 로드해 N+1 을 방지한다.
      */

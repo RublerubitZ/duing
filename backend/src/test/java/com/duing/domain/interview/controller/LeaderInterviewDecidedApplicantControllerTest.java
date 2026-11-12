@@ -8,6 +8,7 @@ import static org.hamcrest.Matchers.nullValue;
 import com.duing.common.TestcontainersConfiguration;
 import com.duing.common.fixture.InterviewRoundFixture;
 import com.duing.domain.application.entity.Application;
+import com.duing.domain.application.entity.ApplicationStatus;
 import com.duing.domain.club.entity.Club;
 import com.duing.domain.clubmember.entity.ClubMember;
 import com.duing.domain.interview.entity.InterviewAvailability;
@@ -25,6 +26,7 @@ import com.duing.domain.recruitment.entity.Recruitment;
 import com.duing.domain.user.entity.User;
 import io.restassured.RestAssured;
 import io.restassured.http.ContentType;
+import io.restassured.response.ValidatableResponse;
 import io.restassured.specification.RequestSpecification;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -52,6 +54,8 @@ class LeaderInterviewDecidedApplicantControllerTest extends InterviewControllerT
     private static final String ROUNDS_PATH = "/api/v1/leader/recruitments/{recruitmentId}/interview-rounds";
     private static final String ROUND_PATH = "/api/v1/leader/interview-rounds/{roundId}";
     private static final String AUTO_ASSIGN_PATH = ROUND_PATH + "/auto-assign";
+    private static final String SCHEDULE_PATH = ROUND_PATH + "/members/{memberId}/schedule";
+    private static final String DECIDED_MESSAGE = "이미 합격/불합격 처리된 지원입니다.";
 
     @LocalServerPort
     private int port;
@@ -295,6 +299,75 @@ class LeaderInterviewDecidedApplicantControllerTest extends InterviewControllerT
         assertThat(availabilitiesOf(round, decided)).isEmpty();
     }
 
+    @Test
+    @DisplayName("확정된 라운드에서 면접을 본 뒤 결과를 정한 지원자는 다른 슬롯으로 일정을 바꿀 수 없다")
+    void decidedApplicantInScheduledRoundCannotBeRescheduled() {
+        InterviewRound round = saveRound(RoundStatus.SCHEDULED);
+        InterviewSlot currentSlot = saveSlot(round, "2026-06-20T14:00:00", 1);
+        InterviewSlot otherSlot = saveSlot(round, "2026-06-20T15:00:00", 1);
+        Application interviewed = saveMember(round, "면접본합격자", RoundMemberStatus.ASSIGNED);
+        InterviewSchedule currentSchedule = saveSchedule(round, interviewed, currentSlot);
+        decide(interviewed, "ACCEPTED");
+
+        assign(round, interviewed, otherSlot)
+                .statusCode(HttpStatus.CONFLICT.value())
+                .body("message", equalTo(DECIDED_MESSAGE));
+
+        InterviewSchedule activeSchedule = activeScheduleOf(round, interviewed).orElseThrow();
+        assertThat(activeSchedule.getId()).isEqualTo(currentSchedule.getId());
+        assertThat(activeSchedule.getSlotId()).isEqualTo(currentSlot.getId());
+    }
+
+    @Test
+    @DisplayName("결과를 정한 지원자는 지금 일정과 같은 슬롯을 보내도 거절된다")
+    void decidedApplicantSameSlotIsRejectedBeforeNoOp() {
+        InterviewRound round = saveRound(RoundStatus.SCHEDULED);
+        InterviewSlot currentSlot = saveSlot(round, "2026-06-20T14:00:00", 1);
+        Application interviewed = saveMember(round, "면접본불합격자", RoundMemberStatus.ASSIGNED);
+        InterviewSchedule currentSchedule = saveSchedule(round, interviewed, currentSlot);
+        decide(interviewed, "REJECTED");
+
+        // 결과 검사가 같은 슬롯 생략보다 먼저다 — 뒤로 가면 낡은 화면이 204 를 받는다.
+        assign(round, interviewed, currentSlot)
+                .statusCode(HttpStatus.CONFLICT.value())
+                .body("message", equalTo(DECIDED_MESSAGE));
+
+        assertThat(activeScheduleOf(round, interviewed).orElseThrow().getId())
+                .isEqualTo(currentSchedule.getId());
+    }
+
+    @Test
+    @DisplayName("결과를 정했는데 배정 검토 라운드에 남은 지원자(결과 확정 정리 전 데이터)는 초안 배정도 할 수 없다")
+    void leftoverDecidedApplicantInAssigningRoundCannotGetDraft() {
+        InterviewRound round = saveRound(RoundStatus.ASSIGNING);
+        InterviewSlot slot = saveSlot(round, "2026-06-20T14:00:00", 1);
+        // #1659 이전에 결과를 정해 제외되지 않은 멤버 — 지금의 결과 확정 API 로는 만들 수 없어 직접 저장한다.
+        Application leftover = saveApplicationWithStatus(recruitment, "정리전합격자", ApplicationStatus.ACCEPTED);
+        addMember(round, leftover, RoundMemberStatus.RESPONDED, slot);
+
+        assign(round, leftover, slot)
+                .statusCode(HttpStatus.CONFLICT.value())
+                .body("message", equalTo(DECIDED_MESSAGE));
+
+        assertThat(activeScheduleOf(round, leftover)).isEmpty();
+    }
+
+    @Test
+    @DisplayName("배정 검토 중 결과를 정해 빠진 지원자를 낡은 화면에서 배정하면 결과가 정해졌다는 문구로 거절된다")
+    void staleAssignOfDecidedExcludedMemberSaysResultDecided() {
+        InterviewRound round = saveRound(RoundStatus.ASSIGNING);
+        InterviewSlot slot = saveSlot(round, "2026-06-20T14:00:00", 1);
+        Application decided = saveMember(round, "검토중불합격자", RoundMemberStatus.RESPONDED, slot);
+        decide(decided, "REJECTED");
+
+        // 멤버도 EXCLUDED 지만 결과 검사가 제외 검사보다 먼저라 원인 문구가 나간다.
+        assign(round, decided, slot)
+                .statusCode(HttpStatus.CONFLICT.value())
+                .body("message", equalTo(DECIDED_MESSAGE));
+
+        assertThat(activeScheduleOf(round, decided)).isEmpty();
+    }
+
     // ── 헬퍼 ─────────────────────────────────────────────────────────────────
 
     private RequestSpecification givenLeader() {
@@ -316,6 +389,22 @@ class LeaderInterviewDecidedApplicantControllerTest extends InterviewControllerT
                 .body(Map.of("status", resultStatus))
                 .when().patch(STATUS_PATH, application.getId())
                 .then().statusCode(HttpStatus.NO_CONTENT.value());
+    }
+
+    /** 수동 배정·일정 변경 — 프론트처럼 화면이 본 단계(지금 라운드 단계)를 싣는다. */
+    private ValidatableResponse assign(InterviewRound round, Application application, InterviewSlot slot) {
+        return givenLeader()
+                .contentType(ContentType.JSON)
+                .body(Map.of("slotId", slot.getId(), "expectedRoundStatus", round.getStatus().name()))
+                .when().put(SCHEDULE_PATH, round.getId(), memberIdOf(round, application))
+                .then();
+    }
+
+    private Long memberIdOf(InterviewRound round, Application application) {
+        return interviewRoundMemberRepository
+                .findByRoundIdAndApplicationId(round.getId(), application.getId())
+                .orElseThrow()
+                .getId();
     }
 
     private InterviewRound saveRound(RoundStatus status) {
@@ -350,8 +439,8 @@ class LeaderInterviewDecidedApplicantControllerTest extends InterviewControllerT
         }
     }
 
-    private void saveSchedule(InterviewRound round, Application application, InterviewSlot slot) {
-        interviewScheduleRepository.save(InterviewSchedule.create(
+    private InterviewSchedule saveSchedule(InterviewRound round, Application application, InterviewSlot slot) {
+        return interviewScheduleRepository.save(InterviewSchedule.create(
                 application.getId(), slot.getId(), round.getId(), LocalDateTime.now()));
     }
 
