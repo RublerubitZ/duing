@@ -156,6 +156,7 @@ export function RoundWizard({ clubId, recruitmentId }: Props) {
           onResume={handleResume}
           onDiscard={handleDiscard}
           discardError={discardError?.roundId === draftRound.roundId ? discardError.message : null}
+          isDraftReplaced={discardError !== null && discardError.roundId !== draftRound.roundId}
         />
       )}
 

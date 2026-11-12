@@ -3,7 +3,12 @@
 import type { InterviewRoundDetail, InterviewRoundDetailMember } from '@duing/types';
 import { cn } from '@/app/_lib/cn';
 import { formatSlotRange } from '@/components/interview/_utils/localDateTime';
-import { isDecidedApplicationResult, roundMemberBadge } from './memberStatusLabels';
+import {
+  isDecidedApplicationResult,
+  RESULT_DECIDED_MANUAL_ASSIGN_NOTE,
+  RESULT_DECIDED_RESCHEDULE_NOTE,
+  roundMemberBadge,
+} from './memberStatusLabels';
 
 // 면접 대상 멤버 테이블 — 상태 뱃지·파생 미응답 강조·배정 슬롯 표기 + 행 액션
 // ([수동 배정] ASSIGNING 한정 / [제외] 비터미널(DRAFT·COLLECTING·ASSIGNING) 한정).
@@ -90,7 +95,7 @@ export function RoundMemberTable({ detail, onExclude, onManualAssign }: RoundMem
               <div className="flex flex-wrap items-center gap-1.5 sm:shrink-0">
                 {/* 수동 배정 — ASSIGNING 한정, 결과가 정해졌으면 이유 */}
                 {status === 'ASSIGNING' && member.status !== 'EXCLUDED' && (isResultDecided ? (
-                  <span className={RESULT_DECIDED_NOTE_CLASS}>결과 확정 — 수동 배정 불가</span>
+                  <span className={RESULT_DECIDED_NOTE_CLASS}>{RESULT_DECIDED_MANUAL_ASSIGN_NOTE}</span>
                 ) : (
                   <button
                     type="button"
@@ -102,7 +107,7 @@ export function RoundMemberTable({ detail, onExclude, onManualAssign }: RoundMem
                 ))}
                 {/* 일정 변경 — SCHEDULED + ASSIGNED 멤버 한정 (BE#13 재조정), 결과가 정해졌으면 이유 */}
                 {status === 'SCHEDULED' && member.status === 'ASSIGNED' && (isResultDecided ? (
-                  <span className={RESULT_DECIDED_NOTE_CLASS}>결과 확정 — 일정 변경 불가</span>
+                  <span className={RESULT_DECIDED_NOTE_CLASS}>{RESULT_DECIDED_RESCHEDULE_NOTE}</span>
                 ) : (
                   <button
                     type="button"

@@ -34,6 +34,10 @@ const DECIDED_RESULT_CLASS: Record<TerminalApplicationStatus, string> = {
   REJECTED: 'bg-paper text-charcoal-2 ring-1 ring-inset ring-line',
 };
 
+/** 결과를 정한 멤버의 배정 동작 자리에 적는 이유 — 숨긴 버튼 이름을 받아 단계마다 무엇이 막혔는지 말한다(표·가능없음 섹션 공용) */
+export const RESULT_DECIDED_MANUAL_ASSIGN_NOTE = '결과 확정 — 수동 배정 불가';
+export const RESULT_DECIDED_RESCHEDULE_NOTE = '결과 확정 — 일정 변경 불가';
+
 /**
  * 지원 결과가 알려진 결과(합격·불합격)인가. 필드가 없는 옛 백엔드(undefined)·null·모르는 값은 아니다(fail-open — 지금 표시·버튼 그대로).
  */

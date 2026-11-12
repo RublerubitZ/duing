@@ -2538,6 +2538,34 @@ describe('라운드 현황 후속 — 일정 변경 창을 열 때 다시 받기
     await waitForFocusGuardTick();
     expect(document.body).toHaveFocus();
   });
+
+  it('[라운드 취소]가 409 로 거절되고 다시 받은 상세가 확정이면, 창을 [취소]로 닫을 때 돌아갈 [라운드 취소]가 없어 상태 배너(확정 1차 면접)로 간다', async () => {
+    let detailGetCount = 0;
+    server.use(
+      http.get(`*/interview-rounds/${ROUND_ID}`, () => {
+        detailGetCount += 1;
+        // 1 = 처음(응답 수집 중), 2 = 409 뒤 다시 받기 — 그사이 다른 탭이 확정했다
+        const data = detailGetCount === 1 ? DETAIL_COLLECTING_BEFORE_DEADLINE : DETAIL_SCHEDULED;
+        return HttpResponse.json({ ok: true, data, message: null });
+      }),
+      http.post(`*/interview-rounds/${ROUND_ID}/cancel`, () =>
+        HttpResponse.json({ ok: false, data: null, message: STALE_ROUND_MESSAGE }, { status: 409 }),
+      ),
+    );
+
+    renderDashboard();
+    await screen.findByText('응답 수집 중');
+    await userEvent.click(screen.getByRole('button', { name: '라운드 취소' }));
+    const dialog = await screen.findByRole('dialog');
+    await userEvent.click(within(dialog).getByRole('button', { name: '라운드 취소하기' }));
+    expect(await within(dialog).findByRole('alert')).toHaveTextContent(STALE_ROUND_MESSAGE);
+    // 창이 열린 채 뒤의 동작 막대가 사라진다 — 창이 열린 동안 본문은 aria-hidden 이라 hidden 으로 찾는다.
+    await waitFor(() => expect(screen.queryByRole('button', { name: '라운드 취소', hidden: true })).not.toBeInTheDocument());
+    expect(detailGetCount).toBe(2);
+
+    await userEvent.click(within(dialog).getByRole('button', { name: '취소' }));
+    await waitFor(() => expect(roundBanner('확정 1차 면접')).toHaveFocus());
+  });
 });
 
 describe('라운드 현황 후속 — 확정 409 창 높이', () => {
@@ -2557,6 +2585,8 @@ describe('라운드 현황 후속 — 확정 409 창 높이', () => {
     await screen.findByText('배정 검토 중');
     await userEvent.click(screen.getByRole('button', { name: /^확정$/ }));
     const dialog = await screen.findByRole('dialog');
+    // 첫 포커스는 목록 영역(첫 포커스 가능 요소) — 읽는 순서(제목 → 설명 → 목록 → 버튼)와 맞고 파괴 동작이 아니다(의도).
+    await waitFor(() => expect(within(dialog).getByRole('region', { name: '미처리 지원자' })).toHaveFocus());
     await userEvent.click(within(dialog).getByRole('button', { name: /강제 확정/ }));
     const alert = await within(dialog).findByRole('alert');
 

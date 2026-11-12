@@ -534,6 +534,8 @@ export function RoundDashboard({ clubId, recruitmentId, roundId }: Props) {
           onCancel={() => {
             setShowCancelDialog(false);
             setConfirmActionError(null);
+            // 409 로 다시 받은 상세가 종결 단계면 창이 열린 채 동작 막대가 사라져 돌아갈 [라운드 취소]가 없다 — 닫힌 뒤 body 면 상태 배너로.
+            if (!isNonTerminal) setTimeout(() => focusElementIfFocusLost(ROUND_STATUS_BANNER_ID), 0);
           }}
           isPending={cancelMutation.isPending}
           busyLabel="라운드 취소 중"

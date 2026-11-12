@@ -1120,6 +1120,7 @@ describe('RoundWizard — 면접 라운드 생성 wizard', () => {
 describe('RoundWizard — 폐기가 화면이 본 단계(초안)를 싣기', () => {
   const STALE_ROUND_MESSAGE = '라운드 단계가 바뀌었습니다. 최신 상태를 확인한 뒤 다시 시도해주세요.';
   const DRAFT_GONE_NOTICE = '작성 중이던 라운드가 그사이 발송되었거나 정리되었습니다. 면접 관리에서 지금 상태를 확인해주세요.';
+  const DRAFT_REPLACED_NOTICE = '작성 중이던 라운드가 그사이 바뀌었습니다. 아래 라운드를 확인해주세요.';
   const SENT_ROUND_SUMMARY = { ...DRAFT_ROUND_SUMMARY, status: 'COLLECTING' };
   const OTHER_DRAFT_ROUND_SUMMARY = { ...DRAFT_ROUND_SUMMARY, roundId: ROUND_ID + 1, title: '3차 면접' };
   const CANCEL_REJECTED_AS_STALE = http.post(`*/interview-rounds/${ROUND_ID}/cancel`, () =>
@@ -1183,6 +1184,24 @@ describe('RoundWizard — 폐기가 화면이 본 단계(초안)를 싣기', () 
     expect(within(dialog).queryByRole('alert')).not.toBeInTheDocument();
     await waitFor(() => expect(within(dialog).getByRole('button', { name: /이어하기/ })).toBeEnabled());
     expect(screen.queryByText(DRAFT_GONE_NOTICE)).not.toBeInTheDocument();
+    // 창이 조용히 다른 초안으로 바뀌지 않게 알리고, [폐기]에 남은 포커스를 안전한 [이어하기]로 옮긴다 — Enter 한 번에 남의 초안을 버리지 않게.
+    expect(within(dialog).getByText(DRAFT_REPLACED_NOTICE)).toBeInTheDocument();
+    const resumeButton = within(dialog).getByRole('button', { name: /이어하기/ });
+    await waitFor(() => expect(resumeButton).toHaveFocus());
+    expect(resumeButton).toHaveAccessibleDescription(DRAFT_REPLACED_NOTICE);
+  });
+
+  it('409 뒤 바뀐 다른 초안이 인원 0 이면 포커스를 [면접 관리로]로 옮긴다 — 그 창의 안전한 쪽', async () => {
+    serveCountedRoundLists([DRAFT_ROUND_SUMMARY], [{ ...OTHER_DRAFT_ROUND_SUMMARY, totalMemberCount: 0 }]);
+    server.use(CANCEL_REJECTED_AS_STALE, CANDIDATES_HANDLER);
+
+    renderWizard();
+    await userEvent.click(await screen.findByRole('button', { name: /폐기하고 새로 만들기/ }));
+
+    const dialog = screen.getByRole('dialog');
+    expect(await within(dialog).findByText('3차 면접')).toBeInTheDocument();
+    expect(within(dialog).getByText(DRAFT_REPLACED_NOTICE)).toBeInTheDocument();
+    await waitFor(() => expect(within(dialog).getByRole('link', { name: '면접 관리로' })).toHaveFocus());
   });
 
   it('409 뒤 목록을 다시 받는 동안에는 [이어하기]·[폐기]가 꺼진다 — 그사이 발송된 라운드로 2단계에 들어가지 않게, 폐기 중이라고 알리지는 않는다', async () => {

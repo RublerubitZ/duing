@@ -1,7 +1,7 @@
 'use client';
 
 import type { InterviewRoundDetail, InterviewRoundDetailMember } from '@duing/types';
-import { isDecidedApplicationResult } from './memberStatusLabels';
+import { isDecidedApplicationResult, RESULT_DECIDED_MANUAL_ASSIGN_NOTE } from './memberStatusLabels';
 import { roundMemberRowId } from './RoundMemberTable';
 import { ROUND_SLOTS_SECTION_ID } from './RoundSlotsSection';
 
@@ -75,7 +75,7 @@ export function NoSlotSection({ detail, onExclude, onManualAssign }: NoSlotSecti
                   </p>
                 )}
                 {status === 'ASSIGNING' && isResultDecided && (
-                  <p className="mt-1 text-xs text-charcoal-3">결과 확정 — 수동 배정 불가</p>
+                  <p className="mt-1 text-xs text-charcoal-3">{RESULT_DECIDED_MANUAL_ASSIGN_NOTE}</p>
                 )}
               </div>
               <div className="flex shrink-0 items-center gap-1">
