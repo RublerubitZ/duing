@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import type { ApplicationSummary } from '@duing/types';
 
@@ -100,5 +100,48 @@ describe('SectionApply — active 상태만 렌더', () => {
     for (const node of interviewTexts) {
       expect(node.textContent ?? '').not.toMatch(/—/);
     }
+  });
+});
+
+describe('SectionApply — 진행 상태 마디는 면접을 쓰는 모집에만 면접 마디를 둔다', () => {
+  // 카드 뿌리는 'relative' 클래스를 가진 div 다(다음 일정 배지를 겹쳐 올리는 기준).
+  const cardOf = (clubName: string): HTMLElement => {
+    const card = screen.getByText(clubName).closest<HTMLElement>('.relative');
+    if (!card) throw new Error(`카드를 찾지 못함: ${clubName}`);
+    return card;
+  };
+
+  it('면접을 쓰지 않는 모집은 심사·최종 결과이고 심사가 진행 중이다', () => {
+    render(<SectionApply applications={[{ ...base, useInterview: false }]} />);
+    expect(screen.queryByText('면접')).not.toBeInTheDocument();
+    expect(screen.getByText('최종 결과')).toBeInTheDocument();
+    expect(screen.getByText('심사')).toHaveClass('font-bold');
+  });
+
+  it('운영진이 면접을 끈 모집에 남은 면접 대상도 심사에 머문다', () => {
+    render(<SectionApply applications={[{ ...base, status: 'INTERVIEW_PENDING', useInterview: false }]} />);
+    expect(screen.getByText('심사')).toHaveClass('font-bold');
+    expect(screen.getByText('최종 결과')).not.toHaveClass('font-bold');
+  });
+
+  it.each([true, undefined])('useInterview=%s 면 지금처럼 심사·면접이다', (useInterview) => {
+    render(<SectionApply applications={[{ ...base, useInterview }]} />);
+    expect(screen.getByText('면접')).toBeInTheDocument();
+    expect(screen.queryByText('최종 결과')).not.toBeInTheDocument();
+  });
+
+  it('면접 사용·미사용 카드가 섞여도 카드마다 자기 모집 값을 따른다', () => {
+    render(
+      <SectionApply
+        applications={[
+          { ...base, id: 1, clubName: '면접 없는 동아리', useInterview: false },
+          { ...base, id: 2, clubName: '면접 보는 동아리', useInterview: true },
+        ]}
+      />,
+    );
+    expect(within(cardOf('면접 없는 동아리')).getByText('최종 결과')).toBeInTheDocument();
+    expect(within(cardOf('면접 없는 동아리')).queryByText('면접')).not.toBeInTheDocument();
+    expect(within(cardOf('면접 보는 동아리')).getByText('면접')).toBeInTheDocument();
+    expect(within(cardOf('면접 보는 동아리')).queryByText('최종 결과')).not.toBeInTheDocument();
   });
 });

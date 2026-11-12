@@ -21,6 +21,7 @@ const CLOSED_WITHOUT_RESULT_GUIDE = '모집이 종료되어 결과가 아직 발
 // 서류검토 단계는 제거하고, 면접 단계는 면접 모집(useInterview=true)에서만 표시한다 (스펙 §5-5).
 //   면접 모집   : 지원 완료(0) → 면접 대상(1) → 면접 일정 배정 완료(2) → 최종 결과(3)
 //   비면접 모집 : 지원 완료(0) → 최종 결과(1)
+// 목록 행(ApplicationsPage deriveSteps)·홈 미니 막대(SectionApply)도 같은 규칙이다.
 //
 // 활성 단계 결정:
 //   면접 모집 + phase != null && phase != 'NOT_APPLICABLE' → guide.stepIndex 우선

@@ -9,9 +9,10 @@ import { ListRowsSkeleton } from '@/components/loading/Skeleton';
 
 import { SectionHeader } from './SectionHeader';
 
-// 서류검토 단계 제거 (스펙 §5-5). 목록 응답에는 useInterview 가 없어 미니 진행바는
-// 항상 2단으로 근사하고, 면접 단계 조건부 표시는 상세 스테퍼가 담당한다.
+// 서류검토 단계 제거 (스펙 §5-5). 면접을 쓰지 않는 모집은 면접 마디 대신 최종 결과를 둔다 — 상세 스테퍼·지원 내역 행과 같은 규칙.
+// 면접 사용 여부를 싣지 않는 옛 응답은 지금처럼 면접 마디를 둔다(fail-open).
 const STEPS = ['심사', '면접'] as const;
+const STEPS_WITHOUT_INTERVIEW = ['심사', '최종 결과'] as const;
 
 // 전 상태에 값을 두어 렌더 중 행을 버리지 않는다 — 카운트는 세고 행은 안 그리는 유령 항목을 만들지
 // 않기 위해서다. 진행 중 목록에는 종결 상태가 들어오지 않지만(분류가 걸러낸다) 방어값을 남긴다.
@@ -100,8 +101,10 @@ export function SectionApply({ applications, isPending = false }: Props) {
 
         <div className="flex flex-col gap-3">
           {applications.map((app) => {
-            const step = STATUS_STEP[app.status];
+            const withoutInterview = app.useInterview === false;
             const isInterview = app.status === 'INTERVIEW_PENDING';
+            // 운영진이 면접을 끈 모집에 남은 면접 대상은 상세처럼 심사에 머문다.
+            const step = withoutInterview && isInterview ? 1 : STATUS_STEP[app.status];
 
             return (
               <div
@@ -144,7 +147,7 @@ export function SectionApply({ applications, isPending = false }: Props) {
                     진행 상태
                   </div>
                   <div className="flex gap-1 mb-2">
-                    {STEPS.map((label, idx) => {
+                    {(withoutInterview ? STEPS_WITHOUT_INTERVIEW : STEPS).map((label, idx) => {
                       const done = idx < step;
                       const isCurrent = idx === step - 1;
                       return (
