@@ -101,7 +101,7 @@ describe('ApplyDetailModal — 면접 사용 여부로 내 면접 조회를 켠�
   it('면접을 쓰는 마감 모집이면 진행 단계용 모달 조회는 켜고 면접 안내 카드는 올리지 않는다', () => {
     renderModal(makeDetail({ useInterview: true, recruitmentStatus: 'CLOSED' }));
 
-    expect(enabledFlags()).toContain(true);
+    expect(myInterviewQuery).toHaveBeenCalledWith(42, { enabled: true });
     expect(screen.queryByRole('heading', { name: '면접 안내' })).toBeNull();
   });
 
