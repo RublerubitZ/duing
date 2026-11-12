@@ -78,7 +78,8 @@ public record RoundDetailQuery(
                         line.alternativeAvailabilityText(),
                         selectionCountByApplicationId.getOrDefault(line.applicationId(), 0L),
                         assignedSlotIdByApplicationId.get(line.applicationId()),
-                        // 결과가 정해졌을 때만 싣는다 — 결과를 정해 빠진 멤버를 운영진이 직접 뺀 멤버와 구분하게.
+                        // 그 지원서의 현재 결과 — 합격·불합격이면 그 값, 아니면 null. 멤버 상태나 제외 이유와 상관없이 실린다
+                        // (운영진이 먼저 뺀 뒤 결과를 정한 멤버도 결과가 실린다).
                         line.applicationStatus().isTerminal() ? line.applicationStatus() : null))
                 .toList();
 

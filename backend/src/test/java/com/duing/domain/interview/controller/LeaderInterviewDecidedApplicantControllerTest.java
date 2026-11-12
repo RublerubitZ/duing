@@ -204,7 +204,7 @@ class LeaderInterviewDecidedApplicantControllerTest extends InterviewControllerT
 
     // 결과를 정해 빠진 인원이 운영진이 직접 뺀 인원과 같은 '제외됨'으로만 보이지 않게, 라운드 상세가 지원 결과를 함께 싣는다.
     @Test
-    @DisplayName("라운드 상세의 인원은 지원 결과를 함께 싣는다 — 결과를 정해 빠진 인원은 합격·불합격, 결과가 없으면 비어 있다")
+    @DisplayName("라운드 상세의 인원은 지원 결과를 함께 싣는다 — 결과를 정한 인원은 합격·불합격, 결과가 없으면 운영진이 직접 뺀 인원도 비어 있다")
     void roundDetailCarriesApplicationResultOfMembers() {
         InterviewRound round = saveRound(RoundStatus.COLLECTING);
         InterviewSlot slot = saveSlot(round, "2026-06-20T14:00:00", 3);
@@ -212,6 +212,8 @@ class LeaderInterviewDecidedApplicantControllerTest extends InterviewControllerT
         Application rejected = saveMember(round, "불합격으로빠진응답자", RoundMemberStatus.RESPONDED, slot);
         Application preExcluded = saveMember(round, "먼저제외된응답자", RoundMemberStatus.EXCLUDED);
         Application undecided = saveMember(round, "결과없는응답자", RoundMemberStatus.RESPONDED, slot);
+        // 운영진이 직접 뺐고 결과는 정하지 않은 인원 — 화면이 '제외됨'으로 남겨야 하는 대비 사례.
+        Application directlyExcluded = saveMember(round, "직접제외만된응답자", RoundMemberStatus.EXCLUDED);
 
         decide(accepted, "ACCEPTED");
         decide(rejected, "REJECTED");
@@ -229,7 +231,10 @@ class LeaderInterviewDecidedApplicantControllerTest extends InterviewControllerT
                 .body(memberField(undecided, "status"), equalTo("RESPONDED"))
                 // 키가 있어야 한다 — 값이 null 일 때 키를 빼는 직렬화(NON_NULL)로 바뀌면 프론트는 undefined 를 받는다.
                 .body(memberLine(undecided), hasKey("applicationResult"))
-                .body(memberField(undecided, "applicationResult"), nullValue());
+                .body(memberField(undecided, "applicationResult"), nullValue())
+                .body(memberField(directlyExcluded, "status"), equalTo("EXCLUDED"))
+                .body(memberLine(directlyExcluded), hasKey("applicationResult"))
+                .body(memberField(directlyExcluded, "applicationResult"), nullValue());
     }
 
     @Test
@@ -237,8 +242,9 @@ class LeaderInterviewDecidedApplicantControllerTest extends InterviewControllerT
     void finishedRoundsDetailCarriesResultWithoutChangingMemberStatus() {
         InterviewRound cancelledRound = saveRound(RoundStatus.CANCELLED);
         InterviewRound scheduledRound = saveRound(RoundStatus.SCHEDULED);
+        InterviewSlot cancelledSlot = saveSlot(cancelledRound, "2026-06-19T14:00:00", 1);
         InterviewSlot slot = saveSlot(scheduledRound, "2026-06-20T14:00:00", 1);
-        Application interviewed = saveMember(cancelledRound, "다시면접본합격자", RoundMemberStatus.RESPONDED);
+        Application interviewed = saveMember(cancelledRound, "다시면접본합격자", RoundMemberStatus.RESPONDED, cancelledSlot);
         addMember(scheduledRound, interviewed, RoundMemberStatus.ASSIGNED, slot);
         saveSchedule(scheduledRound, interviewed, slot);
 
