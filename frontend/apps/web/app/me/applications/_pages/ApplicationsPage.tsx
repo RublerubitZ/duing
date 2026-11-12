@@ -70,12 +70,12 @@ export function toAppStatus(
   }
 }
 
-function deriveSteps(
-  status: ApplicationStatus,
-  recruitmentStatus: RecruitmentStatus | undefined,
-  endedByClubDeactivation: boolean | undefined,
-  useInterview: boolean | undefined,
-): Step[] {
+function deriveSteps({
+  status,
+  recruitmentStatus,
+  endedByClubDeactivation,
+  useInterview,
+}: Pick<ApplicationSummary, 'status' | 'recruitmentStatus' | 'endedByClubDeactivation' | 'useInterview'>): Step[] {
   type StepStateValue = 'done' | 'current' | 'pending';
   const stateMap: Record<ApplicationStatus, [StepStateValue, StepStateValue, StepStateValue]> = {
     SUBMITTED:         ['current', 'pending', 'pending'],
@@ -152,7 +152,7 @@ function toApp(summary: ApplicationSummary): App {
     department: '-',
     files: [],
     memo: '',
-    steps: deriveSteps(summary.status, summary.recruitmentStatus, summary.endedByClubDeactivation, summary.useInterview),
+    steps: deriveSteps(summary),
     status: toAppStatus(summary.status, summary.interview, summary.recruitmentStatus, summary.endedByClubDeactivation),
     right: deriveRight(summary.status, summary.interview, summary.recruitmentStatus),
     logo: toLogo(summary.logoUrl, summary.clubName),

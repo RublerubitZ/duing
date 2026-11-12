@@ -88,7 +88,7 @@ function resolveActiveStepIndexFromStatus(detail: StepperDetail): number {
     case 'ON_HOLD':
       return 0;
     case 'INTERVIEW_PENDING':
-      // 비면접 모집엔 면접 단계가 없어 지원 완료에 머문다 (정상 흐름에선 발생하지 않는 조합).
+      // 비면접 모집엔 면접 단계가 없어 지원 완료에 머문다 (운영진이 면접을 끈 모집에 남은 면접 대상).
       return detail.useInterview ? INTERVIEW_PENDING_STEP_INDEX : 0;
     case 'ACCEPTED':
     case 'REJECTED':
