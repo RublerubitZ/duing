@@ -71,4 +71,8 @@ jobs:
         run: pnpm typecheck
 
       - name: Test
+        # pnpm test = `pnpm -r --no-bail test`(package.json) — 한 패키지가 실패해도 나머지를 끝까지 돌리고 종료 코드는 실패로 남는다.
+        # 바깥 pnpm run 이 bail=false 면 실패를 삼켜 초록이 된다 — env 로 bail 을 고정한다. 바깥을 `pnpm --no-bail test` 로 바꾸는 것은 env 로도 못 막는다(pnpm 9.12.0 실측).
+        env:
+          npm_config_bail: 'true'
         run: pnpm test
