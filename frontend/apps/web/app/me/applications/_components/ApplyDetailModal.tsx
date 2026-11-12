@@ -92,10 +92,11 @@ type ApplyDetailModalProps = {
 export function ApplyDetailModal({ app, detail, onClose }: ApplyDetailModalProps) {
   // 면접 진행 phase 조회 — detail 이 확정된 후에만 fetch (enabled 조건).
   // phase 는 stepper 활성 단계·문구와 ApplicantInterviewCard 에 주입된다.
+  // 면접을 쓰지 않는 모집은 서버가 400(InterviewNotUsed)으로 거절하고 stepper 도 phase 를 보지 않아 부르지 않는다.
   const applicationId = detail?.id;
   const { data: interviewView } = useMyInterviewQuery(
     applicationId ?? 0,
-    { enabled: applicationId !== undefined },
+    { enabled: applicationId !== undefined && detail?.useInterview === true },
   );
 
   const { addToast } = useToast();
@@ -258,8 +259,9 @@ export function ApplyDetailModal({ app, detail, onClose }: ApplyDetailModalProps
               {/* 면접 카드 — applicantPhase 소비 (InterviewScheduleCard 대체).
                   recruitmentId 가 확정된 detail 도착 후에만 마운트.
                   마감된 모집은 라운드 진행 자체가 불가능하므로(생성이 409) 회차 준비 안내·시간 선택 CTA 를
-                  통째로 접는다 — 도달할 수 없는 미래를 약속하지 않는다. */}
-              {detail && !isRecruitmentClosed(detail.recruitmentStatus) && (
+                  통째로 접는다 — 도달할 수 없는 미래를 약속하지 않는다.
+                  면접을 쓰지 않는 모집은 카드의 조회 자체가 400 이라 올리지 않는다. */}
+              {detail && detail.useInterview && !isRecruitmentClosed(detail.recruitmentStatus) && (
                 <ApplicantInterviewCard applicationId={detail.id} />
               )}
             </div>
