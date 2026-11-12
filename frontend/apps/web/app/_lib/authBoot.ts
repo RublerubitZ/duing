@@ -87,7 +87,7 @@ export const SESSION_ENDED_MESSAGE = '로그아웃되었어요. 이 화면에서
 export const SESSION_SWITCHED_MESSAGE =
   '다른 탭에서 로그인 상태가 바뀌었어요. 이 화면에서는 저장되지 않아요.';
 
-// 탭 사이 막힘으로 실패한 요청이면 그 안내 문구, 아니면 null — 실패 문구를 직접 정하는 곳(로그아웃)이 네트워크 대신 원인을 보이게.
+// 탭 사이 막힘으로 실패한 요청이면 그 안내 문구, 아니면 null — 막힘 판정이다(logoutBlockedMessageOf·세션 목록의 기기·전체 로그아웃이 쓴다).
 // 진짜 오프라인·타임아웃·서버 오류는 null 이라 호출부의 지금 문구가 그대로 남는다.
 export function sessionChangeMessageOf(error: unknown): string | null {
   if (!(error instanceof ApiError) || error.code !== 'NETWORK') return null;
@@ -101,7 +101,7 @@ export const LOGOUT_BLOCKED_MESSAGE =
   '로그아웃하지 못했어요. 다른 탭에서 로그인 상태가 바뀌었어요 — 새로고침한 뒤 다시 로그아웃해주세요.';
 
 // 누를 때의 표지로 다시 본다 — 막힌 문서는 첫 문구에 고정돼 그 뒤 다른 탭이 다시 로그인했을 수 있고, 살아 있는 계정을 두고 '로그아웃되었어요' 라 하면 공용 기기를 떠난다.
-// 표지가 비어 있을 때만 로그아웃된 것이다(읽지 못하면 실패 쪽으로).
+// 표지가 비어 있으면 로그아웃으로 본다(SESSION_ENDED_MESSAGE 위 한계 그대로). 읽지 못하면 실패 쪽으로.
 export function logoutBlockedMessageOf(error: unknown): string | null {
   if (sessionChangeMessageOf(error) === null) return null;
   return readSessionUser() === null ? SESSION_ENDED_MESSAGE : LOGOUT_BLOCKED_MESSAGE;

@@ -125,11 +125,15 @@ export function AdminSidebarActions({ collapsed = false }: { collapsed?: boolean
       window.location.replace('/');
     } catch (logoutError) {
       // 다른 탭의 로그인 상태 바뀜으로 막혔으면 네트워크가 아니라 누를 때의 상태(로그아웃됨·못 함)를 보인다(오프라인·타임아웃은 아래 문구 그대로).
-      addToast(
-        logoutBlockedMessageOf(logoutError) ??
-          '로그아웃하지 못했습니다. 네트워크 연결 후 다시 시도해 주세요.',
-        { variant: 'error' },
-      );
+      const blockedMessage = logoutBlockedMessageOf(logoutError);
+      // 막혔으면 닫을 때까지 남긴다 — 공용 기기에서 로그아웃됐는지·못 했는지가 5초 뒤 사라지지 않게.
+      if (blockedMessage !== null) {
+        addToast(blockedMessage, { variant: 'error', durationMs: 0 });
+      } else {
+        addToast('로그아웃하지 못했습니다. 네트워크 연결 후 다시 시도해 주세요.', {
+          variant: 'error',
+        });
+      }
     } finally {
       setLoggingOut(false);
     }

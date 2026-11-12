@@ -5,7 +5,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { setupServer } from 'msw/node';
 import { http, HttpResponse } from 'msw';
 import type { MySession } from '@duing/types';
-import { createApiClient } from '@duing/api';
+import { createApiClient, registerConnectivityAdapter } from '@duing/api';
 import { ApiClientProvider } from '@duing/hooks';
 import { setStorage } from '@duing/storage';
 import { useAuthStore } from '@duing/stores';
@@ -34,6 +34,12 @@ setStorage({
     return Promise.resolve();
   },
 });
+
+// 막힌 세션 폐기 문구 — 리터럴로 적는다(상수를 import 하면 문구가 바뀌어도 통과한다).
+const SWITCHED_TEXT = '다른 탭에서 로그인 상태가 바뀌었어요. 이 화면에서는 저장되지 않아요.';
+const ENDED_TEXT = '로그아웃되었어요. 이 화면에서는 저장되지 않아요.';
+const LOGOUT_BLOCKED_TEXT =
+  '로그아웃하지 못했어요. 다른 탭에서 로그인 상태가 바뀌었어요 — 새로고침한 뒤 다시 로그아웃해주세요.';
 
 const BASE = 'http://localhost:8080/api/v1';
 const server = setupServer();
@@ -67,6 +73,7 @@ beforeEach(() => {
 });
 afterEach(() => {
   server.resetHandlers();
+  registerConnectivityAdapter(null);
   replaceSpy.mockReset();
     hardReplaceSpy.mockClear();
   useAuthStore.setState(useAuthStore.getInitialState(), true);
@@ -238,6 +245,30 @@ describe('SessionListCard', () => {
     );
 
     expect(await screen.findByText(/로그아웃하지 못했어요|인터넷 연결을 확인해주세요/)).toBeInTheDocument();
+  });
+
+  // 다른 탭 때문에 막힌 폐기는 서버에 닿지 않았다 — 막힌 문서에 고정된 첫 문구('로그아웃되었어요' 포함) 대신 못 했다고 알린다.
+  it.each<[string, string, string, false | string, string]>([
+    ['기기 로그아웃 — 계정 전환으로 막힘', '로그아웃', '로그아웃', SWITCHED_TEXT, LOGOUT_BLOCKED_TEXT],
+    ['기기 로그아웃 — 로그아웃·만료로 막힘', '로그아웃', '로그아웃', ENDED_TEXT, LOGOUT_BLOCKED_TEXT],
+    ['기기 로그아웃 — 진짜 오프라인', '로그아웃', '로그아웃', false, '인터넷 연결을 확인해주세요.'],
+    ['전체 로그아웃 — 계정 전환으로 막힘', '모든 기기에서 로그아웃', '모두 로그아웃', SWITCHED_TEXT, LOGOUT_BLOCKED_TEXT],
+    ['전체 로그아웃 — 로그아웃·만료로 막힘', '모든 기기에서 로그아웃', '모두 로그아웃', ENDED_TEXT, LOGOUT_BLOCKED_TEXT],
+    ['전체 로그아웃 — 진짜 오프라인', '모든 기기에서 로그아웃', '모두 로그아웃', false, '인터넷 연결을 확인해주세요.'],
+  ])('%s', async (_label, triggerName, confirmName, adapterVerdict, expectedToast) => {
+    stubSessions(SESSIONS);
+    const user = userEvent.setup();
+    renderCard();
+    const trigger = await screen.findByRole('button', { name: triggerName });
+
+    // 목록을 받은 뒤 막는다 — 폐기 요청만 막힘 문구(또는 오프라인)로 실패한다.
+    registerConnectivityAdapter(() => adapterVerdict);
+    await user.click(trigger);
+    await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: confirmName }));
+
+    expect(await screen.findByText(expectedToast)).toBeInTheDocument();
+    expect(screen.queryByText(ENDED_TEXT)).toBeNull();
+    expect(hardReplaceSpy).not.toHaveBeenCalled();
   });
 
   // 로그아웃은 되돌릴 수 없다 — 누른 즉시 요청이 나가지 않고 확인 모달을 한 단계 거친다.

@@ -114,7 +114,7 @@ describe('AdminMobileBar', () => {
     expect(logoutSpy).toHaveBeenCalledTimes(1);
   });
 
-  // 다른 탭의 로그인 상태 바뀜으로 막혔으면 그 원인 문구, 진짜 오프라인이면 지금 문구 그대로.
+  // 다른 탭 때문에 막혔으면 누를 때의 표지로 고른 문구(비면 로그아웃됨, 사용자가 있으면 못 함), 진짜 오프라인이면 지금 문구 그대로.
   // 표지는 로그아웃을 누를 때의 공유 표지 — 막혔으면 그 값으로 다시 판정한다(사용자가 있으면 로그아웃되지 않았다).
   it.each<[string, string, string | null, string]>([
     ['다른 탭의 계정 전환으로 막힘(표지에 다른 사용자)', SWITCHED_TEXT, '2', LOGOUT_BLOCKED_TEXT],
