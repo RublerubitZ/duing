@@ -65,7 +65,7 @@ Octomo(octoverse.kr) 는 **잔여 쿼터 조회 API 를 제공하지 않는다**
 | 서버 `deploy/.env`(선택) | `DUING_TRAFFIC_SURGE_ENABLED` | 트래픽 이상 감지. 운영 기본 `true` — 끌 때만 `false`. 켜져 있으면 시작 로그에 `[트래픽 이상 감지] 활성 — 기준 …` 한 줄 |
 | 서버 `deploy/.env`(선택) | `DUING_TRAFFIC_SURGE_REQUESTS_PER_MINUTE` | 분당 요청 기준. 기본 3000. 정수만 — 숫자가 아니면 부팅이 실패한다 |
 | 서버 `deploy/.env`(선택) | `DUING_TRAFFIC_SURGE_REJECTIONS_PER_MINUTE` | 분당 429 기준. 기본 300. 정수만 — 숫자가 아니면 부팅이 실패한다 |
-| 서버 `deploy/.env`(선택) | `DUING_RATE_LIMIT_API_READ_PER_MINUTE` | 조회 요청 제한 — 한 IP 가 분당 부를 수 있는 GET·HEAD 건수. 기본 3000, 0 이하면 끈다. 바꾼 뒤 `docker compose up -d`(`restart` 는 `.env` 를 다시 읽지 않는다). 한 IP 에서 나가는 부하 테스트는 0 으로 두고 돌린다 |
+| 서버 `deploy/.env`(선택) | `DUING_RATE_LIMIT_API_READ_PER_MINUTE` | 조회 요청 제한 — 한 IP 가 분당 부를 수 있는 GET·HEAD 건수. 기본 1000, 0 이하면 끈다. 가두모집처럼 한 Wi-Fi 에 수십 명이 몰릴 날은 미리 올린다. 바꾼 뒤 `docker compose up -d`(`restart` 는 `.env` 를 다시 읽지 않는다). 한 IP 에서 나가는 부하 테스트는 0 으로 두고 돌린다 |
 
 Webhook 발급: Slack → 앱 디렉터리 "Incoming Webhooks" → 채널 `#duing-monitoring` 선택 → URL 복사.
 **릴리스 순서**: ① 서버 `.env` 에 `SLACK_WEBHOOK_URL=...` 추가 → ② GitHub Secret 추가 → ③ develop→main 릴리스. ①을 빼먹어도 배포는 성공하지만 앱 알림이 조용히 꺼진다 — 릴리스 후 컨테이너 시작 로그에서 `[Slack 운영 알림] 활성` 을 확인한다.

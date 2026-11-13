@@ -28,12 +28,13 @@ import org.springframework.web.filter.OncePerRequestFilter;
  * ({@code PublicApiCacheConfig})는 같은 질의의 반복만 걷어 낸다 — 검색어·페이지·정렬을 바꿔 가며 긁으면 요청마다
  * DB 까지 닿아 Supabase egress 와 풀러 연결을 쓴다. 이 창은 한 IP 가 서버 처리량을 독차지하는 속도로 그러지 못하게 한다.
  *
- * <p><b>egress 총량 상한은 아니다.</b> 교내 NAT 뒤에서 수백 명이 같은 IP 를 쓰므로 한도를 사람 한 명 기준으로 잡으면
+ * <p><b>egress 총량 상한은 아니다.</b> 교내 NAT 뒤에서 여러 학생이 같은 IP 를 쓰므로 한도를 사람 한 명 기준으로 잡으면
  * 모집 기간에 정상 학생이 집단으로 잘린다({@code LoginAttemptRateLimiter} 가 문서화한 자해와 같은 형태).
- * 그래서 기본 한도는 넉넉하다 — 분당 3000건(초당 50건)은 2026-08 부하 테스트에서 잰 처리량(466 RPS)의 약 1/10 이고
- * 사이트 전체 트래픽 이상 감지 기준({@code duing.monitoring.traffic-surge.requests-per-minute})과 같은 값이다.
- * 정상 사용의 IP 당 최대치를 잰 값은 아니다(추정) — 한도 바로 아래로 종일 긁는 수집은 통과하며 하루 수백만 건이 될 수 있다.
- * 일간 요약(Slack {@code TRAFFIC_DAILY_SUMMARY})의 최대 분당 요청을 보고 낮춘다.
+ * 기본 한도 분당 1000건(초당 약 17건)의 근거는 운영 실측(2026-11-13, 집계만)이다 — 로그인 기록 3개월(2026-08-15~,
+ * 2학기 모집 기간 포함)에서 한 IP 를 같이 쓴 사용자는 시간당 최대 3명·하루 최대 8명이었다. 8명이 동시에 콘솔을 바쁘게
+ * 써도(1인 분당 수십 건) 수백 건이라 그 몇 배의 여유를 둔 값이고, 사이트 전체 트래픽 이상 감지 기준(분당 3000)의 1/3 이다.
+ * 비로그인 방문자의 IP 공유는 잰 값이 없다(조회 기록에 IP 가 없다) — 가두모집처럼 한 Wi-Fi 에 수십 명이 몰리는 날은
+ * 한도에 닿을 수 있으니 그런 날은 미리 올린다. 한도 바로 아래로 종일 긁는 수집은 통과한다(하루 최대 약 144만 건).
  * shortcut: IP 한 축·분 창 하나, 느린 수집이나 여러 IP 로 나눈 수집이 실제로 관측되면 시간·일 창을 더하거나 엣지로
  * (Caddy rate_limit 은 서드파티 모듈이라 공식 이미지에 없다 — 커스텀 빌드가 필요하다)
  *
@@ -65,7 +66,7 @@ public class ApiReadRateLimitFilter extends OncePerRequestFilter {
 
     // 0 이하면 끈다. 운영에서 한도가 정상 사용자를 자르면 DUING_RATE_LIMIT_API_READ_PER_MINUTE 로 올리거나 0 으로 끄고
     // 컨테이너를 다시 만든다(docker compose up -d — restart 는 env_file 을 다시 읽지 않는다). 재배포는 필요 없다.
-    @Value("${duing.rate-limit.api-read-per-minute:3000}")
+    @Value("${duing.rate-limit.api-read-per-minute:1000}")
     private int limitPerMinute;
 
     private final ConcurrentMap<String, MinuteCount> countsByIp = RateLimitMaps.expiringMap(WINDOW);

@@ -187,7 +187,7 @@ duing:
     max-body-bytes: ${DUING_REQUEST_MAX_BODY_BYTES:2097152}
   rate-limit:
     # 한 IP 가 분당 부를 수 있는 조회(GET·HEAD) 건수(ApiReadRateLimitFilter). 0 이하면 끈다.
-    api-read-per-minute: ${DUING_RATE_LIMIT_API_READ_PER_MINUTE:3000}
+    api-read-per-minute: ${DUING_RATE_LIMIT_API_READ_PER_MINUTE:1000}
   notice:
     cover-image-url-prefix: ${NOTICE_COVER_IMAGE_URL_PREFIX:}
   notification:
