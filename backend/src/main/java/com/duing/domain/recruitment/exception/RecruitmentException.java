@@ -157,10 +157,13 @@ public class RecruitmentException extends ApplicationException {
         }
     }
 
-    /** 면접을 끄면 운영진 화면에서 남은 라운드를 볼 수도 취소할 수도 없고 하루 전 알림만 나가므로, 취소하지 않은 라운드가 있으면 막는다. */
+    /**
+     * 면접을 끄면 운영진 화면에서 라운드를 볼 수 없고, 진행 중 라운드는 지원자가 응답·조회할 수 없으며, 확정 라운드는 화면에서
+     * 면접이 사라진 채 하루 전 알림만 나간다 — 그래서 취소하지 않은 라운드가 있으면 끄기를 막는다.
+     */
     public static class InterviewRoundsExistException extends RecruitmentException {
-        private static final String MESSAGE = "면접 라운드가 남아 있어 면접을 끌 수 없습니다. "
-                + "확정 전 라운드는 모두 폐기·취소하면 끌 수 있지만, 확정된 라운드가 있으면 끌 수 없습니다.";
+        private static final String MESSAGE = "취소하지 않은 면접 라운드가 있어 면접을 끌 수 없습니다. "
+                + "초안은 폐기하고 진행 중인 라운드는 취소한 뒤 다시 시도해주세요(확정된 라운드가 있으면 끌 수 없습니다).";
 
         public InterviewRoundsExistException() {
             super(MESSAGE, HttpStatus.CONFLICT);

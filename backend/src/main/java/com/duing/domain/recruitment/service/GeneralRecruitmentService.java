@@ -62,7 +62,7 @@ public class GeneralRecruitmentService implements RecruitmentService {
 
     private final RecruitmentRepository recruitmentRepository;
     private final ApplicationRepository applicationRepository;
-    // 면접 끄기 가드가 모집의 취소하지 않은 라운드를 센다.
+    // 면접 끄기 가드가 모집에 취소하지 않은 라운드가 있는지 본다.
     private final InterviewRoundRepository interviewRoundRepository;
     // 삭제 정책(스펙 v2 4.2)이 모집에 딸린 가입 요청 상태를 함께 판정한다.
     private final ClubJoinRequestRepository clubJoinRequestRepository;
