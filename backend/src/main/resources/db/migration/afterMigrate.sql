@@ -1,7 +1,7 @@
 -- Flyway 콜백 — 기동할 때마다 migrate 가 끝난 뒤 한 번 실행된다(버전 마이그레이션이 아니라 이력에 남지 않는다).
 --
 -- flyway_schema_history 에 RLS 를 켠다 — V59 가 "Flyway 내부 제어 테이블"이라며 뺀 마지막 public 테이블.
--- Supabase 는 public 에 생기는 모든 테이블에 anon·authenticated 전체 권한(SELECT·INSERT·UPDATE·DELETE)을 기본으로 붙인다.
+-- Supabase 는 public 에 생기는 모든 테이블에 anon·authenticated 전체 권한(ALL — SELECT·INSERT·UPDATE·DELETE 포함)을 기본으로 붙인다.
 -- 그래서 RLS 가 꺼진 이 테이블은 Data API 가 켜진 프로젝트에서 공개 키만으로 읽고 고칠 수 있었다
 -- (2026-11-13 개발 DB 실측: 공개 키로 이력 행이 조회됨). 이력이 지워지거나 바뀌면 다음 기동의 Flyway 검증이 깨진다.
 -- 정책은 만들지 않는다(V59 와 같은 잠금 상태). Flyway 와 앱은 테이블 소유자 롤로 접속해 RLS 를 받지 않는다.

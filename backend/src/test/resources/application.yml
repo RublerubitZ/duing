@@ -33,6 +33,11 @@ spring:
       # "too many clients already" 로 무관한 통합테스트가 컨텍스트 로드에 실패한다. 유휴 점유를 1로
       # 낮춰 컨텍스트당 상시 점유를 최소화하고, 버스트는 max(20)까지 온디맨드로 확장한다.
       minimum-idle: 1
+      # 유휴 연결을 10초(Hikari 최소값)가 지나면 minimum-idle 까지 줄인다(정리 주기가 30초라 실제로는 10~40초 뒤).
+      # 기본값(10분)이면 컨텍스트마다 기동 때 Flyway 가 동시에 연 연결(이력·마이그레이션·afterMigrate 콜백 = 3개)이 10분씩
+      # 남는다. 캐시에 살아 있는 컨텍스트(최대 32개)만으로 96개라, 테스트가 쓰는 연결을 더하면 max_connections(100)를
+      # 넘는다 — 콜백을 넣은 뒤 CI 에서 64건이 "too many clients already" 로 실패했다(콜백 전에는 32×2=64).
+      idle-timeout: 10000
       # main 의 application.yml 과 동일한 값 — 통합 테스트도 운영과 같은 드라이버 오류 메시지(서버 Detail 제외)를 본다.
       data-source-properties:
         logServerErrorDetail: false
