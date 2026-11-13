@@ -5,8 +5,8 @@ import type { ApplicationSummary } from '@duing/types';
 import { SectionApply } from '../../app/me/_components/SectionApply';
 
 vi.mock('next/link', () => ({
-  default: ({ href, children }: { href: string; children: React.ReactNode }) => (
-    <a href={href}>{children}</a>
+  default: ({ href, className, children }: { href: string; className?: string; children: React.ReactNode }) => (
+    <a href={href} className={className}>{children}</a>
   ),
 }));
 
@@ -143,5 +143,67 @@ describe('SectionApply — 진행 상태 마디는 면접을 쓰는 모집에만
     expect(within(cardOf('면접 없는 동아리')).queryByText('면접')).not.toBeInTheDocument();
     expect(within(cardOf('면접 보는 동아리')).getByText('면접')).toBeInTheDocument();
     expect(within(cardOf('면접 보는 동아리')).queryByText('최종 결과')).not.toBeInTheDocument();
+  });
+});
+
+describe('SectionApply — 면접을 끈 모집에 남은 면접 대상은 면접 일정을 안내하지 않는다', () => {
+  const cardOf = (clubName: string): HTMLElement => {
+    const card = screen.getByText(clubName).closest<HTMLElement>('.relative');
+    if (!card) throw new Error(`카드를 찾지 못함: ${clubName}`);
+    return card;
+  };
+  const leftover: ApplicationSummary = {
+    ...base,
+    status: 'INTERVIEW_PENDING',
+    interview: { startAt: '2026-11-20T14:00:00', endAt: '2026-11-20T14:30:00', location: '학생회관 302호' },
+    useInterview: false,
+  };
+
+  it.each([
+    ['확정 배정이 남은', leftover],
+    ['배정이 없는', { ...leftover, interview: null }],
+  ])('%s 카드는 다음 일정·면접 안내 없이 심사 중 카드처럼 보인다', (_case, summary) => {
+    render(<SectionApply applications={[summary]} />);
+    const card = cardOf('두잉 댄스');
+    expect(within(card).queryByText('다음 일정')).not.toBeInTheDocument();
+    expect(card.textContent).not.toMatch(/면접:/);
+    expect(card.textContent).not.toContain('학생회관 302호');
+    expect(within(card).getByText('동아리에서 심사 중입니다')).toBeInTheDocument();
+    expect(card).toHaveClass('border-line');
+    expect(card).not.toHaveClass('border-ink');
+    const link = within(card).getByRole('link');
+    expect(link).toHaveTextContent('지원서 보기');
+    expect(link).toHaveClass('btn-secondary');
+    expect(link).toHaveAttribute('href', '/me/applications/1');
+  });
+
+  it.each([true, undefined])('useInterview=%s 면 지금처럼 다음 일정·면접 일정 보기·면접 안내다(fail-open)', (useInterview) => {
+    render(<SectionApply applications={[{ ...leftover, useInterview }]} />);
+    const card = cardOf('두잉 댄스');
+    expect(within(card).getByText('다음 일정')).toBeInTheDocument();
+    expect(within(card).getByText(/면접: .+ — 학생회관 302호/)).toBeInTheDocument();
+    expect(card).toHaveClass('border-ink');
+    const link = within(card).getByRole('link');
+    expect(link).toHaveTextContent('면접 일정 보기');
+    expect(link).toHaveClass('btn-primary');
+  });
+
+  it.each([true, undefined])('useInterview=%s 인 모집의 심사 중 카드에는 면접 표기가 붙지 않는다', (useInterview) => {
+    render(<SectionApply applications={[{ ...base, useInterview }]} />);
+    const card = cardOf('두잉 댄스');
+    expect(within(card).queryByText('다음 일정')).not.toBeInTheDocument();
+    const link = within(card).getByRole('link');
+    expect(link).toHaveTextContent('지원서 보기');
+    expect(link).toHaveClass('btn-secondary');
+  });
+
+  it('면접을 끈 모집의 면접 대상 카드는 같은 모집의 심사 중 카드와 똑같다', () => {
+    const sectionHtml = (summary: ApplicationSummary): string => {
+      const { container, unmount } = render(<SectionApply applications={[summary]} />);
+      const html = container.querySelector('[data-section="apply"]')?.innerHTML ?? '';
+      unmount();
+      return html;
+    };
+    expect(sectionHtml(leftover)).toBe(sectionHtml({ ...leftover, status: 'SUBMITTED', interview: null }));
   });
 });
