@@ -176,7 +176,9 @@ public class GeneralRecruitmentService implements RecruitmentService {
     @Override
     @Transactional
     public void update(UpdateRecruitmentCommand updateRecruitmentCommand) {
-        Recruitment recruitment = recruitmentRepository.findById(updateRecruitmentCommand.recruitmentId())
+        // 행 잠금 — 라운드 생성(createRound)·마감과 같은 모집 행 잠금으로 직렬화해 "라운드 0개 확인 → 생성 커밋 → 끄기 커밋"과,
+        // 전 컬럼 UPDATE 가 겹쳐 커밋된 마감을 OPEN 으로 되돌리는 lost update 를 막는다. 잠금은 트랜잭션의 첫 조회여야 한다.
+        Recruitment recruitment = recruitmentRepository.findByIdForUpdate(updateRecruitmentCommand.recruitmentId())
                 .orElseThrow(RecruitmentException.RecruitmentNotFoundException::new);
 
         Long clubId = recruitment.getClub().getId();
@@ -248,12 +250,13 @@ public class GeneralRecruitmentService implements RecruitmentService {
             // 위 lockFormForQuestionChange(FOR UPDATE)가 제출측 공유 잠금(FOR SHARE)과 직렬화하므로
             // "지원자 0명 확인 → 질문 교체 커밋" 사이에 지원서가 INSERT 되는 경합 창은 닫혀 있다.
             // 아래 countByRecruitmentId 는 반드시 잠금 획득 뒤에 실행되어야 한다 — 순서를 바꾸면 가드가 다시 뚫린다.
-            // 참고: recruitment.getForm() 은 위 findById 가 이미 적재한 값이라(mappedBy @OneToOne 은
-            // 바이트코드 강화 없이는 eager) 다른 운영진의 동시 수정 기준으로는 낡을 수 있다. 그래도 답변이
-            // 죽은 질문을 가리키는 일은 없다 — 낡은 값과 동일하게 재전송되면 questionsChanged=false 라
-            // Hibernate 가 UPDATE 자체를 내지 않고, 조금이라도 다르면 questionsChanged=true 라 이 잠금
-            // 뒤의 지원자 수 확인이 실행되어 막힌다. 남는 것은 지원자 0명일 때의 수정끼리 last-writer-wins
-            // 뿐이며(RecruitmentForm 에 @Version 없음) 답변 유실과는 무관하다.
+            // 참고: recruitment.getForm() 은 위 첫 조회가 함께 적재한 값이다(mappedBy @OneToOne 은 바이트코드
+            // 강화 없이는 eager). 운영 경로에서는 모집 행 잠금이 첫 조회라 수정끼리 직렬화되어 최신이지만, 같은
+            // 트랜잭션이 잠금 전에 적재한 인스턴스는 1차 캐시에서 그대로 재사용되어 낡을 수 있다
+            // (ApplicationSubmitQuestionChangeConcurrencyTest). 그래도 답변이 죽은 질문을 가리키는 일은 없다 —
+            // 낡은 값과 동일하게 재전송되면 questionsChanged=false 라 Hibernate 가 UPDATE 자체를 내지 않고,
+            // 조금이라도 다르면 questionsChanged=true 라 이 잠금 뒤의 지원자 수 확인이 실행되어 막힌다.
+            // last-writer-wins 는 낡은 화면으로 저장하는 화면 수준으로만 남으며 답변 유실과는 무관하다.
             boolean questionsChanged = recruitment.getForm() == null
                     || !recruitment.getForm().getQuestions().equals(resolvedQuestions);
             if (questionsChanged

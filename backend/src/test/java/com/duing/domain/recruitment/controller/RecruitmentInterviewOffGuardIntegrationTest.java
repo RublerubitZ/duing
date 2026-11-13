@@ -6,27 +6,41 @@ import static org.hamcrest.Matchers.nullValue;
 
 import com.duing.common.TestcontainersConfiguration;
 import com.duing.common.fixture.InterviewRoundFixture;
+import com.duing.domain.application.entity.Application;
 import com.duing.domain.club.entity.Club;
 import com.duing.domain.clubmember.entity.ClubMember;
 import com.duing.domain.interview.controller.InterviewControllerTestSupport;
 import com.duing.domain.interview.entity.RoundStatus;
+import com.duing.domain.interview.service.InterviewRoundService;
+import com.duing.domain.interview.service.dto.command.CreateInterviewRoundCommand;
 import com.duing.domain.recruitment.entity.Recruitment;
 import com.duing.domain.user.entity.User;
 import com.duing.global.constant.ErrorCodes;
 import io.restassured.RestAssured;
 import io.restassured.http.ContentType;
+import io.restassured.response.Response;
 import io.restassured.response.ValidatableResponse;
 import java.time.LocalDateTime;
+import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
 /**
  * 모집 수정에서 면접 끄기 가드 — 면접을 켠 모집에 취소하지 않은 라운드가 있으면 끄는 요청을 409 로 막는다.
@@ -44,13 +58,18 @@ class RecruitmentInterviewOffGuardIntegrationTest extends InterviewControllerTes
     @LocalServerPort
     private int port;
 
+    @Autowired private InterviewRoundService interviewRoundService;
+    @Autowired private PlatformTransactionManager transactionManager;
+    @Autowired private JdbcTemplate jdbcTemplate;
+
+    private User leader;
     private String leaderToken;
     private Club club;
 
     @BeforeEach
     void setUp() {
         RestAssured.port = port;
-        User leader = saveUser("끄기리더");
+        leader = saveUser("끄기리더");
         leaderToken = tokenFor(leader);
         club = saveActiveClub("끄기동아리");
         clubMemberRepository.save(ClubMember.asLeader(club, leader));
@@ -156,6 +175,52 @@ class RecruitmentInterviewOffGuardIntegrationTest extends InterviewControllerTes
                 .body("code", equalTo(ErrorCodes.RECRUITMENT_CLOSED));
     }
 
+    @Test
+    @DisplayName("라운드 생성이 모집 행을 잠근 사이 들어온 면접 끄기는 생성이 끝날 때까지 기다렸다가 생긴 라운드를 보고 409 로 거절된다")
+    void turningOffWaitsForRoundCreationAndIsRejectedAfterwards() throws Exception {
+        Recruitment recruitment = saveInterviewRecruitment(club, "경합모집");
+        Application candidate = saveOnHoldApplication(recruitment, "경합후보");
+        TransactionTemplate createTransaction = new TransactionTemplate(transactionManager);
+        CountDownLatch createHoldsRowLock = new CountDownLatch(1);
+        CountDownLatch createMayCommit = new CountDownLatch(1);
+        ExecutorService executor = Executors.newFixedThreadPool(2);
+
+        try {
+            // 라운드 생성을 커밋 직전에 붙잡아, createRound 가 잡은 모집 행 잠금을 계속 쥔 상태로 만든다.
+            Future<?> creating = executor.submit(() -> createTransaction.executeWithoutResult(transaction -> {
+                interviewRoundService.createRound(new CreateInterviewRoundCommand(recruitment.getId(),
+                        leader.getId(), "1차 면접", null, null, List.of(candidate.getId())));
+                interviewRoundRepository.flush();
+                createHoldsRowLock.countDown();
+                awaitQuietly(createMayCommit);
+            }));
+            assertThat(createHoldsRowLock.await(10, TimeUnit.SECONDS))
+                    .as("라운드 생성 트랜잭션이 모집 행 잠금을 획득").isTrue();
+
+            Future<Response> turningOff = executor.submit(() ->
+                    patchRecruitment(leaderToken, recruitment, CHANGED_TITLE, false).extract().response());
+
+            // 끄기가 행 잠금 대기에 들어간 뒤에 생성을 놓는다 — 잠금이 없으면 가드가 생성 커밋 전에 0개를 보고 지나간 뒤
+            // UPDATE 에서 기다리다 204 로 끝나고, 잠금이 있으면 첫 조회에서 기다리다 커밋된 라운드를 본다.
+            awaitBlockedLock();
+            createMayCommit.countDown();
+            creating.get(30, TimeUnit.SECONDS);
+
+            Response turnOffResponse = turningOff.get(30, TimeUnit.SECONDS);
+            assertThat(turnOffResponse.statusCode())
+                    .as("잠금이 없으면 가드가 생성 커밋 전에 0개를 보고 204 로 끝난다")
+                    .isEqualTo(HttpStatus.CONFLICT.value());
+            assertThat(turnOffResponse.jsonPath().getString("message")).isEqualTo(ROUNDS_EXIST_MESSAGE);
+        } finally {
+            createMayCommit.countDown();
+            executor.shutdownNow();
+        }
+
+        assertSaved(recruitment, true, recruitment.getTitle());
+        assertThat(interviewRoundRepository.findByRecruitmentIdOrderByCreatedAtDesc(recruitment.getId()))
+                .hasSize(1);
+    }
+
     /* ---- helpers ---- */
 
     private void saveDraftRound(Recruitment recruitment) {
@@ -179,6 +244,37 @@ class RecruitmentInterviewOffGuardIntegrationTest extends InterviewControllerTes
         Recruitment reloaded = recruitmentRepository.findById(recruitment.getId()).orElseThrow();
         assertThat(reloaded.isUseInterview()).isEqualTo(expectedUseInterview);
         assertThat(reloaded.getTitle()).isEqualTo(expectedTitle);
+    }
+
+    private static void awaitQuietly(CountDownLatch latch) {
+        try {
+            latch.await(20, TimeUnit.SECONDS);
+        } catch (InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException(interrupted);
+        }
+    }
+
+    private void awaitBlockedLock() {
+        long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(10);
+        while (System.nanoTime() < deadline) {
+            Integer blocked = jdbcTemplate.queryForObject(
+                    "SELECT COUNT(*) FROM pg_locks WHERE NOT granted", Integer.class);
+            if (blocked != null && blocked > 0) {
+                return;
+            }
+            sleepBriefly();
+        }
+        throw new IllegalStateException("면접 끄기가 제한 시간 안에 모집 행 잠금 대기에 진입하지 않았다.");
+    }
+
+    private void sleepBriefly() {
+        try {
+            Thread.sleep(50);
+        } catch (InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException("잠금 대기 폴링이 중단되었다.", interrupted);
+        }
     }
 
     private String tokenFor(User user) {
