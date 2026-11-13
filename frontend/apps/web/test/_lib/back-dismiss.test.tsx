@@ -519,6 +519,7 @@ describe('useBackDismiss', () => {
 
     // 기억이 남은 채 B 로 건너간 뒤 page 와 같은 주소의 C 와 a2 를 쌓는다 — [page][이전 문서 마커][B][C][a2].
     await jump(2);
+    expect(window.history.state).toEqual({ marker: 'B' });
     window.history.pushState({ marker: 'C' }, '', '/test-page');
     const { queryByTestId } = render(<Overlay name="a2" />);
     closeSpy.mockClear();
@@ -527,6 +528,7 @@ describe('useBackDismiss', () => {
 
     // 우리 마커가 있는 동안 이전 문서 마커는 늘 그 아래다 — 아래에서 올라왔다고 읽으면 B 로 앞으로 건너뛴다.
     expect(window.history.state).toEqual({ marker: 'page' });
+    expect(closeSpy).toHaveBeenCalledTimes(1);
     expect(closeSpy).toHaveBeenCalledWith('a2');
     expect(queryByTestId('overlay-a2')).toBeNull();
   });
@@ -555,6 +557,7 @@ describe('useBackDismiss', () => {
     expect(window.history.state).toEqual({ marker: 'page' });
 
     await jump(2);
+    expect(window.history.state).toEqual({ marker: 'B' });
     window.history.pushState({ marker: 'C' }, '', '/test-page');
     render(<Overlay name="a2" />);
 
