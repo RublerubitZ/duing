@@ -85,7 +85,8 @@ public class GeneralInterviewAssignmentService implements InterviewAssignmentSer
         List<InterviewRoundMember> respondedMembers = interviewRoundMemberRepository
                 .findAllByRoundIdAndStatusForUpdate(roundId, RoundMemberStatus.RESPONDED);
         // 결과를 정한(합격·불합격) 응답자는 배정하지 않는다 — 결과 확정 정리(#1659) 전에 결과를 정한 멤버는 응답 완료로 남아 있다.
-        // 지원서는 잠그지 않고 상태만 읽는다(수동 배정과 같은 이유). 겹치는 결과 확정은 멤버를 제외해 위 잠금 조회가 거르므로, 여기서 거르는 것은 이미 커밋된 결과뿐이다.
+        // 지원서는 잠그지 않고 상태만 읽는다(수동 배정과 같은 이유). 겹치는 결과 확정은 멤버 잠금에서 갈린다 — 결과 확정이 먼저 잡았으면 위 조회가 그 멤버를 거르고,
+        // 늦으면 이 배정이 커밋된 뒤 결과 확정이 초안을 지운다(releaseOnResultDecided). 그래서 여기서 거르는 것은 이미 커밋된 결과뿐이다.
         Set<Long> undecidedApplicationIds = Set.copyOf(applicationRepository.findIdsByIdInAndStatusIn(
                 respondedMembers.stream().map(InterviewRoundMember::getApplicationId).toList(),
                 ApplicationStatus.activeSet()));

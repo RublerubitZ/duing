@@ -75,8 +75,9 @@ public interface ApplicationRepository extends JpaRepository<Application, Long>,
     Optional<ApplicationStatus> findStatusById(@Param("applicationId") Long applicationId);
 
     /**
-     * 넘긴 지원 가운데 이 상태인 것의 id — 상태만 읽어 지원서 엔티티(답변 jsonb)를 1차 캐시에 올리지 않는다.
+     * 넘긴 지원 중 상태가 넘긴 상태 가운데 하나인 것의 id — 상태만 읽어 지원서 엔티티(답변 jsonb)를 1차 캐시에 올리지 않는다.
      * 면접 자동 배정이 결과를 정하지 않은 응답자만 고를 때 쓴다(statuses = {@link ApplicationStatus#activeSet()}).
+     * soft delete 된 지원은 @SQLRestriction 으로 빠진다(후보가 아니다).
      */
     @Query("SELECT a.id FROM Application a WHERE a.id IN :applicationIds AND a.status IN :statuses")
     List<Long> findIdsByIdInAndStatusIn(@Param("applicationIds") Collection<Long> applicationIds,
