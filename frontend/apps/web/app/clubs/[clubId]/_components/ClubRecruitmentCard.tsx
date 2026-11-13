@@ -92,12 +92,15 @@ export function ClubRecruitmentCard({ recruitment, clubId, membership, detailChe
               label="모집 대상"
               value={recruitment.targetRole === 'OFFICER' ? '운영진' : '부원'}
             />
-            {recruitment.interviewStartDate && recruitment.interviewEndDate && (
-              <Row
-                label="면접 일정"
-                value={`${recruitment.interviewStartDate} ~ ${recruitment.interviewEndDate}`}
-              />
-            )}
+            {/* 면접을 끄면 서버가 면접 기간을 그대로 둔다(부분 갱신) — 인원의 '(서류)' 와 같은 기준으로 가린다. */}
+            {recruitment.useInterview &&
+              recruitment.interviewStartDate &&
+              recruitment.interviewEndDate && (
+                <Row
+                  label="면접 일정"
+                  value={`${recruitment.interviewStartDate} ~ ${recruitment.interviewEndDate}`}
+                />
+              )}
             {recruitment.applicantCount !== null && (
               <Row
                 label="지원자"

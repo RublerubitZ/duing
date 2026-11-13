@@ -175,6 +175,31 @@ describe('ClubRecruitmentCard', () => {
     expect(screen.getByRole('button', { name: '찜하기' })).toBeInTheDocument();
   });
 
+  describe('면접 일정 줄 — 인원의 (서류)/(서류 + 면접) 과 같은 기준', () => {
+    const interviewPeriod = { interviewStartDate: '2026-06-01', interviewEndDate: '2026-06-05' };
+
+    it('면접을 쓰는 모집이면 면접 일정 줄을 그린다', () => {
+      renderCard({ ...base, useInterview: true, ...interviewPeriod });
+      expect(screen.getByText('10명 (서류 + 면접)')).toBeInTheDocument();
+      expect(screen.getByText('면접 일정')).toBeInTheDocument();
+      expect(screen.getByText('2026-06-01 ~ 2026-06-05')).toBeInTheDocument();
+    });
+
+    it('면접을 쓰는 모집이어도 면접 기간이 비어 있으면 면접 일정 줄을 그리지 않는다', () => {
+      renderCard({ ...base, useInterview: true });
+      expect(screen.getByText('10명 (서류 + 면접)')).toBeInTheDocument();
+      expect(screen.queryByText('면접 일정')).toBeNull();
+    });
+
+    // 면접을 끄면 폼은 면접 기간을 비워 보내지만 서버가 그대로 둔다 — '(서류)' 와 '면접 일정' 이 함께 보이면 안 된다.
+    it('면접을 끈 모집은 면접 기간이 남아 있어도 면접 일정 줄을 숨긴다', () => {
+      renderCard({ ...base, useInterview: false, ...interviewPeriod });
+      expect(screen.getByText('10명 (서류)')).toBeInTheDocument();
+      expect(screen.queryByText('면접 일정')).toBeNull();
+      expect(screen.queryByText('2026-06-01 ~ 2026-06-05')).toBeNull();
+    });
+  });
+
   it('찜 버튼은 카드 우상단에 absolute 플로팅되고 하단 찜 행은 제거된다', () => {
     renderCard(base);
     const favoriteButton = screen.getByRole('button', { name: '찜하기' });
