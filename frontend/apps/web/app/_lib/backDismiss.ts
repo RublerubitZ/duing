@@ -273,7 +273,8 @@ function handlePopState() {
   // 위쪽으로 기억한 죽은 엔트리에 같은 페이지(=그 아래 A)에서 올라왔으면 앞으로 가기다. 집합만 보면 히스토리
   // 메뉴로 여러 칸 건너 B 로 간 뒤 뒤로가기로 착지한 경우를 앞으로로 오판해 뒤로가기가 바운스한다.
   const landedEntryKey = `${token}:${id}`;
-  const arrivedFromBelow = deadEntriesAbove.has(landedEntryKey) && isSamePageAs(leftHref);
+  const arrivedFromBelow =
+    !otherDocumentBelowUs && deadEntriesAbove.has(landedEntryKey) && isSamePageAs(leftHref);
   const canSkipForward = landedOnDeadEntry && arrivedFromBelow && skipBudget > 0;
   const canSkipBack = landedOnDeadEntry && !canSkipForward && !wentForward && skipBudget > 0;
   const canSkip = canSkipForward || canSkipBack;
