@@ -21,7 +21,9 @@ public record ApplicationSummaryResponse(
         AssignedInterviewResponse interview,
         Instant submittedAt,
         /** 운영 중단 정리로 끝난 지원서 — 지원자 화면이 "최종 불합격" 대신 "선발 종료"를 보이는 근거다. */
-        boolean endedByClubDeactivation
+        boolean endedByClubDeactivation,
+        /** 면접 사용 모집 여부 — 내 지원 목록 행이 진행 표시에 면접 마디를 둘지 판단하는 근거다(상세의 useInterview 와 같은 값). */
+        boolean useInterview
 ) {
 
     public static ApplicationSummaryResponse from(ApplicationSummaryQuery summaryQuery) {
@@ -38,7 +40,8 @@ public record ApplicationSummaryResponse(
                 summaryQuery.status().asApplicantVisible(),
                 interview,
                 TimeMapper.systemWallClockToInstant(summaryQuery.submittedAt()),
-                summaryQuery.endedByClubDeactivation()
+                summaryQuery.endedByClubDeactivation(),
+                summaryQuery.useInterview()
         );
     }
 }
