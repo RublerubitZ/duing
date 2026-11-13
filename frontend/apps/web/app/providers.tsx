@@ -65,7 +65,7 @@ export function Providers({ children }: { children: ReactNode }) {
             // 보이고 fail-fast 에 도달조차 못 한다 (2026-07-12 리뷰 실험으로 확인).
             networkMode: 'always',
             // 재시도 정책은 @duing/hooks 의 shouldRetryQuery 로 일원화 —
-            // 401/403(반복 무의미)·429(창이 그대로라 다시 거절)·TIMEOUT(대기 배가)은 재시도하지 않고, 빠른 실패만 1회 재시도.
+            // 401/403(반복 무의미)·429(창이 대개 그대로라 다시 거절)·TIMEOUT(대기 배가)은 재시도하지 않고, 빠른 실패만 1회 재시도.
             retry: shouldRetryQuery,
             refetchOnWindowFocus: false,
             // networkMode 'always' 의 기본값과 같지만 일부러 정한 것 — 재연결 순간 일제 재조회 실패가 화면 게이트를 치고 요청만 늘어, 필요한 화면만 쿼리 단위로 켠다.
