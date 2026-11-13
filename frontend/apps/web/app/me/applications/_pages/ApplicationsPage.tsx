@@ -142,7 +142,7 @@ function formatDateTime(iso: string): string {
 
 function toApp(summary: ApplicationSummary): App {
   // 면접을 끈 모집에 남은 확정 배정은 보이지 않는다 — 상세 응답은 이때 배정을 비운다. 칸이 없는 옛 응답은 지금처럼(fail-open).
-  const interview = summary.useInterview === false ? null : summary.interview;
+  const visibleInterview = summary.useInterview === false ? null : summary.interview;
   return {
     id: String(summary.id),
     name: summary.clubName,
@@ -155,8 +155,8 @@ function toApp(summary: ApplicationSummary): App {
     files: [],
     memo: '',
     steps: deriveSteps(summary),
-    status: toAppStatus(summary.status, interview, summary.recruitmentStatus, summary.endedByClubDeactivation),
-    right: deriveRight(summary.status, interview, summary.recruitmentStatus),
+    status: toAppStatus(summary.status, visibleInterview, summary.recruitmentStatus, summary.endedByClubDeactivation),
+    right: deriveRight(summary.status, visibleInterview, summary.recruitmentStatus),
     logo: toLogo(summary.logoUrl, summary.clubName),
   };
 }

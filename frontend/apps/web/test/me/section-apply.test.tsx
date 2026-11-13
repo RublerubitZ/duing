@@ -24,6 +24,13 @@ const base: ApplicationSummary = {
   submittedAt: '2026-05-26T10:00:00Z',
 };
 
+// 카드 뿌리는 'relative' 클래스를 가진 div 다(다음 일정 배지를 겹쳐 올리는 기준).
+const cardOf = (clubName: string): HTMLElement => {
+  const card = screen.getByText(clubName).closest<HTMLElement>('.relative');
+  if (!card) throw new Error(`카드를 찾지 못함: ${clubName}`);
+  return card;
+};
+
 describe('SectionApply — active 상태만 렌더', () => {
   it('SUBMITTED 카드는 정상 렌더된다', () => {
     render(<SectionApply applications={[base]} />);
@@ -104,13 +111,6 @@ describe('SectionApply — active 상태만 렌더', () => {
 });
 
 describe('SectionApply — 진행 상태 마디는 면접을 쓰는 모집에만 면접 마디를 둔다', () => {
-  // 카드 뿌리는 'relative' 클래스를 가진 div 다(다음 일정 배지를 겹쳐 올리는 기준).
-  const cardOf = (clubName: string): HTMLElement => {
-    const card = screen.getByText(clubName).closest<HTMLElement>('.relative');
-    if (!card) throw new Error(`카드를 찾지 못함: ${clubName}`);
-    return card;
-  };
-
   it('면접을 쓰지 않는 모집은 심사·최종 결과이고 심사가 진행 중이다', () => {
     render(<SectionApply applications={[{ ...base, useInterview: false }]} />);
     expect(screen.queryByText('면접')).not.toBeInTheDocument();
@@ -147,11 +147,6 @@ describe('SectionApply — 진행 상태 마디는 면접을 쓰는 모집에만
 });
 
 describe('SectionApply — 면접을 끈 모집에 남은 면접 대상은 면접 일정을 안내하지 않는다', () => {
-  const cardOf = (clubName: string): HTMLElement => {
-    const card = screen.getByText(clubName).closest<HTMLElement>('.relative');
-    if (!card) throw new Error(`카드를 찾지 못함: ${clubName}`);
-    return card;
-  };
   const leftover: ApplicationSummary = {
     ...base,
     status: 'INTERVIEW_PENDING',
@@ -204,6 +199,7 @@ describe('SectionApply — 면접을 끈 모집에 남은 면접 대상은 면�
       unmount();
       return html;
     };
+    // 의도한 잠금 — 상태별 속성(data-*·aria-label)을 넣으면 여기서 깨지니 그때 비교 범위를 좁힌다.
     expect(sectionHtml(leftover)).toBe(sectionHtml({ ...leftover, status: 'SUBMITTED', interview: null }));
   });
 });

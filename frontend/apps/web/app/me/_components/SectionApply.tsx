@@ -99,7 +99,7 @@ export function SectionApply({ applications, isPending = false }: Props) {
             const step = withoutInterview && isInterview ? STATUS_STEP.SUBMITTED : STATUS_STEP[app.status];
             // 같은 이유로 면접 일정을 안내하지 않는다 — 버튼이 여는 상세에 면접 정보가 없다(#1695). 남은 확정 배정도 가린다.
             const showsInterview = isInterview && !withoutInterview;
-            const interview = withoutInterview ? null : app.interview;
+            const visibleInterview = withoutInterview ? null : app.interview;
 
             return (
               <div
@@ -133,7 +133,7 @@ export function SectionApply({ applications, isPending = false }: Props) {
                     {app.recruitmentTitle}
                   </div>
                   <h3 className="text-[19px] font-body text-ink-deep">{app.clubName}</h3>
-                  <div className="text-[12.5px] text-charcoal-2 mt-1">{statusNote(app.status, interview)}</div>
+                  <div className="text-[12.5px] text-charcoal-2 mt-1">{statusNote(app.status, visibleInterview)}</div>
                 </div>
 
                 {/* Step progress */}
@@ -170,7 +170,7 @@ export function SectionApply({ applications, isPending = false }: Props) {
                     })}
                   </div>
                   <div className="text-[12px] text-charcoal-3 tabular-nums">
-                    {interview ? `면접: ${formatDateTimeKst(interview.startAt)}` : formatDateTimeKst(app.submittedAt)}
+                    {visibleInterview ? `면접: ${formatDateTimeKst(visibleInterview.startAt)}` : formatDateTimeKst(app.submittedAt)}
                   </div>
                 </div>
 

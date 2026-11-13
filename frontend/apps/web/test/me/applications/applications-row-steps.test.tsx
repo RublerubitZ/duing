@@ -157,6 +157,7 @@ describe('내 지원 목록 행 — 면접을 끈 모집에 남은 면접 배정
 
   it('상세 창에 철회 버튼이 생기지 않는다(심사 중으로 바꾸지 않는다)', () => {
     renderPage([interviewOff], '1');
+    expect(document.querySelector('[role="dialog"]')).not.toBeNull();
     expect(document.body.textContent).not.toContain('지원 철회');
   });
 
