@@ -115,6 +115,10 @@ security:
     encryption-key: ZHVpbmctdGVzdC1mZWUtYWNjb3VudC1hZXMyNTYta2U=
 
 duing:
+  rate-limit:
+    # 통합 테스트는 전부 127.0.0.1 한 IP 에서 나가 스위트 전체가 한 창을 쓴다 — 조회 요청 제한(ApiReadRateLimitFilter)은 끄고,
+    # 필터 자체는 단위 테스트와 전용 통합 테스트(한도를 낮춘 별도 컨텍스트)가 본다.
+    api-read-per-minute: 0
   frontend:
     # 동아리 상세 재생성 간격(운영 기본 60초)을 끈다 — 통합 테스트가 발행 지점마다 요청이 나가는지를 그대로 센다.
     # 간격으로 합치는 규칙은 ClubPublicPageRevalidationListenerTest 가 고정한다.

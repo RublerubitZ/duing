@@ -4,6 +4,7 @@ import com.duing.global.auth.CookieCsrfOriginFilter;
 import com.duing.global.auth.JwtAccessDeniedHandler;
 import com.duing.global.auth.JwtAuthenticationEntryPoint;
 import com.duing.global.auth.JwtAuthenticationFilter;
+import com.duing.global.ratelimit.ApiReadRateLimitFilter;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
@@ -59,7 +60,8 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(
             HttpSecurity http,
-            CookieCsrfOriginFilter cookieCsrfOriginFilter) throws Exception {
+            CookieCsrfOriginFilter cookieCsrfOriginFilter,
+            ApiReadRateLimitFilter apiReadRateLimitFilter) throws Exception {
         http
                 .cors(Customizer.withDefaults())
                 .csrf(AbstractHttpConfigurer::disable)
@@ -163,7 +165,9 @@ public class SecurityConfig {
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
-                .addFilterBefore(cookieCsrfOriginFilter, CorsFilter.class);
+                .addFilterBefore(cookieCsrfOriginFilter, CorsFilter.class)
+                // CorsFilter 뒤 — 429 응답에도 CORS 헤더가 붙는다. 인증 필터보다 앞이라 거절되는 요청은 토큰 검증까지 가지 않는다.
+                .addFilterAfter(apiReadRateLimitFilter, CorsFilter.class);
 
         return http.build();
     }
