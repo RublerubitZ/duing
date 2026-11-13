@@ -185,6 +185,9 @@ duing:
     # (서블릿 multipart 한도·업로드 정책이 별도 강제) 다른 경로의 멀티파트에는 이 상한을 그대로 건다.
     # 운영 엣지(Caddy request_body max_size 11MB)가 1차 방어이며, 이 값은 앱 레이어 심층 방어다.
     max-body-bytes: ${DUING_REQUEST_MAX_BODY_BYTES:2097152}
+  rate-limit:
+    # 한 IP 가 분당 부를 수 있는 조회(GET·HEAD) 건수(ApiReadRateLimitFilter). 0 이하면 끈다.
+    api-read-per-minute: ${DUING_RATE_LIMIT_API_READ_PER_MINUTE:3000}
   notice:
     cover-image-url-prefix: ${NOTICE_COVER_IMAGE_URL_PREFIX:}
   notification:

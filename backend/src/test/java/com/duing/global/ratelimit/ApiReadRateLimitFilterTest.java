@@ -53,7 +53,7 @@ class ApiReadRateLimitFilterTest {
     }
 
     @Test
-    @DisplayName("거절된 요청은 세지 않는다 — 계속 두드려도 다음 분이 되면 다시 한도만큼 통과한다")
+    @DisplayName("한도를 넘겨 계속 두드려도 다음 분이 되면 다시 한도만큼 통과한다")
     void allowsAgainInNextMinute() throws Exception {
         for (int requestIndex = 0; requestIndex < LIMIT + 50; requestIndex++) {
             send("GET", CLUBS_PATH, CLIENT_IP);
@@ -101,17 +101,35 @@ class ApiReadRateLimitFilterTest {
     }
 
     @Test
-    @DisplayName("쓰기 요청과 /api/v1 밖 경로는 세지도 막지도 않는다")
-    void ignoresWritesAndNonApiPaths() throws Exception {
+    @DisplayName("쓰기 요청은 세지도 막지도 않는다")
+    void ignoresWrites() throws Exception {
         for (int requestIndex = 0; requestIndex < LIMIT + 5; requestIndex++) {
             assertThat(send("POST", "/api/v1/auth/login", CLIENT_IP).getStatus()).isEqualTo(HttpStatus.OK.value());
-            assertThat(send("GET", "/actuator/health", CLIENT_IP).getStatus()).isEqualTo(HttpStatus.OK.value());
         }
 
         // 위 요청들이 창을 쓰지 않았으므로 조회는 한도만큼 그대로 통과한다.
         for (int requestIndex = 0; requestIndex < LIMIT; requestIndex++) {
             assertThat(send("GET", CLUBS_PATH, CLIENT_IP).getStatus()).isEqualTo(HttpStatus.OK.value());
         }
+    }
+
+    @Test
+    @DisplayName("경로로 가르지 않는다 — 스프링이 디코딩해 컨트롤러로 보내는 인코딩 경로(/%61pi/v1/…)로도 한도를 비껴가지 못한다")
+    void countsEveryReadRegardlessOfPath() throws Exception {
+        send("GET", "/%61pi/v1/clubs", CLIENT_IP);
+        send("GET", "/API/v1/clubs", CLIENT_IP);
+        send("GET", "/actuator/health", CLIENT_IP);
+
+        assertThat(send("GET", CLUBS_PATH, CLIENT_IP).getStatus()).isEqualTo(HttpStatus.TOO_MANY_REQUESTS.value());
+    }
+
+    @Test
+    @DisplayName("로그에는 IP 전체가 아니라 대역만 남긴다 — IPv4 는 앞 두 옥텟, IPv6 는 앞 두 그룹")
+    void masksClientIpForLog() {
+        assertThat(ApiReadRateLimitFilter.maskForLog("203.0.113.7")).isEqualTo("203.0.x.x");
+        assertThat(ApiReadRateLimitFilter.maskForLog(ClientIpKeys.normalize("2001:db8:1:2::9")))
+                .isEqualTo("2001:db8::/32");
+        assertThat(ApiReadRateLimitFilter.maskForLog("unknown")).isEqualTo("unknown");
     }
 
     @Test
