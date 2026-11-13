@@ -70,20 +70,13 @@ export function toAppStatus(
   }
 }
 
-function deriveSteps(
-  status: ApplicationStatus,
-  recruitmentStatus: RecruitmentStatus | undefined,
-  endedByClubDeactivation: boolean | undefined,
-): Step[] {
+function deriveSteps({
+  status,
+  recruitmentStatus,
+  endedByClubDeactivation,
+  useInterview,
+}: Pick<ApplicationSummary, 'status' | 'recruitmentStatus' | 'endedByClubDeactivation' | 'useInterview'>): Step[] {
   type StepStateValue = 'done' | 'current' | 'pending';
-  // 결과 없이 종료된 지원(운영 중단으로 선발이 끝난 지원 포함)은 어느 단계도 "진행 중"이 아니다 — 현재 단계 점을 없애 멈춘 진행바로 보이지 않게 한다.
-  if (isClosedWithoutResult(status, recruitmentStatus) || isEndedByClubDeactivation(status, endedByClubDeactivation)) {
-    return [
-      { label: '심사',      date: '-', state: 'done'    },
-      { label: '면접',      date: '-', state: 'pending' },
-      { label: '최종 결과', date: '-', state: 'pending' },
-    ];
-  }
   const stateMap: Record<ApplicationStatus, [StepStateValue, StepStateValue, StepStateValue]> = {
     SUBMITTED:         ['current', 'pending', 'pending'],
     ON_HOLD:           ['current', 'pending', 'pending'], // 지원자에게 심사 중과 동일
@@ -91,8 +84,20 @@ function deriveSteps(
     ACCEPTED:          ['done',    'done',    'done'   ],
     REJECTED:          ['done',    'done',    'done'   ],
   };
-  const [screening, interview, finalResult] = stateMap[status];
-  // 단계 이름은 상태 라벨이 아니라 진행 마디다 — SectionApply(['심사','면접'])·
+  // 결과 없이 종료된 지원(운영 중단으로 선발이 끝난 지원 포함)은 어느 단계도 "진행 중"이 아니다 — 현재 단계 점을 없애 멈춘 진행바로 보이지 않게 한다.
+  const [screening, interview, finalResult] =
+    isClosedWithoutResult(status, recruitmentStatus) || isEndedByClubDeactivation(status, endedByClubDeactivation)
+      ? (['done', 'pending', 'pending'] satisfies [StepStateValue, StepStateValue, StepStateValue])
+      : stateMap[status];
+  // 면접을 쓰지 않는 모집엔 면접 마디가 없다 — 상세 ApplicationStepper 와 같은 규칙. 칸이 없는 옛 응답은 3단 그대로(fail-open).
+  // 운영진이 면접을 끈 모집에 남은 면접 대상도 상세처럼 심사에 머문다.
+  if (useInterview === false) {
+    return [
+      { label: '심사',      date: '-', state: interview === 'current' ? 'current' : screening },
+      { label: '최종 결과', date: '-', state: finalResult },
+    ];
+  }
+  // 단계 이름은 상태 라벨이 아니라 진행 마디다 — SectionApply(면접 모집 기준 ['심사','면접'])·
   // ApplicationStepper('최종 결과') 와 같은 용어를 쓴다. 서류 단계는 제거됐다 (스펙 §5-5).
   return [
     { label: '심사',      date: '-', state: screening   },
@@ -147,7 +152,7 @@ function toApp(summary: ApplicationSummary): App {
     department: '-',
     files: [],
     memo: '',
-    steps: deriveSteps(summary.status, summary.recruitmentStatus, summary.endedByClubDeactivation),
+    steps: deriveSteps(summary),
     status: toAppStatus(summary.status, summary.interview, summary.recruitmentStatus, summary.endedByClubDeactivation),
     right: deriveRight(summary.status, summary.interview, summary.recruitmentStatus),
     logo: toLogo(summary.logoUrl, summary.clubName),
