@@ -157,16 +157,15 @@ class InterviewListenerIntegrationTest extends IntegrationTestBase {
         clubMemberRepository.save(ClubMember.asLeader(club, leader));
         Recruitment recruitment = saveRecruitment(club);
         InterviewRound round = saveCollectingRound(recruitment);
-        InterviewSlot slotA = saveSlot(round.getId());
         InterviewSlot slotB = saveSlot(round.getId());
 
         User applicant = saveUser("지원자");
         Application application = saveInterviewPendingApplication(recruitment, applicant);
         roundMemberRepository.save(InterviewRoundMember.invite(round.getId(), application.getId()));
-        saveAssignedSchedule(application.getId(), slotA.getId(), round.getId());
+        InterviewSchedule movedSchedule = saveAssignedSchedule(application.getId(), slotB.getId(), round.getId());
 
         publishAfterCommit(new InterviewUpdatedEvent(
-                application.getId(), slotB.getId(), recruitment.getId()));
+                application.getId(), slotB.getId(), recruitment.getId(), movedSchedule.getId()));
 
         List<Notification> updatedNotifications = notificationRepository.findAll().stream()
                 .filter(notification -> notification.getType() == NotificationType.INTERVIEW_UPDATED)
@@ -221,10 +220,10 @@ class InterviewListenerIntegrationTest extends IntegrationTestBase {
         User applicant = saveUser("지원자");
         Application application = saveInterviewPendingApplication(recruitment, applicant);
         roundMemberRepository.save(InterviewRoundMember.invite(round.getId(), application.getId()));
-        saveAssignedSchedule(application.getId(), slot.getId(), round.getId());
+        InterviewSchedule schedule = saveAssignedSchedule(application.getId(), slot.getId(), round.getId());
 
         InterviewUpdatedEvent sameSlotEvent = new InterviewUpdatedEvent(
-                application.getId(), slot.getId(), recruitment.getId());
+                application.getId(), slot.getId(), recruitment.getId(), schedule.getId());
         publishAfterCommit(sameSlotEvent);
         publishAfterCommit(sameSlotEvent);
 
@@ -278,7 +277,6 @@ class InterviewListenerIntegrationTest extends IntegrationTestBase {
         Club club = saveActiveClub();
         Recruitment recruitment = saveRecruitment(club);
         InterviewRound round = saveCollectingRound(recruitment);
-        InterviewSlot slotA = saveSlot(round.getId());
         InterviewSlot slotB = saveSlot(round.getId());
 
         User pendingApplicant = saveUser("면접대상");
@@ -288,8 +286,9 @@ class InterviewListenerIntegrationTest extends IntegrationTestBase {
                 saveApplicationWithStatus(recruitment, rejectedApplicant, ApplicationStatus.REJECTED);
         for (Application application : List.of(pendingApplication, rejectedApplication)) {
             roundMemberRepository.save(InterviewRoundMember.invite(round.getId(), application.getId()));
-            saveAssignedSchedule(application.getId(), slotA.getId(), round.getId());
-            publishAfterCommit(new InterviewUpdatedEvent(application.getId(), slotB.getId(), recruitment.getId()));
+            InterviewSchedule movedSchedule = saveAssignedSchedule(application.getId(), slotB.getId(), round.getId());
+            publishAfterCommit(new InterviewUpdatedEvent(
+                    application.getId(), slotB.getId(), recruitment.getId(), movedSchedule.getId()));
         }
 
         assertThat(countNotifications(pendingApplicant, NotificationType.INTERVIEW_UPDATED)).isEqualTo(1);
