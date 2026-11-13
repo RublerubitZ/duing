@@ -472,6 +472,104 @@ describe('useBackDismiss', () => {
     expect(window.history.state).toEqual({ marker: 'page' });
   });
 
+  it('새로고침 전 문서의 마커에 여러 칸 뒤로 내려와도 앞으로 가기로 읽지 않고 건너뛴다(#1708)', async () => {
+    // [prev][page][이전 문서 마커][문서 시작][a] — 오버레이 ID 는 문서마다 1부터 세므로 이전 문서 마커 ID 가 우리보다 클 수 있다.
+    // 토큰은 실행마다 새로 만든다 — 건너뛴 엔트리 기억(토큰:ID)은 모듈 수명이라, 같은 키가 남으면 다시 돌릴 때 앞으로 건너뛰기로 읽힌다.
+    const staleToken = `stale-doc-1708-${Math.random().toString(36).slice(2)}`;
+    window.history.pushState({ __overlayToken: staleToken, __overlayId: 1_000_000 }, '');
+    window.history.pushState({ marker: 'doc-start' }, '');
+    const { queryByTestId } = render(<Overlay name="a" />);
+
+    // 히스토리 메뉴로 두 칸을 건너 이전 문서 마커에 바로 착지한다.
+    await jump(-2);
+
+    // ID 만 견주면 앞으로 올라온 착지로 오판해 그 자리에 앉고 a 를 닫지 않는다.
+    expect(window.history.state).toEqual({ marker: 'page' });
+    expect(closeSpy).toHaveBeenCalledTimes(1);
+    expect(closeSpy).toHaveBeenCalledWith('a');
+    expect(queryByTestId('overlay-a')).toBeNull();
+  });
+
+  it('오버레이를 닫으며 이동한 뒤에도 새로고침 전 문서의 마커를 앞으로 가기로 읽지 않는다(#1708)', async () => {
+    // [prev][page][이전 문서 마커][문서 시작][죽은 a][B] — 이동 커밋은 currentMarkerId 를 그대로 두어 a 의 ID 와 견주게 된다.
+    const staleToken = `stale-doc-1708-${Math.random().toString(36).slice(2)}`;
+    window.history.pushState({ __overlayToken: staleToken, __overlayId: 1_000_000 }, '');
+    window.history.pushState({ marker: 'doc-start' }, '');
+    const { unmount } = render(<Overlay name="a" />);
+    skipNextOverlayReclaim();
+    unmount();
+    await settle();
+    // Next 이동 커밋 흉내 — __NA 가 있고 우리 마커는 없다.
+    window.history.pushState({ __NA: true, marker: 'B' }, '', '/b');
+
+    await jump(-3);
+
+    expect(window.history.state).toEqual({ marker: 'page' });
+    expect(closeSpy).not.toHaveBeenCalled();
+  });
+
+  it('건너뛰며 기억한 이전 문서 마커에 점프로 다시 내려와도 아래에서 올라왔다고 읽지 않는다(#1708)', async () => {
+    // [prev][page][이전 문서 마커][B] — B 에서 연 a1 을 두고 마커로 내려오면 마커를 건너뛰며 기억한다.
+    const staleToken = `stale-doc-1708-${Math.random().toString(36).slice(2)}`;
+    window.history.pushState({ __overlayToken: staleToken, __overlayId: 1_000_000 }, '');
+    window.history.pushState({ marker: 'B' }, '', '/b');
+    render(<Overlay name="a1" />);
+    await jump(-2);
+    expect(window.history.state).toEqual({ marker: 'page' });
+
+    // 기억이 남은 채 B 로 건너간 뒤 page 와 같은 주소의 C 와 a2 를 쌓는다 — [page][이전 문서 마커][B][C][a2].
+    await jump(2);
+    expect(window.history.state).toEqual({ marker: 'B' });
+    window.history.pushState({ marker: 'C' }, '', '/test-page');
+    const { queryByTestId } = render(<Overlay name="a2" />);
+    closeSpy.mockClear();
+
+    await jump(-3);
+
+    // 우리 마커가 있는 동안 이전 문서 마커는 늘 그 아래다 — 아래에서 올라왔다고 읽으면 B 로 앞으로 건너뛴다.
+    expect(window.history.state).toEqual({ marker: 'page' });
+    expect(closeSpy).toHaveBeenCalledTimes(1);
+    expect(closeSpy).toHaveBeenCalledWith('a2');
+    expect(queryByTestId('overlay-a2')).toBeNull();
+  });
+
+  it('건너뛰며 기억한 이전 문서 마커에 앞으로 가기로 올라오면 그 위로 재진입한다(우리 마커 없음, #857·#1708)', async () => {
+    // [prev][page][이전 문서 마커][B] — 우리 마커가 없을 때는 이전 문서 마커가 위쪽에 있을 수 있어(새로고침 전 앞쪽 기록) 기억을 그대로 쓴다.
+    const staleToken = `stale-doc-1708-${Math.random().toString(36).slice(2)}`;
+    window.history.pushState({ __overlayToken: staleToken, __overlayId: 0 }, '');
+    window.history.pushState({ marker: 'B' }, '', '/b');
+
+    await pressBack();
+    expect(window.history.state).toEqual({ marker: 'page' });
+
+    await pressForward();
+    expect(window.history.state).toEqual({ marker: 'B' });
+  });
+
+  it('같은 문서의 죽은 마커로 같은 모양을 만들면 지금처럼 한 번 앞으로 튄 뒤 두 번째 뒤로가기에 닿는다(#857 한계 유지)', async () => {
+    // [prev][page][죽은 d][B] — B 에서 뒤로 오며 d 를 건너뛰어 기억한다.
+    const { unmount } = render(<Overlay name="d" />);
+    skipNextOverlayReclaim();
+    unmount();
+    await settle();
+    window.history.pushState({ marker: 'B' }, '', '/b');
+    await pressBack();
+    expect(window.history.state).toEqual({ marker: 'page' });
+
+    await jump(2);
+    expect(window.history.state).toEqual({ marker: 'B' });
+    window.history.pushState({ marker: 'C' }, '', '/test-page');
+    render(<Overlay name="a2" />);
+
+    await jump(-3);
+
+    // 같은 문서에서는 기억이 남은 채 같은 주소에서 내려온 착지를 지금도 앞으로로 읽는다(#857 의 같은 URL 한계) — #1708 은 이 동작을 바꾸지 않는다.
+    expect(window.history.state).toEqual({ marker: 'B' });
+    // 앞으로 건너뛸 때 기억을 지우므로 두 번째 뒤로가기는 page 에 닿는다(최악 뒤로가기 2회).
+    await pressBack();
+    expect(window.history.state).toEqual({ marker: 'page' });
+  });
+
   it('소비처가 닫기를 거부하면 엔트리를 다시 push 한다', async () => {
     const { queryByTestId } = render(<Overlay name="a" refuseClose />);
 
@@ -491,7 +589,7 @@ describe('useBackDismiss', () => {
     const liveId: number = window.history.state.__overlayId;
     const backSpy = vi.spyOn(window.history, 'back');
     // 토큰은 이 테스트만 쓴다 — 건너뛴 엔트리 기억(토큰:ID)은 모듈 수명이라, 다른 테스트와 겹치면 앞으로 건너뛰기로 읽힌다.
-    // ID 는 우리 ID 아래로 둔다 — 알려진 결함 #1708(이전 문서 마커의 ID 를 우리 ID 와 견줌) 때문에, 더 크면 앞으로 가기로 오판해 스킵이 멈춘다.
+    // ID 는 서로 달라야 한다 — 건너뛴 엔트리 기억 키가 토큰:ID 라, 겹치면 앞으로 건너뛰기로 읽혀 스킵이 핑퐁한다.
     for (let index = 0; index < 15; index += 1) {
       window.history.pushState(
         { __overlayToken: 'stale-doc-skip-cap', __overlayId: liveId - 1 - index },
