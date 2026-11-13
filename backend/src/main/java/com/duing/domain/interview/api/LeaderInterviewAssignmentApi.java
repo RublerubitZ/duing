@@ -27,7 +27,7 @@ public interface LeaderInterviewAssignmentApi {
             summary = "면접 자동배정 실행",
             description = "응답 완료(RESPONDED) 멤버를 그리디(선택지 적은 지원자 우선, 잔여 수용 인원 최대 슬롯)로 배정한다. "
                     + "응답 수집 중이면 배정 검토(ASSIGNING) 단계로 전이하며, 배정 검토 중 재실행하면 기존 draft 를 "
-                    + "현재 상태 기준으로 재계산한다. 가능없음·미응답·제외 멤버는 대상이 아니다. "
+                    + "현재 상태 기준으로 재계산한다. 가능없음·미응답·제외 멤버와 결과가 정해진(합격·불합격) 지원은 대상이 아니다(배정·미배정 수에 들지 않는다). "
                     + "멤버 확정(ASSIGNED 전이)·알림은 확정 API 에서만 일어난다."
     )
     @PostMapping("/leader/interview-rounds/{roundId}/auto-assign")
@@ -40,7 +40,7 @@ public interface LeaderInterviewAssignmentApi {
             summary = "면접 수동 배정/재배정",
             description = "멤버를 지정 슬롯에 배정한다. 배정 검토(ASSIGNING)·확정(SCHEDULED) 단계 모두 허용 (§6.4). "
                     + "ASSIGNING — draft 단계, 알림 없음. "
-                    + "SCHEDULED — ASSIGNED 멤버의 개별 재배정, 성공 시 INTERVIEW_UPDATED 알림 발행(검사를 지난 뒤 같은 순간 결과가 정해지면 알림은 나가지 않는다). "
+                    + "SCHEDULED — ASSIGNED 멤버의 개별 재배정, 성공 시 INTERVIEW_UPDATED 알림 발행(결과 확정과 겹치면 일정은 옮겨질 수 있고, 알림을 만들 때 결과가 아직 없으면 알림도 나간다). "
                     + "가능없음·미응답 멤버도 운영진 재량으로 배정할 수 있고, 기존 배정은 교체된다. "
                     + "결과가 정해진(합격·불합격) 지원은 단계와 무관하게 409(이미 합격/불합격 처리된 지원). "
                     + "정원이 찬 슬롯은 409. 지금 배정과 같은 슬롯이면 아무것도 바꾸지 않고 204(알림 없음). "

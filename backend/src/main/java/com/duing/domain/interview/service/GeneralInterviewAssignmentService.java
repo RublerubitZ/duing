@@ -84,6 +84,12 @@ public class GeneralInterviewAssignmentService implements InterviewAssignmentSer
 
         List<InterviewRoundMember> respondedMembers = interviewRoundMemberRepository
                 .findAllByRoundIdAndStatusForUpdate(roundId, RoundMemberStatus.RESPONDED);
+        // 결과를 정한(합격·불합격) 응답자는 배정하지 않는다 — 결과 확정 정리(#1659) 전에 결과를 정한 멤버는 응답 완료로 남아 있다.
+        // 지원서는 잠그지 않고 상태만 읽는다(수동 배정과 같은 이유). 겹치는 결과 확정은 멤버 잠금에서 갈린다 — 결과 확정이 먼저 잡았으면 위 조회가 그 멤버를 거르고,
+        // 늦으면 이 배정이 커밋된 뒤 결과 확정이 초안을 지운다(releaseOnResultDecided). 그래서 여기서 거르는 것은 이미 커밋된 결과뿐이다.
+        Set<Long> undecidedApplicationIds = Set.copyOf(applicationRepository.findIdsByIdInAndStatusIn(
+                respondedMembers.stream().map(InterviewRoundMember::getApplicationId).toList(),
+                ApplicationStatus.activeSet()));
 
         Map<Long, Set<Long>> selectedSlotIdsByApplicationId = interviewAvailabilityRepository
                 .findByRoundId(roundId).stream()
@@ -92,6 +98,7 @@ public class GeneralInterviewAssignmentService implements InterviewAssignmentSer
 
         MatchingInput matchingInput = new MatchingInput(
                 respondedMembers.stream()
+                        .filter(member -> undecidedApplicationIds.contains(member.getApplicationId()))
                         .map(member -> new MatchingInput.ApplicantSelection(
                                 member.getApplicationId(),
                                 selectedSlotIdsByApplicationId.getOrDefault(
@@ -141,7 +148,8 @@ public class GeneralInterviewAssignmentService implements InterviewAssignmentSer
         InterviewRoundMember member = getLockedMemberOfRound(roundId, memberId);
         // 결과를 정한 지원은 일정을 바꾸지 않는다 — 확정 라운드는 결과 확정 정리 대상이 아니라 ASSIGNED 로 남는다(#1659).
         // 지원서는 잠그지 않는다: 결과 확정(지원서 → 멤버)·응답 API(지원서 → 슬롯)가 지원서를 먼저 잠가, 슬롯·멤버를 쥔 채 잠그면 교착이다.
-        // 잠그지 않아도 되는 이유 — 배정 검토는 결과 확정이 멤버 잠금을 기다렸다가 정리하고, 확정 단계는 커밋 뒤 리스너가 알림을 거른다.
+        // 잠그지 않아 남는 경합 — 배정 검토는 결과 확정이 멤버 잠금을 기다렸다가 정리해 남는 것이 없다. 확정 단계는 직렬화 지점이 없어 일정이 옮겨질 수 있고,
+        // 알림은 리스너가 커밋 뒤 다시 읽은 상태로 갈린다(결과가 먼저 커밋됐으면 빠지고, 아니면 나간다 — 일정 변경 → 결과 순서와 같다).
         if (applicationRepository.findStatusById(member.getApplicationId())
                 .filter(ApplicationStatus::isTerminal)
                 .isPresent()) {
