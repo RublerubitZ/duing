@@ -94,6 +94,19 @@ class RecruitmentInterviewOffGuardIntegrationTest extends InterviewControllerTes
         assertSaved(recruitment, true, recruitment.getTitle());
     }
 
+    @ParameterizedTest(name = "{0} 라운드가 있어도 204")
+    @EnumSource(value = RoundStatus.class, names = "CANCELLED", mode = EnumSource.Mode.EXCLUDE)
+    @DisplayName("면접을 켠 모집을 켠 채로 저장하는 수정은 취소하지 않은 라운드가 있어도 저장된다 — 수정 폼은 useInterview 를 늘 보낸다")
+    void allowsKeepingInterviewOnWithUncancelledRound(RoundStatus status) {
+        Recruitment recruitment = saveInterviewRecruitment(club, "켠채저장모집");
+        saveRound(recruitment, status);
+
+        patchRecruitment(leaderToken, recruitment, CHANGED_TITLE, true)
+                .statusCode(HttpStatus.NO_CONTENT.value());
+
+        assertSaved(recruitment, true, CHANGED_TITLE);
+    }
+
     @Test
     @DisplayName("다른 동아리 운영진이 면접을 끄려 하면 라운드가 있어도 409 가 아니라 미존재와 같은 404 다")
     void otherClubLeaderGetsNotFoundBeforeRoundGuard() {
