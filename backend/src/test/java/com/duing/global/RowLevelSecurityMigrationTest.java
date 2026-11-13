@@ -25,7 +25,7 @@ class RowLevelSecurityMigrationTest {
     @Test
     @DisplayName("public 스키마의 모든 테이블(파티션 부모 포함)에 RLS 가 켜져 있다 — 신규 마이그레이션이 RLS 를 누락하면 실패한다")
     void allPublicTablesHaveRowLevelSecurityEnabled() {
-        // flyway_schema_history 도 예외가 아니다(V140) — Supabase 기본 권한 때문에 RLS 가 꺼진 테이블은 공개 키로 읽고 고칠 수 있다.
+        // flyway_schema_history 도 예외가 아니다(콜백 afterMigrate.sql 이 켠다) — Supabase 기본 권한 때문에 RLS 가 꺼진 테이블은 공개 키로 읽고 고칠 수 있다.
         List<String> tablesWithoutRls = jdbcTemplate.queryForList(
                 "SELECT c.relname FROM pg_class c "
                         + "JOIN pg_namespace n ON c.relnamespace = n.oid "
