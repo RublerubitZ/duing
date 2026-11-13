@@ -98,8 +98,11 @@ export function SectionApply({ applications, isPending = false }: Props) {
             // 운영진이 면접을 끈 모집에 남은 면접 대상은 상세처럼 심사에 머문다.
             const step = withoutInterview && isInterview ? STATUS_STEP.SUBMITTED : STATUS_STEP[app.status];
             // 같은 이유로 면접 일정을 안내하지 않는다 — 버튼이 여는 상세에 면접 정보가 없다(#1695). 남은 확정 배정도 가린다.
-            const showsInterview = isInterview && !withoutInterview;
-            const visibleInterview = withoutInterview ? null : app.interview;
+            // 끝난 확정 면접도 다음 일정이 아니다 — 결과를 기다리는 동안은 심사 중처럼 보인다. 끝 시각까지는 남겨 늦게 온 지원자도 장소를 본다.
+            // 읽지 못하는 끝 시각은 NaN 이라 끝나지 않은 쪽(지금 화면)으로 남는다.
+            const interviewEnded = app.interview !== null && parseKstInstant(app.interview.endAt).getTime() <= Date.now();
+            const showsInterview = isInterview && !withoutInterview && !interviewEnded;
+            const visibleInterview = withoutInterview || interviewEnded ? null : app.interview;
 
             return (
               <div

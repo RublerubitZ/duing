@@ -1,6 +1,6 @@
 import { render, screen, within } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
-import type { ApplicationSummary } from '@duing/types';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { ApplicationSummary, AssignedInterview } from '@duing/types';
 
 import { SectionApply } from '../../app/me/_components/SectionApply';
 
@@ -23,6 +23,17 @@ const base: ApplicationSummary = {
   interview: null,
   submittedAt: '2026-05-26T10:00:00Z',
 };
+
+// 카드는 확정 면접이 끝났는지를 지금 시각으로 가른다 — 픽스처 면접일(6/20·11/20)보다 앞선 시각에 묶어 날짜가 지나도 깨지지 않게 한다.
+// 이보다 이른 면접일로 '다가옴'을 단언하려면 그 테스트에서 setSystemTime 을 다시 맞춘다.
+beforeEach(() => {
+  vi.useFakeTimers({ toFake: ['Date'] });
+  vi.setSystemTime(new Date('2026-06-01T09:00:00+09:00'));
+});
+
+afterEach(() => {
+  vi.useRealTimers();
+});
 
 // 카드 뿌리는 'relative' 클래스를 가진 div 다(다음 일정 배지를 겹쳐 올리는 기준).
 const cardOf = (clubName: string): HTMLElement => {
@@ -201,5 +212,111 @@ describe('SectionApply — 면접을 끈 모집에 남은 면접 대상은 면�
     };
     // 의도한 잠금 — 상태별 속성(data-*·aria-label)을 넣으면 여기서 깨지니 그때 비교 범위를 좁힌다.
     expect(sectionHtml(leftover)).toBe(sectionHtml({ ...leftover, status: 'SUBMITTED', interview: null }));
+  });
+});
+
+describe('SectionApply — 확정 면접이 끝나면 다음 일정으로 안내하지 않는다', () => {
+  const SCHEDULED_INTERVIEW: AssignedInterview = {
+    startAt: '2026-11-10T14:00:00',
+    endAt: '2026-11-10T14:30:00',
+    location: '학생회관 302호',
+  };
+  const scheduled: ApplicationSummary = {
+    ...base,
+    status: 'INTERVIEW_PENDING',
+    interview: SCHEDULED_INTERVIEW,
+    useInterview: true,
+  };
+
+  const expectUpcoming = (card: HTMLElement) => {
+    expect(within(card).getByText('다음 일정')).toBeInTheDocument();
+    expect(within(card).getByText(/면접: .+ — 학생회관 302호/)).toBeInTheDocument();
+    expect(within(card).getByText('면접: 2026.11.10 14:00')).toBeInTheDocument();
+    expect(card).toHaveClass('border-ink');
+    const link = within(card).getByRole('link');
+    expect(link).toHaveTextContent('면접 일정 보기');
+    expect(link).toHaveClass('btn-primary');
+  };
+
+  const expectEnded = (card: HTMLElement) => {
+    expect(within(card).queryByText('다음 일정')).not.toBeInTheDocument();
+    expect(card.textContent).not.toMatch(/면접:/);
+    expect(card.textContent).not.toContain('학생회관 302호');
+    expect(within(card).getByText('동아리에서 심사 중입니다')).toBeInTheDocument();
+    expect(card).toHaveClass('border-line');
+    expect(card).not.toHaveClass('border-ink');
+    const link = within(card).getByRole('link');
+    expect(link).toHaveTextContent('지원서 보기');
+    expect(link).toHaveClass('btn-secondary');
+    expect(link).toHaveAttribute('href', '/me/applications/1');
+    // 진행 막대는 그대로 면접 단계다 — 결과가 나올 때까지 면접 대상이다.
+    expect(within(card).getByText('면접')).toHaveClass('font-bold');
+  };
+
+  it.each([
+    ['시작 전', '2026-11-10T13:00:00+09:00'],
+    // 진행 중(시작은 지났고 끝나지 않음)에도 장소가 필요하다 — 늦게 온 지원자, 여러 명이 나눠 쓰는 긴 슬롯.
+    ['시작 직후', '2026-11-10T14:10:00+09:00'],
+    ['끝나기 1초 전', '2026-11-10T14:29:59+09:00'],
+  ])('%s에는 지금처럼 다음 일정이다', (_case, now) => {
+    vi.setSystemTime(new Date(now));
+    render(<SectionApply applications={[scheduled]} />);
+    expectUpcoming(cardOf('두잉 댄스'));
+  });
+
+  it.each([
+    ['끝 시각', '2026-11-10T14:30:00+09:00'],
+    ['다음 날 아침', '2026-11-11T09:00:00+09:00'],
+  ])('%s에는 다음 일정·면접 안내 없이 결과를 기다리는 카드다', (_case, now) => {
+    vi.setSystemTime(new Date(now));
+    render(<SectionApply applications={[scheduled]} />);
+    expectEnded(cardOf('두잉 댄스'));
+  });
+
+  it('끝 시각은 기기 시간대와 상관없이 한국 시간으로 읽는다', () => {
+    const originalTz = process.env.TZ;
+    process.env.TZ = 'America/New_York';
+    try {
+      vi.setSystemTime(new Date('2026-11-10T15:00:00+09:00'));
+      render(<SectionApply applications={[scheduled]} />);
+      expectEnded(cardOf('두잉 댄스'));
+    } finally {
+      // undefined 를 대입하면 문자열 "undefined" 가 들어가 UTC 로 동작한다 — 원래 없었으면 지운다.
+      if (originalTz === undefined) delete process.env.TZ;
+      else process.env.TZ = originalTz;
+    }
+  });
+
+  it('읽지 못하는 끝 시각은 끝나지 않은 쪽(지금 화면)으로 둔다', () => {
+    vi.setSystemTime(new Date('2026-11-11T09:00:00+09:00'));
+    render(<SectionApply applications={[{ ...scheduled, interview: { ...SCHEDULED_INTERVIEW, endAt: 'not-a-time' } }]} />);
+    expect(within(cardOf('두잉 댄스')).getByText('다음 일정')).toBeInTheDocument();
+  });
+
+  it('끝난 카드와 다가올 카드가 섞여도 카드마다 자기 면접 시각을 따른다', () => {
+    vi.setSystemTime(new Date('2026-11-11T09:00:00+09:00'));
+    render(
+      <SectionApply
+        applications={[
+          { ...scheduled, id: 1, clubName: '끝난 동아리' },
+          {
+            ...scheduled,
+            id: 2,
+            clubName: '다가올 동아리',
+            interview: { startAt: '2026-11-12T14:00:00', endAt: '2026-11-12T14:30:00', location: '학생회관 302호' },
+          },
+        ]}
+      />,
+    );
+    expect(within(cardOf('끝난 동아리')).queryByText('다음 일정')).not.toBeInTheDocument();
+    expect(within(cardOf('다가올 동아리')).getByText('다음 일정')).toBeInTheDocument();
+  });
+
+  it('배정 없는 면접 대상은 시각과 상관없이 지금처럼 다음 일정이다', () => {
+    vi.setSystemTime(new Date('2026-11-11T09:00:00+09:00'));
+    render(<SectionApply applications={[{ ...scheduled, interview: null }]} />);
+    const card = cardOf('두잉 댄스');
+    expect(within(card).getByText('다음 일정')).toBeInTheDocument();
+    expect(within(card).getByRole('link')).toHaveTextContent('면접 일정 보기');
   });
 });
