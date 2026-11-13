@@ -9,6 +9,8 @@ import com.duing.domain.club.service.ClubVisibilityPolicy;
 import com.duing.domain.clubmember.entity.ClubMember;
 import com.duing.domain.clubmember.entity.ClubMemberRole;
 import com.duing.domain.clubmember.service.ClubAuthService;
+import com.duing.domain.interview.entity.RoundStatus;
+import com.duing.domain.interview.repository.InterviewRoundRepository;
 import com.duing.domain.joincode.repository.ClubJoinRequestRepository;
 import com.duing.domain.joincode.service.JoinCodeService;
 import com.duing.domain.notification.event.RecruitmentOpenedEvent;
@@ -60,6 +62,8 @@ public class GeneralRecruitmentService implements RecruitmentService {
 
     private final RecruitmentRepository recruitmentRepository;
     private final ApplicationRepository applicationRepository;
+    // 면접 끄기 가드가 모집의 취소하지 않은 라운드를 센다.
+    private final InterviewRoundRepository interviewRoundRepository;
     // 삭제 정책(스펙 v2 4.2)이 모집에 딸린 가입 요청 상태를 함께 판정한다.
     private final ClubJoinRequestRepository clubJoinRequestRepository;
     // 삭제에 딸린 가입 링크 폐기는 코드 도메인에 맡긴다 — 감사 이벤트도 그쪽에서 남는다(스펙 v2 4.1).
@@ -188,6 +192,15 @@ public class GeneralRecruitmentService implements RecruitmentService {
                 && !requestedEndDate.equals(recruitment.getEndDate())
                 && requestedEndDate.isBefore(LocalDate.now(clock))) {
             throw new RecruitmentException.PastEndDateException();
+        }
+
+        // 켜 둔 면접을 끄는 요청만 본다(저장값 true → 요청 false). 수정 폼은 useInterview 를 늘 보내므로, 이미 꺼진 옛 모집의
+        // 다른 필드 수정까지 막지 않으려면 저장값을 함께 봐야 한다. CLOSED 는 기존 마감 409 가 더 정확해 그쪽에 양보한다.
+        if (recruitment.getStatus() != RecruitmentStatus.CLOSED
+                && Boolean.FALSE.equals(updateRecruitmentCommand.useInterview())
+                && recruitment.isUseInterview()
+                && interviewRoundRepository.existsByRecruitmentIdAndStatusNot(recruitment.getId(), RoundStatus.CANCELLED)) {
+            throw new RecruitmentException.InterviewRoundsExistException();
         }
 
         // 두 통로를 함께 보내면 어느 쪽이 진실인지 알 수 없다 — 조용히 한쪽을 버리면 질문이 소실된다.

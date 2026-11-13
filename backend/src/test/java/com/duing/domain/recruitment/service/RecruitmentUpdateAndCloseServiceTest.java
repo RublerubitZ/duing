@@ -14,6 +14,7 @@ import com.duing.domain.application.repository.ApplicationRepository;
 import com.duing.domain.club.entity.Club;
 import com.duing.domain.club.entity.ClubCategory;
 import com.duing.domain.clubmember.service.ClubAuthService;
+import com.duing.domain.interview.repository.InterviewRoundRepository;
 import com.duing.domain.joincode.repository.ClubJoinRequestRepository;
 import com.duing.domain.joincode.service.JoinCodeService;
 import com.duing.domain.recruitment.entity.ApplicationMode;
@@ -53,6 +54,7 @@ class RecruitmentUpdateAndCloseServiceTest {
     private final GeneralRecruitmentService recruitmentService = new GeneralRecruitmentService(
             recruitmentRepository,
             applicationRepository,
+            mock(InterviewRoundRepository.class),
             clubJoinRequestRepository,
             joinCodeService,
             clubRepository,

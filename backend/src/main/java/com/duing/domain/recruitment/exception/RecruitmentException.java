@@ -157,6 +157,16 @@ public class RecruitmentException extends ApplicationException {
         }
     }
 
+    /** 면접을 끄면 운영진 화면에서 남은 라운드를 볼 수도 취소할 수도 없고 하루 전 알림만 나가므로, 취소하지 않은 라운드가 있으면 막는다. */
+    public static class InterviewRoundsExistException extends RecruitmentException {
+        private static final String MESSAGE = "면접 라운드가 남아 있어 면접을 끌 수 없습니다. "
+                + "확정 전 라운드는 모두 폐기·취소하면 끌 수 있지만, 확정된 라운드가 있으면 끌 수 없습니다.";
+
+        public InterviewRoundsExistException() {
+            super(MESSAGE, HttpStatus.CONFLICT);
+        }
+    }
+
     /**
      * 가입 코드로 접수된 미처리 요청이 남은 모집은 삭제할 수 없다 (스펙 v2 4.2).
      * 학생이 이미 코드 자리를 차감한 채 응답을 기다리는 상태라, 삭제하면 응답 경로가 사라진다.
