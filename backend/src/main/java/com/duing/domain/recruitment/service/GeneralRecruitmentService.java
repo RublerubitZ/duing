@@ -9,6 +9,8 @@ import com.duing.domain.club.service.ClubVisibilityPolicy;
 import com.duing.domain.clubmember.entity.ClubMember;
 import com.duing.domain.clubmember.entity.ClubMemberRole;
 import com.duing.domain.clubmember.service.ClubAuthService;
+import com.duing.domain.interview.entity.RoundStatus;
+import com.duing.domain.interview.repository.InterviewRoundRepository;
 import com.duing.domain.joincode.repository.ClubJoinRequestRepository;
 import com.duing.domain.joincode.service.JoinCodeService;
 import com.duing.domain.notification.event.RecruitmentOpenedEvent;
@@ -60,6 +62,8 @@ public class GeneralRecruitmentService implements RecruitmentService {
 
     private final RecruitmentRepository recruitmentRepository;
     private final ApplicationRepository applicationRepository;
+    // 면접 끄기 가드가 모집에 취소하지 않은 라운드가 있는지 본다.
+    private final InterviewRoundRepository interviewRoundRepository;
     // 삭제 정책(스펙 v2 4.2)이 모집에 딸린 가입 요청 상태를 함께 판정한다.
     private final ClubJoinRequestRepository clubJoinRequestRepository;
     // 삭제에 딸린 가입 링크 폐기는 코드 도메인에 맡긴다 — 감사 이벤트도 그쪽에서 남는다(스펙 v2 4.1).
@@ -172,7 +176,9 @@ public class GeneralRecruitmentService implements RecruitmentService {
     @Override
     @Transactional
     public void update(UpdateRecruitmentCommand updateRecruitmentCommand) {
-        Recruitment recruitment = recruitmentRepository.findById(updateRecruitmentCommand.recruitmentId())
+        // 행 잠금 — 라운드 생성(createRound)·마감과 같은 모집 행 잠금으로 직렬화해 "라운드 0개 확인 → 생성 커밋 → 끄기 커밋"과,
+        // 전 컬럼 UPDATE 가 겹쳐 커밋된 마감을 OPEN 으로 되돌리는 lost update 를 막는다. 잠금은 트랜잭션의 첫 조회여야 한다.
+        Recruitment recruitment = recruitmentRepository.findByIdForUpdate(updateRecruitmentCommand.recruitmentId())
                 .orElseThrow(RecruitmentException.RecruitmentNotFoundException::new);
 
         Long clubId = recruitment.getClub().getId();
@@ -190,6 +196,15 @@ public class GeneralRecruitmentService implements RecruitmentService {
             throw new RecruitmentException.PastEndDateException();
         }
 
+        // 켜 둔 면접을 끄는 요청만 본다(저장값 true → 요청 false). 수정 폼은 useInterview 를 늘 보내므로, 이미 꺼진 옛 모집의
+        // 다른 필드 수정까지 막지 않으려면 저장값을 함께 봐야 한다. CLOSED 는 기존 마감 409 가 더 정확해 그쪽에 양보한다.
+        if (recruitment.getStatus() != RecruitmentStatus.CLOSED
+                && Boolean.FALSE.equals(updateRecruitmentCommand.useInterview())
+                && recruitment.isUseInterview()
+                && interviewRoundRepository.existsByRecruitmentIdAndStatusNot(recruitment.getId(), RoundStatus.CANCELLED)) {
+            throw new RecruitmentException.InterviewRoundsExistException();
+        }
+
         // 두 통로를 함께 보내면 어느 쪽이 진실인지 알 수 없다 — 조용히 한쪽을 버리면 질문이 소실된다.
         if (updateRecruitmentCommand.questions() != null && updateRecruitmentCommand.questionItems() != null) {
             throw new RecruitmentException.InvalidQuestionDefinitionException(
@@ -205,9 +220,9 @@ public class GeneralRecruitmentService implements RecruitmentService {
             // 자체 폼은 질문 0개로 존재할 수 없다 — 생성 경로(CreateRecruitmentCommand 컴팩트 생성자)의 불변식을
             // 수정 경로에도 세운다. 없으면 questions:[] / questionItems:[] 가 replaceQuestions(빈 목록)까지 도달해
             // 질문 0개짜리 자체 폼이 만들어지고, 그 뒤 answerItems:[] 제출이 개수 비교(0 == 0)를 통과한다.
-            // 해석(resolve)·행 잠금보다 앞에 둔다 — (1) 지원자 수와 무관하게 요청 자체가 무효라 400 이어야 하고
+            // 해석(resolve)·폼 잠금보다 앞에 둔다 — (1) 지원자 수와 무관하게 요청 자체가 무효라 400 이어야 하고
             // (지원자 존재 409 는 "지원자를 지우면 통과한다" 는 잘못된 신호를 준다), (2) legacy 통로는 빈 배열에
-            // "구 버전 형식으로는…" 이라는 엉뚱한 메시지를 먼저 던지며, (3) 성공할 수 없는 요청에 행 잠금을
+            // "구 버전 형식으로는…" 이라는 엉뚱한 메시지를 먼저 던지며, (3) 성공할 수 없는 요청에 폼 잠금을
             // 잡지 않는다. 비어 있지 않은 목록은 해석 후에도 비지 않으므로(1:1 매핑) 원본 목록으로 판정해도 충분하다.
             boolean clearsAllQuestions = updateRecruitmentCommand.questionItems() != null
                     ? updateRecruitmentCommand.questionItems().isEmpty()
@@ -235,12 +250,13 @@ public class GeneralRecruitmentService implements RecruitmentService {
             // 위 lockFormForQuestionChange(FOR UPDATE)가 제출측 공유 잠금(FOR SHARE)과 직렬화하므로
             // "지원자 0명 확인 → 질문 교체 커밋" 사이에 지원서가 INSERT 되는 경합 창은 닫혀 있다.
             // 아래 countByRecruitmentId 는 반드시 잠금 획득 뒤에 실행되어야 한다 — 순서를 바꾸면 가드가 다시 뚫린다.
-            // 참고: recruitment.getForm() 은 위 findById 가 이미 적재한 값이라(mappedBy @OneToOne 은
-            // 바이트코드 강화 없이는 eager) 다른 운영진의 동시 수정 기준으로는 낡을 수 있다. 그래도 답변이
-            // 죽은 질문을 가리키는 일은 없다 — 낡은 값과 동일하게 재전송되면 questionsChanged=false 라
-            // Hibernate 가 UPDATE 자체를 내지 않고, 조금이라도 다르면 questionsChanged=true 라 이 잠금
-            // 뒤의 지원자 수 확인이 실행되어 막힌다. 남는 것은 지원자 0명일 때의 수정끼리 last-writer-wins
-            // 뿐이며(RecruitmentForm 에 @Version 없음) 답변 유실과는 무관하다.
+            // 참고: recruitment.getForm() 은 위 첫 조회가 함께 적재한 값이다(mappedBy @OneToOne 은 바이트코드
+            // 강화 없이는 eager). 운영 경로에서는 모집 행 잠금이 첫 조회라 수정끼리 직렬화되어 최신이지만, 같은
+            // 트랜잭션이 잠금 전에 적재한 인스턴스는 1차 캐시에서 그대로 재사용되어 낡을 수 있다
+            // (ApplicationSubmitQuestionChangeConcurrencyTest). 그래도 답변이 죽은 질문을 가리키는 일은 없다 —
+            // 낡은 값과 동일하게 재전송되면 questionsChanged=false 라 Hibernate 가 UPDATE 자체를 내지 않고,
+            // 조금이라도 다르면 questionsChanged=true 라 이 잠금 뒤의 지원자 수 확인이 실행되어 막힌다.
+            // last-writer-wins 는 낡은 화면으로 저장하는 화면 수준으로만 남으며 답변 유실과는 무관하다.
             boolean questionsChanged = recruitment.getForm() == null
                     || !recruitment.getForm().getQuestions().equals(resolvedQuestions);
             if (questionsChanged

@@ -88,7 +88,8 @@ public class GeneralClubClosureService implements ClubClosureService {
         // ⚠ 잠금 순서: 이 트랜잭션은 club → club_join_code 순으로 잠근다. 학생의 가입 요청 생성도 같은 순서로 잠그므로(#905)
         // 겹치면 요청이 club 잠금에서 기다렸다가 폐기된 링크·비 ACTIVE 상태를 보고 409 로 끝난다. 순서를 되돌리면 폐쇄가
         // 요청의 코드 행 뒤에서 대기하는 사이 폐쇄 중인 동아리로 요청이 접수된다 — Hibernate 의 PESSIMISTIC_WRITE 는 PG 에서
-        // FOR NO KEY UPDATE 라 FK 의 KEY SHARE 와 충돌하지 않아 교착까지는 가지 않지만, 잠금 모드가 FOR UPDATE 로 바뀌는 순간 진짜 교착이 된다.
+        // FOR NO KEY UPDATE 라 FK 의 KEY SHARE 와 충돌하지 않아 교착까지는 가지 않지만, 잠금 모드가 FOR UPDATE 로 바뀌는 순간 진짜 교착이 된다
+        // (가드: RecruitmentRowLockModeTest).
         joinCodeService.revokeActiveOnClubClosure(clubId, recruitmentIds, actorAdminUserId);
         applicationService.rejectActiveOnClubClosure(recruitmentIds, actorAdminUserId);
         interviewRoundService.softDeleteAllOnClubClosure(recruitmentIds);

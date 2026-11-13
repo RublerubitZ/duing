@@ -14,6 +14,7 @@ import com.duing.domain.club.entity.ClubCategory;
 import com.duing.domain.club.repository.ClubRepository;
 import com.duing.domain.club.service.ClubVisibilityPolicy;
 import com.duing.domain.clubmember.service.ClubAuthService;
+import com.duing.domain.interview.repository.InterviewRoundRepository;
 import com.duing.domain.joincode.repository.ClubJoinRequestRepository;
 import com.duing.domain.joincode.service.JoinCodeService;
 import com.duing.domain.recruitment.entity.Recruitment;
@@ -52,6 +53,7 @@ class RecruitmentStopIntakeServiceTest {
     private final GeneralRecruitmentService recruitmentService = new GeneralRecruitmentService(
             recruitmentRepository,
             applicationRepository,
+            mock(InterviewRoundRepository.class),
             clubJoinRequestRepository,
             joinCodeService,
             clubRepository,
@@ -250,7 +252,6 @@ class RecruitmentStopIntakeServiceTest {
         LocalDate kstToday = LocalDate.now(KST);
         Recruitment recruitment = alwaysOpenRecruitment(kstToday.minusDays(10));
         when(recruitmentRepository.findByIdForUpdate(RECRUITMENT_ID)).thenReturn(Optional.of(recruitment));
-        when(recruitmentRepository.findById(RECRUITMENT_ID)).thenReturn(Optional.of(recruitment));
 
         recruitmentService.stopIntake(RECRUITMENT_ID, MANAGER_USER_ID);
         recruitmentService.update(updateCommand(null, kstToday.plusDays(7)));
@@ -265,7 +266,6 @@ class RecruitmentStopIntakeServiceTest {
         LocalDate kstToday = LocalDate.now(KST);
         Recruitment recruitment = alwaysOpenRecruitment(kstToday.minusDays(10));
         when(recruitmentRepository.findByIdForUpdate(RECRUITMENT_ID)).thenReturn(Optional.of(recruitment));
-        when(recruitmentRepository.findById(RECRUITMENT_ID)).thenReturn(Optional.of(recruitment));
 
         recruitmentService.stopIntake(RECRUITMENT_ID, MANAGER_USER_ID);
         recruitmentService.update(updateCommand("심사 중 제목 수정", null));
