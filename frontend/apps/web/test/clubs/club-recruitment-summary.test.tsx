@@ -49,6 +49,24 @@ describe('ClubRecruitmentSummary — 모바일 모집 요약 카드', () => {
     expect(screen.getByText('모집마감')).toBeInTheDocument();
   });
 
+  // 면접을 끄면 폼은 면접 기간을 비워 보내지만 서버가 그대로 둔다 — '(서류)' 와 면접 줄이 함께 보이면 안 된다.
+  it('면접을 끈 모집은 면접 기간이 남아 있어도 면접 줄을 숨기고 인원은 (서류)', () => {
+    render(<ClubRecruitmentSummary recruitment={{ ...base, useInterview: false }} />);
+    expect(screen.getByText('55명 (서류)')).toBeInTheDocument();
+    expect(screen.queryByText('면접')).toBeNull();
+    expect(screen.queryByText('2026-06-15 ~ 2026-06-28')).toBeNull();
+  });
+
+  it('면접을 쓰는 모집이어도 면접 기간이 비어 있으면 면접 줄을 그리지 않는다', () => {
+    render(
+      <ClubRecruitmentSummary
+        recruitment={{ ...base, interviewStartDate: null, interviewEndDate: null }}
+      />,
+    );
+    expect(screen.getByText('55명 (서류 + 면접)')).toBeInTheDocument();
+    expect(screen.queryByText('면접')).toBeNull();
+  });
+
   it('모집이 없으면 렌더하지 않는다', () => {
     const { container } = render(<ClubRecruitmentSummary recruitment={undefined} />);
     expect(container).toBeEmptyDOMElement();
