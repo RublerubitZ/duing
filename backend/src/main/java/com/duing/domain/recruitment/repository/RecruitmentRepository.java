@@ -32,6 +32,11 @@ public interface RecruitmentRepository extends JpaRepository<Recruitment, Long>,
      * <p>마감(close)과 면접 라운드 생성(createRound)도 같은 잠금을 쓴다 — 라운드 생성이 OPEN 을 확인한
      * 뒤 마감이 커밋되면 마감된 모집에 라운드가 잔존하기 때문이다(아카이브 스펙 §9). 소비 경로가 잠그는
      * 순서는 모집 → 지원서 / 모집 → 가입 코드로 모두 모집이 먼저라 사이클이 없다.
+     *
+     * <p>모집 수정(update)도 첫 조회로 이 잠금을 쓰고, 질문을 바꿀 때는 모집 → 폼(lockFormForQuestionChange) 순으로 잠근다.
+     * ⚠ 제출은 폼 FOR SHARE → 지원 INSERT(모집 FK 의 KEY SHARE) 순이라 방향이 반대다 — PESSIMISTIC_WRITE 는 PG 에서
+     * FOR NO KEY UPDATE 라 KEY SHARE 와 충돌하지 않아 교착이 없지만, 잠금 모드가 FOR UPDATE 로 바뀌는 순간
+     * 수정(모집 → 폼 UPDATE) ↔ 제출(폼 SHARE → 모집 KEY SHARE) 교착이 된다.
      */
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT recruitment FROM Recruitment recruitment WHERE recruitment.id = :recruitmentId")

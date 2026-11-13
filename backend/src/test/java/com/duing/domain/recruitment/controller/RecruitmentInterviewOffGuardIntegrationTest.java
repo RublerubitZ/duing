@@ -14,6 +14,8 @@ import com.duing.domain.interview.entity.RoundStatus;
 import com.duing.domain.interview.service.InterviewRoundService;
 import com.duing.domain.interview.service.dto.command.CreateInterviewRoundCommand;
 import com.duing.domain.recruitment.entity.Recruitment;
+import com.duing.domain.recruitment.entity.RecruitmentStatus;
+import com.duing.domain.recruitment.service.RecruitmentService;
 import com.duing.domain.user.entity.User;
 import com.duing.global.constant.ErrorCodes;
 import io.restassured.RestAssured;
@@ -45,6 +47,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 /**
  * 모집 수정에서 면접 끄기 가드 — 면접을 켠 모집에 취소하지 않은 라운드가 있으면 끄는 요청을 409 로 막는다.
  * 요청 본문은 수정 폼처럼 제목 변경과 useInterview 를 함께 싣는다.
+ * 모집 수정 잠금 경합(첫 조회의 모집 행 잠금이 라운드 생성·마감과 직렬화되는지)도 함께 본다.
  */
 @Import(TestcontainersConfiguration.class)
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
@@ -59,6 +62,7 @@ class RecruitmentInterviewOffGuardIntegrationTest extends InterviewControllerTes
     private int port;
 
     @Autowired private InterviewRoundService interviewRoundService;
+    @Autowired private RecruitmentService recruitmentService;
     @Autowired private PlatformTransactionManager transactionManager;
     @Autowired private JdbcTemplate jdbcTemplate;
 
@@ -94,7 +98,7 @@ class RecruitmentInterviewOffGuardIntegrationTest extends InterviewControllerTes
     @DisplayName("다른 동아리 운영진이 면접을 끄려 하면 라운드가 있어도 409 가 아니라 미존재와 같은 404 다")
     void otherClubLeaderGetsNotFoundBeforeRoundGuard() {
         Recruitment recruitment = saveInterviewRecruitment(club, "남의모집");
-        saveDraftRound(recruitment);
+        saveRound(recruitment, RoundStatus.DRAFT);
         User otherLeader = saveUser("타동아리리더");
         clubMemberRepository.save(ClubMember.asLeader(saveActiveClub("타동아리"), otherLeader));
 
@@ -154,7 +158,7 @@ class RecruitmentInterviewOffGuardIntegrationTest extends InterviewControllerTes
     @DisplayName("면접 진행 여부를 보내지 않은 수정은 초안 라운드가 있어도 저장되고 면접은 켜진 채로 남는다")
     void allowsEditWithoutUseInterviewWhenRoundsExist() {
         Recruitment recruitment = saveInterviewRecruitment(club, "생략모집");
-        saveDraftRound(recruitment);
+        saveRound(recruitment, RoundStatus.DRAFT);
 
         patchRecruitment(leaderToken, recruitment, CHANGED_TITLE, null)
                 .statusCode(HttpStatus.NO_CONTENT.value());
@@ -166,7 +170,7 @@ class RecruitmentInterviewOffGuardIntegrationTest extends InterviewControllerTes
     @DisplayName("마감된 모집에서 면접을 끄려 하면 라운드가 있어도 기존의 마감 409 가 먼저 나간다")
     void closedRecruitmentKeepsClosedConflict() {
         Recruitment recruitment = saveInterviewRecruitment(club, "마감모집");
-        saveDraftRound(recruitment);
+        saveRound(recruitment, RoundStatus.DRAFT);
         recruitment.close(LocalDateTime.now());
         recruitmentRepository.saveAndFlush(recruitment);
 
@@ -221,12 +225,52 @@ class RecruitmentInterviewOffGuardIntegrationTest extends InterviewControllerTes
                 .hasSize(1);
     }
 
-    /* ---- helpers ---- */
+    @Test
+    @DisplayName("마감이 모집 행을 잠근 사이 들어온 수정은 마감이 끝날 때까지 기다렸다가 마감 코드와 함께 409 로 거절되고 마감을 되돌리지 않는다")
+    void updateWaitsForCloseAndIsRejectedAfterwards() throws Exception {
+        Recruitment recruitment = saveInterviewRecruitment(club, "마감경합모집");
+        TransactionTemplate closeTransaction = new TransactionTemplate(transactionManager);
+        CountDownLatch closeHoldsRowLock = new CountDownLatch(1);
+        CountDownLatch closeMayCommit = new CountDownLatch(1);
+        ExecutorService executor = Executors.newFixedThreadPool(2);
 
-    private void saveDraftRound(Recruitment recruitment) {
-        interviewRoundRepository.save(
-                InterviewRoundFixture.draft(recruitment.getId(), LocalDateTime.now().plusDays(7)));
+        try {
+            // 마감을 커밋 직전에 붙잡아, close() 가 잡은 모집 행 잠금을 계속 쥔 상태로 만든다.
+            Future<?> closing = executor.submit(() -> closeTransaction.executeWithoutResult(transaction -> {
+                recruitmentService.close(recruitment.getId(), leader.getId());
+                recruitmentRepository.flush();
+                closeHoldsRowLock.countDown();
+                awaitQuietly(closeMayCommit);
+            }));
+            assertThat(closeHoldsRowLock.await(10, TimeUnit.SECONDS))
+                    .as("마감 트랜잭션이 모집 행 잠금을 획득").isTrue();
+
+            Future<Response> updating = executor.submit(() ->
+                    patchRecruitment(leaderToken, recruitment, CHANGED_TITLE, null).extract().response());
+
+            // 수정이 행 잠금 대기에 들어간 뒤에 마감을 놓는다 — 잠금이 없으면 수정은 마감 전의 OPEN 을 읽고 전 컬럼 UPDATE 에서
+            // 기다리다 204 로 끝나며 마감을 OPEN 으로 되돌리고, 잠금이 있으면 첫 조회에서 기다리다 커밋된 CLOSED 를 본다.
+            awaitBlockedLock();
+            closeMayCommit.countDown();
+            closing.get(30, TimeUnit.SECONDS);
+
+            Response updateResponse = updating.get(30, TimeUnit.SECONDS);
+            assertThat(updateResponse.statusCode())
+                    .as("잠금이 없으면 수정이 마감 전의 OPEN 을 읽고 204 로 끝난다")
+                    .isEqualTo(HttpStatus.CONFLICT.value());
+            assertThat(updateResponse.jsonPath().getString("code")).isEqualTo(ErrorCodes.RECRUITMENT_CLOSED);
+        } finally {
+            closeMayCommit.countDown();
+            executor.shutdownNow();
+        }
+
+        Recruitment reloaded = recruitmentRepository.findById(recruitment.getId()).orElseThrow();
+        assertThat(reloaded.getStatus()).isEqualTo(RecruitmentStatus.CLOSED);
+        assertThat(reloaded.getClosedAt()).isNotNull();
+        assertThat(reloaded.getTitle()).isEqualTo(recruitment.getTitle());
     }
+
+    /* ---- helpers ---- */
 
     private void saveRound(Recruitment recruitment, RoundStatus status) {
         interviewRoundRepository.save(InterviewRoundFixture.withStatus(
@@ -236,7 +280,7 @@ class RecruitmentInterviewOffGuardIntegrationTest extends InterviewControllerTes
     // 면접을 끄는 가드가 생기기 전에 꺼진 모집 — 꺼진 모집 생성 뒤 라운드를 저장소로 직접 넣어 재현한다.
     private Recruitment saveLegacyInterviewOffRecruitmentWithDraftRound() {
         Recruitment legacyRecruitment = saveSimpleRecruitment(club, "옛모집");
-        saveDraftRound(legacyRecruitment);
+        saveRound(legacyRecruitment, RoundStatus.DRAFT);
         return legacyRecruitment;
     }
 
