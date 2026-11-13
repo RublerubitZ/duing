@@ -51,7 +51,7 @@ let selfTraversals = 0;
 let skipBudget = MAX_SKIPS;
 let installed = false;
 // 지금 앉아 있는 엔트리의 오버레이 ID(우리 것이 아니면 null) — 앞으로 가기 판별에 쓴다.
-// ID 는 단조 증가라 "착지 ID > 직전 ID" 면 위로 올라간 것, 즉 forward 다.
+// ID 는 문서 안에서 단조 증가라 "착지 ID > 직전 ID" 면 위로 올라간 것, 즉 forward 다.
 let currentMarkerId: number | null = null;
 // 그 엔트리의 URL. 시트 안에서 router.replace 가 쿼리를 갱신하면 여기도 따라간다.
 let currentHref: string | null = null;
@@ -263,8 +263,12 @@ function handlePopState() {
   const landedOnLiveEntry = landedIndex !== -1;
   // 마커는 있는데 주인이 없다 = 코드로 닫힌 중간 오버레이의 잔해거나 이전 문서의 엔트리.
   const landedOnDeadEntry = id !== null && !landedOnLiveEntry;
+  // 우리 마커가 있는 동안(currentMarkerId) 다른 문서가 남긴 엔트리는 늘 그 아래다 — 우리 마커를 쌓을 때 위쪽이 잘렸고 그 문서는
+  // 더 쌓지 못한다. 그래서 그쪽 착지는 뒤로 내려온 것이다(#1708). 오버레이 ID 는 문서마다 1부터 세므로 ID 로는 가릴 수 없다.
+  const otherDocumentBelowUs = token !== DOCUMENT_TOKEN && currentMarkerId !== null;
   // 앞으로 가기로 죽은 엔트리에 올라온 경우까지 건너뛰면 그 위 엔트리에 영원히 도달할 수 없다.
-  const wentForward = id !== null && currentMarkerId !== null && id > currentMarkerId;
+  const wentForward =
+    !otherDocumentBelowUs && id !== null && currentMarkerId !== null && id > currentMarkerId;
 
   // 위쪽으로 기억한 죽은 엔트리에 같은 페이지(=그 아래 A)에서 올라왔으면 앞으로 가기다. 집합만 보면 히스토리
   // 메뉴로 여러 칸 건너 B 로 간 뒤 뒤로가기로 착지한 경우를 앞으로로 오판해 뒤로가기가 바운스한다.

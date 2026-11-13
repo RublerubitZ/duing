@@ -472,6 +472,42 @@ describe('useBackDismiss', () => {
     expect(window.history.state).toEqual({ marker: 'page' });
   });
 
+  it('새로고침 전 문서의 마커에 여러 칸 뒤로 내려와도 앞으로 가기로 읽지 않고 건너뛴다(#1708)', async () => {
+    // [prev][page][이전 문서 마커][문서 시작][a] — 오버레이 ID 는 문서마다 1부터 세므로 이전 문서 마커 ID 가 우리보다 클 수 있다.
+    // 토큰은 실행마다 새로 만든다 — 건너뛴 엔트리 기억(토큰:ID)은 모듈 수명이라, 같은 키가 남으면 다시 돌릴 때 앞으로 건너뛰기로 읽힌다.
+    const staleToken = `stale-doc-1708-${Math.random().toString(36).slice(2)}`;
+    window.history.pushState({ __overlayToken: staleToken, __overlayId: 1_000_000 }, '');
+    window.history.pushState({ marker: 'doc-start' }, '');
+    const { queryByTestId } = render(<Overlay name="a" />);
+
+    // 히스토리 메뉴로 두 칸을 건너 이전 문서 마커에 바로 착지한다.
+    await jump(-2);
+
+    // ID 만 견주면 앞으로 올라온 착지로 오판해 그 자리에 앉고 a 를 닫지 않는다.
+    expect(window.history.state).toEqual({ marker: 'page' });
+    expect(closeSpy).toHaveBeenCalledTimes(1);
+    expect(closeSpy).toHaveBeenCalledWith('a');
+    expect(queryByTestId('overlay-a')).toBeNull();
+  });
+
+  it('오버레이를 닫으며 이동한 뒤에도 새로고침 전 문서의 마커를 앞으로 가기로 읽지 않는다(#1708)', async () => {
+    // [prev][page][이전 문서 마커][문서 시작][죽은 a][B] — 이동 커밋은 currentMarkerId 를 그대로 두어 a 의 ID 와 견주게 된다.
+    const staleToken = `stale-doc-1708-${Math.random().toString(36).slice(2)}`;
+    window.history.pushState({ __overlayToken: staleToken, __overlayId: 1_000_000 }, '');
+    window.history.pushState({ marker: 'doc-start' }, '');
+    const { unmount } = render(<Overlay name="a" />);
+    skipNextOverlayReclaim();
+    unmount();
+    await settle();
+    // Next 이동 커밋 흉내 — __NA 가 있고 우리 마커는 없다.
+    window.history.pushState({ __NA: true, marker: 'B' }, '', '/b');
+
+    await jump(-3);
+
+    expect(window.history.state).toEqual({ marker: 'page' });
+    expect(closeSpy).not.toHaveBeenCalled();
+  });
+
   it('소비처가 닫기를 거부하면 엔트리를 다시 push 한다', async () => {
     const { queryByTestId } = render(<Overlay name="a" refuseClose />);
 
@@ -491,7 +527,7 @@ describe('useBackDismiss', () => {
     const liveId: number = window.history.state.__overlayId;
     const backSpy = vi.spyOn(window.history, 'back');
     // 토큰은 이 테스트만 쓴다 — 건너뛴 엔트리 기억(토큰:ID)은 모듈 수명이라, 다른 테스트와 겹치면 앞으로 건너뛰기로 읽힌다.
-    // ID 는 우리 ID 아래로 둔다 — 알려진 결함 #1708(이전 문서 마커의 ID 를 우리 ID 와 견줌) 때문에, 더 크면 앞으로 가기로 오판해 스킵이 멈춘다.
+    // ID 는 서로 달라야 한다 — 건너뛴 엔트리 기억 키가 토큰:ID 라, 겹치면 앞으로 건너뛰기로 읽혀 스킵이 핑퐁한다.
     for (let index = 0; index < 15; index += 1) {
       window.history.pushState(
         { __overlayToken: 'stale-doc-skip-cap', __overlayId: liveId - 1 - index },
