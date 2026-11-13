@@ -1,6 +1,8 @@
 package com.duing.domain.interview.controller;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.contains;
+import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasKey;
 import static org.hamcrest.Matchers.nullValue;
@@ -55,6 +57,7 @@ class LeaderInterviewDecidedApplicantControllerTest extends InterviewControllerT
     private static final String ROUND_PATH = "/api/v1/leader/interview-rounds/{roundId}";
     private static final String AUTO_ASSIGN_PATH = ROUND_PATH + "/auto-assign";
     private static final String SCHEDULE_PATH = ROUND_PATH + "/members/{memberId}/schedule";
+    private static final String CONFIRM_PATH = ROUND_PATH + "/confirm";
     private static final String DECIDED_MESSAGE = "이미 합격/불합격 처리된 지원입니다.";
 
     @LocalServerPort
@@ -182,6 +185,61 @@ class LeaderInterviewDecidedApplicantControllerTest extends InterviewControllerT
                 .findByRoundIdAndStatus(round.getId(), InterviewScheduleStatus.ASSIGNED))
                 .extracting(InterviewSchedule::getApplicationId)
                 .containsExactly(remaining.getId());
+    }
+
+    @Test
+    @DisplayName("결과를 정했는데 응답 완료로 남은 지원자(결과 확정 정리 전 데이터)는 자동 배정 재실행에서 빠져 초안을 잃고, 같은 슬롯을 고른 다른 응답자가 그 자리를 받는다")
+    void leftoverDecidedRespondentIsLeftOutOfAutoAssign() {
+        InterviewRound round = saveRound(RoundStatus.ASSIGNING);
+        InterviewSlot slot = saveSlot(round, "2026-06-20T14:00:00", 1);
+        // #1659 이전에 결과를 정해 응답 완료로 남은 멤버 — 지금의 결과 확정 API 로는 만들 수 없어 직접 저장한다.
+        // 지원 번호가 작아 매칭이 먼저 놓을 쪽이고, 이전 자동 배정의 초안을 갖고 있다.
+        Application leftover = saveApplicationWithStatus(recruitment, "정리전합격응답자", ApplicationStatus.ACCEPTED);
+        addMember(round, leftover, RoundMemberStatus.RESPONDED, slot);
+        saveSchedule(round, leftover, slot);
+        Application remaining = saveMember(round, "남은응답자", RoundMemberStatus.RESPONDED, slot);
+
+        givenLeader()
+                .when().post(AUTO_ASSIGN_PATH, round.getId())
+                .then().statusCode(HttpStatus.OK.value())
+                .body("data.assignedMemberCount", equalTo(1))
+                .body("data.unassignedMemberCount", equalTo(0));
+
+        assertThat(activeScheduleOf(round, leftover)).isEmpty();
+        assertThat(activeScheduleOf(round, remaining)).map(InterviewSchedule::getSlotId).contains(slot.getId());
+    }
+
+    @Test
+    @DisplayName("결과를 정했는데 응답 완료로 남은 지원자는 자동 배정 뒤 확정 경고의 '응답했으나 미배정'에 남고, 강제 확정이 제외한다 — 확정 멤버로 슬롯 자리를 차지하지 않는다")
+    void leftoverDecidedRespondentIsUnresolvedAtConfirmAndForceExcludes() {
+        InterviewRound round = saveRound(RoundStatus.COLLECTING);
+        InterviewSlot slot = saveSlot(round, "2026-06-20T14:00:00", 2);
+        Application leftover = saveApplicationWithStatus(recruitment, "정리전불합격응답자", ApplicationStatus.REJECTED);
+        addMember(round, leftover, RoundMemberStatus.RESPONDED, slot);
+        Application remaining = saveMember(round, "남은응답자", RoundMemberStatus.RESPONDED, slot);
+
+        givenLeader()
+                .when().post(AUTO_ASSIGN_PATH, round.getId())
+                .then().statusCode(HttpStatus.OK.value())
+                .body("data.assignedMemberCount", equalTo(1))
+                .body("data.unassignedMemberCount", equalTo(0));
+
+        givenLeader()
+                .when().post(CONFIRM_PATH, round.getId())
+                .then().statusCode(HttpStatus.CONFLICT.value())
+                .body("data.unresponded", empty())
+                .body("data.respondedUnassigned.applicationId", contains(leftover.getId().intValue()));
+
+        givenLeader()
+                .queryParam("force", true)
+                .when().post(CONFIRM_PATH, round.getId())
+                .then().statusCode(HttpStatus.OK.value())
+                .body("data.assignedMemberCount", equalTo(1))
+                .body("data.excludedMemberCount", equalTo(1));
+
+        assertThat(memberStatusOf(round, leftover)).isEqualTo(RoundMemberStatus.EXCLUDED);
+        assertThat(activeScheduleOf(round, leftover)).isEmpty();
+        assertThat(memberStatusOf(round, remaining)).isEqualTo(RoundMemberStatus.ASSIGNED);
     }
 
     @Test
