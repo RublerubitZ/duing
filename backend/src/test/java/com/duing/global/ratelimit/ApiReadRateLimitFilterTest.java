@@ -124,11 +124,12 @@ class ApiReadRateLimitFilterTest {
     }
 
     @Test
-    @DisplayName("로그에는 IP 전체가 아니라 대역만 남긴다 — IPv4 는 앞 두 옥텟, IPv6 는 앞 두 그룹")
+    @DisplayName("로그에는 IP 전체가 아니라 대역만 남긴다 — IPv4 는 앞 세 옥텟, IPv6 는 앞 세 그룹")
     void masksClientIpForLog() {
-        assertThat(ApiReadRateLimitFilter.maskForLog("203.0.113.7")).isEqualTo("203.0.x.x");
+        assertThat(ApiReadRateLimitFilter.maskForLog("203.0.113.7")).isEqualTo("203.0.113.x");
         assertThat(ApiReadRateLimitFilter.maskForLog(ClientIpKeys.normalize("2001:db8:1:2::9")))
-                .isEqualTo("2001:db8::/32");
+                .isEqualTo("2001:db8:1::/48");
+        assertThat(ApiReadRateLimitFilter.maskForLog("203.0")).isEqualTo("unknown");
         assertThat(ApiReadRateLimitFilter.maskForLog("unknown")).isEqualTo("unknown");
     }
 

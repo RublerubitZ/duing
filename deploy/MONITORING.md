@@ -65,7 +65,7 @@ Octomo(octoverse.kr) 는 **잔여 쿼터 조회 API 를 제공하지 않는다**
 | 서버 `deploy/.env`(선택) | `DUING_TRAFFIC_SURGE_ENABLED` | 트래픽 이상 감지. 운영 기본 `true` — 끌 때만 `false`. 켜져 있으면 시작 로그에 `[트래픽 이상 감지] 활성 — 기준 …` 한 줄 |
 | 서버 `deploy/.env`(선택) | `DUING_TRAFFIC_SURGE_REQUESTS_PER_MINUTE` | 분당 요청 기준. 기본 3000. 정수만 — 숫자가 아니면 부팅이 실패한다 |
 | 서버 `deploy/.env`(선택) | `DUING_TRAFFIC_SURGE_REJECTIONS_PER_MINUTE` | 분당 429 기준. 기본 300. 정수만 — 숫자가 아니면 부팅이 실패한다 |
-| 서버 `deploy/.env`(선택) | `DUING_RATE_LIMIT_API_READ_PER_MINUTE` | 조회 요청 제한 — 한 IP 가 분당 부를 수 있는 GET·HEAD 건수. 기본 1000, 0 이하면 끈다. 가두모집처럼 한 Wi-Fi 에 수십 명이 몰릴 날은 미리 올린다. 바꾼 뒤 `docker compose up -d`(`restart` 는 `.env` 를 다시 읽지 않는다). 한 IP 에서 나가는 부하 테스트는 0 으로 두고 돌린다 |
+| 서버 `deploy/.env`(선택) | `DUING_RATE_LIMIT_API_READ_PER_MINUTE` | 조회 요청 제한 — 한 IP 가 분당 부를 수 있는 GET·HEAD 건수. 기본 1000, 0 이하면 끈다. 정수만 — 숫자가 아니거나 빈 값이면 부팅이 실패한다(끌 때는 비우지 말고 `0`). 가두모집처럼 한 Wi-Fi 에 수십 명이 몰릴 날은 미리 올린다. 바꾼 뒤 `docker compose up -d`(`restart` 는 `.env` 를 다시 읽지 않는다) — 컨테이너를 다시 만들어 1~2분 끊기고 배포의 헬스 게이트·자동 롤백을 거치지 않으니, 끝나면 `docker compose ps` 로 healthy 를 확인한다. 한 IP 에서 나가는 부하 테스트는 0 으로 두고 돌린다 |
 
 Webhook 발급: Slack → 앱 디렉터리 "Incoming Webhooks" → 채널 `#duing-monitoring` 선택 → URL 복사.
 **릴리스 순서**: ① 서버 `.env` 에 `SLACK_WEBHOOK_URL=...` 추가 → ② GitHub Secret 추가 → ③ develop→main 릴리스. ①을 빼먹어도 배포는 성공하지만 앱 알림이 조용히 꺼진다 — 릴리스 후 컨테이너 시작 로그에서 `[Slack 운영 알림] 활성` 을 확인한다.
@@ -172,11 +172,12 @@ EOF
    Sentry 5xx, Better Stack) 확인한다. 정상 몰림이고 서버가 버티면 지켜본다.
 2. **공격이면** 비상 모드로 간다 — [EDGE-EMERGENCY.md](./EDGE-EMERGENCY.md). 429 축만 높으면 특정 기능 남용(인증 코드 등)일
    가능성이 크다. 레이트리미터가 막고 있는지 Sentry·로그로 본다.
-   - 429 가 조회 요청 제한에서 나온 것이면 백엔드 WARN `[조회 요청 제한] 한 IP(대역 a.b.x.x)가 분당 한도(…건)를 넘겨 …` 가
+   - 429 가 조회 요청 제한에서 나온 것이면 백엔드 WARN `[조회 요청 제한] 한 IP(대역 a.b.c.x)가 분당 한도(…건)를 넘겨 …` 가
      그 분의 첫 거절마다 한 줄 남는다(`docker compose logs backend | grep '조회 요청 제한'`). IP 는 대역만 남는다 — 접근 로그는
      Caddy·Tomcat 모두 꺼져 있어 이 줄이 유일한 단서다. 대역이 학교 망이면 교내 NAT 의 정상 학생이 잘리는 것이니
      `DUING_RATE_LIMIT_API_READ_PER_MINUTE` 를 올리거나 0 으로 끄고 `docker compose up -d` 한다. 외부 대역이면 제한이
-     일하고 있는 것이다 — 서버가 버티면 지켜본다.
+     일하고 있는 것이다 — 서버가 버티면 지켜본다. 한 IP 의 거절만으로는 분당 429 기준(300)에 닿지 않을 수 있어 이 알림이
+     오지 않기도 한다 — 가두모집·OT 처럼 한 곳에 사람이 몰리는 날은 이 로그를 직접 본다.
 3. **정상화 알림**(`TRAFFIC_SURGE_RECOVERED`)은 5회 연속 기준 미만일 때 온다. 상태는 메모리라 알림 뒤 재기동(배포)하면
    오지 않는다 — 그때는 재기동 뒤 2회 집계(약 2분) 안에 감지 알림이 다시 오는지 본다. 오지 않으면 가라앉은 것이다.
 4. **기준 조정** — 매일 09:00 일간 요약(`TRAFFIC_DAILY_SUMMARY`)의 최대 분당 요청·429 를 1~2주 모아 본다. 평시 최대치의
