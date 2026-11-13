@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ApiError } from '@duing/api';
 import {
   useInterviewRoundsQuery,
@@ -43,7 +43,8 @@ export function RoundWizard({ clubId, recruitmentId }: Props) {
   const [selectedMap, setSelectedMap] = useState<Map<number, InterviewRoundCandidate>>(new Map());
   const [roundId, setRoundId] = useState<number | null>(null);
   const [draftDismissed, setDraftDismissed] = useState(false);
-  const [discardError, setDiscardError] = useState<string | null>(null);
+  // 폐기 오류는 그 라운드에 묶는다 — 거절 뒤 다시 받은 목록에 다른 초안이 있으면 그 창에 옛 초안의 문구를 남기지 않는다.
+  const [discardError, setDiscardError] = useState<{ roundId: number; message: string } | null>(null);
 
   // 다른 탭·다른 운영진이 바꾼 30초 안 캐시로 창을 열지 않게 마운트 때마다 다시 받는다.
   const roundsQuery = useInterviewRoundsQuery(recruitmentId, { refetchOnMount: 'always' });
@@ -70,11 +71,13 @@ export function RoundWizard({ clubId, recruitmentId }: Props) {
       setDraftDismissed(true);
       setStep(1);
     } catch (discardFailure) {
-      setDiscardError(
-        discardFailure instanceof ApiError && discardFailure.status === 409
-          ? discardFailure.message
-          : '라운드 폐기 중 오류가 발생했습니다. 다시 시도해주세요.',
-      );
+      setDiscardError({
+        roundId: draftRound.roundId,
+        message:
+          discardFailure instanceof ApiError && discardFailure.status === 409
+            ? discardFailure.message
+            : '라운드 폐기 중 오류가 발생했습니다. 다시 시도해주세요.',
+      });
     }
   };
 
@@ -109,6 +112,13 @@ export function RoundWizard({ clubId, recruitmentId }: Props) {
   // 폐기가 거절된 뒤 다시 받은 목록에 초안이 없으면 창이 내려간다 — 설명 없이 1단계에 놓이지 않게 창 밖에 알린다.
   const draftGoneAfterFailedDiscard =
     discardError !== null && roundId === null && !draftDismissed && draftRound === null && step === 1;
+  const draftGoneNoticeRef = useRef<HTMLParagraphElement>(null);
+  useEffect(() => {
+    if (!draftGoneAfterFailedDiscard) return;
+    // 창이 내려가며 포커스가 body 로 빠진다 — 이 알림으로 옮긴다. setTimeout 0 은 창의 닫힘 처리(Radix·공용 복귀) 뒤에 돌게 하는 방어다.
+    const focusTimer = setTimeout(() => draftGoneNoticeRef.current?.focus(), 0);
+    return () => clearTimeout(focusTimer);
+  }, [draftGoneAfterFailedDiscard]);
 
   // 마운트 뒤 첫 응답 전에는 낡은 캐시로 창을 열지 않는다 — 첫 응답 뒤의 무효화로는 단계를 내리지 않는다.
   const isAwaitingFirstRoundsResponse = roundsQuery.isFetching && !roundsQuery.isFetchedAfterMount;
@@ -145,12 +155,19 @@ export function RoundWizard({ clubId, recruitmentId }: Props) {
           isRefreshing={discardError !== null && roundsQuery.isFetching}
           onResume={handleResume}
           onDiscard={handleDiscard}
-          discardError={discardError}
+          discardError={discardError?.roundId === draftRound.roundId ? discardError.message : null}
+          isDraftReplaced={discardError !== null && discardError.roundId !== draftRound.roundId}
         />
       )}
 
       {draftGoneAfterFailedDiscard && (
-        <p role="alert" className="mb-4 break-keep rounded-md border border-coral/20 bg-coral/5 px-3 py-2 text-sm text-coral-deep">
+        // 창이 사라진 뒤 포커스를 받는 자리(탭 순서 밖) — 포커스 표시는 라운드 현황 배너와 같은 안쪽 outline.
+        <p
+          ref={draftGoneNoticeRef}
+          role="alert"
+          tabIndex={-1}
+          className="mb-4 break-keep rounded-md border border-coral/20 bg-coral/5 px-3 py-2 text-sm text-coral-deep focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ink"
+        >
           작성 중이던 라운드가 그사이 발송되었거나 정리되었습니다. 면접 관리에서 지금 상태를 확인해주세요.
         </p>
       )}

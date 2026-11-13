@@ -1,4 +1,5 @@
 // 라운드 멤버 상태 뱃지 라벨·스타일 — RoundMemberTable(roundMemberBadge)·ConfirmRoundDialog 공용.
+// 결과 판정(isDecidedApplicationResult)은 표의 결과 배지, 표·가능없음 섹션의 배정 동작 숨김, 확정 409 창의 빈 자리 표시 숨김, 상태 배너의 미배정 응답자 수가 함께 쓴다.
 // 알 수 없는 상태값은 원문을 그대로 보인다 — 표는 roundMemberBadge 안에서, 확정 409 창은 호출부의 `?? fallback` 으로.
 
 import type { InterviewRoundDetailMember } from '@duing/types';
@@ -33,6 +34,19 @@ const DECIDED_RESULT_CLASS: Record<TerminalApplicationStatus, string> = {
   REJECTED: 'bg-paper text-charcoal-2 ring-1 ring-inset ring-line',
 };
 
+/** 결과를 정한 멤버의 배정 동작 자리에 적는 이유 — 숨긴 버튼 이름을 받아 단계마다 무엇이 막혔는지 말한다(표·가능없음 섹션 공용) */
+export const RESULT_DECIDED_MANUAL_ASSIGN_NOTE = '결과 확정 — 수동 배정 불가';
+export const RESULT_DECIDED_RESCHEDULE_NOTE = '결과 확정 — 일정 변경 불가';
+
+/**
+ * 지원 결과가 알려진 결과(합격·불합격)인가. 필드가 없는 옛 백엔드(undefined)·null·모르는 값은 아니다(fail-open — 지금 표시·버튼 그대로).
+ */
+export function isDecidedApplicationResult(
+  applicationResult: InterviewRoundDetailMember['applicationResult'],
+): applicationResult is TerminalApplicationStatus {
+  return applicationResult != null && isTerminalApplicationStatus(applicationResult);
+}
+
 /**
  * 라운드 표의 멤버 배지. EXCLUDED 이면서 지원 결과가 아는 값(합격·불합격)이면 '제외됨' 대신 그 결과를 보인다 — 결과로 빠진 사람이
  * 운영진이 뺀 사람(빨간 '제외됨')과 같아 보이지 않게 하고, 운영진이 먼저 뺀 뒤 결과가 난 사람도 지금 결과로 보인다.
@@ -43,7 +57,7 @@ export function roundMemberBadge(member: Pick<InterviewRoundDetailMember, 'statu
   className: string;
 } {
   const { applicationResult } = member;
-  if (member.status === 'EXCLUDED' && applicationResult != null && isTerminalApplicationStatus(applicationResult)) {
+  if (member.status === 'EXCLUDED' && isDecidedApplicationResult(applicationResult)) {
     return { label: APPLICATION_STATUS_OPERATOR_LABEL[applicationResult], className: DECIDED_RESULT_CLASS[applicationResult] };
   }
   return {

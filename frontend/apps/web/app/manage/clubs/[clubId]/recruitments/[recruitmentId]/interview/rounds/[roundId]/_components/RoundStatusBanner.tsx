@@ -9,11 +9,12 @@ import {
   ROUND_STATUS_BADGE_CLASS,
 } from '@/components/interview/interviewRoundStatusLabels';
 import { ButtonSpinner } from '@/components/loading/Spinner';
+import { isDecidedApplicationResult } from './memberStatusLabels';
 
 // 상태 배너 — 상태 뱃지 + 단일 next action (DRAFT→이어서 작성(인원 0 이면 정리하기) / COLLECTING·ASSIGNING→자동배정 /
 // ASSIGNING→확정) + 조기 배정 UX ① 전원 응답 배너 + ASSIGNING draft 안내·남은 자리 안내.
 
-/** 상태 배너의 id — 확정 성공으로 [확정]이 사라진 뒤 포커스를 받는 자리다(RoundDashboard 의 포커스 표지). */
+/** 상태 배너의 id — 확정·라운드 취소가 성공해 누른 버튼([확정]·동작 막대)이 사라진 뒤 포커스를 받는 자리다(RoundDashboard 의 포커스 표지). */
 export const ROUND_STATUS_BANNER_ID = 'round-status-banner';
 
 type RoundStatusBannerProps = {
@@ -41,8 +42,12 @@ export function RoundStatusBanner({
     counts.invitedCount === 0 &&
     detail.members.some((member) => member.status !== 'EXCLUDED');
   // 결과 확정·제외로 빠진 자리뿐 아니라 자동배정 뒤 미배정 응답자도 함께 알린다 — 남은 자리는 그들이 고른 시간이 아닐 수 있다(사람별 판정은 확정 창).
+  // 결과를 정한 응답자는 수동 배정이 막혀 남은 자리로 살릴 수 없어 세지 않는다(결과 없음·모르는 값은 센다).
   const unassignedRespondedCount = detail.members.filter(
-    (member) => member.status === 'RESPONDED' && member.assignedSlotId === null,
+    (member) =>
+      member.status === 'RESPONDED' &&
+      member.assignedSlotId === null &&
+      !isDecidedApplicationResult(member.applicationResult),
   ).length;
   const freeSeatCount = detail.slots.reduce(
     (seatSum, slot) => seatSum + Math.max(0, slot.capacity - slot.assignedCount),
@@ -128,7 +133,7 @@ export function RoundStatusBanner({
           <span className="shrink-0 rounded-full bg-warm/20 px-2 py-0.5 text-xs font-semibold text-warm-deep">
             draft
           </span>
-          <span className="min-w-0 break-keep">확정 전까지 지원자에게 통지되지 않습니다</span>
+          <span className="break-keep">확정 전까지 지원자에게 통지되지 않습니다</span>
         </div>
       )}
 

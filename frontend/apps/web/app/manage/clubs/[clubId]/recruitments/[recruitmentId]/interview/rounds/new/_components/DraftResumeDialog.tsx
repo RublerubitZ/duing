@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useRef } from 'react';
+import { useEffect, useId, useRef } from 'react';
 
 import type { InterviewRoundSummary } from '@duing/types';
 
@@ -33,6 +33,8 @@ type Props = {
   onDiscard: () => void;
   /** 폐기 실패 시 표시할 인라인 에러 메시지 */
   discardError?: string | null;
+  /** 폐기가 거절된 뒤 다시 받은 목록의 다른 초안을 보이는 중 — 창 안에 바뀌었다고 알리고 포커스를 안전한 쪽으로 옮긴다 */
+  isDraftReplaced?: boolean;
 };
 
 export function DraftResumeDialog({
@@ -44,11 +46,19 @@ export function DraftResumeDialog({
   onResume,
   onDiscard,
   discardError,
+  isDraftReplaced = false,
 }: Props) {
   const resumeRef = useRef<HTMLButtonElement | null>(null);
   const landingLinkRef = useRef<HTMLAnchorElement | null>(null);
+  const replacedNoticeId = useId();
   const hasNoMembers = draftRound.totalMemberCount === 0;
   const isLocked = isPending || isRefreshing;
+
+  useEffect(() => {
+    if (!isDraftReplaced) return;
+    // 창이 조용히 다른 초안으로 바뀌면 포커스가 [폐기]에 남아 Enter 한 번에 남의 초안을 버릴 수 있다 — 열 때처럼 안전한 쪽으로 옮긴다.
+    (hasNoMembers ? landingLinkRef.current : resumeRef.current)?.focus();
+  }, [isDraftReplaced, draftRound.roundId, hasNoMembers]);
 
   const discardButton = (
     <button
@@ -78,6 +88,11 @@ export function DraftResumeDialog({
         <DialogHeader>
           <DialogTitle>작성 중인 라운드가 있습니다</DialogTitle>
           <DialogDescription className="space-y-2 text-sm">
+            {isDraftReplaced && (
+              <span id={replacedNoticeId} className="block break-keep text-charcoal-2">
+                작성 중이던 라운드가 그사이 바뀌었습니다. 아래 라운드를 확인해주세요.
+              </span>
+            )}
             <span className="block font-medium text-charcoal">{draftRound.title}</span>
             {hasNoMembers ? (
               <>
@@ -116,6 +131,7 @@ export function DraftResumeDialog({
                   if (isLocked) event.preventDefault();
                 }}
                 aria-disabled={isLocked || undefined}
+                aria-describedby={isDraftReplaced ? replacedNoticeId : undefined}
                 className="btn btn-ghost btn-sm aria-disabled:cursor-not-allowed aria-disabled:opacity-50 aria-disabled:hover:bg-transparent aria-disabled:hover:text-charcoal-2"
               >
                 면접 관리로
@@ -130,6 +146,8 @@ export function DraftResumeDialog({
                 type="button"
                 onClick={onResume}
                 disabled={isLocked}
+                // 바뀐 초안으로 포커스를 옮길 때 낭독기가 안내를 함께 읽게 한다.
+                aria-describedby={isDraftReplaced ? replacedNoticeId : undefined}
                 className="btn btn-primary btn-sm disabled:opacity-50"
               >
                 이어하기

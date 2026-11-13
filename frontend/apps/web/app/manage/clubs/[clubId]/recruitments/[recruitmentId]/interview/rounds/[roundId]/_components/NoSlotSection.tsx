@@ -1,6 +1,7 @@
 'use client';
 
 import type { InterviewRoundDetail, InterviewRoundDetailMember } from '@duing/types';
+import { isDecidedApplicationResult, RESULT_DECIDED_MANUAL_ASSIGN_NOTE } from './memberStatusLabels';
 import { roundMemberRowId } from './RoundMemberTable';
 import { ROUND_SLOTS_SECTION_ID } from './RoundSlotsSection';
 
@@ -47,53 +48,61 @@ export function NoSlotSection({ detail, onExclude, onManualAssign }: NoSlotSecti
         )}
       </div>
       <div className="space-y-2">
-        {noSlotMembers.map((member) => (
-          // 표의 행과 같은 규칙 — 창이 닫힌 뒤 포커스를 받는 자리(RoundMemberTable 주석)
-          <div
-            key={member.memberId}
-            id={roundMemberRowId(member.memberId)}
-            role="group"
-            aria-labelledby={`${roundMemberRowId(member.memberId)}-name ${roundMemberRowId(member.memberId)}-student`}
-            tabIndex={-1}
-            className="flex items-start justify-between gap-3 rounded-md bg-white px-4 py-3 focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ink"
-          >
-            <div className="min-w-0">
-              <div className="flex items-center gap-2">
-                <span id={`${roundMemberRowId(member.memberId)}-name`} className="text-sm font-medium text-ink-deep">
-                  {member.userName}
-                </span>
-                <span id={`${roundMemberRowId(member.memberId)}-student`} className="text-xs text-charcoal-3">{member.studentId}</span>
+        {noSlotMembers.map((member) => {
+          // 결과(합격·불합격)가 정해진 지원은 서버가 배정을 거절한다(#1702, 409) — [수동 배정] 대신 이름 아래에 이유를 적는다.
+          // 동작 칸(shrink-0)에 두면 좁은 폭에서 글 + [제외]가 이름 칸을 누른다.
+          const isResultDecided = isDecidedApplicationResult(member.applicationResult);
+          return (
+            // 표의 행과 같은 규칙 — 창이 닫힌 뒤 포커스를 받는 자리(RoundMemberTable 주석)
+            <div
+              key={member.memberId}
+              id={roundMemberRowId(member.memberId)}
+              role="group"
+              aria-labelledby={`${roundMemberRowId(member.memberId)}-name ${roundMemberRowId(member.memberId)}-student`}
+              tabIndex={-1}
+              className="flex items-start justify-between gap-3 rounded-md bg-white px-4 py-3 focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ink"
+            >
+              <div className="min-w-0">
+                <div className="flex items-center gap-2">
+                  <span id={`${roundMemberRowId(member.memberId)}-name`} className="text-sm font-medium text-ink-deep">
+                    {member.userName}
+                  </span>
+                  <span id={`${roundMemberRowId(member.memberId)}-student`} className="text-xs text-charcoal-3">{member.studentId}</span>
+                </div>
+                {member.alternativeAvailabilityText && (
+                  <p className="mt-1 text-sm text-charcoal-2">
+                    {member.alternativeAvailabilityText}
+                  </p>
+                )}
+                {status === 'ASSIGNING' && isResultDecided && (
+                  <p className="mt-1 break-keep text-xs text-charcoal-3">{RESULT_DECIDED_MANUAL_ASSIGN_NOTE}</p>
+                )}
               </div>
-              {member.alternativeAvailabilityText && (
-                <p className="mt-1 text-sm text-charcoal-2">
-                  {member.alternativeAvailabilityText}
-                </p>
-              )}
+              <div className="flex shrink-0 items-center gap-1">
+                {/* 수동 배정 — ASSIGNING 한정, 결과가 정해졌으면 위의 이유 */}
+                {status === 'ASSIGNING' && !isResultDecided && (
+                  <button
+                    type="button"
+                    onClick={() => onManualAssign(member)}
+                    className="rounded-md px-2 py-1 text-xs text-ink hover:bg-sage-tint"
+                  >
+                    수동 배정
+                  </button>
+                )}
+                {/* 제외 — 비터미널 상태 한정 */}
+                {canExclude && (
+                  <button
+                    type="button"
+                    onClick={() => onExclude(member)}
+                    className="rounded-md px-2 py-1 text-xs text-danger hover:bg-danger/5"
+                  >
+                    제외
+                  </button>
+                )}
+              </div>
             </div>
-            <div className="flex shrink-0 items-center gap-1">
-              {/* 수동 배정 — ASSIGNING 한정 */}
-              {status === 'ASSIGNING' && (
-                <button
-                  type="button"
-                  onClick={() => onManualAssign(member)}
-                  className="rounded-md px-2 py-1 text-xs text-ink hover:bg-sage-tint"
-                >
-                  수동 배정
-                </button>
-              )}
-              {/* 제외 — 비터미널 상태 한정 */}
-              {canExclude && (
-                <button
-                  type="button"
-                  onClick={() => onExclude(member)}
-                  className="rounded-md px-2 py-1 text-xs text-danger hover:bg-danger/5"
-                >
-                  제외
-                </button>
-              )}
-            </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
