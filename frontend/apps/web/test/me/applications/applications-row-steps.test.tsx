@@ -131,3 +131,39 @@ describe('내 지원 목록 행 — 진행 표시는 면접을 쓰는 모집에�
     expect(document.querySelectorAll('[aria-labelledby="application-stepper-title"] ol > li')).toHaveLength(2);
   });
 });
+
+describe('내 지원 목록 행 — 면접을 끈 모집에 남은 면접 배정은 보이지 않는다(상세와 같은 규칙)', () => {
+  const rowText = (container: HTMLElement, clubName: string): string =>
+    [...container.querySelectorAll('.apply-row')].find((row) => row.textContent?.includes(clubName))?.textContent ?? '';
+  const tabTexts = (container: HTMLElement): string[] =>
+    [...container.querySelectorAll('section button')].map((tab) => tab.textContent ?? '');
+  const interviewOff: ApplicationSummary = {
+    ...base, status: 'INTERVIEW_PENDING', interview: ASSIGNED_INTERVIEW, useInterview: false,
+  };
+
+  it('확정 배정이 남아 있어도 배지는 면접 대상이고 면접일·장소가 없다', () => {
+    const { container } = renderPage([interviewOff]);
+    const text = rowText(container, '행 동아리');
+    expect(text).toContain('면접 대상');
+    // '면접일 확정' 배지와 오른쪽 '면접일' 칸을 함께 막는다.
+    expect(text).not.toContain('면접일');
+    expect(text).not.toContain('302호');
+  });
+
+  it('면접 대상 칩에는 그대로 센다(상태가 면접 대상이다)', () => {
+    const { container } = renderPage([interviewOff]);
+    expect(tabTexts(container)).toContain('면접 대상1');
+  });
+
+  it('상세 창에 철회 버튼이 생기지 않는다(심사 중으로 바꾸지 않는다)', () => {
+    renderPage([interviewOff], '1');
+    expect(document.body.textContent).not.toContain('지원 철회');
+  });
+
+  it.each([true, undefined])('useInterview=%s 면 지금처럼 면접일 확정·장소다(fail-open)', (useInterview) => {
+    const { container } = renderPage([{ ...interviewOff, useInterview }]);
+    const text = rowText(container, '행 동아리');
+    expect(text).toContain('면접일 확정');
+    expect(text).toContain('302호');
+  });
+});
