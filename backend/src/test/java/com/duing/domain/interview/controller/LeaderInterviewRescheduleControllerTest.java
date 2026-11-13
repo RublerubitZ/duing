@@ -17,12 +17,15 @@ import com.duing.domain.interview.entity.RoundMemberStatus;
 import com.duing.domain.interview.entity.RoundStatus;
 import com.duing.domain.interview.repository.InterviewScheduleRepository;
 import com.duing.domain.interview.repository.InterviewSlotRepository;
+import com.duing.domain.notification.entity.Notification;
+import com.duing.domain.notification.entity.NotificationType;
 import com.duing.domain.notification.repository.NotificationRepository;
 import com.duing.domain.recruitment.entity.Recruitment;
 import com.duing.domain.user.entity.User;
 import io.restassured.RestAssured;
 import io.restassured.http.ContentType;
 import java.time.LocalDateTime;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -165,10 +168,8 @@ class LeaderInterviewRescheduleControllerTest extends InterviewControllerTestSup
         // 멤버 상태 ASSIGNED 유지 — §16-1 불변식
         assertThat(interviewRoundMemberRepository.findById(member.getId()).orElseThrow().getStatus())
                 .isEqualTo(RoundMemberStatus.ASSIGNED);
-        // INTERVIEW_UPDATED 알림 — dedupKey = "INTERVIEW_UPDATED:a={app}:s={newSlot}"
-        String dedupKey = "INTERVIEW_UPDATED:a=" + application.getId() + ":s=" + newSlot.getId();
-        assertThat(notificationRepository.existsByUserIdAndDedupKey(
-                application.getUser().getId(), dedupKey)).isTrue();
+        // INTERVIEW_UPDATED 알림 — 새 슬롯 시각으로 한 건
+        assertThat(updatedNotificationBodies(application)).containsExactly("07/03 11:00으로 일정이 변경되었습니다");
     }
 
     @Test
@@ -186,9 +187,7 @@ class LeaderInterviewRescheduleControllerTest extends InterviewControllerTestSup
                 .then().statusCode(HttpStatus.NO_CONTENT.value());
 
         // ASSIGNING 은 draft — INTERVIEW_UPDATED 알림 없음
-        String dedupKey = "INTERVIEW_UPDATED:a=" + application.getId() + ":s=" + slot.getId();
-        assertThat(notificationRepository.existsByUserIdAndDedupKey(
-                application.getUser().getId(), dedupKey)).isFalse();
+        assertThat(updatedNotificationBodies(application)).isEmpty();
     }
 
     @Test
@@ -356,9 +355,7 @@ class LeaderInterviewRescheduleControllerTest extends InterviewControllerTestSup
                 .findByRoundIdAndApplicationIdAndStatus(
                         round.getId(), application.getId(), InterviewScheduleStatus.ASSIGNED)
                 .orElseThrow().getSlotId()).isEqualTo(oldSlot.getId());
-        String dedupKey = "INTERVIEW_UPDATED:a=" + application.getId() + ":s=" + newSlot.getId();
-        assertThat(notificationRepository.existsByUserIdAndDedupKey(
-                application.getUser().getId(), dedupKey)).isFalse();
+        assertThat(updatedNotificationBodies(application)).isEmpty();
     }
 
     @Test
@@ -382,9 +379,7 @@ class LeaderInterviewRescheduleControllerTest extends InterviewControllerTestSup
                 .findByRoundIdAndApplicationIdAndStatus(
                         round.getId(), application.getId(), InterviewScheduleStatus.ASSIGNED)
                 .orElseThrow().getSlotId()).isEqualTo(newSlot.getId());
-        String dedupKey = "INTERVIEW_UPDATED:a=" + application.getId() + ":s=" + newSlot.getId();
-        assertThat(notificationRepository.existsByUserIdAndDedupKey(
-                application.getUser().getId(), dedupKey)).isTrue();
+        assertThat(updatedNotificationBodies(application)).containsExactly("07/09 11:00으로 일정이 변경되었습니다");
     }
 
     @Test
@@ -404,9 +399,7 @@ class LeaderInterviewRescheduleControllerTest extends InterviewControllerTestSup
         assertThat(interviewScheduleRepository
                 .findByRoundIdAndApplicationIdAndStatus(
                         round.getId(), application.getId(), InterviewScheduleStatus.ASSIGNED)).isPresent();
-        String dedupKey = "INTERVIEW_UPDATED:a=" + application.getId() + ":s=" + slot.getId();
-        assertThat(notificationRepository.existsByUserIdAndDedupKey(
-                application.getUser().getId(), dedupKey)).isFalse();
+        assertThat(updatedNotificationBodies(application)).isEmpty();
     }
 
     @Test
@@ -465,7 +458,42 @@ class LeaderInterviewRescheduleControllerTest extends InterviewControllerTestSup
                 .body("message", org.hamcrest.Matchers.equalTo(ROUND_STATUS_CHANGED_MESSAGE));
     }
 
+    @Test
+    @DisplayName("확정된 라운드에서 A→B→A→B 로 옮기면 옮길 때마다 변경 알림이 가고 마지막 알림은 B 시각이다")
+    void scheduledRoundBackAndForthNotifiesEveryMove() {
+        InterviewRound round = saveRound(RoundStatus.SCHEDULED);
+        InterviewSlot slotA = saveSlot(round, "2026-07-14T10:00:00", 1);
+        InterviewSlot slotB = saveSlot(round, "2026-07-14T11:00:00", 1);
+        Application application = saveInterviewPendingApplication(recruitment, "왕복재배정");
+        InterviewRoundMember member = saveMember(round, application, RoundMemberStatus.ASSIGNED);
+        interviewScheduleRepository.save(InterviewScheduleFixture.assigned(
+                application.getId(), slotA.getId(), round.getId()));
+
+        // 세 번째 이동(다시 B)은 앞서 변경 알림을 받은 슬롯으로 돌아가는 이동이다 — 키가 (지원, 슬롯)뿐이면 여기서 빠진다.
+        for (InterviewSlot targetSlot : List.of(slotB, slotA, slotB)) {
+            givenLeader()
+                    .contentType(ContentType.JSON)
+                    .body(Map.of("slotId", targetSlot.getId(), "expectedRoundStatus", "SCHEDULED"))
+                    .when().put(SCHEDULE_PATH, round.getId(), member.getId())
+                    .then().statusCode(HttpStatus.NO_CONTENT.value());
+        }
+
+        assertThat(updatedNotificationBodies(application)).containsExactly(
+                "07/14 11:00으로 일정이 변경되었습니다",
+                "07/14 10:00으로 일정이 변경되었습니다",
+                "07/14 11:00으로 일정이 변경되었습니다");
+    }
+
     // ── 헬퍼 ─────────────────────────────────────────────────────────────────
+
+    private List<String> updatedNotificationBodies(Application application) {
+        return notificationRepository.findAll().stream()
+                .filter(notification -> notification.getUserId().equals(application.getUser().getId()))
+                .filter(notification -> notification.getType() == NotificationType.INTERVIEW_UPDATED)
+                .sorted(Comparator.comparing(Notification::getId))
+                .map(Notification::getBody)
+                .toList();
+    }
 
     private io.restassured.specification.RequestSpecification givenLeader() {
         return RestAssured.given().header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken);

@@ -173,7 +173,7 @@ public class GeneralInterviewAssignmentService implements InterviewAssignmentSer
         if (assignedCount >= slot.getCapacity()) {
             throw new InterviewException.SlotCapacityExceeded();
         }
-        interviewScheduleRepository.save(InterviewSchedule.create(
+        InterviewSchedule newSchedule = interviewScheduleRepository.save(InterviewSchedule.create(
                 member.getApplicationId(), slotId, roundId, LocalDateTime.now(clock)));
 
         // SCHEDULED 재배정 — 확정 완료된 지원자에게 변경 알림 발행 (§6.4·§8).
@@ -181,7 +181,7 @@ public class GeneralInterviewAssignmentService implements InterviewAssignmentSer
         // AFTER_COMMIT 리스너가 처리하므로 롤백 시 알림은 발송되지 않는다 (BE#11 전례).
         if (round.getStatus() == RoundStatus.SCHEDULED) {
             eventPublisher.publishEvent(new InterviewUpdatedEvent(
-                    member.getApplicationId(), slotId, round.getRecruitmentId()));
+                    member.getApplicationId(), slotId, round.getRecruitmentId(), newSchedule.getId()));
         }
     }
 
