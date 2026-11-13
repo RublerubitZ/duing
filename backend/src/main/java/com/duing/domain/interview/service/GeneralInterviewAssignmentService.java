@@ -1,5 +1,7 @@
 package com.duing.domain.interview.service;
 
+import com.duing.domain.application.entity.ApplicationStatus;
+import com.duing.domain.application.repository.ApplicationRepository;
 import com.duing.domain.interview.entity.InterviewAvailability;
 import com.duing.domain.interview.entity.InterviewRound;
 import com.duing.domain.interview.entity.InterviewRoundMember;
@@ -28,6 +30,7 @@ import java.time.LocalDateTime;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
@@ -53,6 +56,7 @@ public class GeneralInterviewAssignmentService implements InterviewAssignmentSer
     private final InterviewAvailabilityRepository interviewAvailabilityRepository;
     private final InterviewSlotRepository interviewSlotRepository;
     private final InterviewScheduleRepository interviewScheduleRepository;
+    private final ApplicationRepository applicationRepository;
     private final InterviewRoundAccessor interviewRoundAccessor;
     private final InterviewMatchingService interviewMatchingService;
     private final ApplicationEventPublisher eventPublisher;
@@ -135,12 +139,27 @@ public class GeneralInterviewAssignmentService implements InterviewAssignmentSer
         InterviewSlot slot = interviewSlotRepository.findByIdAndRoundIdForUpdate(slotId, roundId)
                 .orElseThrow(InterviewException.InvalidSlotSelection::new);
         InterviewRoundMember member = getLockedMemberOfRound(roundId, memberId);
+        // 결과를 정한 지원은 일정을 바꾸지 않는다 — 확정 라운드는 결과 확정 정리 대상이 아니라 ASSIGNED 로 남는다(#1659).
+        // 지원서는 잠그지 않는다: 결과 확정(지원서 → 멤버)·응답 API(지원서 → 슬롯)가 지원서를 먼저 잠가, 슬롯·멤버를 쥔 채 잠그면 교착이다.
+        // 잠그지 않아도 되는 이유 — 배정 검토는 결과 확정이 멤버 잠금을 기다렸다가 정리하고, 확정 단계는 커밋 뒤 리스너가 알림을 거른다.
+        if (applicationRepository.findStatusById(member.getApplicationId())
+                .filter(ApplicationStatus::isTerminal)
+                .isPresent()) {
+            throw new InterviewException.ApplicationAlreadyDecided();
+        }
         if (member.getStatus() == RoundMemberStatus.EXCLUDED) {
             throw new InterviewException.MemberTransitionNotAllowed();
         }
 
-        // 본인 기존 배정을 먼저 비워야 "만석 슬롯 내 본인 재배정(멱등)" 이 자연 통과한다.
-        removeActiveSchedule(roundId, member.getApplicationId());
+        Optional<InterviewSchedule> activeSchedule = interviewScheduleRepository
+                .findByRoundIdAndApplicationIdAndStatus(roundId, member.getApplicationId(),
+                        InterviewScheduleStatus.ASSIGNED);
+        // 지금 배정과 같은 슬롯이면 바꿀 것이 없다 — 지웠다 다시 만들면 확정 단계에서 지원자에게 일정 변경 알림이 나간다.
+        if (activeSchedule.filter(schedule -> schedule.getSlotId().equals(slotId)).isPresent()) {
+            return;
+        }
+        // 삭제는 count 앞 — count 쿼리의 자동 flush 가 soft delete 를 INSERT 보다 먼저 보낸다(활성 배정 유니크 uq_interview_schedule_active_per_round).
+        activeSchedule.ifPresent(interviewScheduleRepository::delete);
         long assignedCount = interviewScheduleRepository
                 .countBySlotIdAndStatus(slotId, InterviewScheduleStatus.ASSIGNED);
         if (assignedCount >= slot.getCapacity()) {

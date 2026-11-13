@@ -129,18 +129,20 @@ class LeaderInterviewMemberManageControllerTest extends InterviewControllerTestS
     }
 
     @Test
-    @DisplayName("만석 슬롯이라도 그 자리에 이미 배정된 본인의 재배정은 허용된다 — 멱등")
+    @DisplayName("만석 슬롯이라도 그 자리에 이미 배정된 본인의 재배정은 허용된다 — 멱등, 배정을 다시 만들지 않는다")
     void reassignToSameFullSlotIsIdempotent() {
         InterviewRound round = saveRound(RoundStatus.ASSIGNING);
         InterviewSlot slot = saveSlot(round, "2026-06-20T14:00:00", 1);
         Application application = saveInterviewPendingApplication(recruitment, "본인");
         InterviewRoundMember member = saveMember(round, application, RoundMemberStatus.RESPONDED);
         assignSlot(round, member, slot).statusCode(HttpStatus.NO_CONTENT.value());
+        Long firstScheduleId = findActiveSchedule(round, application).orElseThrow().getId();
 
         assignSlot(round, member, slot).statusCode(HttpStatus.NO_CONTENT.value());
 
-        assertThat(findActiveSchedule(round, application).orElseThrow().getSlotId())
-                .isEqualTo(slot.getId());
+        InterviewSchedule activeSchedule = findActiveSchedule(round, application).orElseThrow();
+        assertThat(activeSchedule.getSlotId()).isEqualTo(slot.getId());
+        assertThat(activeSchedule.getId()).isEqualTo(firstScheduleId);
     }
 
     @Test

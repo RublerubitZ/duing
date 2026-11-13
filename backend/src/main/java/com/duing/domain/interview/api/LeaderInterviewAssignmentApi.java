@@ -40,9 +40,10 @@ public interface LeaderInterviewAssignmentApi {
             summary = "면접 수동 배정/재배정",
             description = "멤버를 지정 슬롯에 배정한다. 배정 검토(ASSIGNING)·확정(SCHEDULED) 단계 모두 허용 (§6.4). "
                     + "ASSIGNING — draft 단계, 알림 없음. "
-                    + "SCHEDULED — ASSIGNED 멤버의 개별 재배정, 성공 시 INTERVIEW_UPDATED 알림 발행(결과가 정해진 지원자는 제외). "
+                    + "SCHEDULED — ASSIGNED 멤버의 개별 재배정, 성공 시 INTERVIEW_UPDATED 알림 발행(검사를 지난 뒤 같은 순간 결과가 정해지면 알림은 나가지 않는다). "
                     + "가능없음·미응답 멤버도 운영진 재량으로 배정할 수 있고, 기존 배정은 교체된다. "
-                    + "정원이 찬 슬롯은 409 — 단 같은 슬롯 내 본인 재배정은 허용된다. "
+                    + "결과가 정해진(합격·불합격) 지원은 단계와 무관하게 409(이미 합격/불합격 처리된 지원). "
+                    + "정원이 찬 슬롯은 409. 지금 배정과 같은 슬롯이면 아무것도 바꾸지 않고 204(알림 없음). "
                     + "ASSIGNING 에서 멤버 상태는 바뀌지 않는다 (확정 시점에만 ASSIGNED 전이). "
                     + "배정 해제(DELETE)는 ASSIGNING 한정 — SCHEDULED 에서는 다른 슬롯으로 옮기는 것만 가능하다 (§16-1). "
                     + "expectedRoundStatus(선택) — 요청자가 화면에서 본 라운드 단계. 있고 실제 단계와 다르면 409(라운드 단계가 바뀜). 없으면 검사하지 않는다."
