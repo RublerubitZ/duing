@@ -1,7 +1,7 @@
 import Link from 'next/link';
 
 import { formatDateTimeKst, kstDateTimeFormatter, parseKstInstant } from '@duing/hooks/datetime';
-import type { ApplicationStatus, ApplicationSummary } from '@duing/types';
+import type { ApplicationStatus, ApplicationSummary, AssignedInterview } from '@duing/types';
 
 import { cn } from '@/app/_lib/cn';
 import { ArrowRight } from '@/components/duing/Icon';
@@ -25,14 +25,6 @@ const STATUS_STEP: Record<ApplicationStatus, number> = {
   REJECTED: 2,
 };
 
-const ACTION_LABEL: Record<ApplicationStatus, string> = {
-  SUBMITTED: '지원서 보기',
-  ON_HOLD: '지원서 보기',
-  INTERVIEW_PENDING: '면접 일정 보기',
-  ACCEPTED: '지원서 보기',
-  REJECTED: '지원서 보기',
-};
-
 // KST "M. D. (요일) 오전/오후 HH:MM" — 면접 일정 요약용 기존 표기 구조 유지.
 const INTERVIEW_AT_FORMATTER = kstDateTimeFormatter({
   month: 'numeric',
@@ -42,11 +34,11 @@ const INTERVIEW_AT_FORMATTER = kstDateTimeFormatter({
   minute: '2-digit',
 });
 
-const statusNote = (app: ApplicationSummary): string => {
-  if (app.status === 'INTERVIEW_PENDING' && app.interview) {
-    const at = INTERVIEW_AT_FORMATTER.format(parseKstInstant(app.interview.startAt));
-    return app.interview.location
-      ? `면접: ${at} — ${app.interview.location}`
+const statusNote = (status: ApplicationStatus, interview: AssignedInterview | null): string => {
+  if (status === 'INTERVIEW_PENDING' && interview) {
+    const at = INTERVIEW_AT_FORMATTER.format(parseKstInstant(interview.startAt));
+    return interview.location
+      ? `면접: ${at} — ${interview.location}`
       : `면접: ${at}`;
   }
   // SUBMITTED·ON_HOLD 는 지원자에게 구분되지 않는다 — 동일한 심사 중 문구 (스펙 §1-1).
@@ -105,6 +97,9 @@ export function SectionApply({ applications, isPending = false }: Props) {
             const isInterview = app.status === 'INTERVIEW_PENDING';
             // 운영진이 면접을 끈 모집에 남은 면접 대상은 상세처럼 심사에 머문다.
             const step = withoutInterview && isInterview ? STATUS_STEP.SUBMITTED : STATUS_STEP[app.status];
+            // 같은 이유로 면접 일정을 안내하지 않는다 — 버튼이 여는 상세에 면접 정보가 없다(#1695). 남은 확정 배정도 가린다.
+            const showsInterview = isInterview && !withoutInterview;
+            const visibleInterview = withoutInterview ? null : app.interview;
 
             return (
               <div
@@ -115,10 +110,10 @@ export function SectionApply({ applications, isPending = false }: Props) {
                   'grid-cols-[auto_1fr] sm:grid-cols-[auto_1fr_360px_auto]',
                   'transition-[transform,box-shadow,border-color] duration-150',
                   'hover:-translate-y-0.5 hover:shadow-2',
-                  isInterview ? 'border border-ink' : 'border border-line',
+                  showsInterview ? 'border border-ink' : 'border border-line',
                 )}
               >
-                {isInterview && (
+                {showsInterview && (
                   <div className="absolute -top-2.5 left-5 px-2.5 py-0.5 rounded-full bg-ink text-white text-[11px] font-bold">
                     다음 일정
                   </div>
@@ -138,7 +133,7 @@ export function SectionApply({ applications, isPending = false }: Props) {
                     {app.recruitmentTitle}
                   </div>
                   <h3 className="text-[19px] font-body text-ink-deep">{app.clubName}</h3>
-                  <div className="text-[12.5px] text-charcoal-2 mt-1">{statusNote(app)}</div>
+                  <div className="text-[12.5px] text-charcoal-2 mt-1">{statusNote(app.status, visibleInterview)}</div>
                 </div>
 
                 {/* Step progress */}
@@ -175,7 +170,7 @@ export function SectionApply({ applications, isPending = false }: Props) {
                     })}
                   </div>
                   <div className="text-[12px] text-charcoal-3 tabular-nums">
-                    {app.interview ? `면접: ${formatDateTimeKst(app.interview.startAt)}` : formatDateTimeKst(app.submittedAt)}
+                    {visibleInterview ? `면접: ${formatDateTimeKst(visibleInterview.startAt)}` : formatDateTimeKst(app.submittedAt)}
                   </div>
                 </div>
 
@@ -184,10 +179,10 @@ export function SectionApply({ applications, isPending = false }: Props) {
                   href={`/me/applications/${app.id}`}
                   className={cn(
                     'btn btn-sm flex items-center gap-1.5 col-span-2 justify-self-start sm:col-span-1',
-                    isInterview ? 'btn-primary' : 'btn-secondary',
+                    showsInterview ? 'btn-primary' : 'btn-secondary',
                   )}
                 >
-                  {ACTION_LABEL[app.status]}
+                  {showsInterview ? '면접 일정 보기' : '지원서 보기'}
                   <ArrowRight size={14} />
                 </Link>
               </div>
