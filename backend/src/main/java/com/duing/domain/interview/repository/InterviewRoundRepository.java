@@ -48,6 +48,8 @@ public interface InterviewRoundRepository extends JpaRepository<InterviewRound, 
 
     boolean existsByRecruitmentIdAndStatus(Long recruitmentId, RoundStatus status);
 
+    boolean existsByRecruitmentIdAndStatusNot(Long recruitmentId, RoundStatus status);
+
     /**
      * 기간 종료 자동 마감을 막는 진행 중 면접 라운드 수(모집별) — 결과를 기다리는 면접 대상(제외되지 않았고 지원에 결과가 없으며
      * 지원 삭제·지원자 탈퇴가 아닌 멤버)이 남은 라운드만 센다. 잡의 마감 판정과 화면의 자동 마감 전망이 이 한 쿼리를 쓴다(#1572).

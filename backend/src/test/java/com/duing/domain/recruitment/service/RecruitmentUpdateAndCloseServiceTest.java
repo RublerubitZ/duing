@@ -14,6 +14,7 @@ import com.duing.domain.application.repository.ApplicationRepository;
 import com.duing.domain.club.entity.Club;
 import com.duing.domain.club.entity.ClubCategory;
 import com.duing.domain.clubmember.service.ClubAuthService;
+import com.duing.domain.interview.repository.InterviewRoundRepository;
 import com.duing.domain.joincode.repository.ClubJoinRequestRepository;
 import com.duing.domain.joincode.service.JoinCodeService;
 import com.duing.domain.recruitment.entity.ApplicationMode;
@@ -53,6 +54,7 @@ class RecruitmentUpdateAndCloseServiceTest {
     private final GeneralRecruitmentService recruitmentService = new GeneralRecruitmentService(
             recruitmentRepository,
             applicationRepository,
+            mock(InterviewRoundRepository.class),
             clubJoinRequestRepository,
             joinCodeService,
             clubRepository,
@@ -135,7 +137,7 @@ class RecruitmentUpdateAndCloseServiceTest {
     @DisplayName("OFFICER 이상의 운영진이 모집 공고를 수정하면 변경 사항이 반영된다")
     void managerCanUpdateOpenRecruitment() {
         Recruitment recruitment = openSelfRecruitment();
-        when(recruitmentRepository.findById(RECRUITMENT_ID)).thenReturn(Optional.of(recruitment));
+        when(recruitmentRepository.findByIdForUpdate(RECRUITMENT_ID)).thenReturn(Optional.of(recruitment));
 
         UpdateRecruitmentCommand updateCommand = new UpdateRecruitmentCommand(
                 RECRUITMENT_ID,
@@ -163,7 +165,7 @@ class RecruitmentUpdateAndCloseServiceTest {
     @DisplayName("이미 마감된 모집 공고를 수정하려 하면 409 예외가 발생한다")
     void updateClosedRecruitmentThrowsAlreadyClosed() {
         Recruitment recruitment = closedRecruitment();
-        when(recruitmentRepository.findById(RECRUITMENT_ID)).thenReturn(Optional.of(recruitment));
+        when(recruitmentRepository.findByIdForUpdate(RECRUITMENT_ID)).thenReturn(Optional.of(recruitment));
 
         UpdateRecruitmentCommand updateCommand = new UpdateRecruitmentCommand(
                 RECRUITMENT_ID,
@@ -189,7 +191,7 @@ class RecruitmentUpdateAndCloseServiceTest {
     @DisplayName("종료일을 오늘보다 과거로 변경하려 하면 400 예외가 발생하고 원래 값이 유지된다")
     void rejectsChangingEndDateToPast() {
         Recruitment recruitment = openSelfRecruitment();
-        when(recruitmentRepository.findById(RECRUITMENT_ID)).thenReturn(Optional.of(recruitment));
+        when(recruitmentRepository.findByIdForUpdate(RECRUITMENT_ID)).thenReturn(Optional.of(recruitment));
         LocalDate originalEndDate = recruitment.getEndDate();
 
         UpdateRecruitmentCommand updateCommand = new UpdateRecruitmentCommand(
@@ -217,7 +219,7 @@ class RecruitmentUpdateAndCloseServiceTest {
     @DisplayName("CLOSED 공고에 과거 종료일 변경을 보내도 마감 409 판정이 우선한다")
     void closedGuardTakesPrecedenceOverPastEndDate() {
         Recruitment recruitment = closedRecruitment();
-        when(recruitmentRepository.findById(RECRUITMENT_ID)).thenReturn(Optional.of(recruitment));
+        when(recruitmentRepository.findByIdForUpdate(RECRUITMENT_ID)).thenReturn(Optional.of(recruitment));
 
         UpdateRecruitmentCommand updateCommand = new UpdateRecruitmentCommand(
                 RECRUITMENT_ID,
@@ -244,7 +246,7 @@ class RecruitmentUpdateAndCloseServiceTest {
     void alwaysOpenConversionTakesPrecedenceOverPastEndDate() {
         Recruitment recruitment = openSelfRecruitment();
         setField(recruitment, "endDate", null);
-        when(recruitmentRepository.findById(RECRUITMENT_ID)).thenReturn(Optional.of(recruitment));
+        when(recruitmentRepository.findByIdForUpdate(RECRUITMENT_ID)).thenReturn(Optional.of(recruitment));
 
         UpdateRecruitmentCommand updateCommand = new UpdateRecruitmentCommand(
                 RECRUITMENT_ID,
@@ -273,7 +275,7 @@ class RecruitmentUpdateAndCloseServiceTest {
         LocalDate kstToday = LocalDate.now(ZoneId.of("Asia/Seoul"));
         setField(recruitment, "startDate", kstToday.minusDays(10));
         setField(recruitment, "endDate", kstToday.minusDays(3));
-        when(recruitmentRepository.findById(RECRUITMENT_ID)).thenReturn(Optional.of(recruitment));
+        when(recruitmentRepository.findByIdForUpdate(RECRUITMENT_ID)).thenReturn(Optional.of(recruitment));
 
         UpdateRecruitmentCommand updateCommand = new UpdateRecruitmentCommand(
                 RECRUITMENT_ID,
@@ -301,7 +303,7 @@ class RecruitmentUpdateAndCloseServiceTest {
     @DisplayName("외부 폼 모집 공고에 질문 목록을 전달하면 400 예외가 발생한다")
     void updateExternalRecruitmentWithQuestionsThrowsInvalidMode() {
         Recruitment recruitment = openExternalRecruitment();
-        when(recruitmentRepository.findById(RECRUITMENT_ID)).thenReturn(Optional.of(recruitment));
+        when(recruitmentRepository.findByIdForUpdate(RECRUITMENT_ID)).thenReturn(Optional.of(recruitment));
 
         UpdateRecruitmentCommand updateCommand = new UpdateRecruitmentCommand(
                 RECRUITMENT_ID,
@@ -328,7 +330,7 @@ class RecruitmentUpdateAndCloseServiceTest {
     void updateCannotChangeApplicationModeOrExternalFormUrl() {
         Recruitment recruitment = openExternalRecruitment();
         setField(recruitment, "externalFormUrl", "https://forms.gle/aBcD1234");
-        when(recruitmentRepository.findById(RECRUITMENT_ID)).thenReturn(Optional.of(recruitment));
+        when(recruitmentRepository.findByIdForUpdate(RECRUITMENT_ID)).thenReturn(Optional.of(recruitment));
 
         // 수정 명령에는 applicationMode·externalFormUrl 필드 자체가 없어 어떤 값도 실어 보낼 수 없다.
         UpdateRecruitmentCommand updateCommand = new UpdateRecruitmentCommand(
@@ -358,7 +360,7 @@ class RecruitmentUpdateAndCloseServiceTest {
     @DisplayName("이미 지원자가 있는 모집 공고에서 질문을 변경하려 하면 409 예외가 발생하고 질문은 그대로 유지된다")
     void updateQuestionsWithExistingApplicationsThrowsConflict() {
         Recruitment recruitment = openSelfRecruitmentWithForm(List.of("기존 질문1", "기존 질문2"));
-        when(recruitmentRepository.findById(RECRUITMENT_ID)).thenReturn(Optional.of(recruitment));
+        when(recruitmentRepository.findByIdForUpdate(RECRUITMENT_ID)).thenReturn(Optional.of(recruitment));
         when(applicationRepository.countByRecruitmentId(RECRUITMENT_ID)).thenReturn(2L);
 
         UpdateRecruitmentCommand updateCommand = new UpdateRecruitmentCommand(
@@ -386,7 +388,7 @@ class RecruitmentUpdateAndCloseServiceTest {
     @DisplayName("지원자가 없는 모집 공고는 질문을 변경할 수 있다")
     void updateQuestionsWithoutApplicationsSucceeds() {
         Recruitment recruitment = openSelfRecruitmentWithForm(List.of("기존 질문1"));
-        when(recruitmentRepository.findById(RECRUITMENT_ID)).thenReturn(Optional.of(recruitment));
+        when(recruitmentRepository.findByIdForUpdate(RECRUITMENT_ID)).thenReturn(Optional.of(recruitment));
         when(applicationRepository.countByRecruitmentId(RECRUITMENT_ID)).thenReturn(0L);
 
         UpdateRecruitmentCommand updateCommand = new UpdateRecruitmentCommand(
@@ -414,7 +416,7 @@ class RecruitmentUpdateAndCloseServiceTest {
     @DisplayName("지원자가 있어도 기존과 동일한 질문을 그대로 다시 전달하면 다른 필드 수정과 함께 허용된다")
     void resubmittingIdenticalQuestionsWithApplicationsSucceeds() {
         Recruitment recruitment = openSelfRecruitmentWithForm(List.of("질문1", "질문2"));
-        when(recruitmentRepository.findById(RECRUITMENT_ID)).thenReturn(Optional.of(recruitment));
+        when(recruitmentRepository.findByIdForUpdate(RECRUITMENT_ID)).thenReturn(Optional.of(recruitment));
 
         UpdateRecruitmentCommand updateCommand = new UpdateRecruitmentCommand(
                 RECRUITMENT_ID,
@@ -444,7 +446,7 @@ class RecruitmentUpdateAndCloseServiceTest {
     @DisplayName("지원자가 있어도 질문 외 필드(제목·정원 등)는 수정할 수 있다")
     void updateNonQuestionFieldsWithApplicationsSucceeds() {
         Recruitment recruitment = openSelfRecruitmentWithForm(List.of("질문1"));
-        when(recruitmentRepository.findById(RECRUITMENT_ID)).thenReturn(Optional.of(recruitment));
+        when(recruitmentRepository.findByIdForUpdate(RECRUITMENT_ID)).thenReturn(Optional.of(recruitment));
 
         UpdateRecruitmentCommand updateCommand = new UpdateRecruitmentCommand(
                 RECRUITMENT_ID,
@@ -476,7 +478,7 @@ class RecruitmentUpdateAndCloseServiceTest {
         // 기간 역전만 검증하도록 미래로 픽스처링 — 과거 endDate 는 PastEndDateException 가드가 먼저 잡는다.
         setField(recruitment, "startDate", LocalDate.now(ZoneId.of("Asia/Seoul")).plusDays(5));
         setField(recruitment, "endDate", LocalDate.now(ZoneId.of("Asia/Seoul")).plusDays(14));
-        when(recruitmentRepository.findById(RECRUITMENT_ID)).thenReturn(Optional.of(recruitment));
+        when(recruitmentRepository.findByIdForUpdate(RECRUITMENT_ID)).thenReturn(Optional.of(recruitment));
 
         UpdateRecruitmentCommand updateCommand = new UpdateRecruitmentCommand(
                 RECRUITMENT_ID,
@@ -574,7 +576,7 @@ class RecruitmentUpdateAndCloseServiceTest {
     @DisplayName("동아리 운영진이 아닌 일반 회원이 수정을 시도하면 403 예외가 발생한다")
     void memberCannotUpdateRecruitment() {
         Recruitment recruitment = openSelfRecruitment();
-        when(recruitmentRepository.findById(RECRUITMENT_ID)).thenReturn(Optional.of(recruitment));
+        when(recruitmentRepository.findByIdForUpdate(RECRUITMENT_ID)).thenReturn(Optional.of(recruitment));
         doThrow(new AccessDeniedException("해당 동아리의 운영진(LEADER/OFFICER)만 가능한 작업입니다."))
                 .when(clubAuthService).requireManagerOrHidden(eq(MEMBER_USER_ID), eq(CLUB_ID), any());
 
@@ -602,7 +604,7 @@ class RecruitmentUpdateAndCloseServiceTest {
     @DisplayName("title 을 공백 문자열로 수정하려 하면 도메인에서 거부된다")
     void updateWithBlankTitleIsRejected() {
         Recruitment recruitment = openSelfRecruitment();
-        when(recruitmentRepository.findById(RECRUITMENT_ID)).thenReturn(Optional.of(recruitment));
+        when(recruitmentRepository.findByIdForUpdate(RECRUITMENT_ID)).thenReturn(Optional.of(recruitment));
 
         UpdateRecruitmentCommand updateCommand = new UpdateRecruitmentCommand(
                 RECRUITMENT_ID,

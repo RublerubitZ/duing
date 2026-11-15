@@ -32,7 +32,8 @@ public interface LeaderRecruitmentApi {
     );
 
     @Operation(summary = "모집 공고 수정", description = "null 이 아닌 필드만 부분 갱신된다. applicationMode·externalFormUrl·targetRole 은 변경 불가. 이미 마감된 공고 수정 시 409 반환. "
-            + "바꾸는 시작일·종료일이 2000-01-01 ~ 2100-12-31 밖이면 400 반환(저장된 값과 같은 날짜를 다시 보내는 것은 허용).")
+            + "바꾸는 시작일·종료일이 2000-01-01 ~ 2100-12-31 밖이면 400 반환(저장된 값과 같은 날짜를 다시 보내는 것은 허용). "
+            + "면접을 켜 둔 모집에서 끄려는데 취소하지 않은 면접 라운드가 있으면 409 반환.")
     @PatchMapping("/leader/recruitments/{recruitmentId}")
     ResponseEntity<Void> updateRecruitment(
             @PathVariable Long recruitmentId,

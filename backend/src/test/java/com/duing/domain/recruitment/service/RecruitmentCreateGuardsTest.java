@@ -15,6 +15,7 @@ import com.duing.domain.club.entity.ClubStatus;
 import com.duing.domain.club.repository.ClubRepository;
 import com.duing.domain.club.service.ClubVisibilityPolicy;
 import com.duing.domain.clubmember.service.ClubAuthService;
+import com.duing.domain.interview.repository.InterviewRoundRepository;
 import com.duing.domain.joincode.repository.ClubJoinRequestRepository;
 import com.duing.domain.joincode.service.JoinCodeService;
 import com.duing.domain.recruitment.entity.ApplicationMode;
@@ -49,6 +50,7 @@ class RecruitmentCreateGuardsTest {
     private final GeneralRecruitmentService recruitmentService = new GeneralRecruitmentService(
             recruitmentRepository,
             applicationRepository,
+            mock(InterviewRoundRepository.class),
             mock(ClubJoinRequestRepository.class),
             mock(JoinCodeService.class),
             clubRepository,
