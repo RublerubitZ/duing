@@ -139,7 +139,11 @@ export function SectionApply({ applications, isPending = false }: Props) {
                     {app.recruitmentTitle}
                   </div>
                   <h3 className="text-[19px] font-body text-ink-deep">{app.clubName}</h3>
-                  <div className="text-[12.5px] text-charcoal-2 mt-1">{statusNote(app.status, visibleInterview)}</div>
+                  <div className="text-[12.5px] text-charcoal-2 mt-1">
+                    {showsInterview && !hasSchedule
+                      ? '면접 대상으로 선정되었습니다'
+                      : statusNote(app.status, visibleInterview)}
+                  </div>
                 </div>
 
                 {/* Step progress */}

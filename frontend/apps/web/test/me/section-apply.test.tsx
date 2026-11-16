@@ -319,6 +319,7 @@ describe('SectionApply — 확정 면접이 끝나면 다음 일정으로 안내
     expect(card).toHaveClass('border-ink');
     expect(within(card).getByText('면접 대상')).toBeInTheDocument();
     expect(within(card).getByRole('link')).toHaveTextContent('진행 상황 보기');
+    expect(within(card).getByText('면접 대상으로 선정되었습니다')).toBeInTheDocument();
   });
 });
 
@@ -330,7 +331,8 @@ describe('SectionApply — 확정 배정이 없는 면접 대상에게는 일정
     const card = cardOf('두잉 댄스');
     expect(within(card).getByText('면접 대상')).toBeInTheDocument();
     expect(within(card).queryByText('다음 일정')).not.toBeInTheDocument();
-    expect(within(card).getByText('동아리에서 심사 중입니다')).toBeInTheDocument();
+    expect(within(card).getByText('면접 대상으로 선정되었습니다')).toBeInTheDocument();
+    expect(within(card).queryByText('동아리에서 심사 중입니다')).not.toBeInTheDocument();
     expect(card.textContent).not.toMatch(/면접:/);
     // 막대 아래 줄은 지원 시각 그대로다(base.submittedAt 의 한국 시간).
     expect(within(card).getByText('2026.05.26 19:00')).toBeInTheDocument();
@@ -348,6 +350,8 @@ describe('SectionApply — 확정 배정이 없는 면접 대상에게는 일정
     expect(within(card).getByText('다음 일정')).toBeInTheDocument();
     expect(within(card).queryByText('면접 대상')).not.toBeInTheDocument();
     expect(within(card).getByRole('link')).toHaveTextContent('면접 일정 보기');
+    expect(within(card).queryByText('면접 대상으로 선정되었습니다')).not.toBeInTheDocument();
+    expect(within(card).queryByText('동아리에서 심사 중입니다')).not.toBeInTheDocument();
   });
 
   it.each<[string, ApplicationSummary]>([
@@ -367,5 +371,7 @@ describe('SectionApply — 확정 배정이 없는 면접 대상에게는 일정
     expect(within(card).queryByText('면접 대상')).not.toBeInTheDocument();
     expect(within(card).queryByText('다음 일정')).not.toBeInTheDocument();
     expect(within(card).getByRole('link')).toHaveTextContent('지원서 보기');
+    expect(within(card).getByText('동아리에서 심사 중입니다')).toBeInTheDocument();
+    expect(within(card).queryByText('면접 대상으로 선정되었습니다')).not.toBeInTheDocument();
   });
 });
