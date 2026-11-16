@@ -56,7 +56,7 @@ class ClubWritePathsRowLockTest extends IntegrationTestBase {
     private final AtomicLong sequence = new AtomicLong(System.nanoTime());
 
     @Test
-    @DisplayName("총동연 승인이 커밋되기 전 읽은 운영진 프로필 수정은 승인을 대기 상태로 되돌리지 않는다")
+    @DisplayName("총동연 승인이 커밋되기 전에 들어온 운영진 프로필 수정은 승인을 대기 상태로 되돌리지 않는다")
     void leaderProfileUpdateDoesNotRevertApproval() throws Exception {
         User admin = userRepository.save(UserFixture.admin());
         User leader = userRepository.save(UserFixture.unique());
@@ -76,7 +76,7 @@ class ClubWritePathsRowLockTest extends IntegrationTestBase {
     }
 
     @Test
-    @DisplayName("폐쇄가 커밋되기 전 읽은 반려 동아리 운영진의 프로필 수정은 폐쇄된 동아리를 되살리지 않는다")
+    @DisplayName("폐쇄가 커밋되기 전에 들어온 반려 동아리 운영진의 프로필 수정은 폐쇄된 동아리를 되살리지 않는다")
     void leaderProfileUpdateDoesNotResurrectClosedRejectedClub() throws Exception {
         User admin = userRepository.save(UserFixture.admin());
         User leader = userRepository.save(UserFixture.unique());
@@ -95,7 +95,7 @@ class ClubWritePathsRowLockTest extends IntegrationTestBase {
     }
 
     @Test
-    @DisplayName("폐쇄가 커밋되기 전 읽은 총동연 프로필 수정은 운영 중단 동아리의 폐쇄를 되돌리지 않는다")
+    @DisplayName("폐쇄가 커밋되기 전에 들어온 총동연 프로필 수정은 운영 중단 동아리의 폐쇄를 되돌리지 않는다")
     void adminProfileUpdateDoesNotResurrectClosedInactiveClub() throws Exception {
         User admin = userRepository.save(UserFixture.admin());
         Club club = saveClub(ClubStatus.INACTIVE, null);
@@ -111,7 +111,7 @@ class ClubWritePathsRowLockTest extends IntegrationTestBase {
     }
 
     @Test
-    @DisplayName("운영 중단이 커밋되기 전 읽은 중앙동아리 여부 변경은 운영 중단을 운영 중으로 되돌리지 않는다")
+    @DisplayName("운영 중단이 커밋되기 전에 들어온 중앙동아리 여부 변경은 운영 중단을 운영 중으로 되돌리지 않는다")
     void centralClubChangeDoesNotRevertDeactivation() throws Exception {
         User admin = userRepository.save(UserFixture.admin());
         Club club = saveClub(ClubStatus.ACTIVE, null);
@@ -128,7 +128,7 @@ class ClubWritePathsRowLockTest extends IntegrationTestBase {
     }
 
     @Test
-    @DisplayName("운영 중단이 커밋되기 전 읽은 시설 확보 대상 변경은 운영 중단을 운영 중으로 되돌리지 않는다")
+    @DisplayName("운영 중단이 커밋되기 전에 들어온 시설 확보 대상 변경은 운영 중단을 운영 중으로 되돌리지 않는다")
     void securedTargetChangeDoesNotRevertDeactivation() throws Exception {
         User admin = userRepository.save(UserFixture.admin());
         Club club = saveClub(ClubStatus.ACTIVE, null);
@@ -149,7 +149,7 @@ class ClubWritePathsRowLockTest extends IntegrationTestBase {
     }
 
     @Test
-    @DisplayName("운영 중단이 커밋되기 전 읽은 총동연 프로필 수정은 운영 중단을 운영 중으로 되돌리지 않는다")
+    @DisplayName("운영 중단이 커밋되기 전에 들어온 총동연 프로필 수정은 운영 중단을 운영 중으로 되돌리지 않는다")
     void adminProfileUpdateDoesNotRevertDeactivation() throws Exception {
         User admin = userRepository.save(UserFixture.admin());
         Club club = saveClub(ClubStatus.ACTIVE, null);
