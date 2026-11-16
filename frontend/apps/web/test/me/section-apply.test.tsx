@@ -391,7 +391,7 @@ describe('SectionApply — 네 열 배치는 1024px(lg)부터 켠다', () => {
     expect(progress).toHaveClass('lg:col-span-1');
     // 두 열 배치에서 버튼은 한 줄을 통째로 쓴다 — justify-self-start 가 없으면 그 줄 폭만큼 늘어난다.
     expect(link).toHaveClass('lg:col-span-1', 'justify-self-start');
-    // 640px(sm)에서 네 열이 켜지면 진행 막대(360px 고정)에 밀려 정보 열이 글자 하나 폭까지 눌리고, 안내 줄은 문구에 따라 950px 대까지 두 줄 이상으로 꺾인다
+    // 640px(sm)에서 네 열이 켜지면 진행 막대(360px 고정)에 밀려 정보 열이 글자 하나 폭까지 눌리고, 그보다 넓어도 한동안 안내 줄이 여러 줄로 꺾인다
     // — sm 으로 켜지는 클래스가 하나라도 남으면 안 된다.
     for (const element of [card, info, progress, link]) {
       expect([...element.classList].filter((name) => name.startsWith('sm:'))).toEqual([]);
