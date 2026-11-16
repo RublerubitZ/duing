@@ -26,11 +26,19 @@ import com.duing.global.auth.JwtTokenProvider;
 import io.restassured.RestAssured;
 import io.restassured.http.ContentType;
 import io.restassured.response.Response;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.Query;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.Callable;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -41,6 +49,7 @@ import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.support.TransactionTemplate;
 
 /**
@@ -55,6 +64,9 @@ class AdminRecruitmentForceCloseTest extends IntegrationTestBase {
 
     private static final String CLOSE_PATH = "/api/v1/admin/recruitments/{recruitmentId}/close";
     private static final String EXTERNAL_FORM_URL = "https://forms.example.com/duing";
+    private static final String CHANGED_TITLE = "바뀐 모집 제목";
+    /** 상대 마감이 넣는 눈에 띄는 종료 시각 — 강제 마감이 덮으면 이 값이 사라진다. */
+    private static final LocalDateTime RIVAL_CLOSED_AT = LocalDateTime.of(2026, 1, 2, 3, 4, 5);
 
     @LocalServerPort int port;
 
@@ -66,6 +78,8 @@ class AdminRecruitmentForceCloseTest extends IntegrationTestBase {
     @Autowired ClubAuditEventRepository clubAuditEventRepository;
     @Autowired JwtTokenProvider jwtTokenProvider;
     @Autowired TransactionTemplate transactionTemplate;
+    @Autowired EntityManager entityManager;
+    @Autowired JdbcTemplate jdbcTemplate;
     /** 마감 시각은 프로덕션과 같은 seoulClock 으로 찍는다 — 시스템 존(UTC CI)으로 찍으면 KST 로 해석돼 어긋난다. */
     @Autowired Clock clock;
 
@@ -206,6 +220,42 @@ class AdminRecruitmentForceCloseTest extends IntegrationTestBase {
     }
 
     @Test
+    @DisplayName("수정이 모집 행을 잠근 사이 들어온 강제 마감은 수정이 끝날 때까지 기다렸다가 수정된 값을 지킨 채 마감한다")
+    void forceCloseWaitsForUpdateAndKeepsUpdatedValues() throws Exception {
+        Response forceCloseResponse = requestWhileRowLockedBy(
+                "UPDATE recruitment SET title = :title WHERE id = :id",
+                Map.of("title", CHANGED_TITLE, "id", openRecruitment.getId()),
+                () -> forceClose(adminToken, openRecruitment.getId(), Map.of()));
+
+        assertThat(forceCloseResponse.statusCode()).isEqualTo(HttpStatus.NO_CONTENT.value());
+        Recruitment reloaded = recruitmentRepository.findById(openRecruitment.getId()).orElseThrow();
+        assertThat(reloaded.getStatus()).isEqualTo(RecruitmentStatus.CLOSED);
+        assertThat(reloaded.getClosedAt()).isNotNull();
+        assertThat(reloaded.getTitle())
+                .as("잠금이 없으면 강제 마감이 수정 전 값을 읽어 전 컬럼 UPDATE 로 제목을 되돌린다")
+                .isEqualTo(CHANGED_TITLE);
+    }
+
+    @Test
+    @DisplayName("마감이 모집 행을 잠근 사이 들어온 강제 마감은 기다렸다가 409 로 거절되고 감사 이벤트를 남기지 않는다")
+    void forceCloseWaitsForCloseAndIsRejectedAfterwards() throws Exception {
+        Response forceCloseResponse = requestWhileRowLockedBy(
+                "UPDATE recruitment SET status = 'CLOSED', closed_at = :closedAt WHERE id = :id",
+                Map.of("closedAt", RIVAL_CLOSED_AT, "id", openRecruitment.getId()),
+                () -> forceClose(adminToken, openRecruitment.getId(), Map.of("reason", "경합 마감")));
+
+        assertThat(forceCloseResponse.statusCode())
+                .as("잠금이 없으면 마감 전의 OPEN 을 읽고 204 로 끝난다")
+                .isEqualTo(HttpStatus.CONFLICT.value());
+        assertThat(clubAuditEventRepository.findAll())
+                .extracting(ClubAuditEvent::getEventType)
+                .doesNotContain(ClubAuditEventType.RECRUITMENT_FORCE_CLOSED);
+        assertThat(recruitmentRepository.findById(openRecruitment.getId()).orElseThrow().getClosedAt())
+                .as("상대 마감이 넣은 종료 시각을 덮지 않는다")
+                .isEqualTo(RIVAL_CLOSED_AT);
+    }
+
+    @Test
     @DisplayName("비로그인 상태에서는 강제 마감이 401 로 막힌다")
     void anonymousForceCloseReturns401() {
         RestAssured
@@ -230,6 +280,68 @@ class AdminRecruitmentForceCloseTest extends IntegrationTestBase {
 
     private String tokenOf(User user) {
         return jwtTokenProvider.createToken(user.getId(), user.getRole().name());
+    }
+
+    /**
+     * 상대 트랜잭션이 네이티브 UPDATE 로 모집 행을 잠근 채 커밋 직전에 멈춘 사이 요청을 보내고, 요청이 잠금 대기에 들어간 뒤
+     * 상대를 커밋시켜 요청의 결과를 돌려준다. 판정은 결과로 한다 — 잠그지 않는 전 컬럼 UPDATE 도 행 잠금에서 기다린다.
+     */
+    private <T> T requestWhileRowLockedBy(String rivalUpdateSql, Map<String, Object> rivalParameters,
+                                          Callable<T> request) throws Exception {
+        CountDownLatch rivalHoldsRowLock = new CountDownLatch(1);
+        CountDownLatch rivalMayCommit = new CountDownLatch(1);
+        ExecutorService executor = Executors.newFixedThreadPool(2);
+
+        try {
+            Future<?> rival = executor.submit(() -> transactionTemplate.executeWithoutResult(transaction -> {
+                Query rivalUpdate = entityManager.createNativeQuery(rivalUpdateSql);
+                rivalParameters.forEach((name, value) -> rivalUpdate.setParameter(name, value));
+                rivalUpdate.executeUpdate();
+                rivalHoldsRowLock.countDown();
+                awaitQuietly(rivalMayCommit);
+            }));
+            assertThat(rivalHoldsRowLock.await(10, TimeUnit.SECONDS))
+                    .as("상대 트랜잭션이 모집 행 잠금을 획득").isTrue();
+
+            Future<T> requesting = executor.submit(request);
+            awaitBlockedLock();
+            rivalMayCommit.countDown();
+            rival.get(30, TimeUnit.SECONDS);
+            return requesting.get(30, TimeUnit.SECONDS);
+        } finally {
+            rivalMayCommit.countDown();
+            executor.shutdownNow();
+        }
+    }
+
+    private static void awaitQuietly(CountDownLatch latch) {
+        try {
+            latch.await(20, TimeUnit.SECONDS);
+        } catch (InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException(interrupted);
+        }
+    }
+
+    /** 다른 세션이 행 잠금(트랜잭션 id·튜플)을 기다리기 시작할 때까지 폴링한다 — 폴링하는 이 연결은 빼고 센다. */
+    private void awaitBlockedLock() {
+        long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(10);
+        while (System.nanoTime() < deadline) {
+            Integer blocked = jdbcTemplate.queryForObject("""
+                    SELECT COUNT(*) FROM pg_locks
+                     WHERE NOT granted AND pid <> pg_backend_pid() AND locktype IN ('transactionid', 'tuple')
+                    """, Integer.class);
+            if (blocked != null && blocked > 0) {
+                return;
+            }
+            try {
+                Thread.sleep(50);
+            } catch (InterruptedException interrupted) {
+                Thread.currentThread().interrupt();
+                throw new IllegalStateException("잠금 대기 폴링이 중단되었다.", interrupted);
+            }
+        }
+        throw new IllegalStateException("요청이 제한 시간 안에 모집 행 잠금 대기에 진입하지 않았다.");
     }
 
     /** 모집 기간은 하드코딩 절대일자 없이 오늘 기준 상대일로 만든다(시한폭탄 테스트 방지). */
