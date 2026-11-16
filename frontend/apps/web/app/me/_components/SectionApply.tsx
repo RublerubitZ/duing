@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { formatDateTimeKst, kstDateTimeFormatter, parseKstInstant } from '@duing/hooks/datetime';
 import type { ApplicationStatus, ApplicationSummary, AssignedInterview } from '@duing/types';
 
+import { APPLICATION_STATUS_APPLICANT_LABEL } from '@/app/_constants/application-status';
 import { cn } from '@/app/_lib/cn';
 import { ArrowRight } from '@/components/duing/Icon';
 import { ListRowsSkeleton } from '@/components/loading/Skeleton';
@@ -103,6 +104,8 @@ export function SectionApply({ applications, isPending = false }: Props) {
             const interviewEnded = app.interview !== null && parseKstInstant(app.interview.endAt).getTime() <= Date.now();
             const showsInterview = isInterview && !withoutInterview && !interviewEnded;
             const visibleInterview = withoutInterview || interviewEnded ? null : app.interview;
+            // 확정 배정이 없는 면접 대상에게는 일정을 단정하지 않는다 — 목록 응답만으로는 응답 요청·대기·라운드 취소를 가를 수 없다.
+            const hasSchedule = Boolean(visibleInterview);
 
             return (
               <div
@@ -118,7 +121,7 @@ export function SectionApply({ applications, isPending = false }: Props) {
               >
                 {showsInterview && (
                   <div className="absolute -top-2.5 left-5 px-2.5 py-0.5 rounded-full bg-ink text-white text-[11px] font-bold">
-                    다음 일정
+                    {hasSchedule ? '다음 일정' : APPLICATION_STATUS_APPLICANT_LABEL.INTERVIEW_PENDING}
                   </div>
                 )}
 
@@ -185,7 +188,7 @@ export function SectionApply({ applications, isPending = false }: Props) {
                     showsInterview ? 'btn-primary' : 'btn-secondary',
                   )}
                 >
-                  {showsInterview ? '면접 일정 보기' : '지원서 보기'}
+                  {showsInterview ? (hasSchedule ? '면접 일정 보기' : '진행 상황 보기') : '지원서 보기'}
                   <ArrowRight size={14} />
                 </Link>
               </div>
