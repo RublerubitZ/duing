@@ -407,4 +407,32 @@ describe('RecruitmentForm 오류 표시', () => {
     expect(alerts[0]!.parentElement).toBe(submitRow);
     expect(screen.getAllByText('이미 진행 중인 모집이 있습니다.')).toHaveLength(1);
   });
+
+  it('하단 버튼으로 낸 제출이 거절되면 폼 맨 위가 보여도 위쪽 카드 없이 하단 문구가 알림이 된다', async () => {
+    const onSubmit = vi.fn().mockRejectedValue(new Error('저장 거절'));
+    render(<RecruitmentForm mode="edit" initialValues={editSeed} submitLabel="수정 저장" onSubmit={onSubmit} isPending={false} />);
+    const submitButton = screen.getByRole('button', { name: '수정 저장' });
+    fireEvent.click(submitButton);
+
+    const alerts = await screen.findAllByRole('alert');
+    expect(alerts).toHaveLength(1);
+    // 하단 버튼을 누른 사용자는 하단 줄을 보고 있다 — 짧은 폼에서는 위쪽 카드가 그 줄을 화면 밖으로 밀어낸다.
+    expect(alerts[0]!.parentElement).toBe(submitButton.parentElement);
+    expect(screen.getAllByText('저장 거절')).toHaveLength(1);
+  });
+
+  it('하단 버튼으로 거절된 뒤 버튼 없이 다시 제출해 거절되면 위쪽 카드가 뜬다', async () => {
+    const onSubmit = vi.fn().mockRejectedValue(new Error('저장 거절'));
+    render(<RecruitmentForm mode="edit" initialValues={editSeed} submitLabel="수정 저장" onSubmit={onSubmit} isPending={false} />);
+    const submitButton = screen.getByRole('button', { name: '수정 저장' });
+    fireEvent.click(submitButton);
+    await within(submitButton.parentElement!).findByRole('alert');
+
+    // 제출마다 다시 정한다 — 폼 밖 버튼(위쪽 버튼)이나 Enter 로 낸 제출은 폼 안의 버튼이 submitter 가 아니다.
+    fireEvent.submit(submitButton.closest('form')!);
+    await waitFor(() => expect(screen.getAllByText('저장 거절')).toHaveLength(2));
+    const titleInput = screen.getByPlaceholderText('모집 공고 제목을 입력하세요');
+    expect(screen.getByRole('alert').compareDocumentPosition(titleInput) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(onSubmit).toHaveBeenCalledTimes(2);
+  });
 });

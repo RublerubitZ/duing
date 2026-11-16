@@ -255,8 +255,8 @@ export function RecruitmentForm(props: RecruitmentFormProps) {
   // 특정 입력에 붙일 수 없는 오류(교차 검증 등)만 일반 오류(폼 맨 위 카드·하단 줄)로 남긴다.
   const [formError, setFormError] = useState<string | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
-  // 제출하는 순간 폼 맨 위(일반 오류 카드가 들어갈 자리)가 화면에 보였는지 — 보였을 때만 카드를 그린다(showsErrorAtTop).
-  const [formTopWasVisible, setFormTopWasVisible] = useState(true);
+  // 이번 제출의 일반 오류를 폼 맨 위 카드로도 보일지 — 제출하는 순간에 정한다(handleSubmit).
+  const [showsTopCardForSubmit, setShowsTopCardForSubmit] = useState(true);
   const [isExternalConfirmOpen, setIsExternalConfirmOpen] = useState(false);
   // 검증까지 끝났지만 "기존 모집 마감" 확인을 기다리는 create payload. null 이면 확인 대기 없음.
   const [pendingCreateValues, setPendingCreateValues] = useState<CreateFormValues | null>(null);
@@ -346,8 +346,11 @@ export function RecruitmentForm(props: RecruitmentFormProps) {
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    // 이 화면은 윈도우가 스크롤한다 — top 이 음수면 폼 맨 위가 화면 위로 지나갔다(아래로 스크롤한 상태).
-    setFormTopWasVisible(event.currentTarget.getBoundingClientRect().top >= 0);
+    const form = event.currentTarget;
+    const submitter = (event.nativeEvent as SubmitEvent).submitter;
+    // 카드는 그 자리(폼 맨 위)가 화면에 보일 때만 넣는다 — 이 화면은 윈도우가 스크롤하고, top 이 음수면 폼 맨 위가 화면 위로 지나갔다.
+    // 폼 안의 버튼(하단 버튼)으로 낸 제출에도 넣지 않는다 — 누른 사용자는 하단 줄을 보고 있고, 짧은 폼에서는 카드가 그 줄을 화면 밖으로 밀어낸다.
+    setShowsTopCardForSubmit(form.getBoundingClientRect().top >= 0 && !(submitter && form.contains(submitter)));
     setFieldErrors({});
     setFormError(null);
     setSubmitError(null);
@@ -581,8 +584,8 @@ export function RecruitmentForm(props: RecruitmentFormProps) {
   const stageLabels = recruitmentStageLabels(useInterview);
   // 서버 거절·필드 없는 검증 오류 — 폼 맨 위와 하단 줄이 같은 문구를 그린다.
   const generalError = formError ?? submitError;
-  // 카드는 그 자리가 화면에 보일 때만 넣는다 — 화면 밖 위쪽에 넣으면 보이지도 않고, 스크롤 보정이 없는 브라우저에서는 보던 화면이 카드 높이만큼 밀린다.
-  const showsErrorAtTop = Boolean(generalError) && formTopWasVisible;
+  // 화면 밖 위쪽에 카드를 넣으면 보이지도 않고, 스크롤 보정이 없는 브라우저에서는 보던 화면이 카드 높이만큼 밀린다(판정은 handleSubmit).
+  const showsErrorAtTop = Boolean(generalError) && showsTopCardForSubmit;
 
   return (
     <div className="xl:grid xl:grid-cols-[minmax(0,1fr)_380px] xl:items-start xl:gap-6">
@@ -628,7 +631,7 @@ export function RecruitmentForm(props: RecruitmentFormProps) {
             message,
           }))}
         />
-        {/* 머리줄 버튼으로 저장하면 하단 문구는 화면 밖이다 — 폼 맨 위가 보이는 상태에서 낸 제출이면 같은 문구를 여기에도 알린다. 알림 영역은 늘 한 곳이다. */}
+        {/* 위쪽 버튼으로 저장하면 하단 문구는 화면 밖이다 — 폼 맨 위가 보이는 상태에서 폼 밖 버튼·Enter 로 낸 제출이면 같은 문구를 여기에도 알린다. 알림 영역은 늘 한 곳이다. */}
         {showsErrorAtTop && (
           <p
             role="alert"
