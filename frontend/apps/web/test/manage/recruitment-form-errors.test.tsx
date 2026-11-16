@@ -305,7 +305,7 @@ describe('RecruitmentForm 오류 표시', () => {
     );
   });
 
-  it('하단 줄은 오류 문구와 제출 버튼을 한 줄에 두고 줄바꿈을 허용한다', async () => {
+  it('확인 창에서 거절된 뒤 창을 닫으면 하단 줄은 오류 문구와 제출 버튼을 한 줄에 두고 줄바꿈을 허용한다', async () => {
     const longMessage =
       '취소하지 않은 면접 라운드가 있어 면접을 끌 수 없습니다. 초안은 폐기하고 진행 중인 라운드는 취소한 뒤 다시 시도해주세요(확정된 라운드가 있으면 끌 수 없습니다).';
     const onSubmit = vi.fn().mockRejectedValue(new Error(longMessage));
@@ -322,7 +322,7 @@ describe('RecruitmentForm 오류 표시', () => {
     expect(submitRow).toHaveClass('flex-wrap');
   });
 
-  it('등록이 거절되면 폼 맨 위 알림 카드 하나에 문구가 뜬다', async () => {
+  it('등록이 확인 창에서 거절된 뒤 창을 닫으면 폼 맨 위 알림 카드 하나에 문구가 뜬다', async () => {
     const onSubmit = vi.fn().mockRejectedValue(new Error('이미 진행 중인 모집이 있습니다.'));
     render(<RecruitmentForm mode="create" submitLabel="공개하기" onSubmit={onSubmit} isPending={false} />);
     await fillAndPublishCreateForm();
@@ -409,7 +409,7 @@ describe('RecruitmentForm 오류 표시', () => {
     expect(onSubmit).toHaveBeenCalledTimes(2);
   });
 
-  it('등록 모드에서도 스크롤한 상태에서 낸 제출이 거절되면 하단 문구 하나가 알림이다', async () => {
+  it('등록 모드에서도 스크롤한 상태에서 낸 제출이 확인 창에서 거절된 뒤 창을 닫으면 하단 문구 하나가 알림이다', async () => {
     const onSubmit = vi.fn().mockRejectedValue(new Error('이미 진행 중인 모집이 있습니다.'));
     render(<RecruitmentForm mode="create" submitLabel="공개하기" onSubmit={onSubmit} isPending={false} />);
     // 하단 줄과 폼은 확인 창을 열기 전에 잡아 둔다(창이 열려 있는 동안 폼은 aria-hidden 아래다).
