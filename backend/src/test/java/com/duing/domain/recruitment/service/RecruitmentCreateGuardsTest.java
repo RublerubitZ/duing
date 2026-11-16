@@ -66,7 +66,7 @@ class RecruitmentCreateGuardsTest {
         stubClubAndAuth();
         Recruitment activeRecruitment = mock(Recruitment.class);
         when(activeRecruitment.getEndDate()).thenReturn(LocalDate.now().plusDays(7));
-        when(recruitmentRepository.findOpenByClubId(CLUB_ID)).thenReturn(Optional.of(activeRecruitment));
+        when(recruitmentRepository.findOpenByClubIdForUpdate(CLUB_ID)).thenReturn(Optional.of(activeRecruitment));
 
         assertThatThrownBy(() -> recruitmentService.create(buildCommand()))
                 .isInstanceOf(RecruitmentException.DuplicateActiveRecruitmentException.class);
@@ -78,7 +78,7 @@ class RecruitmentCreateGuardsTest {
         stubClubAndAuth();
         Recruitment alwaysOpen = mock(Recruitment.class);
         when(alwaysOpen.getEndDate()).thenReturn(null);
-        when(recruitmentRepository.findOpenByClubId(CLUB_ID)).thenReturn(Optional.of(alwaysOpen));
+        when(recruitmentRepository.findOpenByClubIdForUpdate(CLUB_ID)).thenReturn(Optional.of(alwaysOpen));
 
         assertThatThrownBy(() -> recruitmentService.create(buildCommand()))
                 .isInstanceOf(RecruitmentException.DuplicateActiveRecruitmentException.class);
@@ -90,7 +90,7 @@ class RecruitmentCreateGuardsTest {
         stubClubAndAuth();
         Recruitment expiredOpen = mock(Recruitment.class);
         when(expiredOpen.getEndDate()).thenReturn(LocalDate.now().minusDays(1));
-        when(recruitmentRepository.findOpenByClubId(CLUB_ID)).thenReturn(Optional.of(expiredOpen));
+        when(recruitmentRepository.findOpenByClubIdForUpdate(CLUB_ID)).thenReturn(Optional.of(expiredOpen));
         Recruitment savedNew = mock(Recruitment.class);
         when(savedNew.getId()).thenReturn(999L);
         when(savedNew.getStatus()).thenReturn(com.duing.domain.recruitment.entity.RecruitmentStatus.CLOSED);
@@ -106,7 +106,7 @@ class RecruitmentCreateGuardsTest {
     @DisplayName("INSERT 시점의 uk_recruitment_club_active unique 위반은 DuplicateActiveRecruitmentException 으로 변환된다")
     void convertsTargetUniqueViolationToDomainException() {
         stubClubAndAuth();
-        when(recruitmentRepository.findOpenByClubId(CLUB_ID)).thenReturn(Optional.empty());
+        when(recruitmentRepository.findOpenByClubIdForUpdate(CLUB_ID)).thenReturn(Optional.empty());
         when(recruitmentRepository.save(any(Recruitment.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
         SQLException pgUnique = new SQLException(
@@ -123,7 +123,7 @@ class RecruitmentCreateGuardsTest {
     @DisplayName("uk_recruitment_club_active 와 무관한 DataIntegrityViolationException 은 그대로 전파된다")
     void propagatesUnrelatedConstraintViolation() {
         stubClubAndAuth();
-        when(recruitmentRepository.findOpenByClubId(CLUB_ID)).thenReturn(Optional.empty());
+        when(recruitmentRepository.findOpenByClubIdForUpdate(CLUB_ID)).thenReturn(Optional.empty());
         when(recruitmentRepository.save(any(Recruitment.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
         // 23503 (FK 위반) 같은 다른 제약 위반은 도메인 예외로 둔갑시키면 안 된다.
@@ -142,7 +142,7 @@ class RecruitmentCreateGuardsTest {
     @DisplayName("같은 23505 SQLState 라도 다른 unique 인덱스 위반은 그대로 전파된다")
     void propagatesOtherUniqueViolation() {
         stubClubAndAuth();
-        when(recruitmentRepository.findOpenByClubId(CLUB_ID)).thenReturn(Optional.empty());
+        when(recruitmentRepository.findOpenByClubIdForUpdate(CLUB_ID)).thenReturn(Optional.empty());
         when(recruitmentRepository.save(any(Recruitment.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
         SQLException pgOtherUnique = new SQLException(
@@ -171,7 +171,7 @@ class RecruitmentCreateGuardsTest {
     void rejectsPastEndDateBeforeAutoClosingPredecessor() {
         stubClubAndAuth();
         Recruitment expiredOpen = mock(Recruitment.class);
-        when(recruitmentRepository.findOpenByClubId(CLUB_ID)).thenReturn(Optional.of(expiredOpen));
+        when(recruitmentRepository.findOpenByClubIdForUpdate(CLUB_ID)).thenReturn(Optional.of(expiredOpen));
 
         assertThatThrownBy(() -> recruitmentService.create(
                 buildCommand(kstToday().minusDays(3), kstToday().minusDays(1))))
@@ -184,7 +184,7 @@ class RecruitmentCreateGuardsTest {
     @DisplayName("종료일이 오늘인 모집은 오늘 하루 지원을 받을 수 있으므로 생성된다")
     void allowsEndDateOfToday() {
         stubClubAndAuth();
-        when(recruitmentRepository.findOpenByClubId(CLUB_ID)).thenReturn(Optional.empty());
+        when(recruitmentRepository.findOpenByClubIdForUpdate(CLUB_ID)).thenReturn(Optional.empty());
         Recruitment savedRecruitment = mock(Recruitment.class);
         when(savedRecruitment.getId()).thenReturn(999L);
         when(recruitmentRepository.save(any(Recruitment.class))).thenReturn(savedRecruitment);

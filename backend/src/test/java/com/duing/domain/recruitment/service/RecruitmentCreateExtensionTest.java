@@ -15,6 +15,7 @@ import com.duing.domain.clubmember.repository.ClubMemberRepository;
 import com.duing.domain.recruitment.entity.ApplicationMode;
 import com.duing.domain.recruitment.entity.Recruitment;
 import com.duing.domain.recruitment.entity.RecruitmentQuestion;
+import com.duing.domain.recruitment.entity.RecruitmentStatus;
 import com.duing.domain.recruitment.entity.TargetRole;
 import com.duing.domain.recruitment.exception.RecruitmentException;
 import com.duing.domain.recruitment.repository.RecruitmentRepository;
@@ -268,7 +269,8 @@ class RecruitmentCreateExtensionTest {
                 .isInstanceOf(RecruitmentException.OfficerTargetRequiresLeaderException.class);
 
         // 활성 모집 슬롯(uk_recruitment_club_active)을 소모하지 않고 생성 시점에 막혀야 한다.
-        assertThat(recruitmentRepository.findOpenByClubId(club.getId())).isEmpty();
+        assertThat(recruitmentRepository.findByClubIdOrderByStatusOpenFirstAndStartDateDesc(club.getId()))
+                .noneMatch(recruitment -> recruitment.getStatus() == RecruitmentStatus.OPEN);
     }
 
     @Test

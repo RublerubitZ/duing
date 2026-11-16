@@ -38,10 +38,31 @@ public interface RecruitmentRepository extends JpaRepository<Recruitment, Long>,
      * ⚠ 제출은 폼 FOR SHARE → 지원 INSERT(모집 FK 의 KEY SHARE) 순이라 방향이 반대다 — PESSIMISTIC_WRITE 는 PG 에서
      * FOR NO KEY UPDATE 라 KEY SHARE 와 충돌하지 않아 교착이 없지만, 잠금 모드가 FOR UPDATE 로 바뀌는 순간
      * 수정(모집 → 폼 UPDATE) ↔ 제출(폼 SHARE → 모집 KEY SHARE) 교착이 된다(가드: RecruitmentRowLockModeTest).
+     *
+     * <p>총동연 강제 마감(forceClose)도 이 잠금을 쓴다. 모집 생성(create)은 {@link #findOpenByClubIdForUpdate} 로 잠근다.
      */
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT recruitment FROM Recruitment recruitment WHERE recruitment.id = :recruitmentId")
     Optional<Recruitment> findByIdForUpdate(@Param("recruitmentId") Long recruitmentId);
+
+    /**
+     * 동아리의 OPEN 모집 1건을 행 잠금으로 읽는다 — 새 모집을 만들기 전에 기간이 지난 OPEN 모집을 자동 마감할 때 쓴다(create).
+     * endDate 는 거르지 않는다. uk_recruitment_club_active(V38)가 동아리당 1건을 보장한다.
+     * 잠그지 않으면 옛 값을 읽은 전 컬럼 UPDATE 가 그 사이 커밋된 수정(기간 연장 등)을 되돌린다.
+     * club 을 조인하지 않는다(조인하면 잠금이 club 행까지 번진다). 동아리당 1건이라 정렬·LIMIT 가 필요 없다.
+     * 대기하는 사이 그 모집이 마감·삭제되면 빈 결과가 되고, 그것이 맞는 결과다.
+     *
+     * <p>잠금 순서: club(FOR NO KEY UPDATE) → 모집.
+     * ⚠ 반대 방향으로, 모집 잠금을 쥔 채 club 외래 키를 확인(KEY SHARE)하는 INSERT 가 있다 — 총동연 강제 마감·삭제·가입 코드 발급.
+     * club 잠금이 FOR NO KEY UPDATE 라 충돌하지 않지만, FOR UPDATE 로 바뀌는 순간 교착이 된다(가드: RecruitmentRowLockModeTest).
+     */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("""
+            SELECT recruitment FROM Recruitment recruitment
+             WHERE recruitment.club.id = :clubId
+               AND recruitment.status = com.duing.domain.recruitment.entity.RecruitmentStatus.OPEN
+            """)
+    Optional<Recruitment> findOpenByClubIdForUpdate(@Param("clubId") Long clubId);
 
     /**
      * 제출이 읽는 질문 정의를 고정한다. 질문 변경(FOR UPDATE)과 상호 배타이고,

@@ -96,7 +96,8 @@ public class GeneralRecruitmentService implements RecruitmentService {
         // 진행해 사용자 멘탈모델과 DB 인덱스의 의미차를 흡수한다. 진짜 활성인 경우엔 그대로 거부.
         requireEndDateNotPast(createRecruitmentCommand.endDate());
         LocalDate today = LocalDate.now(clock);
-        recruitmentRepository.findOpenByClubId(club.getId()).ifPresent(existingOpen -> {
+        // 행 잠금으로 읽는다: 잠그지 않으면 그 사이 커밋된 기간 연장을 옛 값으로 덮고 마감한다.
+        recruitmentRepository.findOpenByClubIdForUpdate(club.getId()).ifPresent(existingOpen -> {
             boolean isStillActive = existingOpen.getEndDate() == null
                     || !existingOpen.getEndDate().isBefore(today);
             if (isStillActive) {
@@ -425,6 +426,7 @@ public class GeneralRecruitmentService implements RecruitmentService {
     @Override
     @Transactional
     public List<Long> closeAllOnClubClosure(Long clubId) {
+        // 일부러 잠그지 않고 읽는다 — 같은 트랜잭션에서 이 모집들을 soft-delete 하므로 덮어쓴 옛 값이 남지 않는다.
         List<Recruitment> recruitments =
                 recruitmentRepository.findByClubIdOrderByStatusOpenFirstAndStartDateDesc(clubId);
         // 한 번의 폐쇄로 닫히는 모집들은 같은 종료 시각을 갖는다 — 루프마다 시계를 읽으면 가입 링크의

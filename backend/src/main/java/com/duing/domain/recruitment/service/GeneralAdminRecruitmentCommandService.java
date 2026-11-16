@@ -35,7 +35,8 @@ public class GeneralAdminRecruitmentCommandService implements AdminRecruitmentCo
     @Override
     @Transactional
     public void forceClose(Long recruitmentId, Long adminUserId, String reason) {
-        Recruitment recruitment = recruitmentRepository.findById(recruitmentId)
+        // 행 잠금 — 운영진 수정·마감과 직렬화한다. 잠그지 않으면 옛 값을 읽은 전 컬럼 UPDATE 가 그 사이 커밋된 변경을 되돌린다.
+        Recruitment recruitment = recruitmentRepository.findByIdForUpdate(recruitmentId)
                 .orElseThrow(RecruitmentException.RecruitmentNotFoundException::new);
         recruitment.close(LocalDateTime.now(clock));
         clubAuditEventRepository.save(ClubAuditEvent.adminForceClose(
