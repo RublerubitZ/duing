@@ -35,6 +35,15 @@ async function fillAndPublishCreateForm() {
   fireEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: '공개' }));
 }
 
+/**
+ * jsdom 은 레이아웃이 없어 모든 사각형이 0 이다(= 하단 줄은 기본으로 화면 밖).
+ * 하단 줄이 화면 어디에 있는지는 사각형을 심어 만든다 — jsdom 의 뷰포트 높이는 768 이다.
+ */
+function placeSubmitRow(submitRow: HTMLElement, top: number) {
+  const rect = { x: 0, y: top, left: 0, top, right: 300, bottom: top + 44, width: 300, height: 44, toJSON: () => ({}) };
+  vi.spyOn(submitRow, 'getBoundingClientRect').mockReturnValue(rect as DOMRect);
+}
+
 // 수정 모드 시드 — recruitment-form.test.tsx 의 baseRecruitmentDetail 과 같은 값.
 // questionItems 키가 없으면 구 BE 상세로 보고 질문 검증을 건너뛴다(빈 배열이면 "질문 최소 1개"에 걸린다).
 const editSeed: RecruitmentDetail = {
@@ -305,7 +314,7 @@ describe('RecruitmentForm 오류 표시', () => {
     render(<RecruitmentForm mode="create" submitLabel="공개하기" onSubmit={onSubmit} isPending={false} />);
     await fillAndPublishCreateForm();
 
-    // 하단 문구에는 role 을 주지 않는다 — 둘 다 알림이면 같은 문구를 두 번 읽는다.
+    // 알림 영역은 한 곳이다 — 하단 줄이 화면 밖이면 위쪽 카드가 알림이고, 하단 문구에는 role 이 없다.
     const alerts = await screen.findAllByRole('alert');
     expect(alerts).toHaveLength(1);
     expect(alerts[0]).toHaveTextContent('이미 진행 중인 모집이 있습니다.');
@@ -338,31 +347,48 @@ describe('RecruitmentForm 오류 표시', () => {
     expect(onSubmit).toHaveBeenCalledTimes(2);
   });
 
-  it('하단 버튼으로 낸 제출이 거절되면 위쪽 카드 없이 하단 문구가 알림이 된다', async () => {
+  it('하단 줄이 화면에 보일 때 낸 제출이 거절되면 위쪽 카드 없이 하단 문구가 알림이 된다', async () => {
     const onSubmit = vi.fn().mockRejectedValue(new Error('저장 거절'));
     render(<RecruitmentForm mode="edit" initialValues={editSeed} submitLabel="수정 저장" onSubmit={onSubmit} isPending={false} />);
-    const submitButton = screen.getByRole('button', { name: '수정 저장' });
-    fireEvent.click(submitButton);
+    const submitRow = screen.getByRole('button', { name: '수정 저장' }).parentElement!;
+    placeSubmitRow(submitRow, 600);
+    fireEvent.submit(submitRow.closest('form')!);
 
     const alerts = await screen.findAllByRole('alert');
     expect(alerts).toHaveLength(1);
-    // 하단 버튼을 누른 사용자는 맨 아래에 있다 — 그 위쪽에 카드를 넣으면 스크롤 보정이 없는 브라우저에서 하단 줄이 밀린다.
-    expect(alerts[0]!.parentElement).toBe(submitButton.parentElement);
+    // 하단 줄을 보고 있는 사용자 위쪽에 카드를 넣으면 스크롤 보정이 없는 브라우저에서 보이던 하단 줄이 밀린다.
+    expect(alerts[0]!.parentElement).toBe(submitRow);
     expect(screen.getAllByText('저장 거절')).toHaveLength(1);
   });
 
-  it('하단 버튼으로 거절된 뒤 버튼 클릭 없이 다시 제출해 거절되면 위쪽 카드가 뜬다', async () => {
+  it('하단 줄이 보일 때 거절된 뒤 하단 줄이 화면 밖일 때 다시 거절되면 위쪽 카드가 뜬다', async () => {
     const onSubmit = vi.fn().mockRejectedValue(new Error('저장 거절'));
     render(<RecruitmentForm mode="edit" initialValues={editSeed} submitLabel="수정 저장" onSubmit={onSubmit} isPending={false} />);
-    const submitButton = screen.getByRole('button', { name: '수정 저장' });
-    fireEvent.click(submitButton);
-    await within(submitButton.parentElement!).findByRole('alert');
+    const submitRow = screen.getByRole('button', { name: '수정 저장' }).parentElement!;
+    placeSubmitRow(submitRow, 600);
+    fireEvent.submit(submitRow.closest('form')!);
+    await within(submitRow).findByRole('alert');
 
-    // 하단 버튼 표시가 다음 제출로 새면 안 된다 — 머리줄 버튼·Enter 로 낸 제출은 클릭 없이 submit 만 온다.
-    fireEvent.submit(submitButton.closest('form')!);
+    // 제출마다 다시 잰다 — 이번에는 하단 줄이 뷰포트(768) 아래에 있다.
+    placeSubmitRow(submitRow, 2000);
+    fireEvent.submit(submitRow.closest('form')!);
     await waitFor(() => expect(screen.getAllByText('저장 거절')).toHaveLength(2));
     const titleInput = screen.getByPlaceholderText('모집 공고 제목을 입력하세요');
     expect(screen.getByRole('alert').compareDocumentPosition(titleInput) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(onSubmit).toHaveBeenCalledTimes(2);
+  });
+
+  it('등록 모드에서도 하단 줄이 보일 때 낸 제출이 거절되면 하단 문구 하나가 알림이다', async () => {
+    const onSubmit = vi.fn().mockRejectedValue(new Error('이미 진행 중인 모집이 있습니다.'));
+    render(<RecruitmentForm mode="create" submitLabel="공개하기" onSubmit={onSubmit} isPending={false} />);
+    // 확인 창이 열려 있는 동안 폼은 aria-hidden 아래다 — 하단 줄은 창을 열기 전에 잡아 둔다.
+    const submitRow = screen.getByRole('button', { name: '공개하기' }).parentElement!;
+    placeSubmitRow(submitRow, 600);
+    await fillAndPublishCreateForm();
+
+    const alerts = await screen.findAllByRole('alert');
+    expect(alerts).toHaveLength(1);
+    expect(alerts[0]!.parentElement).toBe(submitRow);
+    expect(screen.getAllByText('이미 진행 중인 모집이 있습니다.')).toHaveLength(1);
   });
 });
