@@ -350,7 +350,7 @@ export function RecruitmentForm(props: RecruitmentFormProps) {
     const submitter = (event.nativeEvent as SubmitEvent).submitter;
     // 카드는 그 자리(폼 맨 위)가 화면에 보일 때만 넣는다 — 이 화면은 윈도우가 스크롤하고, top 이 음수면 폼 맨 위가 화면 위로 지나갔다.
     // 폼 안의 버튼(하단 버튼)으로 낸 제출에도 넣지 않는다 — 누른 사용자는 하단 줄을 보고 있고, 짧은 폼에서는 카드가 그 줄을 화면 밖으로 밀어낸다.
-    // 입력에서 Enter 로 낸 제출은 폼의 첫 제출 버튼이 submitter 다 — 두 페이지에서는 폼 밖의 위쪽 버튼이라 폼 맨 위가 보이면 카드를 받는다.
+    // 입력의 Enter 는 폼의 onKeyDown 이 막는다. 그래도 Enter 로 제출이 오면(key 가 'Enter' 로 오지 않는 IME 조합 등 — 확인한 조합은 없다) submitter 는 폼의 첫 제출 버튼 — 두 페이지에서는 폼 밖의 위쪽 버튼 — 이다.
     setShowsTopCardForSubmit(form.getBoundingClientRect().top >= 0 && !(submitter && form.contains(submitter)));
     setFieldErrors({});
     setFormError(null);
@@ -591,7 +591,17 @@ export function RecruitmentForm(props: RecruitmentFormProps) {
   return (
     <div className="xl:grid xl:grid-cols-[minmax(0,1fr)_380px] xl:items-start xl:gap-6">
       {/* noValidate — 검증은 zod 한 곳에서만 판정하고, 브라우저 기본 말풍선이 요약 카드와 겹치지 않게 한다. */}
-      <form id={RECRUITMENT_FORM_ID} noValidate className="min-w-0" onSubmit={handleSubmit}>
+      <form
+        id={RECRUITMENT_FORM_ID}
+        noValidate
+        className="min-w-0"
+        onSubmit={handleSubmit}
+        onKeyDown={(event) => {
+          // 입력에서 Enter 로 저장되지 않게 한다 — 긴 폼에서 실수로 저장되고, 실패하면 오류 문구가 화면 밖이다. 저장은 두 버튼으로만.
+          // 날짜 입력의 달력 아이콘에서 누른 Enter 도 target 이 그 <input> 이라 같이 막힌다(Chromium·Firefox — Space·마우스로는 열린다).
+          if (event.key === 'Enter' && event.target instanceof HTMLInputElement) event.preventDefault();
+        }}
+      >
         {draft !== null && draftOwner !== undefined && (
           <div
             role="status"
@@ -632,7 +642,7 @@ export function RecruitmentForm(props: RecruitmentFormProps) {
             message,
           }))}
         />
-        {/* 위쪽 버튼으로 저장하면 하단 문구는 화면 밖이다 — 폼 맨 위가 보이는 상태에서 폼 밖 버튼·Enter 로 낸 제출이면 같은 문구를 여기에도 알린다. 알림 영역은 늘 한 곳이다. */}
+        {/* 위쪽 버튼으로 저장하면 하단 문구는 화면 밖이다 — 폼 맨 위가 보이는 상태에서 폼 밖 버튼으로 낸 제출이면 같은 문구를 여기에도 알린다. 알림 영역은 늘 한 곳이다. */}
         {showsErrorAtTop && (
           <p
             role="alert"
