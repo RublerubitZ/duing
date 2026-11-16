@@ -350,6 +350,7 @@ export function RecruitmentForm(props: RecruitmentFormProps) {
     const submitter = (event.nativeEvent as SubmitEvent).submitter;
     // 카드는 그 자리(폼 맨 위)가 화면에 보일 때만 넣는다 — 이 화면은 윈도우가 스크롤하고, top 이 음수면 폼 맨 위가 화면 위로 지나갔다.
     // 폼 안의 버튼(하단 버튼)으로 낸 제출에도 넣지 않는다 — 누른 사용자는 하단 줄을 보고 있고, 짧은 폼에서는 카드가 그 줄을 화면 밖으로 밀어낸다.
+    // 입력에서 Enter 로 낸 제출은 폼의 첫 제출 버튼이 submitter 다 — 두 페이지에서는 폼 밖의 위쪽 버튼이라 폼 맨 위가 보이면 카드를 받는다.
     setShowsTopCardForSubmit(form.getBoundingClientRect().top >= 0 && !(submitter && form.contains(submitter)));
     setFieldErrors({});
     setFormError(null);

@@ -313,7 +313,7 @@ describe('RecruitmentForm 오류 표시', () => {
     render(<RecruitmentForm mode="create" submitLabel="공개하기" onSubmit={onSubmit} isPending={false} />);
     await fillAndPublishCreateForm();
 
-    // 알림 영역은 한 곳이다 — 폼 맨 위가 화면에 보이면 위쪽 카드가 알림이고, 하단 문구에는 role 이 없다.
+    // 알림 영역은 한 곳이다 — 폼 맨 위가 보이고 하단 버튼으로 낸 제출이 아니면 위쪽 카드가 알림이고, 하단 문구에는 role 이 없다.
     const alerts = await screen.findAllByRole('alert');
     expect(alerts).toHaveLength(1);
     expect(alerts[0]).toHaveTextContent('이미 진행 중인 모집이 있습니다.');
