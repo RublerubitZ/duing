@@ -120,6 +120,10 @@ describe('EditRecruitmentPage — 머리줄 저장 실패', () => {
     expect(headerButton.closest('form')).toBeNull();
     fireEvent.click(headerButton);
 
-    expect(await screen.findByRole('alert')).toHaveTextContent(serverMessage);
+    const alert = await screen.findByRole('alert');
+    expect(alert).toHaveTextContent(serverMessage);
+    // 머리줄에서 저장한 사용자는 맨 위에 있다 — 알림이 제목 입력보다 앞(폼 맨 위)에 있어야 보인다.
+    const titleInput = screen.getByPlaceholderText('모집 공고 제목을 입력하세요');
+    expect(alert.compareDocumentPosition(titleInput) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 });
