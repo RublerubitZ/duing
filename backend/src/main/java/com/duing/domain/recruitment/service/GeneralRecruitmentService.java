@@ -426,6 +426,7 @@ public class GeneralRecruitmentService implements RecruitmentService {
     @Override
     @Transactional
     public List<Long> closeAllOnClubClosure(Long clubId) {
+        // 일부러 잠그지 않고 읽는다 — 같은 트랜잭션에서 이 모집들을 soft-delete 하므로 덮어쓴 옛 값이 남지 않는다.
         List<Recruitment> recruitments =
                 recruitmentRepository.findByClubIdOrderByStatusOpenFirstAndStartDateDesc(clubId);
         // 한 번의 폐쇄로 닫히는 모집들은 같은 종료 시각을 갖는다 — 루프마다 시계를 읽으면 가입 링크의
