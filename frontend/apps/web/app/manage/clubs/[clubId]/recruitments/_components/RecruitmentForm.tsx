@@ -36,7 +36,7 @@ import { useUnsavedChangesGuard } from '@/app/_lib/useUnsavedChangesGuard';
 export const RECRUITMENT_FORM_ID = 'recruitment-form';
 
 /**
- * zod issue 의 최상위 경로 → 해당 입력의 DOM id. 여기에 없는 경로는 폼 하단 일반 오류로 떨어진다.
+ * zod issue 의 최상위 경로 → 해당 입력의 DOM id. 여기에 없는 경로는 일반 오류(폼 맨 위 카드·하단 줄)로 떨어진다.
  * 오류 요약 카드의 "누르면 그 필드로 이동" 도 이 id 로만 동작한다.
  */
 const FIELD_IDS: Record<string, string> = {
@@ -252,9 +252,11 @@ export function RecruitmentForm(props: RecruitmentFormProps) {
   });
   // 필드 경로별 첫 오류 메시지(zod 문구 그대로) — 입력 아래·요약 카드가 같은 값을 읽는다.
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
-  // 특정 입력에 붙일 수 없는 오류(교차 검증 등)만 폼 하단에 남긴다.
+  // 특정 입력에 붙일 수 없는 오류(교차 검증 등)만 일반 오류(폼 맨 위 카드·하단 줄)로 남긴다.
   const [formError, setFormError] = useState<string | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  // 이번 제출의 일반 오류를 폼 맨 위 카드로도 보일지 — 제출하는 순간에 정한다(handleSubmit).
+  const [showsTopCardForSubmit, setShowsTopCardForSubmit] = useState(true);
   const [isExternalConfirmOpen, setIsExternalConfirmOpen] = useState(false);
   // 검증까지 끝났지만 "기존 모집 마감" 확인을 기다리는 create payload. null 이면 확인 대기 없음.
   const [pendingCreateValues, setPendingCreateValues] = useState<CreateFormValues | null>(null);
@@ -304,7 +306,7 @@ export function RecruitmentForm(props: RecruitmentFormProps) {
 
   /**
    * zod issue 를 필드별 오류로 펼친다 — 한 필드에 여러 issue 가 있으면 첫 문구만 남긴다(문구는 스키마 것 그대로).
-   * 붙일 입력이 없는 issue 는 폼 하단 일반 오류로, 그마저도 없으면 기존 폴백 문구로 떨어진다.
+   * 붙일 입력이 없는 issue 는 일반 오류로, 그마저도 없으면 기존 폴백 문구로 떨어진다.
    */
   function applyIssues(issues: { path: PropertyKey[]; message: string }[]) {
     const next: Record<string, string> = {};
@@ -342,8 +344,14 @@ export function RecruitmentForm(props: RecruitmentFormProps) {
     });
   }
 
-  async function handleSubmit(event: FormEvent) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    const form = event.currentTarget;
+    const submitter = (event.nativeEvent as SubmitEvent).submitter;
+    // 카드는 그 자리(폼 맨 위)가 화면에 보일 때만 넣는다 — 이 화면은 윈도우가 스크롤하고, top 이 음수면 폼 맨 위가 화면 위로 지나갔다.
+    // 폼 안의 버튼(하단 버튼)으로 낸 제출에도 넣지 않는다 — 누른 사용자는 하단 줄을 보고 있고, 짧은 폼에서는 카드가 그 줄을 화면 밖으로 밀어낸다.
+    // 입력에서 Enter 로 낸 제출은 폼의 첫 제출 버튼이 submitter 다 — 두 페이지에서는 폼 밖의 위쪽 버튼이라 폼 맨 위가 보이면 카드를 받는다.
+    setShowsTopCardForSubmit(form.getBoundingClientRect().top >= 0 && !(submitter && form.contains(submitter)));
     setFieldErrors({});
     setFormError(null);
     setSubmitError(null);
@@ -575,6 +583,10 @@ export function RecruitmentForm(props: RecruitmentFormProps) {
     questions: isSelfForm ? questionItems : [],
   };
   const stageLabels = recruitmentStageLabels(useInterview);
+  // 서버 거절·필드 없는 검증 오류 — 폼 맨 위와 하단 줄이 같은 문구를 그린다.
+  const generalError = formError ?? submitError;
+  // 화면 밖 위쪽에 카드를 넣으면 보이지도 않고, 스크롤 보정이 없는 브라우저에서는 보던 화면이 카드 높이만큼 밀린다(판정은 handleSubmit).
+  const showsErrorAtTop = Boolean(generalError) && showsTopCardForSubmit;
 
   return (
     <div className="xl:grid xl:grid-cols-[minmax(0,1fr)_380px] xl:items-start xl:gap-6">
@@ -620,6 +632,15 @@ export function RecruitmentForm(props: RecruitmentFormProps) {
             message,
           }))}
         />
+        {/* 위쪽 버튼으로 저장하면 하단 문구는 화면 밖이다 — 폼 맨 위가 보이는 상태에서 폼 밖 버튼·Enter 로 낸 제출이면 같은 문구를 여기에도 알린다. 알림 영역은 늘 한 곳이다. */}
+        {showsErrorAtTop && (
+          <p
+            role="alert"
+            className="mb-4 rounded-[13px] border border-danger/40 bg-danger/5 px-4 py-3 text-sm text-danger"
+          >
+            {generalError}
+          </p>
+        )}
 
         {/* 우측 프리뷰는 xl 이상에서만 붙는다 — 그 아래 폭에서는 시트로 같은 화면을 연다. */}
         <div className="mb-3 flex justify-end xl:hidden">
@@ -1030,8 +1051,10 @@ export function RecruitmentForm(props: RecruitmentFormProps) {
 
         {/* 오류 + 하단 제출 — 한 줄에 안 들어가면 버튼이 다음 줄로 내려간다(버튼이 줄어들지 않게) */}
         <div className="mt-2 flex flex-wrap items-center justify-end gap-3">
-          {(formError ?? submitError) && (
-            <p className="text-sm text-danger">{formError ?? submitError}</p>
+          {generalError && (
+            <p role={showsErrorAtTop ? undefined : 'alert'} className="text-sm text-danger">
+              {generalError}
+            </p>
           )}
           <button type="submit" disabled={props.isPending} className="btn btn-primary disabled:opacity-50">
             {props.isPending && <ButtonSpinner />}

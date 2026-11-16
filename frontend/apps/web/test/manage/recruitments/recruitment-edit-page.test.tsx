@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, it, expect, beforeAll, afterEach, afterAll, vi } from 'vitest';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { setupServer } from 'msw/node';
@@ -83,5 +83,47 @@ describe('EditRecruitmentPage — 수정 가드', () => {
 
     expect(await screen.findByText('마감된 모집은 수정할 수 없습니다.')).toBeInTheDocument();
     expect(screen.queryAllByRole('button', { name: '수정 저장' })).toHaveLength(0);
+  });
+});
+
+describe('EditRecruitmentPage — 머리줄 저장 실패', () => {
+  // 머리줄 버튼은 화면 맨 위에 있다 — 하단 줄에만 문구가 뜨면 사용자에게는 아무 일도 없어 보인다.
+  it('머리줄 수정 저장이 409 로 거절되면 폼 맨 위 알림 카드에 서버 문구가 뜬다', async () => {
+    const serverMessage = '취소하지 않은 면접 라운드가 있어 면접을 끌 수 없습니다.';
+    server.use(
+      // 기존 핸들러는 questionItems: [] 라 "질문 최소 1개"에 걸려 요청이 나가지 않는다 — 질문 하나를 넣은 시드를 따로 둔다.
+      http.get(`*/recruitments/${RECRUITMENT_ID}`, () =>
+        HttpResponse.json({
+          ok: true,
+          message: null,
+          data: {
+            id: RECRUITMENT_ID, clubId: CLUB_ID, clubName: '두잉', title: '11기 신입 모집',
+            startDate: '2025-03-01', endDate: '2025-03-14', capacity: 20,
+            status: 'OPEN', displayStatus: 'OPEN', effectivelyOpen: false,
+            applicationMode: 'SELF', externalFormUrl: null, useInterview: false, targetRole: 'MEMBER',
+            content: null,
+            questions: ['지원 동기'],
+            questionItems: [{ id: 'q-1', text: '지원 동기', type: 'TEXT', required: true, choices: [] }],
+            interviewStartDate: null, interviewEndDate: null, showApplicantCount: false, applicantCount: null,
+          },
+        }),
+      ),
+      http.patch(`*/leader/recruitments/${RECRUITMENT_ID}`, () =>
+        HttpResponse.json({ ok: false, message: serverMessage, data: null }, { status: 409 }),
+      ),
+    );
+    renderPage();
+    await screen.findByPlaceholderText('모집 공고 제목을 입력하세요');
+
+    // 문서 순서로 머리줄 버튼이 먼저다 — 폼 밖에서 form= 속성으로 폼을 제출한다.
+    const headerButton = screen.getAllByRole('button', { name: '수정 저장' })[0]!;
+    expect(headerButton.closest('form')).toBeNull();
+    fireEvent.click(headerButton);
+
+    const alert = await screen.findByRole('alert');
+    expect(alert).toHaveTextContent(serverMessage);
+    // 머리줄에서 저장한 사용자는 맨 위에 있다 — 알림이 제목 입력보다 앞(폼 맨 위)에 있어야 보인다.
+    const titleInput = screen.getByPlaceholderText('모집 공고 제목을 입력하세요');
+    expect(alert.compareDocumentPosition(titleInput) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 });
