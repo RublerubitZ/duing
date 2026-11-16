@@ -575,6 +575,8 @@ export function RecruitmentForm(props: RecruitmentFormProps) {
     questions: isSelfForm ? questionItems : [],
   };
   const stageLabels = recruitmentStageLabels(useInterview);
+  // 서버 거절·필드 없는 검증 오류 — 폼 맨 위와 하단 줄이 같은 문구를 그린다.
+  const generalError = formError ?? submitError;
 
   return (
     <div className="xl:grid xl:grid-cols-[minmax(0,1fr)_380px] xl:items-start xl:gap-6">
@@ -620,6 +622,15 @@ export function RecruitmentForm(props: RecruitmentFormProps) {
             message,
           }))}
         />
+        {/* 머리줄 버튼으로 저장하면 하단 문구는 화면 밖이다 — 같은 문구를 폼 맨 위에도 알린다(role 은 여기만). */}
+        {generalError && (
+          <p
+            role="alert"
+            className="mb-4 rounded-[13px] border border-danger/40 bg-danger/5 px-4 py-3 text-sm text-danger"
+          >
+            {generalError}
+          </p>
+        )}
 
         {/* 우측 프리뷰는 xl 이상에서만 붙는다 — 그 아래 폭에서는 시트로 같은 화면을 연다. */}
         <div className="mb-3 flex justify-end xl:hidden">
@@ -1030,9 +1041,7 @@ export function RecruitmentForm(props: RecruitmentFormProps) {
 
         {/* 오류 + 하단 제출 — 한 줄에 안 들어가면 버튼이 다음 줄로 내려간다(버튼이 줄어들지 않게) */}
         <div className="mt-2 flex flex-wrap items-center justify-end gap-3">
-          {(formError ?? submitError) && (
-            <p className="text-sm text-danger">{formError ?? submitError}</p>
-          )}
+          {generalError && <p className="text-sm text-danger">{generalError}</p>}
           <button type="submit" disabled={props.isPending} className="btn btn-primary disabled:opacity-50">
             {props.isPending && <ButtonSpinner />}
             {props.submitLabel}

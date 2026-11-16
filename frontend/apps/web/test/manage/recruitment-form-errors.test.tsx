@@ -1,5 +1,6 @@
 import { act, render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { RecruitmentDetail } from '@duing/types';
 import { RecruitmentForm } from '@/app/manage/clubs/[clubId]/recruitments/_components/RecruitmentForm';
 import {
   loadRecruitmentDraft,
@@ -20,6 +21,45 @@ const KST_DATE = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Seoul' });
 function kstIsoDate(daysFromToday: number): string {
   return KST_DATE.format(new Date(Date.now() + daysFromToday * 86_400_000));
 }
+
+/** 등록 폼을 공개할 수 있는 최소 입력으로 채워 제출하고, 공개 확인 창에서 '공개'를 누른다. */
+async function fillAndPublishCreateForm() {
+  fireEvent.change(screen.getByPlaceholderText('모집 공고 제목을 입력하세요'), { target: { value: '가을 모집' } });
+  fireEvent.change(screen.getByLabelText(/^시작일/), { target: { value: kstIsoDate(0) } });
+  fireEvent.click(screen.getByLabelText(/^상시모집/));
+  fireEvent.click(screen.getByRole('radio', { name: '외부 폼' }));
+  fireEvent.click(screen.getByRole('button', { name: '확인하고 전환' }));
+  fireEvent.change(screen.getByPlaceholderText('https://docs.google.com/forms/...'), { target: { value: 'https://forms.gle/abc' } });
+  fireEvent.submit(screen.getByRole('button', { name: '공개하기' }).closest('form')!);
+  // '공개'를 누른 직후에는 창이 아직 열려 있어 폼이 aria-hidden 아래다 — 부른 쪽은 폼 안을 getByRole 로 바로 찾지 않는다.
+  fireEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: '공개' }));
+}
+
+// 수정 모드 시드 — recruitment-form.test.tsx 의 baseRecruitmentDetail 과 같은 값.
+// questionItems 키가 없으면 구 BE 상세로 보고 질문 검증을 건너뛴다(빈 배열이면 "질문 최소 1개"에 걸린다).
+const editSeed: RecruitmentDetail = {
+  id: 7,
+  clubId: 3,
+  clubName: '두잉 동아리',
+  title: '기존 모집',
+  startDate: '2026-05-01',
+  endDate: '2026-05-31',
+  capacity: 5,
+  status: 'OPEN',
+  displayStatus: 'OPEN',
+  effectivelyOpen: true,
+  applicationMode: 'SELF',
+  externalFormUrl: null,
+  useInterview: false,
+  targetRole: 'MEMBER',
+  closedAt: null,
+  content: null,
+  questions: [],
+  interviewStartDate: null,
+  interviewEndDate: null,
+  showApplicantCount: false,
+  applicantCount: null,
+};
 
 describe('RecruitmentForm 오류 표시', () => {
   beforeEach(() => window.localStorage.clear());
@@ -249,20 +289,52 @@ describe('RecruitmentForm 오류 표시', () => {
       '취소하지 않은 면접 라운드가 있어 면접을 끌 수 없습니다. 초안은 폐기하고 진행 중인 라운드는 취소한 뒤 다시 시도해주세요(확정된 라운드가 있으면 끌 수 없습니다).';
     const onSubmit = vi.fn().mockRejectedValue(new Error(longMessage));
     render(<RecruitmentForm mode="create" submitLabel="공개하기" onSubmit={onSubmit} isPending={false} />);
-    fireEvent.change(screen.getByPlaceholderText('모집 공고 제목을 입력하세요'), { target: { value: '가을 모집' } });
-    fireEvent.change(screen.getByLabelText(/^시작일/), { target: { value: kstIsoDate(0) } });
-    fireEvent.click(screen.getByLabelText(/^상시모집/));
-    fireEvent.click(screen.getByRole('radio', { name: '외부 폼' }));
-    fireEvent.click(screen.getByRole('button', { name: '확인하고 전환' }));
-    fireEvent.change(screen.getByPlaceholderText('https://docs.google.com/forms/...'), { target: { value: 'https://forms.gle/abc' } });
-    fireEvent.submit(screen.getByRole('button', { name: '공개하기' }).closest('form')!);
-    fireEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: '공개' }));
+    // 확인 창이 열려 있는 동안 폼은 aria-hidden 아래다 — 하단 줄은 창을 열기 전에 잡아 둔다.
+    const submitRow = screen.getByRole('button', { name: '공개하기' }).parentElement!;
+    await fillAndPublishCreateForm();
 
     // 줄바꿈을 허용해야 긴 오류 문구 옆에서 버튼이 찌그러지지 않고 다음 줄로 내려간다.
     // jsdom 은 레이아웃을 재지 못한다 — 같은 줄인지와 줄바꿈 허용만 단언하고, 실제 배치는 브라우저에서 잰다.
-    const errorText = await screen.findByText(longMessage);
-    const submitRow = screen.getByRole('button', { name: '공개하기' }).parentElement;
+    const errorText = await within(submitRow).findByText(longMessage);
     expect(errorText.parentElement).toBe(submitRow);
     expect(submitRow).toHaveClass('flex-wrap');
+  });
+
+  it('등록이 거절되면 폼 맨 위 알림 카드 하나에 문구가 뜬다', async () => {
+    const onSubmit = vi.fn().mockRejectedValue(new Error('이미 진행 중인 모집이 있습니다.'));
+    render(<RecruitmentForm mode="create" submitLabel="공개하기" onSubmit={onSubmit} isPending={false} />);
+    await fillAndPublishCreateForm();
+
+    // 하단 문구에는 role 을 주지 않는다 — 둘 다 알림이면 같은 문구를 두 번 읽는다.
+    const alerts = await screen.findAllByRole('alert');
+    expect(alerts).toHaveLength(1);
+    expect(alerts[0]).toHaveTextContent('이미 진행 중인 모집이 있습니다.');
+    // 머리줄 버튼으로 저장한 사용자가 스크롤 없이 보도록 첫 입력보다 앞에 둔다.
+    const titleInput = screen.getByPlaceholderText('모집 공고 제목을 입력하세요');
+    expect(alerts[0]!.compareDocumentPosition(titleInput) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it('수정이 거절되면 폼 맨 위 알림 카드에 문구가 뜬다', async () => {
+    const onSubmit = vi.fn().mockRejectedValue(new Error('취소하지 않은 면접 라운드가 있어 면접을 끌 수 없습니다.'));
+    render(<RecruitmentForm mode="edit" initialValues={editSeed} submitLabel="수정 저장" onSubmit={onSubmit} isPending={false} />);
+    fireEvent.submit(screen.getByRole('button', { name: '수정 저장' }).closest('form')!);
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('취소하지 않은 면접 라운드가 있어 면접을 끌 수 없습니다.');
+  });
+
+  it('거절 뒤 다시 제출을 시작하면 알림 카드가 사라진다', async () => {
+    const onSubmit = vi
+      .fn()
+      .mockRejectedValueOnce(new Error('저장 거절'))
+      .mockReturnValueOnce(new Promise<void>(() => {}));
+    render(<RecruitmentForm mode="edit" initialValues={editSeed} submitLabel="수정 저장" onSubmit={onSubmit} isPending={false} />);
+    const form = screen.getByRole('button', { name: '수정 저장' }).closest('form')!;
+    fireEvent.submit(form);
+    // 먼저 카드가 있어야 한다 — 이 단언이 없으면 구현이 없어도 통과한다.
+    expect(await screen.findByRole('alert')).toHaveTextContent('저장 거절');
+
+    fireEvent.submit(form);
+    await waitFor(() => expect(screen.queryByRole('alert')).not.toBeInTheDocument());
+    expect(onSubmit).toHaveBeenCalledTimes(2);
   });
 });
