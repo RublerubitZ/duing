@@ -244,10 +244,24 @@ describe('RecruitmentForm 오류 표시', () => {
     );
   });
 
-  it('하단 줄은 오류 문구가 길면 제출 버튼을 다음 줄로 내린다 — 버튼이 문구 옆에서 찌그러지지 않는다', () => {
-    render(<RecruitmentForm mode="create" submitLabel="공개하기" onSubmit={vi.fn()} isPending={false} />);
-    // jsdom 은 레이아웃을 재지 못한다 — 줄바꿈을 허용하는 클래스를 단언하고, 실제 폭은 브라우저 측정으로 본다.
+  it('하단 줄은 오류 문구가 길면 제출 버튼을 다음 줄로 내린다 — 버튼이 문구 옆에서 찌그러지지 않는다', async () => {
+    const longMessage =
+      '취소하지 않은 면접 라운드가 있어 면접을 끌 수 없습니다. 초안은 폐기하고 진행 중인 라운드는 취소한 뒤 다시 시도해주세요(확정된 라운드가 있으면 끌 수 없습니다).';
+    const onSubmit = vi.fn().mockRejectedValue(new Error(longMessage));
+    render(<RecruitmentForm mode="create" submitLabel="공개하기" onSubmit={onSubmit} isPending={false} />);
+    fireEvent.change(screen.getByPlaceholderText('모집 공고 제목을 입력하세요'), { target: { value: '가을 모집' } });
+    fireEvent.change(screen.getByLabelText(/^시작일/), { target: { value: kstIsoDate(0) } });
+    fireEvent.click(screen.getByLabelText(/^상시모집/));
+    fireEvent.click(screen.getByRole('radio', { name: '외부 폼' }));
+    fireEvent.click(screen.getByRole('button', { name: '확인하고 전환' }));
+    fireEvent.change(screen.getByPlaceholderText('https://docs.google.com/forms/...'), { target: { value: 'https://forms.gle/abc' } });
+    fireEvent.submit(screen.getByRole('button', { name: '공개하기' }).closest('form')!);
+    fireEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: '공개' }));
+
+    // jsdom 은 레이아웃을 재지 못한다 — 오류 문구와 버튼이 같은 줄에 있고 그 줄이 줄바꿈을 허용하는지만 단언한다. 실제 폭은 브라우저 측정으로 본다.
+    const errorText = await screen.findByText(longMessage);
     const submitRow = screen.getByRole('button', { name: '공개하기' }).parentElement;
+    expect(errorText.parentElement).toBe(submitRow);
     expect(submitRow).toHaveClass('flex', 'flex-wrap', 'items-center', 'justify-end');
   });
 });
