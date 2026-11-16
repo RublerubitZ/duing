@@ -112,8 +112,9 @@ export function SectionApply({ applications, isPending = false }: Props) {
                 key={app.id}
                 className={cn(
                   'relative bg-paper rounded-[18px] px-5 py-5',
-                  'grid gap-4 sm:gap-5 items-start sm:items-center',
-                  'grid-cols-[auto_1fr] sm:grid-cols-[auto_1fr_360px_auto]',
+                  'grid gap-4 lg:gap-5 items-start lg:items-center',
+                  // 네 열은 lg 부터 — 640px(sm)에서 켜면 진행 막대(360px 고정)에 밀려 정보 열이 글자 하나 폭까지 눌리고, 864px 까지는 두세 글자씩 끊긴다.
+                  'grid-cols-[auto_1fr] lg:grid-cols-[auto_1fr_360px_auto]',
                   'transition-[transform,box-shadow,border-color] duration-150',
                   'hover:-translate-y-0.5 hover:shadow-2',
                   showsInterview ? 'border border-ink' : 'border border-line',
@@ -134,7 +135,7 @@ export function SectionApply({ applications, isPending = false }: Props) {
                 </div>
 
                 {/* Club info */}
-                <div>
+                <div className="min-w-0 break-words">
                   <div className="text-[11.5px] font-semibold text-charcoal-3 mb-0.5">
                     {app.recruitmentTitle}
                   </div>
@@ -148,7 +149,7 @@ export function SectionApply({ applications, isPending = false }: Props) {
                 </div>
 
                 {/* Step progress */}
-                <div className="col-span-2 sm:col-span-1">
+                <div className="col-span-2 lg:col-span-1">
                   <div className="text-[11.5px] font-semibold text-charcoal-3 tracking-wide04 mb-2">
                     진행 상태
                   </div>
@@ -189,7 +190,7 @@ export function SectionApply({ applications, isPending = false }: Props) {
                 <Link
                   href={`/me/applications/${app.id}`}
                   className={cn(
-                    'btn btn-sm flex items-center gap-1.5 col-span-2 justify-self-start sm:col-span-1',
+                    'btn btn-sm flex items-center gap-1.5 col-span-2 justify-self-start lg:col-span-1',
                     showsInterview ? 'btn-primary' : 'btn-secondary',
                   )}
                 >
