@@ -444,7 +444,7 @@ export function RecruitmentForm(props: RecruitmentFormProps) {
   }
 
   /**
-   * create 제출 본체 — 확인 다이얼로그를 거치든 아니든 이 한 곳으로 모인다.
+   * create 제출 본체 — 두 확인 창(공개 확인·기존 모집 마감 확인)이 모두 이 함수로 제출한다.
    * 성공하면 true. 실패하면 문구를 submitError 에 담고 false 를 돌려준다.
    */
   async function submitCreateValues(values: CreateFormValues): Promise<boolean> {
@@ -589,9 +589,9 @@ export function RecruitmentForm(props: RecruitmentFormProps) {
     questions: isSelfForm ? questionItems : [],
   };
   const stageLabels = recruitmentStageLabels(useInterview);
-  // 마감 확인 창은 기존 모집이 있을 때만 그려진다 — 그 조건까지 같아야 창이 없는데 폼 쪽 문구가 가려지는 일이 없다.
-  const isCreateConfirmOpen =
-    isPublishConfirmOpen || (pendingCreateValues !== null && closingRecruitmentTitle !== undefined);
+  // 마감 확인 창은 기존 모집이 있을 때만 그려진다 — 창을 그리는 조건과 폼 쪽 문구를 가리는 조건이 같은 값을 읽는다.
+  const isCloseConfirmOpen = pendingCreateValues !== null && closingRecruitmentTitle !== undefined;
+  const isCreateConfirmOpen = isPublishConfirmOpen || isCloseConfirmOpen;
   // 서버 거절·필드 없는 검증 오류 — 폼 맨 위와 하단 줄이 같은 문구를 그린다.
   // 확인 창이 열린 동안의 실패는 창 안에서 알린다 — 폼 쪽에도 그리면 알림이 둘이 되고 스크림 뒤에서 폼이 밀린다.
   const generalError = isCreateConfirmOpen ? null : (formError ?? submitError);
@@ -1120,7 +1120,7 @@ export function RecruitmentForm(props: RecruitmentFormProps) {
         onConfirm={confirmExternalMode}
       />
 
-      {pendingCreateValues !== null && closingRecruitmentTitle !== undefined && (
+      {isCloseConfirmOpen && (
         <RecruitmentCloseConfirmDialog
           recruitmentTitle={closingRecruitmentTitle}
           isPending={props.isPending}
