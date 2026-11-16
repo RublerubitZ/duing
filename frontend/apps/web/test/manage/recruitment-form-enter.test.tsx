@@ -56,12 +56,14 @@ describe('RecruitmentForm — 입력의 Enter 로는 저장되지 않는다', ()
   it('입력 칸에서 Enter 의 기본 동작(폼 제출)을 막는다', () => {
     renderCreate();
     fireEvent.click(screen.getByRole('button', { name: '+ 질문 추가' }));
+    fireEvent.click(screen.getByRole('radio', { name: '객관식(단일 선택)' }));
     const inputs = [
       screen.getByPlaceholderText('모집 공고 제목을 입력하세요'),
       screen.getByLabelText(/^시작일/),
       screen.getByLabelText(/^모집 인원/),
       screen.getByLabelText(/^상시모집/),
       screen.getByPlaceholderText('질문 1을 입력하세요'),
+      screen.getByPlaceholderText('선택지 1'),
     ];
     for (const input of inputs) {
       expect(input).toBeInstanceOf(HTMLInputElement);
@@ -76,17 +78,19 @@ describe('RecruitmentForm — 입력의 Enter 로는 저장되지 않는다', ()
     expect(pressEnter(externalUrl)).toBe(false);
   });
 
-  it('한글을 조합하는 중의 Enter 도 막는다 — 조합을 끝내는 Enter 가 그대로 폼을 제출하는 브라우저가 있다', () => {
+  it('한글을 조합하는 중의 Enter 도 막는다 — 조합을 끝내는 Enter 가 그대로 폼을 제출할 수 있다', () => {
     renderCreate();
     const title = screen.getByPlaceholderText('모집 공고 제목을 입력하세요');
     expect(pressEnter(title, { isComposing: true })).toBe(false);
     expect(pressEnter(title, { keyCode: 229 })).toBe(false);
   });
 
-  it('Shift+Enter 도 막는다 — 브라우저는 Shift 를 눌러도 폼을 제출한다', () => {
+  it('Shift·Ctrl·Meta·Alt 와 함께 누른 Enter 도 막는다 — 수정자 키를 눌러도 폼을 제출하는 브라우저가 있다', () => {
     renderCreate();
     const title = screen.getByPlaceholderText('모집 공고 제목을 입력하세요');
-    expect(pressEnter(title, { shiftKey: true })).toBe(false);
+    for (const modifier of [{ shiftKey: true }, { ctrlKey: true }, { metaKey: true }, { altKey: true }]) {
+      expect(pressEnter(title, modifier)).toBe(false);
+    }
   });
 
   it('안내문의 줄바꿈과 버튼의 Enter 는 막지 않는다', () => {
