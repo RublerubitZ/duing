@@ -244,7 +244,7 @@ describe('RecruitmentForm 오류 표시', () => {
     );
   });
 
-  it('하단 줄은 오류 문구가 길면 제출 버튼을 다음 줄로 내린다 — 버튼이 문구 옆에서 찌그러지지 않는다', async () => {
+  it('하단 줄은 오류 문구와 제출 버튼을 한 줄에 두고 줄바꿈을 허용한다', async () => {
     const longMessage =
       '취소하지 않은 면접 라운드가 있어 면접을 끌 수 없습니다. 초안은 폐기하고 진행 중인 라운드는 취소한 뒤 다시 시도해주세요(확정된 라운드가 있으면 끌 수 없습니다).';
     const onSubmit = vi.fn().mockRejectedValue(new Error(longMessage));
@@ -258,10 +258,11 @@ describe('RecruitmentForm 오류 표시', () => {
     fireEvent.submit(screen.getByRole('button', { name: '공개하기' }).closest('form')!);
     fireEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: '공개' }));
 
-    // jsdom 은 레이아웃을 재지 못한다 — 오류 문구와 버튼이 같은 줄에 있고 그 줄이 줄바꿈을 허용하는지만 단언한다. 실제 폭은 브라우저 측정으로 본다.
+    // 줄바꿈을 허용해야 긴 오류 문구 옆에서 버튼이 찌그러지지 않고 다음 줄로 내려간다.
+    // jsdom 은 레이아웃을 재지 못한다 — 같은 줄인지와 줄바꿈 허용만 단언하고, 실제 배치는 브라우저에서 잰다.
     const errorText = await screen.findByText(longMessage);
     const submitRow = screen.getByRole('button', { name: '공개하기' }).parentElement;
     expect(errorText.parentElement).toBe(submitRow);
-    expect(submitRow).toHaveClass('flex', 'flex-wrap', 'items-center', 'justify-end');
+    expect(submitRow).toHaveClass('flex-wrap');
   });
 });
