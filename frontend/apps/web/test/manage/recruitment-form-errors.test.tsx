@@ -36,12 +36,11 @@ async function fillAndPublishCreateForm() {
 }
 
 /**
- * jsdom 은 레이아웃이 없어 모든 사각형이 0 이다(= 하단 줄은 기본으로 화면 밖).
- * 하단 줄이 화면 어디에 있는지는 사각형을 심어 만든다 — jsdom 의 뷰포트 높이는 768 이다.
+ * jsdom 은 레이아웃이 없어 모든 사각형이 0 이다(= 폼 맨 위는 기본으로 화면 안, top 0).
+ * 아래로 스크롤한 상황은 폼의 top 에 음수를 심어 만든다.
  */
-function placeSubmitRow(submitRow: HTMLElement, top: number) {
-  const rect = { x: 0, y: top, left: 0, top, right: 300, bottom: top + 44, width: 300, height: 44, toJSON: () => ({}) };
-  vi.spyOn(submitRow, 'getBoundingClientRect').mockReturnValue(rect as DOMRect);
+function placeFormTop(form: HTMLElement, top: number) {
+  vi.spyOn(form, 'getBoundingClientRect').mockReturnValue(new DOMRect(0, top, 800, 2400));
 }
 
 // 수정 모드 시드 — recruitment-form.test.tsx 의 baseRecruitmentDetail 과 같은 값.
@@ -314,7 +313,7 @@ describe('RecruitmentForm 오류 표시', () => {
     render(<RecruitmentForm mode="create" submitLabel="공개하기" onSubmit={onSubmit} isPending={false} />);
     await fillAndPublishCreateForm();
 
-    // 알림 영역은 한 곳이다 — 하단 줄이 화면 밖이면 위쪽 카드가 알림이고, 하단 문구에는 role 이 없다.
+    // 알림 영역은 한 곳이다 — 폼 맨 위가 화면에 보이면 위쪽 카드가 알림이고, 하단 문구에는 role 이 없다.
     const alerts = await screen.findAllByRole('alert');
     expect(alerts).toHaveLength(1);
     expect(alerts[0]).toHaveTextContent('이미 진행 중인 모집이 있습니다.');
@@ -347,43 +346,57 @@ describe('RecruitmentForm 오류 표시', () => {
     expect(onSubmit).toHaveBeenCalledTimes(2);
   });
 
-  it('하단 줄이 화면에 보일 때 낸 제출이 거절되면 위쪽 카드 없이 하단 문구가 알림이 된다', async () => {
+  it('아래로 스크롤해 폼 맨 위가 화면 밖일 때 낸 제출이 거절되면 위쪽 카드 없이 하단 문구가 알림이 된다', async () => {
     const onSubmit = vi.fn().mockRejectedValue(new Error('저장 거절'));
     render(<RecruitmentForm mode="edit" initialValues={editSeed} submitLabel="수정 저장" onSubmit={onSubmit} isPending={false} />);
     const submitRow = screen.getByRole('button', { name: '수정 저장' }).parentElement!;
-    placeSubmitRow(submitRow, 600);
-    fireEvent.submit(submitRow.closest('form')!);
+    const form = submitRow.closest('form')!;
+    placeFormTop(form, -1500);
+    fireEvent.submit(form);
 
     const alerts = await screen.findAllByRole('alert');
     expect(alerts).toHaveLength(1);
-    // 하단 줄을 보고 있는 사용자 위쪽에 카드를 넣으면 스크롤 보정이 없는 브라우저에서 보이던 하단 줄이 밀린다.
+    // 화면 밖 위쪽에 카드를 넣으면 보이지도 않고, 스크롤 보정이 없는 브라우저에서는 보던 화면이 카드 높이만큼 밀린다.
     expect(alerts[0]!.parentElement).toBe(submitRow);
     expect(screen.getAllByText('저장 거절')).toHaveLength(1);
   });
 
-  it('하단 줄이 보일 때 거절된 뒤 하단 줄이 화면 밖일 때 다시 거절되면 위쪽 카드가 뜬다', async () => {
+  it('폼 맨 위가 화면 위로 1px 만 지나가도 위쪽 카드를 그리지 않는다', async () => {
     const onSubmit = vi.fn().mockRejectedValue(new Error('저장 거절'));
     render(<RecruitmentForm mode="edit" initialValues={editSeed} submitLabel="수정 저장" onSubmit={onSubmit} isPending={false} />);
     const submitRow = screen.getByRole('button', { name: '수정 저장' }).parentElement!;
-    placeSubmitRow(submitRow, 600);
-    fireEvent.submit(submitRow.closest('form')!);
+    const form = submitRow.closest('form')!;
+    placeFormTop(form, -1);
+    fireEvent.submit(form);
+
+    expect(await within(submitRow).findByRole('alert')).toHaveTextContent('저장 거절');
+    expect(screen.getAllByText('저장 거절')).toHaveLength(1);
+  });
+
+  it('스크롤한 상태에서 거절된 뒤 폼 맨 위가 화면에 보일 때 다시 거절되면 위쪽 카드가 뜬다', async () => {
+    const onSubmit = vi.fn().mockRejectedValue(new Error('저장 거절'));
+    render(<RecruitmentForm mode="edit" initialValues={editSeed} submitLabel="수정 저장" onSubmit={onSubmit} isPending={false} />);
+    const submitRow = screen.getByRole('button', { name: '수정 저장' }).parentElement!;
+    const form = submitRow.closest('form')!;
+    placeFormTop(form, -1500);
+    fireEvent.submit(form);
     await within(submitRow).findByRole('alert');
 
-    // 제출마다 다시 잰다 — 이번에는 하단 줄이 뷰포트(768) 아래에 있다.
-    placeSubmitRow(submitRow, 2000);
-    fireEvent.submit(submitRow.closest('form')!);
+    // 제출마다 다시 잰다 — 이번에는 맨 위로 돌아와 있다.
+    placeFormTop(form, 80);
+    fireEvent.submit(form);
     await waitFor(() => expect(screen.getAllByText('저장 거절')).toHaveLength(2));
     const titleInput = screen.getByPlaceholderText('모집 공고 제목을 입력하세요');
     expect(screen.getByRole('alert').compareDocumentPosition(titleInput) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(onSubmit).toHaveBeenCalledTimes(2);
   });
 
-  it('등록 모드에서도 하단 줄이 보일 때 낸 제출이 거절되면 하단 문구 하나가 알림이다', async () => {
+  it('등록 모드에서도 스크롤한 상태에서 낸 제출이 거절되면 하단 문구 하나가 알림이다', async () => {
     const onSubmit = vi.fn().mockRejectedValue(new Error('이미 진행 중인 모집이 있습니다.'));
     render(<RecruitmentForm mode="create" submitLabel="공개하기" onSubmit={onSubmit} isPending={false} />);
-    // 확인 창이 열려 있는 동안 폼은 aria-hidden 아래다 — 하단 줄은 창을 열기 전에 잡아 둔다.
+    // 하단 줄과 폼은 확인 창을 열기 전에 잡아 둔다(창이 열려 있는 동안 폼은 aria-hidden 아래다).
     const submitRow = screen.getByRole('button', { name: '공개하기' }).parentElement!;
-    placeSubmitRow(submitRow, 600);
+    placeFormTop(submitRow.closest('form')!, -1500);
     await fillAndPublishCreateForm();
 
     const alerts = await screen.findAllByRole('alert');
