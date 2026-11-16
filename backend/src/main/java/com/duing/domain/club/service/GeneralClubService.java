@@ -272,7 +272,9 @@ public class GeneralClubService implements ClubService {
     }
 
     private void applyProfileUpdate(UpdateClubCommand updateClubCommand) {
-        Club club = clubRepository.findById(updateClubCommand.clubId())
+        // 잠그고 읽는다 — 잠그지 않으면 전 컬럼 UPDATE 가 그사이 커밋된 승인·운영 중단·폐쇄(status·deleted_at)를 옛 값으로 덮는다.
+        // 이 트랜잭션의 첫 동아리 엔티티 조회여야 한다(먼저 읽어 두면 잠금 조회가 1차 캐시의 옛 엔티티를 돌려준다).
+        Club club = clubRepository.findByIdForUpdate(updateClubCommand.clubId())
                 .orElseThrow(ClubException.ClubNotFoundException::new);
 
         String newName = updateClubCommand.name();
@@ -301,9 +303,9 @@ public class GeneralClubService implements ClubService {
         uploadedObjectService.releaseIfReplaced(previousCoverUrl, club.getCoverUrl());
         if (!Objects.equals(previousLogoUrl, club.getLogoUrl())) {
             // 썸네일은 엔티티 저장이 쓰지 않는 컬럼(updatable=false)이라 SQL 로 비운다 — 옛 썸네일이 새 로고 옆에 남지 않게.
-            // 현재 값을 SQL 로 다시 읽는 이유: 이 요청이 동아리를 읽은 뒤 위 flush 전에 생성기가 반영·커밋한 썸네일까지 해제한다.
-            // flush 가 바뀐 로고로 행을 UPDATE 해 커밋까지 행 잠금을 잡았으므로 그 뒤로는 생성기의 조건부 갱신이 들어오지 못한다
-            // (잠금 뒤 재평가에서 logo_url 불일치 → 0건). 여기 추가 방어는 필요 없다.
+            // 현재 값을 SQL 로 다시 읽는 이유: 엔티티의 썸네일은 동아리를 읽은 시점 값이다. 이 메서드는 동아리를 잠그고 읽으므로
+            // 그 뒤로는 생성기의 조건부 갱신이 들어오지 못하지만(커밋 뒤 재평가에서 logo_url 불일치 → 0건), 바깥 트랜잭션이 엔티티를
+            // 먼저 읽어 둔 경우에는 그 뒤 생성기가 반영·커밋한 썸네일이 엔티티에 없다 — 그것까지 해제한다. 여기 추가 방어는 필요 없다.
             // 썸네일이 원본 URL 과 같았던(원본을 그대로 쓴) 경우는 위 로고 해제가 이미 다뤘으므로 같은 키를 두 번 다루지 않는다.
             String currentLogoThumbnailUrl = clubRepository.findLogoThumbnailUrlById(club.getId());
             clubRepository.clearLogoThumbnailUrl(club.getId());
@@ -353,7 +355,8 @@ public class GeneralClubService implements ClubService {
     @Override
     @Transactional
     public void updateCentralClub(UpdateClubCentralClubCommand command) {
-        Club club = clubRepository.findById(command.clubId())
+        // 잠그고 읽는다 — 전 컬럼 UPDATE 가 그사이 커밋된 상태 변경·폐쇄를 옛 값으로 덮지 않게(applyProfileUpdate 와 같다, 첫 조회여야 한다).
+        Club club = clubRepository.findByIdForUpdate(command.clubId())
                 .orElseThrow(ClubException.ClubNotFoundException::new);
         club.changeCentralClub(command.centralClub());
         // 중앙동아리 배지·소속 표기가 바뀐다 — 공개 상세 재생성(#1356).
@@ -363,7 +366,8 @@ public class GeneralClubService implements ClubService {
     @Override
     @Transactional
     public void updateFacilitySecuredTimeTarget(UpdateClubFacilitySecuredTimeTargetCommand command) {
-        Club club = clubRepository.findById(command.clubId())
+        // 잠그고 읽는다 — 전 컬럼 UPDATE 가 그사이 커밋된 상태 변경·폐쇄를 옛 값으로 덮지 않게(applyProfileUpdate 와 같다, 첫 조회여야 한다).
+        Club club = clubRepository.findByIdForUpdate(command.clubId())
                 .orElseThrow(ClubException.ClubNotFoundException::new);
         boolean before = club.isFacilitySecuredTimeTarget();
         if (before == command.facilitySecuredTimeTarget()) {
