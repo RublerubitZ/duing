@@ -327,7 +327,10 @@ describe('RecruitmentForm 오류 표시', () => {
     render(<RecruitmentForm mode="edit" initialValues={editSeed} submitLabel="수정 저장" onSubmit={onSubmit} isPending={false} />);
     fireEvent.submit(screen.getByRole('button', { name: '수정 저장' }).closest('form')!);
 
-    expect(await screen.findByRole('alert')).toHaveTextContent('취소하지 않은 면접 라운드가 있어 면접을 끌 수 없습니다.');
+    const alert = await screen.findByRole('alert');
+    expect(alert).toHaveTextContent('취소하지 않은 면접 라운드가 있어 면접을 끌 수 없습니다.');
+    const titleInput = screen.getByPlaceholderText('모집 공고 제목을 입력하세요');
+    expect(alert.compareDocumentPosition(titleInput) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
   it('거절 뒤 다시 제출을 시작하면 알림 카드가 사라진다', async () => {
