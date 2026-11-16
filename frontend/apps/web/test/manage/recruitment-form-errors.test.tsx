@@ -564,4 +564,21 @@ describe('RecruitmentForm — 확인 창을 거친 저장 실패는 창 안에�
     expect(onSubmit).toHaveBeenCalledTimes(2);
     expect(loadRecruitmentDraft(DRAFT_OWNER)).toBeNull();
   });
+
+  it('실패 문구가 뜬 채 마감할 기존 모집이 사라져 창이 내려가면 폼에 문구가 나타난다', async () => {
+    const onSubmit = vi.fn().mockRejectedValue(new Error('저장 거절'));
+    const { rerender } = render(
+      <RecruitmentForm mode="create" submitLabel="공개하기" onSubmit={onSubmit} isPending={false} closingRecruitmentTitle="봄 모집" />,
+    );
+    fillAndSubmitCreateForm();
+    const dialog = await screen.findByRole('dialog');
+    fireEvent.click(within(dialog).getByRole('button', { name: '등록 및 마감' }));
+    await within(dialog).findByRole('alert');
+
+    // 모집 목록이 다시 받아져 마감할 모집이 없어진 경우 — 창은 취소 없이 내려간다.
+    rerender(<RecruitmentForm mode="create" submitLabel="공개하기" onSubmit={onSubmit} isPending={false} />);
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    // 창이 없는데 폼 쪽 문구까지 가려지면 실패가 어디에도 보이지 않는다.
+    expect(await screen.findByRole('alert')).toHaveTextContent('저장 거절');
+  });
 });

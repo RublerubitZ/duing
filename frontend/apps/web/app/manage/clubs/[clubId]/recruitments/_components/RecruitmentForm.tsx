@@ -589,7 +589,9 @@ export function RecruitmentForm(props: RecruitmentFormProps) {
     questions: isSelfForm ? questionItems : [],
   };
   const stageLabels = recruitmentStageLabels(useInterview);
-  const isCreateConfirmOpen = isPublishConfirmOpen || pendingCreateValues !== null;
+  // 마감 확인 창은 기존 모집이 있을 때만 그려진다 — 그 조건까지 같아야 창이 없는데 폼 쪽 문구가 가려지는 일이 없다.
+  const isCreateConfirmOpen =
+    isPublishConfirmOpen || (pendingCreateValues !== null && closingRecruitmentTitle !== undefined);
   // 서버 거절·필드 없는 검증 오류 — 폼 맨 위와 하단 줄이 같은 문구를 그린다.
   // 확인 창이 열린 동안의 실패는 창 안에서 알린다 — 폼 쪽에도 그리면 알림이 둘이 되고 스크림 뒤에서 폼이 밀린다.
   const generalError = isCreateConfirmOpen ? null : (formError ?? submitError);
