@@ -243,4 +243,11 @@ describe('RecruitmentForm 오류 표시', () => {
       '작성 중인 모집을 지원자 시점으로 미리 봅니다.',
     );
   });
+
+  it('하단 줄은 오류 문구가 길면 제출 버튼을 다음 줄로 내린다 — 버튼이 문구 옆에서 찌그러지지 않는다', () => {
+    render(<RecruitmentForm mode="create" submitLabel="공개하기" onSubmit={vi.fn()} isPending={false} />);
+    // jsdom 은 레이아웃을 재지 못한다 — 줄바꿈을 허용하는 클래스를 단언하고, 실제 폭은 브라우저 측정으로 본다.
+    const submitRow = screen.getByRole('button', { name: '공개하기' }).parentElement;
+    expect(submitRow).toHaveClass('flex', 'flex-wrap', 'items-center', 'justify-end');
+  });
 });

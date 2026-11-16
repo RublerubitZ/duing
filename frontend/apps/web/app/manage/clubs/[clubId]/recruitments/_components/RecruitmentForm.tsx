@@ -1028,8 +1028,8 @@ export function RecruitmentForm(props: RecruitmentFormProps) {
           </SectionCard>
         )}
 
-        {/* 오류 + 하단 제출 */}
-        <div className="mt-2 flex items-center justify-end gap-3">
+        {/* 오류 + 하단 제출 — 한 줄에 안 들어가면 버튼이 다음 줄로 내려간다(버튼이 줄어들지 않게) */}
+        <div className="mt-2 flex flex-wrap items-center justify-end gap-3">
           {(formError ?? submitError) && (
             <p className="text-sm text-danger">{formError ?? submitError}</p>
           )}
