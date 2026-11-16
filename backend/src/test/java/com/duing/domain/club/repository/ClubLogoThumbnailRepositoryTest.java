@@ -22,7 +22,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 /**
  * 로고 썸네일 컬럼의 DB 계약 — 조건부 반영(스펙 §4.3 3)·비우기(§4.3 1)·백필 대상 조회(§4.5), 그리고 엔티티 저장이 이 컬럼을
- * 쓰지 않는다는 것(updatable=false). 서버가 커밋 뒤 채우는 값이라 잠금 없이 읽은 동아리의 저장이 덮지 않아야 한다.
+ * 쓰지 않는다는 것(updatable=false). 서버가 커밋 뒤 채우는 값이라 먼저 읽어 둔 동아리의 저장이 덮지 않아야 한다.
  */
 @Import(TestcontainersConfiguration.class)
 @SpringBootTest

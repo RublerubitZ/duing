@@ -326,7 +326,7 @@ class ClubUploadActivationTest extends IntegrationTestBase {
     }
 
     @Test
-    @DisplayName("수정이 동아리를 읽은 뒤 다른 트랜잭션이 커밋한 썸네일도 같은 수정의 로고 변경이 비우고 그 업로드를 RELEASED 로 내린다")
+    @DisplayName("바깥 트랜잭션이 동아리를 먼저 읽어 둔 뒤 다른 트랜잭션이 커밋한 썸네일도 같은 수정의 로고 변경이 비우고 그 업로드를 RELEASED 로 내린다")
     void logoChangeReleasesThumbnailCommittedAfterClubWasRead() throws Exception {
         User leader = userRepository.save(UserFixture.unique());
         String oldLogoKey = seedActive(FilePurpose.LOGO);

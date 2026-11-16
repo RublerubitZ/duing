@@ -22,6 +22,8 @@ public interface ClubRepository extends JpaRepository<Club, Long>, ClubRepositor
     // 관리자 콘솔 미처리 건수 — derived query 라 @SQLRestriction(soft delete 제외) 이 자동 적용된다.
     long countByStatus(ClubStatus status);
 
+    // 동아리 필드를 바꾸는 서비스는 이 조회로 읽는다 — Club 은 전 컬럼 UPDATE 라 잠그지 않고 읽어 저장하면 그사이 커밋된 상태 변경·폐쇄를
+    // 옛 값으로 덮는다. 트랜잭션의 첫 동아리 엔티티 조회여야 한다(먼저 읽어 두면 잠금 조회가 1차 캐시의 옛 엔티티를 돌려준다).
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT club FROM Club club WHERE club.id = :clubId")
     Optional<Club> findByIdForUpdate(@Param("clubId") Long clubId);
