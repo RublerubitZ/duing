@@ -113,7 +113,7 @@ export function SectionApply({ applications, isPending = false }: Props) {
                 className={cn(
                   'relative bg-paper rounded-[18px] px-5 py-5',
                   'grid gap-4 lg:gap-5 items-start lg:items-center',
-                  // 네 열은 lg 부터 — 640px(sm)에서 켜면 진행 막대(360px 고정)에 밀려 정보 열이 글자 하나 폭까지 눌리고, 864px 까지는 두세 글자씩 끊긴다.
+                  // 네 열은 lg 부터 — 640px(sm)에서 켜면 진행 막대(360px 고정)에 밀려 정보 열이 글자 하나 폭까지 눌리고, 864px 까지는 안내 줄이 두 줄 이상으로 꺾인다.
                   'grid-cols-[auto_1fr] lg:grid-cols-[auto_1fr_360px_auto]',
                   'transition-[transform,box-shadow,border-color] duration-150',
                   'hover:-translate-y-0.5 hover:shadow-2',

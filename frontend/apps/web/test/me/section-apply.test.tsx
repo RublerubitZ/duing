@@ -390,7 +390,7 @@ describe('SectionApply — 네 열 배치는 1024px(lg)부터 켠다', () => {
     expect(card).toHaveClass('lg:grid-cols-[auto_1fr_360px_auto]', 'lg:gap-5', 'lg:items-center');
     expect(progress).toHaveClass('lg:col-span-1');
     expect(link).toHaveClass('lg:col-span-1');
-    // 640px(sm)에서 네 열이 켜지면 진행 막대(360px 고정)에 밀려 정보 열이 글자 하나 폭까지 눌리고, 864px 까지는 두세 글자씩 끊긴다
+    // 640px(sm)에서 네 열이 켜지면 진행 막대(360px 고정)에 밀려 정보 열이 글자 하나 폭까지 눌리고, 864px 까지는 안내 줄이 두 줄 이상으로 꺾인다
     // — sm 으로 켜지는 클래스가 하나라도 남으면 안 된다.
     for (const element of [card, progress, link]) {
       expect([...element.classList].filter((name) => name.startsWith('sm:'))).toEqual([]);
@@ -398,6 +398,8 @@ describe('SectionApply — 네 열 배치는 1024px(lg)부터 켠다', () => {
     // 배치를 정하는 클래스는 이것이 전부여야 한다 — 1024px 미만은 두 열(모바일 배치), 그 위는 네 열. md 같은 다른 기준점이 끼거나 기본 클래스가 빠지면 안 된다.
     const utilitiesOf = (element: HTMLElement, utility: RegExp) => [...element.classList].filter((name) => utility.test(name));
     expect(utilitiesOf(card, /(^|:)grid-cols-/)).toEqual(['grid-cols-[auto_1fr]', 'lg:grid-cols-[auto_1fr_360px_auto]']);
+    expect(utilitiesOf(card, /(^|:)gap-/)).toEqual(['gap-4', 'lg:gap-5']);
+    expect(utilitiesOf(card, /(^|:)items-/)).toEqual(['items-start', 'lg:items-center']);
     expect(utilitiesOf(progress, /(^|:)col-span-/)).toEqual(['col-span-2', 'lg:col-span-1']);
     expect(utilitiesOf(link, /(^|:)col-span-/)).toEqual(['col-span-2', 'lg:col-span-1']);
     // min-w-0 이 없으면 break-words 를 줘도 열이 줄지 않아 긴 이름이 카드를 넘친다.
