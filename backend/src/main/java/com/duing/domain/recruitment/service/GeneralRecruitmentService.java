@@ -94,9 +94,10 @@ public class GeneralRecruitmentService implements RecruitmentService {
         // endDate 가 지났지만 status 가 OPEN 인 행이 있으면 사전 체크는 통과하고 INSERT 가 인덱스에
         // 걸리는 모순이 생긴다. 이 경우 운영자가 보기엔 이미 끝난 모집이므로 자동 close 후 새 INSERT 를
         // 진행해 사용자 멘탈모델과 DB 인덱스의 의미차를 흡수한다. 진짜 활성인 경우엔 그대로 거부.
+        // 행 잠금으로 읽는다: 잠그지 않으면 그 사이 커밋된 기간 연장을 옛 값으로 덮고 마감한다.
         requireEndDateNotPast(createRecruitmentCommand.endDate());
         LocalDate today = LocalDate.now(clock);
-        recruitmentRepository.findOpenByClubId(club.getId()).ifPresent(existingOpen -> {
+        recruitmentRepository.findOpenByClubIdForUpdate(club.getId()).ifPresent(existingOpen -> {
             boolean isStillActive = existingOpen.getEndDate() == null
                     || !existingOpen.getEndDate().isBefore(today);
             if (isStillActive) {
