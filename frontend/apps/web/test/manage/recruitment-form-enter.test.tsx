@@ -81,7 +81,11 @@ describe('RecruitmentForm — 입력의 Enter 로는 저장되지 않는다', ()
     const title = screen.getByPlaceholderText('모집 공고 제목을 입력하세요');
     expect(pressEnter(title, { isComposing: true })).toBe(false);
     expect(pressEnter(title, { keyCode: 229 })).toBe(false);
-    // Shift+Enter 도 브라우저에서는 폼을 제출한다.
+  });
+
+  it('Shift+Enter 도 막는다 — 브라우저는 Shift 를 눌러도 폼을 제출한다', () => {
+    renderCreate();
+    const title = screen.getByPlaceholderText('모집 공고 제목을 입력하세요');
     expect(pressEnter(title, { shiftKey: true })).toBe(false);
   });
 

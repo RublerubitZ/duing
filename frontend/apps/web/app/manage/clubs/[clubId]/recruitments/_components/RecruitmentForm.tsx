@@ -597,7 +597,7 @@ export function RecruitmentForm(props: RecruitmentFormProps) {
         className="min-w-0"
         onSubmit={handleSubmit}
         onKeyDown={(event) => {
-          // 입력에서 Enter 로 저장되지 않게 한다 — 긴 폼에서 실수로 저장되고, 실패하면 오류 문구가 화면 밖이다. 저장은 두 버튼으로만.
+          // 입력에서 Enter 로 저장되지 않게 한다 — 긴 폼에서 실수로 저장되고, 실패하면 오류 문구가 화면 밖일 수 있다. 저장은 두 버튼으로만.
           // 날짜 입력의 달력 아이콘에서 누른 Enter 도 target 이 그 <input> 이라 같이 막힌다(Chromium·Firefox — Space·마우스로는 열린다).
           if (event.key === 'Enter' && event.target instanceof HTMLInputElement) event.preventDefault();
         }}
