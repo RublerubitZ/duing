@@ -121,6 +121,64 @@ describe('NewRecruitmentPage — 취소 뒤 대기 중이던 자동 저장', () 
       vi.useRealTimers();
     }
   });
+
+  it('저장본 없이 바로 나가면, 마지막 입력 뒤 1.5초 안이라도 저장본이 새로 생기지 않는다', async () => {
+    renderPage();
+    const titleInput = await screen.findByPlaceholderText('모집 공고 제목을 입력하세요');
+    vi.useFakeTimers();
+    try {
+      fireEvent.change(titleInput, { target: { value: '취소 직전에 쓴 제목' } });
+      fireEvent.click(screen.getByRole('button', { name: '취소' }));
+      expect(push).toHaveBeenCalledWith(RECRUITMENTS_HREF);
+      expect(screen.queryByRole('dialog', { name: '작성을 취소할까요?' })).not.toBeInTheDocument();
+
+      act(() => vi.advanceTimersByTime(2000));
+
+      expect(window.localStorage.getItem(draftStorageKey)).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  // 오프라인이면 이동이 막혀 폼이 남는다(이 테스트의 라우터 mock 도 언마운트하지 않는다) — 그 뒤 쓴 내용까지 저장이 꺼지면 안 된다.
+  it('바로 나가려 했지만 화면에 남아 다시 쓰면 그 내용은 자동 저장된다', async () => {
+    renderPage();
+    const titleInput = await screen.findByPlaceholderText('모집 공고 제목을 입력하세요');
+    vi.useFakeTimers();
+    try {
+      fireEvent.change(titleInput, { target: { value: '취소 직전에 쓴 제목' } });
+      fireEvent.click(screen.getByRole('button', { name: '취소' }));
+      act(() => vi.advanceTimersByTime(2000));
+
+      fireEvent.change(titleInput, { target: { value: '남아서 다시 쓴 제목' } });
+      act(() => vi.advanceTimersByTime(1500));
+
+      expect(loadRecruitmentDraft(DRAFT_OWNER)?.values.title).toBe('남아서 다시 쓴 제목');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  // 무효화는 바로 나가는 갈래에만 둔다 — 확인 창에서 머무르기로 한 사람의 대기 저장까지 끊으면 마지막 입력이 저장되지 않는다.
+  it('확인 창에서 나가지 않기로 하면 대기 중이던 자동 저장이 그대로 쓰인다', async () => {
+    saveRecruitmentDraft(DRAFT_OWNER, { title: '쓰다 만 제목' });
+    renderPage();
+    const titleInput = await screen.findByPlaceholderText('모집 공고 제목을 입력하세요');
+    vi.useFakeTimers();
+    try {
+      fireEvent.change(titleInput, { target: { value: '이어서 고친 제목' } });
+      fireEvent.click(screen.getByRole('button', { name: '취소' }));
+      const cancelDialog = screen.getByRole('dialog', { name: '작성을 취소할까요?' });
+      fireEvent.click(within(cancelDialog).getByRole('button', { name: '취소' }));
+      expect(push).not.toHaveBeenCalled();
+
+      act(() => vi.advanceTimersByTime(1500));
+
+      expect(loadRecruitmentDraft(DRAFT_OWNER)?.values.title).toBe('이어서 고친 제목');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });
 
 describe('NewRecruitmentPage — 임시저장 복원', () => {

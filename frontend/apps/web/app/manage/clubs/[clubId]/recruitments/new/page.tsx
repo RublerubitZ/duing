@@ -16,6 +16,7 @@ import { LoadingGate } from '@/components/loading/LoadingGate';
 import { ConfirmDialog } from '@/app/_components/ConfirmDialog';
 import {
   clearRecruitmentDraft,
+  invalidatePendingRecruitmentDraftSaves,
   loadRecruitmentDraft,
 } from '@/app/manage/clubs/[clubId]/recruitments/_lib/recruitmentDraft';
 import {
@@ -93,6 +94,8 @@ export default function NewRecruitmentPage({
       setIsCancelConfirmOpen(true);
       return;
     }
+    // 지울 저장본은 없어도, 걸려 있던 자동 저장이 떠나는 사이에 돌면 저장본이 새로 생긴다 — 그것만 끊는다.
+    invalidatePendingRecruitmentDraftSaves();
     router.push(recruitmentsHref);
   }
 
