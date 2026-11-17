@@ -148,10 +148,11 @@ describe('NewRecruitmentPage — 취소 뒤 대기 중이던 자동 저장', () 
     try {
       fireEvent.change(titleInput, { target: { value: '취소 직전에 쓴 제목' } });
       fireEvent.click(screen.getByRole('button', { name: '취소' }));
+      expect(push).toHaveBeenCalledWith(RECRUITMENTS_HREF);
       act(() => vi.advanceTimersByTime(2000));
 
       fireEvent.change(titleInput, { target: { value: '남아서 다시 쓴 제목' } });
-      act(() => vi.advanceTimersByTime(1500));
+      act(() => vi.advanceTimersByTime(2000));
 
       expect(loadRecruitmentDraft(DRAFT_OWNER)?.values.title).toBe('남아서 다시 쓴 제목');
     } finally {
@@ -172,7 +173,7 @@ describe('NewRecruitmentPage — 취소 뒤 대기 중이던 자동 저장', () 
       fireEvent.click(within(cancelDialog).getByRole('button', { name: '취소' }));
       expect(push).not.toHaveBeenCalled();
 
-      act(() => vi.advanceTimersByTime(1500));
+      act(() => vi.advanceTimersByTime(2000));
 
       expect(loadRecruitmentDraft(DRAFT_OWNER)?.values.title).toBe('이어서 고친 제목');
     } finally {

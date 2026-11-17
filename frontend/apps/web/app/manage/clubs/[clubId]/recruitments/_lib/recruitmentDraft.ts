@@ -72,10 +72,11 @@ export function loadRecruitmentDraft(owner: DraftOwner): RecruitmentDraft | null
   }
 }
 
-// 작성이 끝나 지운 뒤에도 폼이 잠깐 남아, 그 전에 걸린 자동 저장이 돌면 지운 임시저장을 다시 쓴다(탭마다 하나).
+// 임시저장을 지우거나 대기 중인 자동 저장을 무효화할 때마다 오르는 세대(문서·탭마다 하나).
+// 그 전에 걸린 자동 저장 타이머가 뒤늦게 돌아 임시저장을 다시 쓰지 않게 한다.
 let clearGeneration = 0;
 
-/** 자동 저장 타이머가 건 시점과 견줄 값. */
+/** 자동 저장 타이머를 걸 때 잡아 두고, 돌 때 다시 읽어 견주는 값. */
 export function recruitmentDraftClearGeneration(): number {
   return clearGeneration;
 }

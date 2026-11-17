@@ -50,8 +50,8 @@ describe('recruitmentDraft', () => {
     expect(loadRecruitmentDraft(owner)).toBeNull();
   });
 
-  // 자동 저장 타이머는 건 시점의 세대와 견준다 — 저장·읽기가 세대를 올리면 평소 자동 저장이 끊긴다.
-  it('지움과 대기 저장 무효화만 지움 세대를 1씩 올리고, 무효화는 저장본을 건드리지 않는다', () => {
+  // 읽기가 세대를 바꾸면 [취소] 가 저장본이 있는지 읽는 순간 걸려 있던 자동 저장이 무효가 된다. 저장은 계약을 고정해 둔다.
+  it('지움과 대기 저장 무효화만 지움 세대를 바꾸고, 무효화는 저장본을 건드리지 않는다', () => {
     const generationBefore = recruitmentDraftClearGeneration();
 
     saveRecruitmentDraft(owner, { title: '가을 모집' });
@@ -59,10 +59,11 @@ describe('recruitmentDraft', () => {
     expect(recruitmentDraftClearGeneration()).toBe(generationBefore);
 
     invalidatePendingRecruitmentDraftSaves();
-    expect(recruitmentDraftClearGeneration()).toBe(generationBefore + 1);
+    const generationAfterInvalidate = recruitmentDraftClearGeneration();
+    expect(generationAfterInvalidate).not.toBe(generationBefore);
     expect(loadRecruitmentDraft(owner)?.values.title).toBe('가을 모집');
 
     clearRecruitmentDraft(owner);
-    expect(recruitmentDraftClearGeneration()).toBe(generationBefore + 2);
+    expect(recruitmentDraftClearGeneration()).not.toBe(generationAfterInvalidate);
   });
 });

@@ -515,7 +515,7 @@ export function RecruitmentForm(props: RecruitmentFormProps) {
       if (hasSavedDraftRef.current) clearRecruitmentDraft(draftOwner);
       return;
     }
-    // 건 뒤에 지움(저장 성공·취소·로그아웃)이 있었으면 쓰지 않는다 — 떠나는 폼이 지운 임시저장을 되살리지 않게.
+    // 건 뒤에 지움·무효화(저장 성공·취소·로그아웃)가 있었으면 쓰지 않는다 — 떠나는 폼이 임시저장을 다시 쓰지 않게.
     const generationAtSchedule = recruitmentDraftClearGeneration();
     const timer = setTimeout(() => {
       if (recruitmentDraftClearGeneration() !== generationAtSchedule) return;
