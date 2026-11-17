@@ -19,7 +19,7 @@ import { useHydrated } from '@/app/_lib/useHydrated';
 import { useSeededAuthStatus } from '@/app/_lib/useSeededAuthStatus';
 import { TextLinesSkeleton } from '@/components/loading/Skeleton';
 import type { SlotRange } from '../../_lib/bookingCalendar';
-import { isApplicationDeadlinePassed, rangeLabel } from '../../_lib/bookingCalendar';
+import { rangeLabel } from '../../_lib/bookingCalendar';
 import { BookingConfirmDialog } from './BookingConfirmDialog';
 
 const PURPOSE_MAX_LENGTH = 200;
@@ -99,18 +99,6 @@ export function BookingForm({
       <div className="space-y-3 text-sm text-charcoal-2">
         <p>예약 신청은 동아리 운영진 로그인 후 이용할 수 있어요.</p>
         <Link href={toRoute(loginHref)} className="btn btn-primary inline-flex">로그인하기</Link>
-      </div>
-    );
-  }
-
-  // 신청 마감 사전 안내 — 표시용 힌트(클라 시계). 최종 판단은 서버가 한다(정책 spec 2026-07-18).
-  if (isApplicationDeadlinePassed(date, new Date())) {
-    return (
-      <div className="space-y-3 text-sm text-charcoal-2">
-        <p role="alert">이 날짜는 신청이 마감됐어요. 시설 사용일 전날 12:00까지만 신청할 수 있어요.</p>
-        <button type="button" className="btn btn-secondary" onClick={onBack}>
-          시간 다시 선택
-        </button>
       </div>
     );
   }

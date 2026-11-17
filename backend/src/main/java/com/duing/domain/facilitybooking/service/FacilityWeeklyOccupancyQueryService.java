@@ -89,7 +89,7 @@ public class FacilityWeeklyOccupancyQueryService {
 
     /**
      * 예약 캘린더와 같은 조립기로 그 달을 그린 뒤 주 7일의 점유(BLOCKED) 칸만 센다.
-     * 점유가 지난 시각(PAST)·신청 마감보다 먼저 판정돼 오늘 시각과 무관하다.
+     * 점유가 지난 시각(PAST)보다 먼저 판정돼 오늘 시각과 무관하다.
      */
     private static List<Integer> occupiedSlotCounts(LocalDate firstDay, List<YearMonth> months,
                                                     LocalDateTime currentDateTime, List<CrawlSlice> crawlSlices,

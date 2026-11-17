@@ -25,6 +25,8 @@ export type PanelStep = 'slots' | 'form' | 'success';
 type Props = {
   facility: { id: number; roomName: string };
   day: BookingDayAvailability;
+  // 그 날이 신청 창 안인가 — 창 밖(기록 열람)이면 시간 선택을 잠근다.
+  bookable: boolean;
   selection: SlotRange | null;
   onToggleSlot: (slotStart: string) => void;
   step: PanelStep;
@@ -41,6 +43,7 @@ type Props = {
 export function BookingPanel({
   facility,
   day,
+  bookable,
   selection,
   onToggleSlot,
   step,
@@ -103,8 +106,8 @@ export function BookingPanel({
     );
   }
 
-  // 선택 가능한 슬롯이 없는 날(마감·지난 날 기록 열람)은 "시간을 선택해주세요" 대신 사실을 말한다.
-  const applicable = hasApplicableSlot(day);
+  // 선택 가능한 슬롯이 없는 날(창 밖·전부 점유·지난 날 기록 열람)은 "시간을 선택해주세요" 대신 사실을 말한다.
+  const applicable = bookable && hasApplicableSlot(day);
 
   return (
     <div className="flex h-full flex-col">
@@ -120,7 +123,7 @@ export function BookingPanel({
 
       <div className="min-h-0 flex-1 overflow-y-auto pb-2">
         <div className="space-y-3">
-          <DayBookingOverview day={day} />
+          <DayBookingOverview day={day} bookable={bookable} />
           {isGuest && (
             <div className="border-line bg-paper text-charcoal-2 space-y-3 rounded-lg border px-4 py-3 text-sm">
               <p>예약 신청은 동아리 운영진 로그인 후 이용할 수 있어요.</p>
@@ -129,7 +132,7 @@ export function BookingPanel({
               </Link>
             </div>
           )}
-          <DaySlotList day={day} selection={selection} onToggleSlot={onToggleSlot} />
+          <DaySlotList day={day} bookable={bookable} selection={selection} onToggleSlot={onToggleSlot} />
         </div>
       </div>
 

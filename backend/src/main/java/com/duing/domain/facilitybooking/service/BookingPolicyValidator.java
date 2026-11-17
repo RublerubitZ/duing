@@ -27,9 +27,7 @@ public class BookingPolicyValidator {
 
     /**
      * 기술적 검증 전담 — 슬롯 그리드(정시·09~22·정방향) + 당일 경과 슬롯 거부.
-     * 시설 오픈 창·마감·자격·역할 등 비즈니스 정책은 BookingApplicationPolicy 가 담당한다(설계 spec 2026-07-18).
-     * 당일 가드는 마감 정책(당일 항상 마감)이 선행되어 create 경로에서는 도달하지 않지만,
-     * 기술 검증의 자기완결성을 위해 유지한다.
+     * 시설 오픈 창·자격·역할 등 비즈니스 정책은 BookingApplicationPolicy 가 담당한다(설계 spec 2026-07-18).
      */
     public void validateSlotRange(LocalDate date, LocalTime startTime, LocalTime endTime) {
         if (!startTime.equals(startTime.truncatedTo(ChronoUnit.HOURS))
@@ -40,8 +38,8 @@ public class BookingPolicyValidator {
         }
         LocalDateTime currentDateTime = LocalDateTime.now(clock);
         LocalDate today = currentDateTime.toLocalDate();
-        // 당일 신청 중 첫 1시간이 완전히 지난 슬롯은 거부(어셈블러 PAST 판정과 동일 기준).
-        if (date.isEqual(today) && !startTime.plusHours(1).isAfter(currentDateTime.toLocalTime())) {
+        // 당일은 아직 시작하지 않은 시간대만 받는다 — 진행 중인 칸도 거부(어셈블러 PAST 판정과 동일 기준).
+        if (date.isEqual(today) && !startTime.isAfter(currentDateTime.toLocalTime())) {
             throw new FacilityBookingException.PastSlotException();
         }
     }

@@ -151,7 +151,6 @@ class FacilityAvailabilityAcceptanceTest extends IntegrationTestBase {
                 .findFirst().orElseThrow();
         assertThat(recordDay.dayStatus()).isEqualTo(FacilityAvailabilityResponse.DayStatus.PAST);
         assertThat(recordDay.availableSlotCount()).isZero();
-        assertThat(recordDay.applicationClosed()).isFalse(); // 지난 날짜는 열람 전용
     }
 
     @Test
@@ -257,7 +256,7 @@ class FacilityAvailabilityAcceptanceTest extends IntegrationTestBase {
         securedClub.changeFacilitySecuredTimeTarget(true);
         clubRepository.save(securedClub);
         clubRepository.save(Club.create("ABC동아리", ClubCategory.OTHER, "분과", "설명", null)); // 플래그 OFF 등록 동아리
-        // AVAILABLE 을 단언하므로 D+2 — D+1 은 KST 12:01 이후 실행 시 마감(DEADLINE_PASSED)이라 시각 의존 실패가 난다.
+        // AVAILABLE 을 단언하므로 미래 날짜(D+2) — 오늘은 실행 시각에 따라 지난 칸(PAST)이 생겨 시각 의존 실패가 난다.
         LocalDate crawlDate = LocalDate.now(clock).plusDays(2);
         LocalDateTime crawledAt = LocalDateTime.now(clock);
         // 파서가 물결 꼬리 범위를 확장 저장한 형태의 행들: 고정관념 [10,13) / 상담센터 [13,15) / ABC동아리 [15,17)
@@ -316,7 +315,7 @@ class FacilityAvailabilityAcceptanceTest extends IntegrationTestBase {
         Club securedClub = clubRepository.save(Club.create("확보정밀", ClubCategory.OTHER, "분과", "설명", null));
         securedClub.changeFacilitySecuredTimeTarget(true);
         clubRepository.save(securedClub);
-        // AVAILABLE 을 단언하므로 D+2 — D+1 은 KST 12:01 이후 실행 시 마감(DEADLINE_PASSED)이라 시각 의존 실패가 난다.
+        // AVAILABLE 을 단언하므로 미래 날짜(D+2) — 오늘은 실행 시각에 따라 지난 칸(PAST)이 생겨 시각 의존 실패가 난다.
         LocalDate crawlDate = LocalDate.now(clock).plusDays(2);
         LocalDateTime crawledAt = LocalDateTime.now(clock);
         // 같은 확보 동아리의 물결 확보 행 [10,13) 과 무꼬리 실예약 행 [14,16) 이 공존한다 — 행 단위 분류.
