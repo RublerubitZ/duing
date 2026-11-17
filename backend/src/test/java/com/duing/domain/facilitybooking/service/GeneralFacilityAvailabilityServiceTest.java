@@ -43,7 +43,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 
 /**
  * 가용성 서비스의 시간대·월 범위 판정 단위 테스트 — Clock.fixed(Asia/Seoul) 로 UTC 인스턴트를 KST 벽시계에 대응시켜
- * 마감 경계(전날 12:00 KST)와 직전 월 열람(재크롤 없음·스냅샷 완결성 stale)을 결정적으로 검증한다.
+ * 오늘 슬롯의 지난 칸 경계(KST 정각)와 직전 월 열람(재크롤 없음·스냅샷 완결성 stale)을 결정적으로 검증한다.
  */
 @ExtendWith(MockitoExtension.class)
 class GeneralFacilityAvailabilityServiceTest {
@@ -86,23 +86,23 @@ class GeneralFacilityAvailabilityServiceTest {
     }
 
     @Test
-    @DisplayName("KST 마감 경계: UTC 03:00:59(=KST 12:00:59)엔 익일 빈 슬롯 AVAILABLE, UTC 03:01:00(=KST 12:01:00)엔 DEADLINE_PASSED, 이틀 뒤는 AVAILABLE")
-    void kstDeadlineBoundaryDrivesSlotStatus() {
+    @DisplayName("KST 지난 칸 경계: UTC 05:59:59(=KST 14:59:59)엔 오늘 15:00 칸 AVAILABLE, UTC 06:00:00(=KST 15:00:00)엔 PAST, 익일은 전날 12:00 이 지나도 AVAILABLE")
+    void kstSlotStartBoundaryDrivesTodaySlotStatus() {
         YearMonth january = YearMonth.of(2026, 1);
-        LocalDate tomorrow = LocalDate.of(2026, 1, 16);
+        LocalDate today = LocalDate.of(2026, 1, 15);
         given(facilityCrawlService.ensureFresh(january)).willReturn(DataSource.CACHE);
         stubFacility();
 
-        FacilityAvailabilityResponse beforeCutoff =
-                serviceAt("2026-01-15T03:00:59Z").getAvailability(FACILITY_ID, january);
-        assertThat(slotAt(beforeCutoff, tomorrow, 9).status()).isEqualTo(SlotStatus.AVAILABLE);
-        assertThat(beforeCutoff.days().get(tomorrow.getDayOfMonth() - 1).applicationClosed()).isFalse();
+        FacilityAvailabilityResponse beforeStart =
+                serviceAt("2026-01-15T05:59:59Z").getAvailability(FACILITY_ID, january);
+        assertThat(slotAt(beforeStart, today, 15).status()).isEqualTo(SlotStatus.AVAILABLE);
 
-        FacilityAvailabilityResponse afterCutoff =
-                serviceAt("2026-01-15T03:01:00Z").getAvailability(FACILITY_ID, january);
-        assertThat(slotAt(afterCutoff, tomorrow, 9).status()).isEqualTo(SlotStatus.DEADLINE_PASSED);
-        assertThat(afterCutoff.days().get(tomorrow.getDayOfMonth() - 1).applicationClosed()).isTrue();
-        assertThat(slotAt(afterCutoff, tomorrow.plusDays(1), 9).status()).isEqualTo(SlotStatus.AVAILABLE);
+        FacilityAvailabilityResponse atStart =
+                serviceAt("2026-01-15T06:00:00Z").getAvailability(FACILITY_ID, january);
+        assertThat(slotAt(atStart, today, 15).status()).isEqualTo(SlotStatus.PAST);
+        assertThat(slotAt(atStart, today, 16).status()).isEqualTo(SlotStatus.AVAILABLE);
+        assertThat(slotAt(atStart, today.plusDays(1), 9).status()).isEqualTo(SlotStatus.AVAILABLE);
+        assertThat(atStart.days().get(today.plusDays(1).getDayOfMonth() - 1).availableSlotCount()).isEqualTo(13);
     }
 
     @Test

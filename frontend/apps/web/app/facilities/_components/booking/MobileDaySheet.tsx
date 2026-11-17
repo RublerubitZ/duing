@@ -32,6 +32,8 @@ type Props = {
   // 선택일 ISO — day(가용성) 로딩 전에도 시트 제목(접근 가능한 이름)을 제공한다.
   dateIso: string | null;
   day: BookingDayAvailability | null;
+  // 그 날이 신청 창 안인가 — 창 밖(기록 열람)이면 시간 선택을 잠근다.
+  bookable: boolean;
   selection: SlotRange | null;
   onToggleSlot: (slotStart: string) => void;
   step: PanelStep;
@@ -54,14 +56,20 @@ type Props = {
  * 시트는 모바일 전용 마운트이고 열림은 월간 상태에서만이므로 주간 사이드바 폼과 id 이중 마운트가 없다.
  */
 export function MobileDaySheet({
-  open, facility, dateIso, day, selection, onToggleSlot,
+  open, facility, dateIso, day, bookable, selection, onToggleSlot,
   step, onProceedToForm, onBackToSlots, submittedResult, submittedClubId, submittedAt,
   onSubmitted, onExploreOther, onClose, onViewTimetable,
 }: Props) {
   // 닫힘 애니메이션 동안 내용이 사라지지 않게 마지막 day/facility 스냅샷을 유지한다(WeekBlockSheet 전례).
+  // bookable 도 day 와 같은 스냅샷이다 — 닫히며 선택일이 비면 false 가 되어 행 라벨이 바뀌어 보이던 것을 막는다.
   const lastDayRef = useRef(day);
-  if (day !== null) lastDayRef.current = day;
+  const lastBookableRef = useRef(bookable);
+  if (day !== null) {
+    lastDayRef.current = day;
+    lastBookableRef.current = bookable;
+  }
   const shownDay = day ?? lastDayRef.current;
+  const shownBookable = day !== null ? bookable : lastBookableRef.current;
   const lastFacilityRef = useRef(facility);
   if (facility !== null) lastFacilityRef.current = facility;
   const shownFacility = facility ?? lastFacilityRef.current;
@@ -106,7 +114,7 @@ export function MobileDaySheet({
           // 같은 커밋에 BookingForm 을 마운트하면 정적 id(booking-club 등)가 이중 마운트되는 것을 차단.
           // 슬롯 리스트(스냅샷 day)만 남겨 빈 시트로 내려가지 않게 한다(id 없는 콘텐츠).
           <div className="pb-[calc(1.5rem_+_env(safe-area-inset-bottom))]">
-            <DaySlotList day={shownDay} selection={selection} onToggleSlot={onToggleSlot} />
+            <DaySlotList day={shownDay} bookable={shownBookable} selection={selection} onToggleSlot={onToggleSlot} />
           </div>
         ) : step === 'success' && selection !== null && submittedAt !== null ? (
           <div className="pb-[calc(1.5rem_+_env(safe-area-inset-bottom))]">
@@ -152,7 +160,7 @@ export function MobileDaySheet({
                 <Link href={toRoute(loginReturnHref())} className="btn btn-primary inline-flex">로그인하기</Link>
               </div>
             )}
-            <DaySlotList day={shownDay} selection={selection} onToggleSlot={onToggleSlot} />
+            <DaySlotList day={shownDay} bookable={shownBookable} selection={selection} onToggleSlot={onToggleSlot} />
             {/* bg-inherit 은 transparent 로 풀려 스크롤 중 뒤 슬롯이 비친다 — 시트 표면 bg-cream 으로 고정(패널 전례).
                 하단 여백은 푸터 자신의 pb(safe-area 포함)로 — 컨테이너 pb-0 과 짝이라 화면 끝까지 배경이 이어진다. */}
             <div
@@ -175,7 +183,7 @@ export function MobileDaySheet({
                 >
                   {selection !== null
                     ? `${rangeLabel(selection)} 예약 신청`
-                    : hasApplicableSlot(shownDay)
+                    : shownBookable && hasApplicableSlot(shownDay)
                       ? '시간을 선택해주세요'
                       : '신청 가능한 시간이 없어요'}
                 </button>

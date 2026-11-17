@@ -53,8 +53,8 @@ export function BookingCalendar({
           const unknown = day === undefined;
           const isToday = cell.iso === todayIso;
           // 데이터가 있는 지난 날짜·창 밖 오늘은 열람용(기록) — 클릭해 주간/시트로 열 수 있고 라벨은 "마감" 고정이다.
-          // 오늘은 전날 12:01 마감이 항상 지나 신청 대상이 아니지만, 창(오픈일 NULL·내일 오픈)에 따라 "예약 기간 아님"
-          // 으로 잠기던 것을 지난 날짜와 같은 기록 축으로 연다. 창 안 오늘은 기존 레벨 셀("마감, 남은 0칸")로 남는다.
+          // 창 밖 오늘(오픈일 NULL·내일 오픈)은 "예약 기간 아님" 대신 지난 날짜와 같은 기록 축으로 연다.
+          // 창 안 오늘은 남은 시간(시작 전 칸)의 레벨 셀이다.
           const viewableRecord = day !== undefined && cell.iso <= todayIso && !withinRange;
           const selectable = withinRange && !unknown && !viewableRecord;
           // 창 이후 미래만 창 밖이다 — 지난 날짜·오늘을 창 밖으로 오분류하지 않는다.

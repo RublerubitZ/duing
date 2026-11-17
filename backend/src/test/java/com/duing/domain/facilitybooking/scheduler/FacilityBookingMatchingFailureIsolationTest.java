@@ -116,7 +116,7 @@ class FacilityBookingMatchingFailureIsolationTest extends IntegrationTestBase {
     }
 
     private LocalDate bookableDate() {
-        // 시각 무관 항상 신청 가능한 날짜(오늘+2) — 고정 슬롯 시각 타임밤과 전날 12:00 마감을 함께 피한다.
+        // 시각 무관 항상 신청 가능한 날짜(오늘+2) — 고정 슬롯 시각 타임밤을 피한다.
         return BookingWindowFixture.bookableDate();
     }
 

@@ -127,7 +127,7 @@ class FacilityBookingServiceIntegrationTest extends IntegrationTestBase {
     }
 
     private LocalDate bookableDate() {
-        // 시각 무관 항상 신청 가능한 날짜(오늘+2) — 고정 슬롯 시각 타임밤과 전날 12:00 마감을 함께 피한다.
+        // 시각 무관 항상 신청 가능한 날짜(오늘+2) — 고정 슬롯 시각 타임밤을 피한다.
         return BookingWindowFixture.bookableDate();
     }
 
@@ -571,18 +571,13 @@ class FacilityBookingServiceIntegrationTest extends IntegrationTestBase {
     }
 
     @Test
-    @DisplayName("당일 사용 신청은 DEADLINE_PASSED 로 거부된다 — 마감은 사용일 전날 12:00")
-    void sameDayBookingIsRejectedByDeadline() throws Exception {
+    @DisplayName("익일 사용 신청은 실행 시각과 무관하게 접수된다 — 사용일 전날 신청 마감이 없다")
+    void tomorrowBookingIsAcceptedRegardlessOfTime() throws Exception {
         Fixture fixture = fixture();
-        LocalDate today = LocalDate.now(ZoneId.of("Asia/Seoul"));
+        LocalDate tomorrow = LocalDate.now(ZoneId.of("Asia/Seoul")).plusDays(1);
 
-        assertThatThrownBy(() -> bookingService.create(new CreateFacilityBookingCommand(
-                fixture.club().getId(), fixture.leader().getId(), fixture.facility().getId(),
-                today, LocalTime.of(18, 0), LocalTime.of(20, 0), "정기 합주", null,
-                FacilityBookingFixture.VALID_CONTACT_PHONE)))
-                .isInstanceOfSatisfying(FacilityBookingException.DeadlinePassedException.class,
-                        exception -> assertThat(exception.getCode())
-                                .isEqualTo("FACILITY_BOOKING_DEADLINE_PASSED"));
+        // 익일은 창 [오늘, 익월 말일] 안이고 당일 지난 칸 가드 대상도 아니라 어느 시각에 돌려도 접수돼야 한다.
+        assertThat(bookingService.create(command(fixture, tomorrow, 18, 20)).bookingId()).isNotNull();
     }
 
     @Test

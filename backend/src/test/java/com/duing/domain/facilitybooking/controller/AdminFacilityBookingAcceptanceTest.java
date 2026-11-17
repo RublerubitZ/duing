@@ -212,7 +212,7 @@ class AdminFacilityBookingAcceptanceTest extends IntegrationTestBase {
         Club club = saveActiveClub();
         clubMemberRepository.save(ClubMember.asLeader(club, leader));
         Facility facility = saveFacility();
-        // 시각 무관 항상 신청 가능한 날짜(오늘+2) — 고정 슬롯 시각 타임밤과 전날 12:00 마감을 함께 피한다.
+        // 시각 무관 항상 신청 가능한 날짜(오늘+2) — 고정 슬롯 시각 타임밤을 피한다.
         LocalDate date = BookingWindowFixture.bookableDate();
         return bookingService.create(new CreateFacilityBookingCommand(
                 club.getId(), leader.getId(), facility.getId(), date,

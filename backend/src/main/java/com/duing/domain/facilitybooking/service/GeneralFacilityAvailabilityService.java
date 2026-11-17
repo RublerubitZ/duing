@@ -61,7 +61,7 @@ public class GeneralFacilityAvailabilityService implements FacilityAvailabilityS
         YearMonth currentMonth = YearMonth.now(clock);
         YearMonth targetMonth = requestedMonth != null ? requestedMonth : currentMonth;
         // 열람 범위 = 직전 월·당월·익월. 직전 월은 기록 열람 전용(저장 스냅샷 그대로, 재크롤 없음 — 2026-09-03 스펙 §2.1).
-        // 신청 가능 범위는 별개로 BookingApplicationPolicy(시설 오픈 창·마감)가 판정한다.
+        // 신청 가능 범위는 별개로 BookingApplicationPolicy(시설 오픈 창)가 판정한다.
         if (targetMonth.isBefore(currentMonth.minusMonths(1)) || targetMonth.isAfter(currentMonth.plusMonths(1))) {
             throw new FacilityBookingException.MonthOutOfBookingRangeException();
         }

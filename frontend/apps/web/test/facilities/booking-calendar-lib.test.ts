@@ -9,8 +9,6 @@ import {
   dayLevelOf,
   dayUsageEntries,
   hasApplicableSlot,
-  isApplicationDeadlinePassed,
-  isDayApplicationClosed,
   isSelectableSlot,
   isWithinBookable,
   pastelIndexByLabel,
@@ -451,69 +449,19 @@ describe('periodDistribution', () => {
   });
 });
 
-describe('isApplicationDeadlinePassed', () => {
-  // 사용일 7/20 의 마감 = 7/19 12:01(KST)부터 — 서버 BookingDeadlinePolicy 와 동일 경계(분 단위)
-  const useDate = '2026-07-20';
-
-  it('전날 12:00분대(12:00:59)까지는 마감이 아니다', () => {
-    expect(isApplicationDeadlinePassed(useDate, new Date('2026-07-19T11:59:00+09:00'))).toBe(false);
-    expect(isApplicationDeadlinePassed(useDate, new Date('2026-07-19T12:00:59+09:00'))).toBe(false);
-  });
-
-  it('전날 12:01부터는 마감이다', () => {
-    expect(isApplicationDeadlinePassed(useDate, new Date('2026-07-19T12:01:00+09:00'))).toBe(true);
-  });
-
-  it('당일과 과거 날짜는 항상 마감이다', () => {
-    expect(isApplicationDeadlinePassed(useDate, new Date('2026-07-20T00:00:01+09:00'))).toBe(true);
-    expect(isApplicationDeadlinePassed('2026-07-18', new Date('2026-07-19T09:00:00+09:00'))).toBe(true);
-  });
-
-  it('이틀 이상 남은 날짜는 마감이 아니다', () => {
-    expect(isApplicationDeadlinePassed(useDate, new Date('2026-07-18T23:59:59+09:00'))).toBe(false);
-  });
-
-  it('KST 자정 경계 — UTC 기준 전날 밤이라도 KST 날짜로 판정한다', () => {
-    // UTC 7/19 02:59 = KST 7/19 11:59 → 미마감, UTC 7/19 03:01 = KST 7/19 12:01 → 마감
-    expect(isApplicationDeadlinePassed(useDate, new Date('2026-07-19T02:59:00Z'))).toBe(false);
-    expect(isApplicationDeadlinePassed(useDate, new Date('2026-07-19T03:01:00Z'))).toBe(true);
-  });
-});
-
-describe('isDayApplicationClosed / hasApplicableSlot (신청 마감 날 파생 — 서버 applicationClosed 우선, 없으면 DEADLINE_PASSED 존재)', () => {
-  it('빈 슬롯이 DEADLINE_PASSED 로 내려온 날은 마감이고, 대기 슬롯이 남아도 신청 가능한 슬롯이 없다(플래그 없는 구응답)', () => {
-    const closed = { slots: [slot(9, 'DEADLINE_PASSED'), slot(10, 'BLOCKED'), slot(11, 'PENDING_HOLD')] };
-    expect(isDayApplicationClosed(closed)).toBe(true);
-    expect(hasApplicableSlot(closed)).toBe(false);
-  });
-
-  it('서버 applicationClosed=true 면 빈 슬롯이 하나도 없어도(전부 점유·대기) 마감이다 — 잔여 한계 해소', () => {
-    const closedNoEmpty = { applicationClosed: true, slots: [slot(9, 'BLOCKED'), slot(10, 'PENDING_HOLD')] };
-    expect(isDayApplicationClosed(closedNoEmpty)).toBe(true);
-    expect(hasApplicableSlot(closedNoEmpty)).toBe(false);
-  });
-
-  it('서버 applicationClosed=false 는 슬롯 파생보다 우선한다(서버가 진실)', () => {
-    const open = { applicationClosed: false, slots: [slot(9, 'DEADLINE_PASSED'), slot(10, 'AVAILABLE')] };
-    expect(isDayApplicationClosed(open)).toBe(false);
-    expect(hasApplicableSlot(open)).toBe(true);
-  });
-
-  it('DEADLINE_PASSED 가 없는 날은 마감이 아니고, AVAILABLE·PENDING_HOLD 가 하나라도 있으면 신청 가능하다', () => {
-    const open = { slots: [slot(9, 'BLOCKED'), slot(10, 'PENDING_HOLD'), slot(11, 'AVAILABLE')] };
-    expect(isDayApplicationClosed(open)).toBe(false);
-    expect(hasApplicableSlot(open)).toBe(true);
+describe('hasApplicableSlot (신청 마감 규칙 삭제 2026-11-17 — 선택 가능한 칸만 본다)', () => {
+  it('AVAILABLE·PENDING_HOLD 가 하나라도 있으면 신청 가능하다 — 마감 플래그로 날을 잠그지 않는다', () => {
+    expect(hasApplicableSlot({ slots: [slot(9, 'BLOCKED'), slot(10, 'PENDING_HOLD'), slot(11, 'AVAILABLE')] })).toBe(true);
     expect(hasApplicableSlot({ slots: [slot(9, 'BLOCKED'), slot(10, 'PENDING_HOLD')] })).toBe(true);
   });
 
-  it('지난 날짜(PAST·BLOCKED 만, applicationClosed=false)는 마감 표시가 아니지만 신청 가능한 슬롯도 없다', () => {
-    const past = { applicationClosed: false, slots: [slot(9, 'PAST'), slot(10, 'BLOCKED'), slot(11, 'PAST')] };
-    expect(isDayApplicationClosed(past)).toBe(false);
-    expect(hasApplicableSlot(past)).toBe(false);
+  it('지난 날짜(PAST·BLOCKED 만)는 신청 가능한 슬롯이 없다', () => {
+    expect(hasApplicableSlot({ slots: [slot(9, 'PAST'), slot(10, 'BLOCKED'), slot(11, 'PAST')] })).toBe(false);
   });
 
-  it('isSelectableSlot 은 DEADLINE_PASSED 를 선택 불가로 본다(fail-closed 무변경)', () => {
-    expect(isSelectableSlot(slot(9, 'DEADLINE_PASSED'))).toBe(false);
+  it('isSelectableSlot 은 AVAILABLE·PENDING_HOLD 만 선택 가능으로 본다', () => {
     expect(isSelectableSlot(slot(9, 'PENDING_HOLD'))).toBe(true);
+    expect(isSelectableSlot(slot(9, 'PAST'))).toBe(false);
+    expect(isSelectableSlot(slot(9, 'BLOCKED'))).toBe(false);
   });
 });

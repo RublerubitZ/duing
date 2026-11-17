@@ -39,8 +39,8 @@ vi.mock('next/navigation', async () => {
 // 설치/복원은 beforeEach/afterEach 로 매 테스트 스코프(하단 이월 블록 setSystemTime 전례와 동일) — 모듈 스코프
 // 상주 설치는 케이스 누적 시 타이머 상태가 쌓여 flaky 타임아웃을 유발한다.
 // 7/14(화) 12:30 KST 고정: 시설 오픈일 정책의 창은 [max(오픈일, 오늘) .. 익월 말일] 이라 오픈일이 지난 시설 1 은
-// 오늘부터 열린다. 오늘+1 은 전날 12:00 이 지나 신청 마감(DEADLINE_DATE), 오늘+2 부터 마감-안전(APPLY_DATE) —
-// 셋 다 당월이라 기본 월(= 당월) 격자에서 바로 탭할 수 있다.
+// 오늘부터 열린다. 오늘+1(TOMORROW_DATE)은 전날 12:00 이 지났지만 마감 규칙이 없어 신청할 수 있고(2026-11-17),
+// 신청 플로우는 오늘+2(APPLY_DATE)로 진행한다 — 셋 다 당월이라 기본 월(= 당월) 격자에서 바로 탭할 수 있다.
 const FIXED_NOW = new Date('2026-07-14T12:30:00+09:00');
 const TODAY_ISO = seoulDateIso(FIXED_NOW);
 const CURRENT_MONTH = TODAY_ISO.slice(0, 7);
@@ -76,17 +76,17 @@ const WINDOW_FROM_DAY = Number(WINDOW.from.slice(8, 10));
 // '레벨 + 남은 칸수'까지 포함해 PAST/창밖 셀("N일 지난 날짜"·"N일 예약 기간 아님")과 혼선을 차단한다.
 const WINDOW_FROM_CELL = `${WINDOW_FROM_DAY}일 여유, 남은 10칸`;
 
-// 신청 마감 셀: 오늘+1 은 전날(= 오늘) 12:00 이 지나 마감이다(고정 now 12:30). 창 안이라 셀 자체는 선택 가능.
-const DEADLINE_DATE = shiftDateByDays(TODAY_ISO, 1);
-const DEADLINE_CELL = `${Number(DEADLINE_DATE.slice(8, 10))}일 여유, 남은 13칸`;
+// 내일 셀: 전날(= 오늘) 12:00 이 지난 날짜(고정 now 12:30) — 마감 규칙 삭제 뒤에도 신청 폼으로 진입하는지 본다.
+const TOMORROW_DATE = shiftDateByDays(TODAY_ISO, 1);
+const TOMORROW_CELL = `${Number(TOMORROW_DATE.slice(8, 10))}일 여유, 남은 13칸`;
 
-// 폼 도달(신청) 플로우용 마감-안전 날짜: 오늘+2. 마감 = (오늘+2)-1 = 내일 → 고정 now 기준 항상 미래다.
+// 폼 도달(신청) 플로우용 날짜: 오늘+2.
 // 창 첫날과 동일한 혼합 슬롯을 실어(makeAvailability) 셀 라벨·슬롯 셀렉터를 그대로 공유한다.
 const APPLY_DATE_ISO = shiftDateByDays(TODAY_ISO, 2);
 const APPLY_DAY = Number(APPLY_DATE_ISO.slice(8, 10));
 const APPLY_CELL = `${APPLY_DAY}일 여유, 남은 10칸`;
 
-// 시설 2 의 오픈 전 셀(창 앞) — 미래지만 창 밖이라 "예약 기간 아님". 마감 셀(오늘+1)과 겹치지 않게 오늘+3.
+// 시설 2 의 오픈 전 셀(창 앞) — 미래지만 창 밖이라 "예약 기간 아님". 내일 셀(오늘+1)과 겹치지 않게 오늘+3.
 const BEFORE_OPEN_DATE = shiftDateByDays(TODAY_ISO, 3);
 const BEFORE_OPEN_CELL = `${Number(BEFORE_OPEN_DATE.slice(8, 10))}일 예약 기간 아님`;
 // 시설 3(닫힘)은 미래 셀 전부가 창 밖이다 — 대표로 오늘+2 셀을 본다.
@@ -556,7 +556,7 @@ describe('FacilityBookingPage — 월↔주 뷰 전환(시설 오픈일 창)', (
 
     await waitFor(() => expect(capturedBody).not.toBeNull());
     // 사용 인원 필수화(2026-07-21) — attendeeCount 가 body 에 포함된다(toEqual 전체 비교로 보장).
-    // date 는 마감-안전한 신청일. contactPhone 은 프리필 값이 그대로 실린다.
+    // date 는 신청일(APPLY_DATE). contactPhone 은 프리필 값이 그대로 실린다.
     expect(capturedBody).toEqual({
       facilityId: 1,
       date: APPLY_DATE_ISO,
@@ -758,47 +758,33 @@ describe('FacilityBookingPage — 월↔주 뷰 전환(시설 오픈일 창)', (
     expect(disabledCta).toBeDisabled();
   });
 
-  it('시나리오 12-1: 대기 슬롯만 고른 선택은 재조회로 그 날이 applicationClosed 가 되면 비워지고 CTA 가 무신청 문구로 돌아간다', async () => {
+  it('시나리오 12-1: 재조회로 그 날이 신청 창 밖이 되면(오픈일 삭제 등) 선택이 비워지고 CTA 가 무신청 문구로 돌아간다', async () => {
     useAuthStore.setState({ status: 'authenticated', user: AUTH_USER });
 
-    // 첫 응답: APPLY_DATE 의 14시가 PENDING_HOLD(makeMixedSlots 기본). 두 번째 응답부터 그 날이 마감(applicationClosed=true,
-    // 빈 칸은 DEADLINE_PASSED) — 대기 칸은 상태를 유지하므로 isSelectableSlot 만으로는 선택이 무효가 되지 않는 케이스.
-    let closed = false;
+    // 첫 응답은 창이 열려 있고, 신청이 창 밖으로 거절된 뒤의 재조회부터 창이 닫힌다(빈 창). 슬롯은 그대로라
+    // isSelectableSlot 만으로는 선택이 무효가 되지 않는 케이스 — 날짜 단위 창 가드가 비워야 한다(2026-11-17).
+    let windowClosed = false;
     server.use(
       http.get('*/facilities/1/availability', ({ request }) => {
         const yearMonth = new URL(request.url).searchParams.get('yearMonth') ?? CURRENT_MONTH;
         const availability = makeAvailability(1, yearMonth);
-        if (closed) {
-          const applyDay = availability.days.find((day) => day.date === APPLY_DATE_ISO);
-          if (applyDay) {
-            applyDay.applicationClosed = true;
-            applyDay.availableSlotCount = 0;
-            applyDay.dayStatus = 'FULL';
-            applyDay.slots = applyDay.slots.map((slot) =>
-              slot.status === 'AVAILABLE' ? { start: slot.start, end: slot.end, status: 'DEADLINE_PASSED' as const } : slot,
-            );
-          }
+        if (windowClosed) {
+          availability.bookableFrom = CLOSED_WINDOW.from;
+          availability.bookableUntil = CLOSED_WINDOW.until;
         }
         return ok(availability);
       }),
       http.post('*/clubs/7/facility-bookings', () => {
-        closed = true;
-        return HttpResponse.json(
-          { ok: false, data: null, message: '시설 사용일 전날 12:00까지만 신청할 수 있어요.', code: 'FACILITY_BOOKING_DEADLINE_PASSED' },
-          { status: 400 },
-        );
+        windowClosed = true;
+        return HttpResponse.json({ ok: false, data: null, message: '아직 예약 신청이 열리지 않았어요.' }, { status: 400 });
       }),
     );
 
     renderPage();
 
     fireEvent.click(await screen.findByRole('button', { name: APPLY_CELL }));
-    // 14:00 은 PENDING_HOLD — 단독 선택 가능. 주간 격자에도 같은 이름의 블록이 있어 슬롯 목록으로 좁힌다.
-    const slotList = () => within(screen.getByRole('list', { name: '시간대 선택' }));
-    await screen.findByRole('list', { name: '시간대 선택' });
-    fireEvent.click(slotList().getByRole('button', { name: /14:00~15:00.*승인 대기/ }));
-    expect(screen.getByRole('button', { name: '14:00~15:00 예약 신청' })).toBeEnabled();
-    fireEvent.click(screen.getByRole('button', { name: '14:00~15:00 예약 신청' }));
+    fireEvent.click(await screen.findByRole('button', { name: /18:00~19:00/ }));
+    fireEvent.click(screen.getByRole('button', { name: '18:00~19:00 예약 신청' }));
     fireEvent.click(await screen.findByRole('button', { name: '정기 합주' }));
     await screen.findByText('밴드부');
     fireEvent.change(screen.getByRole('textbox', { name: '사용 인원' }), { target: { value: '15' } });
@@ -806,11 +792,11 @@ describe('FacilityBookingPage — 월↔주 뷰 전환(시설 오픈일 창)', (
     const confirmDialog = await screen.findByRole('dialog', { name: '예약을 신청하시겠어요?' });
     fireEvent.click(within(confirmDialog).getByRole('button', { name: '예약 신청' }));
 
-    // 400 뒤 가용성 재조회 → 그 날이 마감 → 선택이 비워지고 슬롯 화면으로 복귀, CTA 는 무신청 문구·비활성, 안내 note 노출.
+    // 400 뒤 가용성 재조회 → 그 날이 창 밖 → 선택이 비워지고 슬롯 화면으로 복귀, 행은 "예약 기간 아님"으로 잠긴다.
     expect(await screen.findByRole('button', { name: '신청 가능한 시간이 없어요' })).toBeDisabled();
-    expect(screen.queryByRole('button', { name: '14:00~15:00 예약 신청' })).not.toBeInTheDocument();
-    expect(screen.getByRole('note')).toBeInTheDocument();
-    expect(slotList().getByRole('button', { name: /14:00~15:00.*승인 대기/ })).toBeDisabled();
+    expect(screen.queryByRole('button', { name: '18:00~19:00 예약 신청' })).not.toBeInTheDocument();
+    const slotList = within(screen.getByRole('list', { name: '시간대 선택' }));
+    expect(slotList.getByRole('button', { name: /18:00~19:00.*예약 기간 아님/ })).toBeDisabled();
   });
 
   it('시나리오 13: 로그인 상태에서 운영진 동아리 조회가 실패하면 폼에 에러·재시도가 노출된다', async () => {
@@ -892,17 +878,16 @@ describe('FacilityBookingPage — 월↔주 뷰 전환(시설 오픈일 창)', (
     expect(postCount).toBe(0);
   });
 
-  it('신청 마감 게이트: 전날 12:00 이 지난 날짜(오늘+1)는 폼 대신 마감 안내가 보인다', async () => {
+  it('신청 마감 게이트 삭제: 전날 12:00 이 지난 날짜(오늘+1)도 마감 안내 없이 신청 폼으로 진입한다(2026-11-17)', async () => {
     useAuthStore.setState({ status: 'authenticated', user: AUTH_USER });
     renderPage();
 
-    // DEADLINE_DATE(= 오늘+1)는 전날(= 오늘) 12:00 이 지나 마감 — 폼 대신 마감 안내(role=alert). 표시용 힌트(최종 판단은 서버).
-    fireEvent.click(await screen.findByRole('button', { name: DEADLINE_CELL }));
+    fireEvent.click(await screen.findByRole('button', { name: TOMORROW_CELL }));
     fireEvent.click(await screen.findByRole('button', { name: /18:00~19:00/ }));
     fireEvent.click(screen.getByRole('button', { name: '18:00~19:00 예약 신청' }));
 
-    expect(await screen.findByRole('alert')).toHaveTextContent('시설 사용일 전날 12:00까지만 신청할 수 있어요.');
-    expect(screen.queryByLabelText('사용 목적')).not.toBeInTheDocument();
+    expect(await screen.findByRole('textbox', { name: '사용 목적' })).toBeInTheDocument();
+    expect(screen.queryByText(/신청이 마감됐어요/)).not.toBeInTheDocument();
   });
 
   it('중앙동아리 게이트: 중앙동아리가 아닌 운영 동아리만 있으면 안내가 보이고 폼이 숨는다', async () => {
@@ -914,7 +899,7 @@ describe('FacilityBookingPage — 월↔주 뷰 전환(시설 오픈일 창)', (
     );
     renderPage();
 
-    // APPLY_CELL(마감-안전 날짜)로 폼 스텝 진입 — 중앙동아리 필터(fail-open)로 폼 대신 안내.
+    // APPLY_CELL 로 폼 스텝 진입 — 중앙동아리 필터(fail-open)로 폼 대신 안내.
     fireEvent.click(await screen.findByRole('button', { name: APPLY_CELL }));
     fireEvent.click(await screen.findByRole('button', { name: /18:00~19:00/ }));
     fireEvent.click(screen.getByRole('button', { name: '18:00~19:00 예약 신청' }));
@@ -923,19 +908,11 @@ describe('FacilityBookingPage — 월↔주 뷰 전환(시설 오픈일 창)', (
     expect(screen.queryByLabelText('사용 목적')).not.toBeInTheDocument();
   });
 
-  it('서버 마감 거부: 서버가 마감 코드로 400 하면 서버 메시지가 토스트로 보인다', async () => {
+  it('서버 거부: 서버가 400 하면 서버 메시지가 토스트로 보인다', async () => {
     useAuthStore.setState({ status: 'authenticated', user: AUTH_USER });
     server.use(
       http.post('*/clubs/7/facility-bookings', () =>
-        HttpResponse.json(
-          {
-            ok: false,
-            data: null,
-            message: '시설 사용일 전날 12:00까지만 신청할 수 있어요.',
-            code: 'FACILITY_BOOKING_DEADLINE_PASSED',
-          },
-          { status: 400 },
-        ),
+        HttpResponse.json({ ok: false, data: null, message: '이미 지난 시간대는 신청할 수 없어요.' }, { status: 400 }),
       ),
     );
     renderPage();
@@ -952,7 +929,7 @@ describe('FacilityBookingPage — 월↔주 뷰 전환(시설 오픈일 창)', (
     fireEvent.click(within(confirmDialog).getByRole('button', { name: '예약 신청' }));
 
     // onError 토스트 = 서버 message 그대로(= 사용자 문구, 별도 매핑 없음).
-    expect(await screen.findByText('시설 사용일 전날 12:00까지만 신청할 수 있어요.')).toBeInTheDocument();
+    expect(await screen.findByText('이미 지난 시간대는 신청할 수 없어요.')).toBeInTheDocument();
   });
 
   it('시나리오 14-a: 직전 월 딥링크는 정리되지 않고 주간(기록 열람)으로 열리며 직전 월 availability 를 요청한다', async () => {
@@ -1118,6 +1095,18 @@ describe('FacilityBookingPage — 월↔주 뷰 전환(시설 오픈일 창)', (
     expect(await screen.findByText(CLOSED_TOAST)).toBeInTheDocument();
     // 안내만 하고 주간 전환은 일어나지 않는다.
     expect(screen.queryByText('예약 현황')).not.toBeInTheDocument();
+  });
+
+  it('닫힌 시설의 오늘(기록 열람)은 남은 빈 칸이 내려와도 시간 목록이 잠기고 신청 버튼이 없다 — 마감 규칙 삭제 뒤 창 가드(2026-11-17)', async () => {
+    useAuthStore.setState({ status: 'authenticated', user: AUTH_USER });
+    mockSearchParams.value = 'facilityId=3';
+    renderPage();
+
+    fireEvent.click(await screen.findByRole('button', { name: `${WINDOW_FROM_DAY}일 마감` }));
+    const slotList = within(await screen.findByRole('list', { name: '시간대 선택' }));
+    expect(slotList.getByRole('button', { name: /18:00~19:00.*예약 기간 아님/ })).toBeDisabled();
+    expect(slotList.getByRole('button', { name: /14:00~15:00.*승인 대기/ })).toBeDisabled();
+    expect(screen.getByRole('button', { name: '신청 가능한 시간이 없어요' })).toBeDisabled();
   });
 
   it('오픈 전 시설은 안내줄에 오픈일을 알린다', async () => {
@@ -1354,7 +1343,7 @@ describe('FacilityBookingPage — 월↔주 뷰 전환(시설 오픈일 창)', (
     );
     renderPage();
 
-    // 성공 화면까지 진행(신청일 18~19시) — 확인 Dialog 경유(§2.2). 마감-안전한 APPLY_DATE 로 폼 진입.
+    // 성공 화면까지 진행(신청일 18~19시) — 확인 Dialog 경유(§2.2). APPLY_DATE 로 폼 진입.
     fireEvent.click(await screen.findByRole('button', { name: APPLY_CELL }));
     fireEvent.click(await screen.findByRole('button', { name: /18:00~19:00/ }));
     fireEvent.click(screen.getByRole('button', { name: '18:00~19:00 예약 신청' }));
