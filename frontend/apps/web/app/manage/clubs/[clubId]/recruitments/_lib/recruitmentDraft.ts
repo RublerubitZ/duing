@@ -72,7 +72,21 @@ export function loadRecruitmentDraft(owner: DraftOwner): RecruitmentDraft | null
   }
 }
 
+// 작성이 끝나 지운 뒤에도 폼이 잠깐 남아, 그 전에 걸린 자동 저장이 돌면 지운 임시저장을 다시 쓴다(탭마다 하나).
+let clearGeneration = 0;
+
+/** 자동 저장 타이머가 건 시점과 견줄 값. */
+export function recruitmentDraftClearGeneration(): number {
+  return clearGeneration;
+}
+
+/** 이 시점 전에 걸린 자동 저장을 무효로 한다(저장소는 건드리지 않는다). */
+export function invalidatePendingRecruitmentDraftSaves(): void {
+  clearGeneration += 1;
+}
+
 export function clearRecruitmentDraft(owner: DraftOwner): void {
+  invalidatePendingRecruitmentDraftSaves();
   if (typeof window === 'undefined') return;
   try {
     window.localStorage.removeItem(key(owner));

@@ -6,6 +6,7 @@ import {
   loadRecruitmentDraft,
   saveRecruitmentDraft,
 } from '@/app/manage/clubs/[clubId]/recruitments/_lib/recruitmentDraft';
+import { clearOperatorLocalState } from '@/app/_lib/operatorLocalState';
 
 // 임시저장은 사용자·동아리 쌍으로 보관한다 — 프롭으로도 넘기므로 참조가 고정된 상수 하나를 쓴다.
 const DRAFT_OWNER = { userId: 1, clubId: 7 };
@@ -580,5 +581,98 @@ describe('RecruitmentForm — 확인 창을 거친 저장 실패는 창 안에�
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
     // 창이 없는데 폼 쪽 문구까지 가려지면 실패가 어디에도 보이지 않는다.
     expect(await screen.findByRole('alert')).toHaveTextContent('저장 거절');
+  });
+});
+
+// 작성이 끝난 뒤에도 폼은 언마운트될 때까지 잠깐 남는다 — 그 전에 걸린 자동 저장이 지운 임시저장을 다시 쓰면 안 된다.
+// 가짜 타이머 구간이라 findBy·waitFor 를 쓰지 않는다(동기 조회 + advanceTimersByTime 만).
+describe('RecruitmentForm — 작성이 끝난 뒤 대기 중이던 자동 저장', () => {
+  const draftStorageKey = 'duing:recruitment-draft:1:7';
+
+  beforeEach(() => window.localStorage.clear());
+
+  it('마지막 입력 뒤 1.5초 안에 공개에 성공하면 대기 중이던 자동 저장이 임시저장을 남기지 않는다', async () => {
+    vi.useFakeTimers();
+    try {
+      const onSubmit = vi.fn().mockResolvedValue(undefined);
+      render(
+        <RecruitmentForm mode="create" draftOwner={DRAFT_OWNER} submitLabel="공개하기" onSubmit={onSubmit} isPending={false} />,
+      );
+      fillAndSubmitCreateForm();
+      const publishDialog = screen.getByRole('dialog', { name: '지금부터 학생에게 공개돼요' });
+      fireEvent.click(within(publishDialog).getByRole('button', { name: '공개' }));
+      // 성공 뒤의 지움은 await 다음 마이크로태스크에서 돈다.
+      await act(async () => {});
+      expect(onSubmit).toHaveBeenCalledTimes(1);
+
+      act(() => vi.advanceTimersByTime(2000));
+
+      expect(window.localStorage.getItem(draftStorageKey)).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  // 거절되면 작성은 이어진다 — 자동 저장까지 끊기면 거절 전에 쓴 내용이 임시저장에 남지 않는다.
+  it('공개가 거절되면 대기 중이던 자동 저장이 그대로 임시저장을 쓴다', async () => {
+    vi.useFakeTimers();
+    try {
+      const onSubmit = vi.fn().mockRejectedValue(new Error('저장 거절'));
+      render(
+        <RecruitmentForm mode="create" draftOwner={DRAFT_OWNER} submitLabel="공개하기" onSubmit={onSubmit} isPending={false} />,
+      );
+      fillAndSubmitCreateForm();
+      const publishDialog = screen.getByRole('dialog', { name: '지금부터 학생에게 공개돼요' });
+      fireEvent.click(within(publishDialog).getByRole('button', { name: '공개' }));
+      await act(async () => {});
+      expect(onSubmit).toHaveBeenCalledTimes(1);
+
+      act(() => vi.advanceTimersByTime(2000));
+
+      expect(loadRecruitmentDraft(DRAFT_OWNER)?.values.title).toBe('가을 모집');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  // 공용 PC 에서 로그아웃 정리 직후 다음 사용자에게 이전 운영진의 모집 본문이 남으면 안 된다.
+  it('마지막 입력 뒤 1.5초 안에 로그아웃 정리가 돌면 대기 중이던 자동 저장이 임시저장을 남기지 않는다', () => {
+    vi.useFakeTimers();
+    try {
+      render(
+        <RecruitmentForm mode="create" draftOwner={DRAFT_OWNER} submitLabel="공개하기" onSubmit={vi.fn()} isPending={false} />,
+      );
+      fireEvent.change(screen.getByPlaceholderText('모집 공고 제목을 입력하세요'), {
+        target: { value: '이전 운영진이 쓰던 제목' },
+      });
+
+      clearOperatorLocalState();
+      act(() => vi.advanceTimersByTime(2000));
+
+      expect(window.localStorage.getItem(draftStorageKey)).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  // [새로 쓰기]도 지움이라 세대를 올린다 — 세대를 마운트 때 한 번만 잡으면 그 뒤 쓴 내용이 하나도 저장되지 않는다.
+  it('띠에서 새로 쓰기를 고른 뒤 쓴 내용은 평소처럼 자동 저장된다', () => {
+    vi.useFakeTimers();
+    try {
+      saveRecruitmentDraft(DRAFT_OWNER, { title: '옛 저장본' });
+      render(
+        <RecruitmentForm mode="create" draftOwner={DRAFT_OWNER} submitLabel="공개하기" onSubmit={vi.fn()} isPending={false} />,
+      );
+      fireEvent.click(screen.getByRole('button', { name: '새로 쓰기' }));
+      fireEvent.change(screen.getByPlaceholderText('모집 공고 제목을 입력하세요'), {
+        target: { value: '새로 쓴 제목' },
+      });
+
+      act(() => vi.advanceTimersByTime(1500));
+
+      expect(loadRecruitmentDraft(DRAFT_OWNER)?.values.title).toBe('새로 쓴 제목');
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

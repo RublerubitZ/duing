@@ -1,4 +1,4 @@
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { act, render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import { describe, it, expect, beforeAll, beforeEach, afterEach, afterAll, vi } from 'vitest';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { setupServer } from 'msw/node';
@@ -93,6 +93,33 @@ describe('NewRecruitmentPage — 취소', () => {
 
     expect(push).toHaveBeenCalledWith(RECRUITMENTS_HREF);
     expect(screen.queryByRole('dialog', { name: '작성을 취소할까요?' })).not.toBeInTheDocument();
+  });
+});
+
+// 취소해도 폼은 이동이 끝날 때까지 남는다 — 그 전에 걸린 자동 저장이 돌면 다음 진입에 띠가 다시 뜬다.
+// 화면은 응답을 findBy 로 기다려야 뜨므로, 뜬 뒤에 가짜 타이머로 바꾸고 그 구간에서는 findBy·waitFor 를 쓰지 않는다.
+describe('NewRecruitmentPage — 취소 뒤 대기 중이던 자동 저장', () => {
+  const draftStorageKey = `duing:recruitment-draft:${ME_ID}:${CLUB_ID}`;
+
+  it('저장본이 있어 확인을 거쳐 나가면, 마지막 입력 뒤 1.5초 안이라도 저장본이 되살아나지 않는다', async () => {
+    saveRecruitmentDraft(DRAFT_OWNER, { title: '쓰다 만 제목' });
+    renderPage();
+    const titleInput = await screen.findByPlaceholderText('모집 공고 제목을 입력하세요');
+    vi.useFakeTimers();
+    try {
+      // 첫 입력이 띠를 접고 자동 저장 타이머를 건다.
+      fireEvent.change(titleInput, { target: { value: '취소 직전에 고친 제목' } });
+      fireEvent.click(screen.getByRole('button', { name: '취소' }));
+      const cancelDialog = screen.getByRole('dialog', { name: '작성을 취소할까요?' });
+      fireEvent.click(within(cancelDialog).getByRole('button', { name: '취소하고 나가기' }));
+      expect(push).toHaveBeenCalledWith(RECRUITMENTS_HREF);
+
+      act(() => vi.advanceTimersByTime(2000));
+
+      expect(window.localStorage.getItem(draftStorageKey)).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
 

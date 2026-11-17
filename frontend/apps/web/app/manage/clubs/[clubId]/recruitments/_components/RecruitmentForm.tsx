@@ -24,6 +24,7 @@ import { recruitmentStageLabels } from '@/app/manage/clubs/[clubId]/recruitments
 import {
   clearRecruitmentDraft,
   loadRecruitmentDraft,
+  recruitmentDraftClearGeneration,
   saveRecruitmentDraft,
 } from '@/app/manage/clubs/[clubId]/recruitments/_lib/recruitmentDraft';
 import type {
@@ -514,7 +515,10 @@ export function RecruitmentForm(props: RecruitmentFormProps) {
       if (hasSavedDraftRef.current) clearRecruitmentDraft(draftOwner);
       return;
     }
+    // 건 뒤에 지움(저장 성공·취소·로그아웃)이 있었으면 쓰지 않는다 — 떠나는 폼이 지운 임시저장을 되살리지 않게.
+    const generationAtSchedule = recruitmentDraftClearGeneration();
     const timer = setTimeout(() => {
+      if (recruitmentDraftClearGeneration() !== generationAtSchedule) return;
       saveRecruitmentDraft(draftOwner, values);
       hasSavedDraftRef.current = true;
     }, DRAFT_SAVE_DEBOUNCE_MS);
