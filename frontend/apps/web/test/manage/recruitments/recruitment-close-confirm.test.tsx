@@ -1,4 +1,4 @@
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, within } from '@testing-library/react';
 import { describe, it, expect, beforeAll, afterEach, afterAll, vi } from 'vitest';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { setupServer } from 'msw/node';
@@ -183,6 +183,39 @@ describe('NewRecruitmentPage — 기존 모집 마감 확인', () => {
 
     await vi.waitFor(() => expect(createdPayloads).toHaveLength(1));
     expect(createdPayloads[0]).toMatchObject({ title: '10기 신입 모집' });
+  });
+
+  it('등록이 거절되면 확인 다이얼로그가 열린 채 창 안에서 알리고 확인 버튼이 다시 눌린다', async () => {
+    let releaseCreateResponse = () => {};
+    const createResponseGate = new Promise<void>((resolve) => {
+      releaseCreateResponse = resolve;
+    });
+    server.use(
+      http.post(`*/leader/clubs/${CLUB_ID}/recruitments`, async () => {
+        await createResponseGate;
+        return HttpResponse.json(
+          { ok: false, message: '이미 진행 중인 모집이 있습니다.', data: null },
+          { status: 409 },
+        );
+      }),
+    );
+    renderPage([expiredOpenRecruitment]);
+
+    await fillCreateForm();
+    submitForm();
+    fireEvent.click(await screen.findByRole('button', { name: '등록 및 마감' }));
+
+    const dialog = screen.getByRole('dialog');
+    const confirmButton = within(dialog).getByRole('button', { name: '등록 및 마감' });
+    await vi.waitFor(() => expect(confirmButton).toBeDisabled());
+    expect(within(dialog).getByRole('button', { name: '취소' })).toBeDisabled();
+    expect(within(dialog).getByRole('status')).toHaveTextContent('기존 모집 마감 중');
+
+    releaseCreateResponse();
+    expect(await within(dialog).findByRole('alert')).toHaveTextContent('이미 진행 중인 모집이 있습니다.');
+    expect(dialog).toBeInTheDocument();
+    await vi.waitFor(() => expect(confirmButton).toBeEnabled());
+    expect(confirmButton).toHaveClass('btn-primary');
   });
 
   it('마감될 OPEN 모집이 없으면 마감 확인 없이 공개 확인만 거쳐 등록한다', async () => {
