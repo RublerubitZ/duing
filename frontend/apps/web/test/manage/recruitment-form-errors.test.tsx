@@ -444,7 +444,7 @@ describe('RecruitmentForm 오류 표시', () => {
     fireEvent.click(submitButton);
     await within(submitButton.parentElement!).findByRole('alert');
 
-    // 제출마다 다시 정한다 — 폼 밖 버튼(위쪽 버튼)이나 Enter 로 낸 제출은 폼 안의 버튼이 submitter 가 아니다.
+    // 제출마다 다시 정한다 — 폼 밖 버튼(위쪽 버튼)으로 낸 제출은 폼 안의 버튼이 submitter 가 아니다.
     fireEvent.submit(submitButton.closest('form')!);
     await waitFor(() => expect(screen.getAllByText('저장 거절')).toHaveLength(2));
     const titleInput = screen.getByPlaceholderText('모집 공고 제목을 입력하세요');
