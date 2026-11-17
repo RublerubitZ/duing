@@ -78,8 +78,8 @@ export function SectionSaved({ favorites, isPending = false }: Props) {
                     </svg>
                   </div>
 
-                  {/* Name + division */}
-                  <div>
+                  {/* Name + division — 띄어쓰기 없는 긴 이름·분과도 카드 안에서 줄바꿈 */}
+                  <div className="break-words">
                     <div className="font-bold text-[14.5px] text-ink-deep mb-1">{club.name}</div>
                     {club.division && (
                       <div className="text-[11.5px] text-charcoal-3 leading-snug">{club.division}분과</div>
