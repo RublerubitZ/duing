@@ -1,6 +1,6 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 // 폼이 이탈 가드(useUnsavedChangesGuard)를 쓰면서 useRouter 컨텍스트를 요구한다 — 단독 렌더라 스텁한다.
 vi.mock('@/app/_lib/useGuardedRouter', () => ({
@@ -14,12 +14,6 @@ vi.mock('@/app/_components/ImageUploader', () => ({
       value={props.value}
       onChange={(event) => props.onChange(event.target.value)}
     />
-  ),
-}));
-
-vi.mock('@/app/_components/ImageWithFallback', () => ({
-  ImageWithFallback: (props: { src: string | null | undefined; alt: string }) => (
-    <div data-testid={`fallback-${props.alt}`} data-src={props.src ?? ''} />
   ),
 }));
 
@@ -100,8 +94,8 @@ function renderForm(mode: 'leader' | 'admin', detail: ClubDetail = filledDetail)
 const pressEnter = (element: Element, init: KeyboardEventInit = {}) =>
   fireEvent.keyDown(element, { key: 'Enter', ...init });
 
-/** 운영진·총동연 화면이 함께 그리는 입력과 select. 활동 카드의 입력은 '편집'을 눌러야 나온다. */
-function sharedFields(): Element[] {
+/** 활동 카드의 '편집'을 눌러 입력을 펼친 뒤, 운영진·총동연 화면이 함께 그리는 입력과 select 를 모은다. */
+function openProjectEditorAndCollectSharedFields(): Element[] {
   fireEvent.click(screen.getByRole('button', { name: '편집' }));
   return [
     screen.getByLabelText('학과'),
@@ -124,15 +118,32 @@ function sharedFields(): Element[] {
 
 function expectEnterBlocked(fields: Element[]) {
   for (const field of fields) {
-    expect(field instanceof HTMLInputElement || field instanceof HTMLSelectElement).toBe(true);
-    expect(pressEnter(field)).toBe(false);
+    // 실패 메시지에 어느 요소인지 남긴다 — 라벨 없는 SNS 플랫폼 select 도 옵션 목록으로 구분된다.
+    expect(field instanceof HTMLInputElement || field instanceof HTMLSelectElement, field.outerHTML).toBe(true);
+    expect(pressEnter(field), field.outerHTML).toBe(false);
   }
 }
 
 describe('ClubInfoForm — 입력·select 의 Enter 로는 저장되지 않는다', () => {
+  // select 의 Enter 는 그 Enter 가 폼을 제출하는 macOS 계열에서만 막는다 — 막는 쪽을 기본으로 본다.
+  beforeEach(() => {
+    vi.spyOn(window.navigator, 'platform', 'get').mockReturnValue('MacIntel');
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   it('본문·반복 입력, SNS 플랫폼 select, 연락처 공개 라디오에서 Enter 의 기본 동작(폼 제출)을 막는다', () => {
     renderForm('leader');
-    expectEnterBlocked(sharedFields());
+    expectEnterBlocked(openProjectEditorAndCollectSharedFields());
+  });
+
+  it('Windows 에서는 목록을 여는 select 의 Enter 는 막지 않고, 입력의 Enter 는 막는다', () => {
+    vi.spyOn(window.navigator, 'platform', 'get').mockReturnValue('Win32');
+    renderForm('leader');
+    expect(pressEnter(screen.getByDisplayValue('기타'))).toBe(true);
+    expect(pressEnter(screen.getByLabelText('동아리방 위치'))).toBe(false);
   });
 
   it('Shift·Ctrl·Meta·Alt 와 함께 누른 Enter 와 한글을 조합하는 중의 Enter 도 막는다', () => {
@@ -210,6 +221,19 @@ describe('ClubInfoForm — 입력·select 의 Enter 로는 저장되지 않는�
     expect(pressEnter(linkInput, { keyCode: 229 })).toBe(false);
   });
 
+  it('소개 편집기의 링크 주소 입력에서 누른 평소 Enter 는 링크를 적용해 입력 줄을 닫고, 저장하지 않는다', async () => {
+    const user = userEvent.setup();
+    const mutateAsync = renderForm('leader');
+    // 저장할 변경이 있어야 '저장되지 않는다'가 의미가 있다.
+    fireEvent.change(screen.getByLabelText('동아리방 위치'), { target: { value: '학생회관 405호' } });
+
+    await user.click(await screen.findByLabelText('링크'));
+    await user.type(screen.getByLabelText('링크 URL'), '{Enter}');
+
+    expect(screen.queryByLabelText('링크 URL')).toBeNull();
+    expect(mutateAsync).not.toHaveBeenCalled();
+  });
+
   it('여러 줄 입력의 줄바꿈과 버튼의 Enter 는 막지 않는다', () => {
     renderForm('leader');
     for (const textarea of [screen.getByLabelText('회비 안내 (선택)'), screen.getByPlaceholderText('답변')]) {
@@ -222,6 +246,7 @@ describe('ClubInfoForm — 입력·select 의 Enter 로는 저장되지 않는�
       screen.getByRole('button', { name: '월' }),
       screen.getByRole('radio', { name: '학기당' }),
       screen.getByRole('switch', { name: '회원 기수 관리 사용' }),
+      ...screen.getAllByRole('button', { name: '순서 변경' }),
     ];
     for (const button of buttons) {
       expect(button).toBeInstanceOf(HTMLButtonElement);
@@ -236,7 +261,7 @@ describe('ClubInfoForm — 입력·select 의 Enter 로는 저장되지 않는�
         screen.getByLabelText('동아리명'),
         screen.getByLabelText('카테고리'),
         screen.getByLabelText('단과대학'),
-        ...sharedFields(),
+        ...openProjectEditorAndCollectSharedFields(),
       ]);
     });
 

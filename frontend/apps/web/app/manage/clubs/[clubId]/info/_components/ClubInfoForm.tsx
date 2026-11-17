@@ -338,7 +338,7 @@ export function ClubInfoForm({ detail, mode, mutation, onCancel, onSaved }: Club
 
   return (
     <div className="mx-auto max-w-[1240px] px-6 py-9 xl:grid xl:grid-cols-[minmax(0,1fr)_380px] xl:items-start xl:gap-6">
-      {/* 입력·select 의 Enter 로 저장되지 않게 한다 — 위쪽 입력에서 저장되면 결과 문구가 폼 맨 아래라 화면 밖이다. */}
+      {/* 입력(macOS 계열은 select 도)의 Enter 로 저장되지 않게 한다 — 위쪽 입력에서 저장되면 결과 문구가 폼 맨 아래라 화면 밖이다. */}
       <form onSubmit={handleSubmit} onKeyDown={preventEnterSubmit} className="min-w-0">
         <header className="mb-6 flex items-baseline gap-3">
           <h1 className="text-[26px] font-bold tracking-tight text-ink-deep">동아리 정보</h1>
