@@ -10,6 +10,13 @@ import java.time.ZoneId;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.NullSource;
+import org.junit.jupiter.params.provider.ValueSource;
+import org.springframework.boot.test.context.runner.ApplicationContextRunner;
+import org.springframework.boot.test.system.CapturedOutput;
+import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -18,6 +25,7 @@ import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.test.util.ReflectionTestUtils;
 
+@ExtendWith(OutputCaptureExtension.class)
 class ApiReadRateLimitFilterTest {
 
     private static final int LIMIT = 3;
@@ -141,6 +149,106 @@ class ApiReadRateLimitFilterTest {
         for (int requestIndex = 0; requestIndex < 20; requestIndex++) {
             assertThat(send("GET", CLUBS_PATH, CLIENT_IP).getStatus()).isEqualTo(HttpStatus.OK.value());
         }
+    }
+
+    @ParameterizedTest(name = "[{index}] \"{0}\"")
+    @NullSource
+    @ValueSource(strings = {"", "   ", "1,000", "abc", "O", "\"0\"", "0.", "99999999999"})
+    @DisplayName("한도 설정값이 null 이거나 비었거나 정수가 아니거나 int 범위를 넘으면 읽지 못한 것으로 보고 코드 기본값 1000 으로 켠다 — 꺼지지 않는다")
+    void unreadableLimitFallsBackToDefault(String configuredLimit) {
+        assertThat(ApiReadRateLimitFilter.parseLimit(configuredLimit)).isEmpty();
+
+        filter.setLimitPerMinute(configuredLimit);
+
+        assertThat(filter.limitPerMinute()).isEqualTo(1_000);
+    }
+
+    @Test
+    @DisplayName("한도 설정값은 앞뒤 공백·줄끝 CR 을 떼고 읽고, 0·음수는 그 값 그대로(꺼짐) 둔다")
+    void readableLimitIsUsedAsIs() {
+        assertThat(ApiReadRateLimitFilter.parseLimit(" 500 ")).hasValue(500);
+        assertThat(ApiReadRateLimitFilter.parseLimit("500\r")).hasValue(500);
+        assertThat(ApiReadRateLimitFilter.parseLimit("0")).hasValue(0);
+        assertThat(ApiReadRateLimitFilter.parseLimit("-5")).hasValue(-5);
+
+        filter.setLimitPerMinute(" 500 ");
+        assertThat(filter.limitPerMinute()).isEqualTo(500);
+
+        filter.setLimitPerMinute("-5");
+        assertThat(filter.limitPerMinute()).isEqualTo(-5);
+    }
+
+    @Test
+    @DisplayName("기동 상태 줄 — 한도가 켜져 있으면 INFO 로 분당 한도를 천 단위 구분자로 남기고 ERROR 는 없다")
+    void logStatusWhenActive(CapturedOutput output) {
+        filter.setLimitPerMinute("1000");
+
+        filter.logStatus();
+
+        assertThat(output).containsPattern("INFO.*\\[조회 요청 제한\\] 활성 — 한 IP 분당 1,000건")
+                .doesNotContain("읽지 못해");
+    }
+
+    @Test
+    @DisplayName("기동 상태 줄 — 한도가 0 이하면 INFO 로 비활성을 남긴다")
+    void logStatusWhenDisabled(CapturedOutput output) {
+        filter.setLimitPerMinute("0");
+
+        filter.logStatus();
+
+        assertThat(output).containsPattern("INFO.*\\[조회 요청 제한\\] 비활성 — 한도 0 이하\\(로컬·CI 기본\\)")
+                .doesNotContain("[조회 요청 제한] 활성");
+    }
+
+    @Test
+    @DisplayName("한도 설정값을 읽지 못하면 INFO 줄 끝에 기본값 표시를 붙이고, 받은 값을 담은 ERROR 한 줄을 더 남긴다")
+    void logStatusWhenLimitUnreadable(CapturedOutput output) {
+        filter.setLimitPerMinute("1,000");
+
+        filter.logStatus();
+
+        assertThat(output)
+                .contains("[조회 요청 제한] 활성 — 한 IP 분당 1,000건(설정값을 읽지 못해 기본값)")
+                .contains("[조회 요청 제한] 한도 설정값을 정수로 읽지 못해 기본값 1,000건으로 기동함 — 받은 값 '1,000'(5자), 끄려면 0")
+                .containsPattern("ERROR.*한도 설정값을 정수로 읽지 못해");
+    }
+
+    @Test
+    @DisplayName("ERROR 줄의 받은 값은 앞 16자까지만 적고 전체 길이를 붙인다 — 깨진 .env 에서 다음 줄의 값이 붙어 와도 다 남지 않는다")
+    void unreadableLimitLogTruncatesReceivedValue(CapturedOutput output) {
+        filter.setLimitPerMinute("1000NEXT_KEY=abcdefghijkl");
+
+        filter.logStatus();
+
+        assertThat(output).contains("받은 값 '1000NEXT_KEY=abc'(25자), 끄려면 0")
+                .doesNotContain("defghijkl");
+    }
+
+    @Test
+    @DisplayName("ERROR 줄의 받은 값은 제어 문자를 ? 로 바꿔 적는다 — 값에 든 CR·LF 가 로그 줄을 쪼개지 않는다")
+    void unreadableLimitLogReplacesControlCharacters(CapturedOutput output) {
+        filter.setLimitPerMinute("1000\r\nNEXT=ab");
+
+        filter.logStatus();
+
+        assertThat(output).contains("받은 값 '1000??NEXT=ab'(13자), 끄려면 0")
+                .containsPattern("ERROR.*받은 값 '1000\\?\\?NEXT=ab'\\(13자\\), 끄려면 0");
+    }
+
+    @Test
+    @DisplayName("한도 환경변수가 빈 값이어도 필터 빈이 만들어지고 기본값 1000 으로 켜진다 — application.yml 과 같은 중첩 자리표시가 빈 문자열로 풀려도 기동이 실패하지 않는다")
+    void emptyLimitPropertyStillCreatesFilterBean() {
+        new ApplicationContextRunner()
+                .withUserConfiguration(ApiReadRateLimitFilter.class)
+                .withBean(ObjectMapper.class, ObjectMapper::new)
+                .withBean(Clock.class, Clock::systemUTC)
+                // 운영과 같은 경로 — 빈 환경변수는 '없음'이 아니라 빈 문자열이라 yml 의 기본값 1000 이 쓰이지 않는다.
+                .withPropertyValues("DUING_RATE_LIMIT_API_READ_PER_MINUTE=",
+                        "duing.rate-limit.api-read-per-minute=${DUING_RATE_LIMIT_API_READ_PER_MINUTE:1000}")
+                .run(context -> {
+                    assertThat(context).hasNotFailed();
+                    assertThat(context.getBean(ApiReadRateLimitFilter.class).limitPerMinute()).isEqualTo(1_000);
+                });
     }
 
     private MockHttpServletResponse send(String method, String path, String clientIp) throws Exception {

@@ -10,10 +10,15 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.Duration;
+import java.util.Locale;
+import java.util.Objects;
+import java.util.OptionalInt;
 import java.util.concurrent.ConcurrentMap;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.context.event.ApplicationReadyEvent;
+import org.springframework.context.event.EventListener;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -57,22 +62,63 @@ public class ApiReadRateLimitFilter extends OncePerRequestFilter {
 
     static final String MESSAGE = "요청이 너무 많습니다. 잠시 후 다시 시도해주세요.";
 
+    // 한도 설정값을 읽지 못했을 때 켜는 한도 — 프로파일 기본값(로컬 0)이 아니라 이 상수다.
+    static final int DEFAULT_LIMIT_PER_MINUTE = 1000;
+
     private static final Duration WINDOW = Duration.ofMinutes(1);
 
     // clientIp 를 못 얻은 요청이 키 없음으로 창을 통째로 우회하지 못하도록 한 버킷에 모은다.
     private static final String UNKNOWN_CLIENT_IP = "unknown";
 
+    // ERROR 줄에 싣는 받은 값의 최대 글자 수 — .env 가 깨져 다음 줄의 값이 붙어 올 수 있고, ERROR 는 Sentry 로 나간다.
+    // 자른 뒤 제어 문자는 ? 로 바꾼다 — 줄바꿈이 로그 줄을 쪼개지 않게.
+    private static final int LOGGED_VALUE_MAX_LENGTH = 16;
+
     private final ObjectMapper objectMapper;
     private final Clock clock;
 
-    // 0 이하면 끈다. 운영에서 한도가 정상 사용자를 자르면 DUING_RATE_LIMIT_API_READ_PER_MINUTE 로 올리거나 0 으로 끄고
+    // 0 이하면 끈다. setLimitPerMinute 가 채운다 — 비었거나 정수가 아니면 꺼지지 않고 DEFAULT_LIMIT_PER_MINUTE 로 켠다.
+    // 운영에서 한도가 정상 사용자를 자르면 DUING_RATE_LIMIT_API_READ_PER_MINUTE 로 올리거나 0 으로 끄고
     // 컨테이너를 다시 만든다(docker compose up -d — restart 는 env_file 을 다시 읽지 않는다). 재배포는 필요 없다.
-    @Value("${duing.rate-limit.api-read-per-minute:1000}")
     private int limitPerMinute;
+
+    // 한도 설정값을 정수로 읽지 못했으면 받은 원래 값(기동 로그용), 읽었으면 null.
+    private String unreadableLimitValue;
 
     private final ConcurrentMap<String, MinuteCount> countsByIp = RateLimitMaps.expiringMap(WINDOW);
 
     private record MinuteCount(long minute, int count) {
+    }
+
+    // 문자열로 받아 직접 읽는다 — int 로 받으면 빈 값·'1,000' 에서 기동이 실패하고 compose 가 재시작만 되풀이한다.
+    @Value("${duing.rate-limit.api-read-per-minute:1000}")
+    void setLimitPerMinute(String configuredLimit) {
+        OptionalInt parsedLimit = parseLimit(configuredLimit);
+        limitPerMinute = parsedLimit.orElse(DEFAULT_LIMIT_PER_MINUTE);
+        unreadableLimitValue = parsedLimit.isPresent() ? null : Objects.requireNonNullElse(configuredLimit, "");
+    }
+
+    /** 적용 중인 분당 한도 — 0 이하면 꺼짐. */
+    public int limitPerMinute() {
+        return limitPerMinute;
+    }
+
+    @EventListener(ApplicationReadyEvent.class)
+    public void logStatus() {
+        if (limitPerMinute <= 0) {
+            log.info("[조회 요청 제한] 비활성 — 한도 0 이하(로컬·CI 기본)");
+            return;
+        }
+        String limitText = String.format(Locale.ROOT, "%,d", limitPerMinute);
+        if (unreadableLimitValue == null) {
+            log.info("[조회 요청 제한] 활성 — 한 IP 분당 {}건", limitText);
+            return;
+        }
+        log.info("[조회 요청 제한] 활성 — 한 IP 분당 {}건(설정값을 읽지 못해 기본값)", limitText);
+        String loggedValue = unreadableLimitValue.substring(0,
+                Math.min(unreadableLimitValue.length(), LOGGED_VALUE_MAX_LENGTH)).replaceAll("\\p{Cntrl}", "?");
+        log.error("[조회 요청 제한] 한도 설정값을 정수로 읽지 못해 기본값 {}건으로 기동함 — 받은 값 '{}'({}자), 끄려면 0",
+                limitText, loggedValue, String.format(Locale.ROOT, "%,d", unreadableLimitValue.length()));
     }
 
     @Override
@@ -138,5 +184,14 @@ public class ApiReadRateLimitFilter extends OncePerRequestFilter {
             }
         }
         return windowKey.substring(0, thirdSeparator) + (ipv6 ? "::/48" : ".x");
+    }
+
+    /** 앞뒤 공백(줄끝 CR 포함)을 떼고 int 로 읽히면 그 값(0 이하 = 꺼짐), null·비었거나 정수가 아니거나 int 범위를 넘으면 빈 값. */
+    static OptionalInt parseLimit(String configuredLimit) {
+        try {
+            return OptionalInt.of(Integer.parseInt(Objects.requireNonNullElse(configuredLimit, "").strip()));
+        } catch (NumberFormatException unreadable) {
+            return OptionalInt.empty();
+        }
     }
 }

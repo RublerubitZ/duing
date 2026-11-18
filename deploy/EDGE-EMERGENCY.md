@@ -24,6 +24,8 @@
   IP 레이트리밋 버킷을 나눠 쓴다. 로그인 실패·휴대폰 인증 발송 등이 무더기로 막힌다(#1112 이전 상태).
   조회 요청 제한(한 IP 분당 GET·HEAD, 기본 1000)도 엣지 IP 단위로 세게 되어, 공격 트래픽이 섞이면 조회 전체가 429 가 될 수 있다 —
   이미 그렇게 됐으면 서버 `.env` 에 `DUING_RATE_LIMIT_API_READ_PER_MINUTE=0` 을 넣고 `docker compose up -d` 로 먼저 끈다.
+  꺼졌는지는 `docker compose ps backend` 의 healthy 와 함께 `docker compose logs backend | grep '조회 요청 제한'` 의 시작 줄이
+  `[조회 요청 제한] 비활성 — …` 인지로 본다 — 값을 비우거나 오타를 내면 꺼지지 않고 기본값 1000 으로 켜진 채 healthy 가 된다.
 - **SSL/TLS 모드가 유연(Flexible)인 채로 프록시를 켜면**: Cloudflare 가 원본에 HTTP 로 붙고 Caddy 가 HTTPS 로 되돌려 보내
   리다이렉트가 끝없이 돈다(api 전체 장애).
 - **DNS 가 다 바뀌기 전에 방화벽을 잠그면**: 아직 직결로 들어오는 사용자가 막힌다(장애).
