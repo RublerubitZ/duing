@@ -1,5 +1,8 @@
 import { LAST_CLUB_STORAGE_KEY } from '@/app/manage/_lib/lastClubStorage';
-import { RECRUITMENT_DRAFT_KEY_PREFIX } from '@/app/manage/clubs/[clubId]/recruitments/_lib/recruitmentDraft';
+import {
+  invalidatePendingRecruitmentDraftSaves,
+  RECRUITMENT_DRAFT_KEY_PREFIX,
+} from '@/app/manage/clubs/[clubId]/recruitments/_lib/recruitmentDraft';
 
 /**
  * 명시적 로그아웃에서 운영진의 로컬 흔적을 지운다 — 마지막 본 동아리, 작성 중이던 모집 임시저장.
@@ -10,6 +13,8 @@ import { RECRUITMENT_DRAFT_KEY_PREFIX } from '@/app/manage/clubs/[clubId]/recrui
  * 호출부는 본인 로그아웃 3곳과 전체 기기 로그아웃 1곳뿐이다.
  */
 export function clearOperatorLocalState(): void {
+  // 프리픽스로 직접 지워 clearRecruitmentDraft 를 거치지 않으므로, 열린 작성 폼의 대기 저장은 여기서 끊는다.
+  invalidatePendingRecruitmentDraftSaves();
   if (typeof window === 'undefined') return;
   try {
     const storage = window.localStorage;
