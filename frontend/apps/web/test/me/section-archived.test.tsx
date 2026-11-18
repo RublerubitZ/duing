@@ -96,3 +96,21 @@ describe('SectionArchived', () => {
     expect(screen.getByText(/^최종 불합격$/)).toBeInTheDocument();
   });
 });
+
+describe('SectionArchived — 긴 모집 제목·동아리 이름은 카드 안에서 줄바꿈', () => {
+  it('모집 제목과 동아리 이름이 긴 낱말을 줄바꿈하고, 날짜 줄은 그대로 둔다', () => {
+    render(<SectionArchived applications={[make()]} />);
+    const name = screen.getByRole('heading', { level: 3, name: '두잉 댄스' });
+    const title = screen.getByText('봄 신입 모집');
+    const info = name.parentElement!;
+    const date = name.nextElementSibling!;
+
+    expect(title).toHaveClass('break-words');
+    expect(name).toHaveClass('break-words');
+    // min-w-0 이 없으면 정보 열이 가장 긴 낱말 폭까지 늘어 줄바꿈이 일어나지 않는다.
+    expect(info).toHaveClass('min-w-0');
+    // 정보 열 전체에 걸면 좁은 폭에서 날짜가 숫자 중간에서 끊긴다 — 이름·제목에만 건다.
+    expect(info).not.toHaveClass('break-words');
+    expect(date).not.toHaveClass('break-words');
+  });
+});

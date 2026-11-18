@@ -120,3 +120,27 @@ describe('SectionMyClubs', () => {
     expect(screen.getByRole('link', { name: /관리/ })).toBeInTheDocument();
   });
 });
+
+describe('SectionMyClubs — 한 줄 배치는 xl(1280px)부터, 긴 이름은 카드 안에서 줄바꿈', () => {
+  // 배치를 정하는 클래스만 골라 순서대로 본다 — 기본 클래스가 빠지거나 다른 기준점이 끼면 안 된다.
+  const utilitiesOf = (element: HTMLElement, utility: RegExp) => [...element.classList].filter((name) => utility.test(name));
+
+  it.each<MyClubSummary['myRole']>(['LEADER', 'OFFICER', 'MEMBER'])('%s 카드: 한 줄 배치 클래스가 xl 에만 있고, 이름이 정보 열 안에서 줄바꿈된다', (myRole) => {
+    render(<SectionMyClubs myClubs={[make({ myRole, clubName: '두잉' })]} />);
+    const name = screen.getByText('두잉');
+    const info = name.parentElement!.parentElement!;
+    const card = info.parentElement!;
+    // 운영진·부원 카드의 버튼 줄은 소스에 따로 적힌 두 문자열이다 — 역할마다 본다.
+    const buttonRow = screen.getByRole('link', { name: '두잉 공지' }).parentElement!;
+
+    // lg 에서 한 줄로 켜면 두 열 목록의 카드에서 버튼 줄에 밀려 정보 열이 눌린다.
+    expect(utilitiesOf(card, /(^|:)flex-(wrap|nowrap)$/)).toEqual(['flex-wrap', 'xl:flex-nowrap']);
+    expect(utilitiesOf(buttonRow, /(^|:)w-/)).toEqual(['w-full', 'xl:w-auto']);
+    for (const element of [card, buttonRow]) {
+      expect([...element.classList].filter((className) => className.startsWith('lg:'))).toEqual([]);
+    }
+    // 이름은 flex 줄의 항목이라 min-w-0 이 없으면 가장 긴 낱말 폭 아래로 줄지 않아 카드를 넘친다.
+    expect(info).toHaveClass('min-w-0', 'break-words');
+    expect(name).toHaveClass('min-w-0');
+  });
+});

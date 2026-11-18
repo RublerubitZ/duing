@@ -105,10 +105,11 @@ export function SectionArchived({ applications, isPending = false }: Props) {
                   </div>
 
                   <div className="flex-1 min-w-0">
-                    <div className="text-[11.5px] font-semibold text-charcoal-3 mb-0.5">
+                    {/* 줄바꿈은 제목·이름에만 건다 — 정보 열 전체에 걸면 좁은 폭에서 날짜가 숫자 중간에서 끊긴다. */}
+                    <div className="text-[11.5px] font-semibold text-charcoal-3 mb-0.5 break-words">
                       {app.recruitmentTitle}
                     </div>
-                    <h3 className="text-[16px] font-bold text-ink-deep">{app.clubName}</h3>
+                    <h3 className="text-[16px] font-bold text-ink-deep break-words">{app.clubName}</h3>
                     <div className="text-[12px] text-charcoal-3 tabular-nums mt-1">
                       {formatDateKst(app.submittedAt)}
                     </div>
