@@ -61,8 +61,8 @@ export function AdminNavContent({
           Icon={section.icon}
           active={isStandaloneSectionActive(section, pathname)}
           collapsed={collapsed}
-          // 보던 화면의 메뉴를 다시 누르면 기록을 쌓지 않는다 — 주간 브리핑은 주소를 `?week=` 로 정리해 둬 주소창과 목적지가 달라
-          // Next 가 push 한다. 하위 경로에서 오는 것은 실제 이동이라 push 로 둔다(그래서 하위 경로도 참인 active 를 쓰지 않는다).
+          // 보던 화면의 메뉴를 다시 누르면 기록을 쌓지 않는다 — 주간 브리핑은 주소를 `?week=` 로 정리해 둬, replace 를 주지 않으면 주소창과
+          // 목적지가 달라 Next 가 push 한다. 하위 경로에서 오는 것은 실제 이동이라 push 로 둔다(그래서 하위 경로도 참인 active 를 쓰지 않는다).
           replace={pathname === section.href}
         />
       ))}
