@@ -11,7 +11,8 @@
 # 다운타임: 단일 인스턴스 recreate 방식이라 배포 중 수십 초 다운타임이 발생한다(무중단 아님).
 #           새 이미지가 healthy 에 도달하지 못하면 직전 이미지로 자동 롤백한다.
 #
-# 필요한 GitHub Secrets:
+# 필요한 GitHub Secrets — Production 환경 비밀값(main 만 허용)으로 둔다. 바꿀 때 gh secret set <이름> --env Production.
+#   --env 를 빼면 아무 브랜치의 워크플로가 읽는 저장소 단위 사본이 생기고, 이 잡은 같은 이름의 환경 값을 계속 쓴다.
 #   LIGHTSAIL_HOST       Lightsail 고정 IP 또는 호스트명
 #   LIGHTSAIL_USER       SSH 사용자(예: ubuntu) — docker 권한 보유(docker 그룹)
 #   LIGHTSAIL_SSH_KEY    배포용 SSH 개인키(PEM 전체)

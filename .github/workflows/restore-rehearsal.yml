@@ -23,6 +23,8 @@ jobs:
   rehearsal:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    # R2 비밀값 4종은 backup.yml 과 같은 backup 환경(develop 만 허용)에 있다
+    environment: backup
 
     services:
       postgres:

@@ -49,7 +49,7 @@
 ## 0. 평시에 해 둘 것
 
 - Cloudflare·Lightsail 콘솔에 바로 로그인할 수 있는 사람이 최소 1명(2단계 인증 포함).
-- 서버 SSH: `ssh ubuntu@<서버 IP>` → 배포 디렉터리 `/home/ubuntu/duing`(저장소 시크릿 `DEPLOY_DIR` 이 있으면 그 값).
+- 서버 SSH: `ssh ubuntu@<서버 IP>` → 배포 디렉터리 `/home/ubuntu/duing`(Production 환경 비밀값 `DEPLOY_DIR` 이 있으면 그 값).
 - `api` 레코드 TTL 을 2분으로 둔다. TTL 은 DNS 전용일 때만 고칠 수 있다(2026-10-07 2분으로 바꿈 — 권한 네임서버 응답 TTL 120 확인).
 - Cloudflare SSL/TLS 암호화 모드가 **전체(Full)** 이상인지 가끔 확인한다(2026-10-07 부터 **전체(엄격)**).
 - 분기마다 [부록 A](#부록-a-cloudflare-대역-2026-10-07) 가 최신인지 https://www.cloudflare.com/ips-v4 · ips-v6 와 대조한다.
@@ -194,7 +194,7 @@ docker compose exec -T caddy curl -s localhost:2019/config/apps/http/servers | g
    분리하는 순간 옛 IP 로 연 SSH 가 끊기므로 Lightsail 콘솔에서 한다.
 3. Cloudflare `api` 레코드 값을 새 IP 로 바꾼다(프록시 켠 채로).
 4. 옛 고정 IP 는 바로 해제한다. 인스턴스에 붙어 있지 않은 고정 IP 는 1시간이 지나면 과금된다.
-5. 저장소 시크릿 `LIGHTSAIL_HOST` 가 IP 면 새 IP 로 바꾼다. 배포 CD 와 운영 SSH 가 쓴다.
+5. Production 환경 비밀값 `LIGHTSAIL_HOST` 가 IP 면 새 IP 로 바꾼다 — `gh secret set LIGHTSAIL_HOST --env Production`(`--env` 를 빼면 저장소 단위 사본만 생기고 배포는 옛 IP 로 접속한다). 배포 CD 와 운영 SSH 가 쓴다.
 6. 방화벽 규칙(1-3)은 인스턴스에 붙어 있으니 교체 뒤에도 그대로인지 확인한다.
 7. Vercel → duing → **Firewall** 의 사용자 규칙 `내부 재검증 — 백엔드 서버 외 차단 (#1364)` 의 IP 조건을 새 IP 로 바꾸고 게시(Publish)한다.
    안 바꾸면 백엔드의 프론트 재생성 요청(정각 `/clubs`·동아리 상세)이 `HTTP_403` 으로 막히고, 정각 경로는 3회 연속 실패 뒤 Slack 알림이 온다.

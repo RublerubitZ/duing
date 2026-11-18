@@ -12,6 +12,8 @@ jobs:
   backup:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    # 비밀값(SUPABASE_DB_URL·R2_*)은 develop 만 허용하는 backup 환경에 있다 — 바꿀 때 gh secret set <이름> --env backup (deploy/DB-RESTORE.md)
+    environment: backup
 
     steps:
       - name: Install Supabase CLI
