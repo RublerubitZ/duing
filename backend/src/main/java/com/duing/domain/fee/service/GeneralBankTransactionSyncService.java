@@ -127,7 +127,7 @@ public class GeneralBankTransactionSyncService implements BankTransactionSyncSer
                 new TransactionLookupCommand(
                         bankCode, accountNumber,
                         command.accountPassword(), command.residentNumber(),
-                        window.startDate(), today));
+                        window.startDate(), today)).transactions();
 
         // 외부 조회가 끝난 뒤에만 짧은 쓰기 트랜잭션을 열어 적재한다(native insert 는 활성 트랜잭션 필요).
         PersistResult persistResult = transactionTemplate.execute(

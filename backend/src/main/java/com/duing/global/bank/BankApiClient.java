@@ -1,8 +1,7 @@
 package com.duing.global.bank;
 
-import com.duing.global.bank.dto.BankTransactionData;
 import com.duing.global.bank.dto.TransactionLookupCommand;
-import java.util.List;
+import com.duing.global.bank.dto.TransactionLookupResult;
 
 /**
  * BANK API(bankapi.co.kr) 호출 추상화. 테스트에서는 stub 구현으로 대체해 외부 호출 없이 검증한다.
@@ -15,7 +14,7 @@ import java.util.List;
 public interface BankApiClient {
 
     /**
-     * 지정 기간의 거래 내역을 조회한다.
+     * 지정 기간의 거래 내역을 조회한다. 응답을 끝까지 읽었는지({@link TransactionLookupResult#fullyRead()})를 함께 돌려준다.
      */
-    List<BankTransactionData> getTransactions(TransactionLookupCommand command);
+    TransactionLookupResult getTransactions(TransactionLookupCommand command);
 }

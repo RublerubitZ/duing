@@ -25,6 +25,7 @@ import com.duing.global.auth.JwtTokenProvider;
 import com.duing.global.bank.BankApiClient;
 import com.duing.global.bank.dto.BankTransactionData;
 import com.duing.global.bank.dto.TransactionLookupCommand;
+import com.duing.global.bank.dto.TransactionLookupResult;
 import com.duing.global.crypto.FeeAccountCipher;
 import io.restassured.RestAssured;
 import io.restassured.http.ContentType;
@@ -73,9 +74,9 @@ class BankTransactionSyncTest extends IntegrationTestBase {
         }
 
         @Override
-        public List<BankTransactionData> getTransactions(TransactionLookupCommand command) {
+        public TransactionLookupResult getTransactions(TransactionLookupCommand command) {
             this.capturedLookup = command;
-            return transactionsToReturn;
+            return new TransactionLookupResult(transactionsToReturn, true);
         }
     }
 

@@ -2,6 +2,7 @@ package com.duing.global.bank;
 
 import com.duing.global.bank.dto.BankTransactionData;
 import com.duing.global.bank.dto.TransactionLookupCommand;
+import com.duing.global.bank.dto.TransactionLookupResult;
 import com.duing.global.bank.exception.BankApiException;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -45,7 +46,7 @@ public class BankApiHttpClient implements BankApiClient {
     private final ObjectMapper objectMapper;
 
     @Override
-    public List<BankTransactionData> getTransactions(TransactionLookupCommand command) {
+    public TransactionLookupResult getTransactions(TransactionLookupCommand command) {
         // LinkedHashMap 사용 — Map.of 는 null 값을 허용하지 않고, 입력 순서를 보존한다.
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("bankCode", command.bankCode());
@@ -62,10 +63,11 @@ public class BankApiHttpClient implements BankApiClient {
         return mapTransactions(response.path("transactions"));
     }
 
-    private List<BankTransactionData> mapTransactions(JsonNode transactions) {
+    private TransactionLookupResult mapTransactions(JsonNode transactions) {
         List<BankTransactionData> result = new ArrayList<>();
         if (!transactions.isArray()) {
-            return result;
+            // 거래 목록이 없거나 배열이 아니면 이 기간을 다 봤다고 할 수 없다.
+            return new TransactionLookupResult(result, false);
         }
         int missingDate = 0;
         int unparseable = 0;
@@ -81,7 +83,7 @@ public class BankApiHttpClient implements BankApiClient {
             // 사유별 건수만 남긴다 — 거래 내용은 민감 가능성이 있어 로깅하지 않는다.
             log.warn("BANK API 거래 매핑 건너뜀: missingDate={}, unparseable={}", missingDate, unparseable);
         }
-        return result;
+        return new TransactionLookupResult(result, missingDate == 0 && unparseable == 0);
     }
 
     /**
