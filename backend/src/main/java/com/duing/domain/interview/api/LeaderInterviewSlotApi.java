@@ -27,6 +27,7 @@ public interface LeaderInterviewSlotApi {
             description = "라운드에 슬롯을 일괄 등록한다 — wizard Step3·dashboard [추가 슬롯 생성]·확정 후 운영진 재조정. "
                     + "준비 중(DRAFT)·응답 수집 중(COLLECTING)·확정(SCHEDULED) 라운드에서 가능. "
                     + "COLLECTING && 마감 전이면 '가능 슬롯 없음' 멤버가 INVITED 로 복귀하고 재알림이 발송된다 (Rule 2). "
+                    + "결과가 정해진 지원자는 재알림에서 빠지며, 응답의 인원(reinvitedMemberCount)은 복귀한 멤버 수다. "
                     + "마감이 지났거나 SCHEDULED 이면 복귀·알림은 발동하지 않는다 (수집 종료·§6.4)."
     )
     @PostMapping("/leader/interview-rounds/{roundId}/slots")

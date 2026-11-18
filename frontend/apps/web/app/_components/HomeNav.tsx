@@ -32,7 +32,7 @@ export function HomeNav({ slimOnMobile = false }: Props) {
   const pathname = useRoutePathname();
 
   return (
-    <header className="relative z-50 bg-cream/90 backdrop-blur">
+    <header className="no-print relative z-50 bg-cream/90 backdrop-blur">
       <nav className={NAV_ROW_BASE}>
         {/* `/` 링크는 프리페치 제외(P0) — force-dynamic 시절 서버리스 비용 조치. 홈이 ISR(#925)로
             바뀐 뒤에도 복원은 Active CPU 실측 후 별도 판단한다. hover·터치 프리페치까지 꺼져

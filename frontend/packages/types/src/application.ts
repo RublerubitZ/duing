@@ -58,6 +58,11 @@ export type ApplicationSummary = {
    * 필드가 없으면 이전 백엔드 — 지금처럼 "최종 불합격"(fail-open).
    */
   endedByClubDeactivation?: boolean;
+  /**
+   * 면접 사용 모집 여부 — 목록 행 진행 표시에 면접 마디를 둘지 정한다(상세의 useInterview 와 같은 값).
+   * 아직 이 필드를 안 내려주는 백엔드가 있어 optional 이다 — 없으면 지금처럼 면접 마디를 둔다(fail-open).
+   */
+  useInterview?: boolean;
 };
 
 export type MyApplicationDetail = {

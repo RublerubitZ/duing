@@ -23,7 +23,7 @@ export function FaqDeepLinkCard({ faqId, onClose }: Props) {
   return (
     <div className="mb-6 rounded-[18px] border border-ink bg-paper px-5 py-5 md:px-6">
       <div className="mb-3 flex items-center justify-between gap-3">
-        <span className="text-[12px] font-bold tracking-wide08 text-ink">공유된 질문</span>
+        <span className="text-[12px] font-bold text-ink">공유된 질문</span>
         <button
           type="button"
           onClick={onClose}

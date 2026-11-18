@@ -45,7 +45,7 @@ export function ExternalRecruitmentActions({
       >
         가입 요청 관리
         {pendingCount > 0 && (
-          <span className="ml-1.5 rounded-full bg-coral px-1.5 py-0.5 text-xs font-semibold text-paper">
+          <span className="ml-1.5 rounded-full bg-danger px-1.5 py-0.5 text-xs font-semibold text-paper">
             {pendingCount}
           </span>
         )}

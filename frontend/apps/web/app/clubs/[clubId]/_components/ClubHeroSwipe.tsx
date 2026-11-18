@@ -69,7 +69,7 @@ export function ClubHeroSwipe({ heroActivities, showImages, onOpen }: Props) {
           >
             <span
               className={cn(
-                'block h-1.5 rounded-full transition-all',
+                'block h-1.5 rounded-full transition-colors',
                 index === currentIndex ? 'w-5 bg-ink' : 'w-1.5 bg-line',
               )}
             />

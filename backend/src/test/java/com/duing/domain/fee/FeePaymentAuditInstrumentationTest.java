@@ -290,6 +290,29 @@ class FeePaymentAuditInstrumentationTest extends IntegrationTestBase {
     }
 
     @Test
+    @DisplayName("청구 쪽에서 매칭 납부를 먼저 정정한 뒤 매칭을 취소하면 매칭취소 감사만 1건 남고 납부 정정 감사는 처음 사유 그대로 1건이다")
+    void unmatchAfterPaymentVoidAuditsOnlyTransactionUnmatch() {
+        FeeBill bill = saveBill();
+        BankTransaction deposit = savePendingDeposit(BILL_AMOUNT);
+        approve(deposit.getId(), bill.getId());
+        Long paymentId = singlePaymentId();
+        voidPayment(bill.getId(), paymentId, "다른 회원 입금");
+
+        postTransactionAction(deposit.getId(), "unmatch");
+
+        ClubAuditEvent unmatched = singleEventOf(ClubAuditEventType.FEE_TX_UNMATCHED);
+        assertThat(unmatched.getClubId()).isEqualTo(clubId);
+        assertThat(unmatched.getBankTransactionId()).isEqualTo(deposit.getId());
+        assertThat(unmatched.getFeeBillId()).as("매칭돼 있던 청구").isEqualTo(bill.getId());
+        assertThat(unmatched.getActorUserId()).isEqualTo(leaderUserId);
+        // 정정 감사는 청구 쪽 정정 때 남은 1건뿐이다 — 매칭취소가 '매칭취소' 사유로 한 번 더 남기지 않는다.
+        ClubAuditEvent voided = singleEventOf(ClubAuditEventType.FEE_PAYMENT_VOIDED);
+        assertThat(voided.getPaymentId()).isEqualTo(paymentId);
+        assertThat(voided.getBankTransactionId()).isEqualTo(deposit.getId());
+        assertThat(voided.getReason()).isEqualTo("다른 회원 입금");
+    }
+
+    @Test
     @DisplayName("입금 거래를 무시하면 대상 청구가 없는 무시 감사가 1건 남는다")
     void ignoreIsAudited() {
         BankTransaction deposit = savePendingDeposit(BILL_AMOUNT);

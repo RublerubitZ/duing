@@ -38,6 +38,7 @@ import {
 } from './_lib/applicantSelection';
 import { cn } from '@/app/_lib/cn';
 import { LoadingGate } from '@/components/loading/LoadingGate';
+import { ArrowLeft } from '@/components/duing/Icon';
 
 /** URL 값이 알려진 enum 일 때만 필터로 인정한다 — 상세 화면(ApplicantDetailPage)과 같은 방식. */
 function readStatusParam(raw: string | null): ApplicationStatus | undefined {
@@ -291,9 +292,10 @@ export default function ApplicantsPage({ params }: PageParams) {
       <div className="mb-6 flex flex-col gap-1">
         <Link
           href={toRoute(`/manage/clubs/${clubId}/recruitments/${recruitmentId}`)}
-          className="text-sm text-charcoal-3 hover:text-charcoal"
+          className="inline-flex items-center gap-1 text-sm text-charcoal-3 hover:text-charcoal"
         >
-          ← 모집 상세로 돌아가기
+          <ArrowLeft size={14} aria-hidden />
+          모집 상세로 돌아가기
         </Link>
         {/* 모집 제목은 전환 드롭다운이 현재 선택값으로 들고 있다 — 제목을 h1 에 겹쳐 쓰지 않는다.
             드롭다운이 걷히는 경우(외부 폼·목록 조회 실패)에도 제목은 폴백으로 남는다. */}
@@ -327,9 +329,9 @@ export default function ApplicantsPage({ params }: PageParams) {
           <div className="mt-3 flex flex-wrap justify-center gap-4">
             <Link
               href={toRoute(`/manage/clubs/${clubId}/recruitments/${recruitmentId}`)}
-              className="text-sm text-sky-600 hover:underline"
+              className="text-sm text-sky-deep hover:underline"
             >
-              모집 상세로 이동 →
+              모집 상세로 이동
             </Link>
             {(() => {
               const safeExternalFormUrl = safeExternalHref(recruitment.externalFormUrl);
@@ -339,9 +341,9 @@ export default function ApplicantsPage({ params }: PageParams) {
                   href={safeExternalFormUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-sm text-sky-600 hover:underline"
+                  className="text-sm text-sky-deep hover:underline"
                 >
-                  외부 폼 바로가기 →
+                  외부 폼 바로가기
                 </a>
               );
             })()}
@@ -365,8 +367,8 @@ export default function ApplicantsPage({ params }: PageParams) {
             <div
               className={
                 lastBulkResult.failures.length === 0
-                  ? 'mt-4 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800'
-                  : 'mt-4 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800'
+                  ? 'mt-4 rounded-md border border-sage-soft bg-sage-mist px-3 py-2 text-sm text-ink'
+                  : 'mt-4 rounded-md border border-warm/40 bg-warm/10 px-3 py-2 text-sm text-warm-deep'
               }
             >
               <div className="flex items-start justify-between gap-3">
@@ -402,7 +404,7 @@ export default function ApplicantsPage({ params }: PageParams) {
 
           {/* 오류 메시지 */}
           {bulkError && (
-            <p className="mt-4 rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+            <p className="mt-4 rounded-md border border-coral/40 bg-coral/10 px-3 py-2 text-sm text-coral-deep">
               {bulkError}
             </p>
           )}

@@ -26,7 +26,7 @@ const FILTER_OPTIONS: { label: string; value?: AdminFeeBillFilter }[] = [
 ];
 
 const inputCls =
-  'w-full rounded-md border border-line bg-paper px-3 py-2 text-sm text-charcoal transition-colors placeholder:text-charcoal-3 focus-visible:border-ink focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring';
+  'w-full rounded-md border border-field bg-paper px-3 py-2 text-sm text-charcoal transition-colors placeholder:text-charcoal-3 focus-visible:border-ink focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring';
 
 /**
  * 청구 탭(스펙 §8.3). 필터·페이지는 이 탭 안의 상태다 — 주소에는 기간과 탭만 싣는다.
@@ -106,7 +106,6 @@ export function FeeBillsTable({
           {bills.length === 0 ? (
             <ConsoleCard>
               <EmptyState
-                icon="🔎"
                 title="조회 결과가 없습니다"
                 body={'검색어를 줄이거나 기간·상태 필터를 바꿔보세요.\n회원명·학번으로 찾을 수 있어요.'}
               />

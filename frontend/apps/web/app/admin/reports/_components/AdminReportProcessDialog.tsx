@@ -30,7 +30,7 @@ const STATUS_LABEL_MAP: Record<Exclude<ReportStatus, 'PENDING'>, string> = {
 };
 
 const noteCls =
-  'w-full rounded-md border border-line bg-paper px-3 py-2 text-sm text-charcoal transition-colors placeholder:text-charcoal-3 focus-visible:border-ink focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring';
+  'w-full rounded-md border border-field bg-paper px-3 py-2 text-sm text-charcoal transition-colors placeholder:text-charcoal-3 focus-visible:border-ink focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring';
 
 export function AdminReportProcessDialog({ report, isPending, errorMessage, onConfirm, onCancel }: Props) {
   const [selectedStatus, setSelectedStatus] = useState<Exclude<ReportStatus, 'PENDING'>>('RESOLVED');

@@ -33,12 +33,12 @@ const DEDUCTION_NOTICE =
   '횟수만큼 사용 가능 인원이 일시적으로 감소할 수 있습니다.';
 
 const LEAK_WARNING =
-  '⚠️ 가입 링크는 합격자에게만 공유해주세요. 링크가 외부에 유출되면 제3자가 가입 요청을 생성할 수 ' +
+  '가입 링크는 합격자에게만 공유해주세요. 링크가 외부에 유출되면 제3자가 가입 요청을 생성할 수 ' +
   '있으며, 가입 요청이 생성될 때마다 사용 가능 인원이 일시적으로 차감됩니다. 잘못 생성된 가입 요청은 ' +
   '운영진이 거절하면 자동으로 복구됩니다.';
 
 const REVOKE_AFTER_CLOSE_WARNING =
-  '⚠️ 모집이 종료되어 새로운 가입 링크를 생성할 수 없습니다. 현재 링크를 폐기하면 남아있는 합격자도 ' +
+  '모집이 종료되어 새로운 가입 링크를 생성할 수 없습니다. 현재 링크를 폐기하면 남아있는 합격자도 ' +
   '가입할 수 없게 됩니다. 정말 폐기하시겠습니까?';
 
 const ACCEPTANCE_MESSAGE =
@@ -109,6 +109,8 @@ const statsHandler = http.get(`*/leader/recruitments/${RECRUITMENT_ID}/stats/sum
     rejected: 0,
     capacity: 10,
     ratio: 0,
+    // 삭제 버튼은 서버 판정으로만 열린다(#1635) — 지원서·대기 가입 요청이 없는 마감 모집이면 서버가 true 를 준다.
+    deletable: true,
   }),
 );
 
@@ -218,6 +220,9 @@ describe('모집 상세 — 모드별 회원 등록 영역', () => {
     expect(screen.queryByRole('heading', { name: '회원 등록' })).not.toBeInTheDocument();
     expect(screen.queryByText('외부 폼 모집')).not.toBeInTheDocument();
     expect(screen.queryByText(DEDUCTION_NOTICE)).not.toBeInTheDocument();
+    // 통계가 화면에 반영된 뒤에 본다 — 그 전엔 마감 + 로딩이라 카드가 원래 없다. 요약 줄은 카드 훅과 같은 통계 쿼리 키라 같은 렌더에 반영된다.
+    await screen.findByText('모집 인원 10명');
+    expect(screen.queryByRole('region', { name: '이 모집에서 할 일' })).not.toBeInTheDocument();
   });
 
   it('외부 폼 모집이 종료(CLOSED)돼도 회원 등록 영역을 보여준다', async () => {
@@ -236,6 +241,7 @@ describe('모집 상세 — 모드별 회원 등록 영역', () => {
     await screen.findByRole('heading', { name: '회원 등록' });
     expect(screen.queryByRole('link', { name: /지원자 관리/ })).not.toBeInTheDocument();
     expect(screen.queryByRole('link', { name: '통계' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: '이 모집에서 할 일' })).not.toBeInTheDocument();
   });
 
   it('외부 폼 모집 상세에는 지원 현황 요약 줄을 두지 않고 삭제 버튼은 통계 도착 뒤 그대로 열린다', async () => {
@@ -282,7 +288,7 @@ describe('모집 상세 — 모드별 회원 등록 영역', () => {
 
     await screen.findByText('가입 링크 생성·공유');
     const steps = Array.from(container.querySelectorAll('ol li'));
-    expect(steps.map((step) => step.textContent?.replace('→', ''))).toEqual([
+    expect(steps.map((step) => step.textContent)).toEqual([
       '외부 모집 진행',
       '합격자 선정',
       '가입 링크 생성·공유',
@@ -435,7 +441,7 @@ describe('모집 상세 — 활성 링크 카드', () => {
 
     renderPage();
 
-    expect(await screen.findByText('🟢 활성')).toBeInTheDocument();
+    expect(await screen.findByText('활성')).toBeInTheDocument();
     // 모집 진행 중이면 만료 시각이 없다 — 프리셋 문구로 안내한다.
     expect(screen.getByText('모집 종료 후 7일까지')).toBeInTheDocument();
     expect(screen.getByText('누적 가입 신청')).toBeInTheDocument();
@@ -450,7 +456,7 @@ describe('모집 상세 — 활성 링크 카드', () => {
     renderPage();
 
     expect(await screen.findByText(/^\d{4}\.\d{2}\.\d{2} \d{2}:\d{2}까지$/)).toBeInTheDocument();
-    expect(screen.getByText('🟢 활성')).toBeInTheDocument();
+    expect(screen.getByText('활성')).toBeInTheDocument();
   });
 
   it('만료 시각이 지난 링크는 상태가 만료다', async () => {
@@ -459,7 +465,7 @@ describe('모집 상세 — 활성 링크 카드', () => {
     renderPage();
 
     expect(await screen.findByText('만료')).toBeInTheDocument();
-    expect(screen.queryByText('🟢 활성')).not.toBeInTheDocument();
+    expect(screen.queryByText('활성')).not.toBeInTheDocument();
   });
 
   it('사용 인원이 최대 인원에 닿으면 만료 전이어도 상태가 인원 마감이다', async () => {
@@ -469,7 +475,7 @@ describe('모집 상세 — 활성 링크 카드', () => {
 
     const statusCard = within(await screen.findByLabelText('가입 링크 상태'));
     expect(statusCard.getByText('인원 마감')).toBeInTheDocument();
-    expect(statusCard.queryByText('🟢 활성')).not.toBeInTheDocument();
+    expect(statusCard.queryByText('활성')).not.toBeInTheDocument();
   });
 
   it('최대 인원에 한 명 모자라면 상태가 활성이다', async () => {
@@ -478,7 +484,7 @@ describe('모집 상세 — 활성 링크 카드', () => {
     renderPage();
 
     const statusCard = within(await screen.findByLabelText('가입 링크 상태'));
-    expect(statusCard.getByText('🟢 활성')).toBeInTheDocument();
+    expect(statusCard.getByText('활성')).toBeInTheDocument();
     expect(statusCard.queryByText('인원 마감')).not.toBeInTheDocument();
   });
 

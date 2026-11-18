@@ -5,6 +5,8 @@ import { setupServer } from 'msw/node';
 import { setStorage, type Storage } from '@duing/storage';
 
 import { createApiClient } from '../src/client';
+import { registerConnectivityAdapter } from '../src/connectivity';
+import { registerRefreshLockAdapter } from '../src/refresh-coordinator';
 import { registerUnauthorizedHandler } from '../src/unauthorized-context';
 
 const BASE_URL = 'http://localhost:8080/api/v1';
@@ -34,6 +36,8 @@ afterEach(() => {
   registerUnauthorizedHandler(() => {});
   registerUnauthorizedHandler(null);
   unauthorizedHandler.mockClear();
+  registerConnectivityAdapter(null);
+  registerRefreshLockAdapter(null);
 });
 afterAll(() => server.close());
 
@@ -177,6 +181,137 @@ describe('쿠키 모드 401 자동 갱신', () => {
       cookieClient().auth.login({ studentId: '20261234', password: 'x', rememberMe: false }),
     ).rejects.toMatchObject({ status: 401 });
     expect(refreshCallCount).toBe(0);
+    expect(unauthorizedHandler).not.toHaveBeenCalled();
+  });
+
+  // 웹은 다른 탭의 계정 전환을 보면 연결 어댑터로 요청을 막는다 — 이미 나가 있던 요청의 401 이 그 뒤에 와도
+  // 훅 없는 갱신·재시도가 바뀐 쿠키로 나가면 안 된다.
+  it('요청이 나가 있는 사이 연결이 막히면 그 401 에는 갱신·재시도하지 않고 원 401 을 올린다', async () => {
+    let refreshCallCount = 0;
+    let meCallCount = 0;
+    let markMeReceived = () => {};
+    const meReceived = new Promise<void>((resolve) => {
+      markMeReceived = resolve;
+    });
+    let releaseMe = () => {};
+    const meHeld = new Promise<void>((resolve) => {
+      releaseMe = resolve;
+    });
+    server.use(
+      http.get(`${BASE_URL}/users/me`, async () => {
+        meCallCount += 1;
+        markMeReceived();
+        await meHeld;
+        return HttpResponse.json({ ok: false, data: null, message: '만료' }, { status: 401 });
+      }),
+      http.post(`${BASE_URL}/auth/web/refresh`, () => {
+        refreshCallCount += 1;
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+
+    const pendingMe = cookieClient().users.me();
+    await meReceived;
+    registerConnectivityAdapter(() => false);
+    releaseMe();
+
+    await expect(pendingMe).rejects.toMatchObject({ status: 401 });
+    expect(refreshCallCount).toBe(0);
+    expect(meCallCount).toBe(1);
+    expect(unauthorizedHandler).not.toHaveBeenCalled();
+  });
+
+  it('갱신을 기다리는 사이 연결이 막히면 원 요청을 재시도하지 않고 원 401 을 올린다', async () => {
+    let meCallCount = 0;
+    let markRefreshReceived = () => {};
+    const refreshReceived = new Promise<void>((resolve) => {
+      markRefreshReceived = resolve;
+    });
+    let releaseRefresh = () => {};
+    const refreshHeld = new Promise<void>((resolve) => {
+      releaseRefresh = resolve;
+    });
+    server.use(
+      http.get(`${BASE_URL}/users/me`, () => {
+        meCallCount += 1;
+        return HttpResponse.json({ ok: false, data: null, message: '만료' }, { status: 401 });
+      }),
+      http.post(`${BASE_URL}/auth/web/refresh`, async () => {
+        markRefreshReceived();
+        await refreshHeld;
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+
+    const pendingMe = cookieClient().users.me();
+    await refreshReceived;
+    registerConnectivityAdapter(() => false);
+    releaseRefresh();
+
+    await expect(pendingMe).rejects.toMatchObject({ status: 401 });
+    expect(meCallCount).toBe(1);
+    expect(unauthorizedHandler).not.toHaveBeenCalled();
+  });
+
+  it('탭 사이 갱신 잠금을 기다리는 사이 연결이 막히면 갱신 요청을 보내지 않고 세션 종료도 알리지 않는다', async () => {
+    let refreshCallCount = 0;
+    let markLockRequested = () => {};
+    const lockRequested = new Promise<void>((resolve) => {
+      markLockRequested = resolve;
+    });
+    let releaseLock = () => {};
+    const lockHeld = new Promise<void>((resolve) => {
+      releaseLock = resolve;
+    });
+    registerRefreshLockAdapter(async (task) => {
+      markLockRequested();
+      await lockHeld;
+      return task();
+    });
+    server.use(
+      http.get(`${BASE_URL}/users/me`, () =>
+        HttpResponse.json({ ok: false, data: null, message: '만료' }, { status: 401 })),
+      http.post(`${BASE_URL}/auth/web/refresh`, () => {
+        refreshCallCount += 1;
+        return HttpResponse.json({ ok: false, data: null, message: '만료' }, { status: 401 });
+      }),
+    );
+
+    const pendingMe = cookieClient().users.me();
+    await lockRequested;
+    registerConnectivityAdapter(() => false);
+    releaseLock();
+
+    await expect(pendingMe).rejects.toMatchObject({ status: 401 });
+    expect(refreshCallCount).toBe(0);
+    expect(unauthorizedHandler).not.toHaveBeenCalled();
+  });
+
+  it('막히기 전에 나간 갱신이 막힌 뒤 401 로 돌아오면 세션 종료를 알리지 않는다', async () => {
+    let markRefreshReceived = () => {};
+    const refreshReceived = new Promise<void>((resolve) => {
+      markRefreshReceived = resolve;
+    });
+    let releaseRefresh = () => {};
+    const refreshHeld = new Promise<void>((resolve) => {
+      releaseRefresh = resolve;
+    });
+    server.use(
+      http.get(`${BASE_URL}/users/me`, () =>
+        HttpResponse.json({ ok: false, data: null, message: '만료' }, { status: 401 })),
+      http.post(`${BASE_URL}/auth/web/refresh`, async () => {
+        markRefreshReceived();
+        await refreshHeld;
+        return HttpResponse.json({ ok: false, data: null, message: '만료' }, { status: 401 });
+      }),
+    );
+
+    const pendingMe = cookieClient().users.me();
+    await refreshReceived;
+    registerConnectivityAdapter(() => false);
+    releaseRefresh();
+
+    await expect(pendingMe).rejects.toMatchObject({ status: 401 });
     expect(unauthorizedHandler).not.toHaveBeenCalled();
   });
 

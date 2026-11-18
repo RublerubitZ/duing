@@ -14,6 +14,7 @@ import type {
 } from '@duing/types';
 import { useApiClient } from './api-context';
 import { adminQueryKeys } from './adminQueryKeys';
+import { retryUnlessStatuses } from './retry';
 import { clubQueryKeys } from './clubQueryKeys';
 import { facilityQueryKeys } from './facilityQueryKeys';
 
@@ -56,6 +57,23 @@ export function useAdminJobStatusesQuery() {
     queryFn: () => client.admin.jobStatuses(),
     refetchOnWindowFocus: true,
     refetchInterval: ADMIN_JOB_STATUSES_REFETCH_INTERVAL_MS,
+  });
+}
+
+// 404 는 집계 API 를 모르는 옛 백엔드다(FE 선배포·BE 롤백) — 다시 물어도 같다. 카드가 숨는다.
+const retryUnlessNotFound = retryUnlessStatuses(404);
+
+/**
+ * 총동연 홈 동아리 현황. 전역 staleTime 30초를 쓰되, 앱 기본값은 창 포커스 때 다시 받지 않아 — 홈 탭을 띄워 둔 채
+ * 목록에서 처리하고 돌아왔을 때 숫자가 목록과 어긋나지 않게 포커스 때 다시 받는다(자동 작업 카드 선례).
+ */
+export function useAdminClubSignalsQuery() {
+  const client = useApiClient();
+  return useQuery({
+    queryKey: adminQueryKeys.clubSignals(),
+    queryFn: () => client.admin.getClubSignals(),
+    refetchOnWindowFocus: true,
+    retry: retryUnlessNotFound,
   });
 }
 

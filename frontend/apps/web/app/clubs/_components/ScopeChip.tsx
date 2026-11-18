@@ -11,7 +11,7 @@ export function ScopeChip({ scope }: { scope: ClubScope }) {
   return (
     <span
       className={`inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-[3px] text-[11px] font-bold ${
-        isCentral ? 'bg-sage-mist text-ink-deep' : 'bg-[#DDE8F1] text-[#2F557A]'
+        isCentral ? 'bg-sage-mist text-ink-deep' : 'pill-sky'
       }`}
     >
       <ScopeIcon size={12} aria-hidden />

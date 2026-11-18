@@ -20,4 +20,10 @@ public interface ReportRepository extends JpaRepository<Report, Long>, ReportRep
 
     /** 처리 대기 추이 — 최근 처리(해결·기각 handled_at, 무클럭 now() = system regime). */
     long countByHandledAtGreaterThanEqual(LocalDateTime since);
+
+    /** 주간 브리핑 — 기간 접수(감사 created_at, system regime). from 포함·to 미만. */
+    long countByCreatedAtGreaterThanEqualAndCreatedAtLessThan(LocalDateTime from, LocalDateTime to);
+
+    /** 주간 브리핑 — 기간 처리(해결·기각 handled_at, 무클럭 now() = system regime). from 포함·to 미만. */
+    long countByHandledAtGreaterThanEqualAndHandledAtLessThan(LocalDateTime from, LocalDateTime to);
 }

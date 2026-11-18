@@ -10,7 +10,7 @@ Du-ing 의 비주얼 랭귀지는 따뜻한 크림 캔버스(#F6F3EC) 위에서 
 
 ## Tokens — Colors
 
-Tailwind 토큰과 `.duing` 스코프 CSS 변수(`var(--ink)` 등)가 1:1 동일 값.
+이름이 같은 Tailwind 토큰과 `.duing` 스코프 CSS 변수(`var(--ink)` 등)는 값이 같다. 변수는 인라인 스타일·SVG 속성처럼 클래스를 쓸 수 없는 자리에서만 쓰고, 표의 Token 칸에 변수명이 적힌 색만 변수가 있다(`test/lint/css-variable-defined.test.ts` 가 정의 없는 `var(--…)` 사용을 막는다). 파스텔 pill 페어는 `:root` 에 `--pill-{warm,coral,berry,sky}-{bg,ink}` 변수로도 있다 — `.duing` 밖(`/apply`·`/join`)에서 풀리는 두잉 토큰 색 변수는 이것뿐이라, 그 화면에서는 Tailwind 클래스나 `theme()` 을 쓴다. 칩에는 변수 대신 `.pill-*` 클래스를 쓴다.
 
 | Name | Value | Token | Role |
 |------|-------|-------|------|
@@ -18,21 +18,30 @@ Tailwind 토큰과 `.duing` 스코프 CSS 변수(`var(--ink)` 등)가 1:1 동일
 | Ink Deep | `#143025` | `ink-deep` / `--ink-deep` | 헤딩 텍스트(h1~h4 자동), `btn-primary` hover, 다크 띠 배경 — 페이지에서 가장 어두운 잉크 |
 | Ink Soft | `#2E6149` | `ink-soft` / `--ink-soft` | ink 의 밝은 변형 — 저빈도 보조 |
 | Sage | `#9DB6A0` | `sage` / `--sage` | **장식 전용** — Sparkle, 형광펜 밑줄(`border-sage`), 라이브 도트. 텍스트 컬러로 승격 금지 |
+| Sage Deep | `#4D6850` | `sage-deep` / `--sage-deep` | 밝은 바탕 위 세이지 톤 글자 — `bg-sage/10` 배지 글자·아이콘(AA 4.5:1 이상) |
 | Sage Soft | `#C9D8CC` | `sage-soft` / `--sage-soft` | 연한 보더, 히어로 블러 원 그라디언트 |
 | Sage Mist | `#E8EEE8` | `sage-mist` / `--sage-mist` | `.pill` 기본 배경, CTA 패널 서피스 |
 | Sage Tint | `#F1F5F1` | `sage-tint` / `--sage-tint` | hover·선택 상태 배경 (드롭다운 항목 등 인터랙션 피드백) |
 | Cream | `#F6F3EC` | `cream` / `--cream` | 페이지 캔버스 — 모든 것이 올라가는 따뜻한 종이 |
 | Cream 2 | `#EFEBE0` | `cream-2` / `--cream-2` | 한 톤 어두운 크림 — 푸터 배경 |
 | Paper | `#FFFFFF` | `paper` / `--paper` | 카드·서피스 흰색, 반전 텍스트 |
+| Paper Warm | `#FBFAF6` | `paper-warm` | 총동연 콘솔 사이드바 표면 |
 | Charcoal | `#2F3433` | `charcoal` / `--charcoal` | 본문 기본 텍스트 (`.duing` 기본값) |
 | Charcoal 2 | `#4A504F` | `charcoal-2` / `--charcoal-2` | 보조 텍스트 |
-| Charcoal 3 | `#6F7574` | `charcoal-3` / `--charcoal-3` | 메타·캡션·빈 상태 텍스트 — 텍스트 위계의 바닥 |
-| Line | `#E5E2DA` | `line` / `--gray-line` | 모든 보더의 기본 — 1px 웜그레이 헤어라인. 점선 변형도 이 색 |
+| Charcoal 3 | `#5C645F` | `charcoal-3` / `--charcoal-3` | 메타·캡션·빈 상태 텍스트 — 텍스트 위계의 바닥 |
+| Line | `#E5E2DA` | `line` / `--gray-line` | 카드·표·구분선 보더의 기본 — 1px 웜그레이 헤어라인. 점선 변형도 이 색. 입력칸 테두리는 `field` |
+| Field | `#828884` | `field` / `--field` | 입력칸·선택칸·글상자의 테두리 — 주변과 3:1 이상(흰 바탕 3.62, 크림 3.26, 크림2 3.04). 테두리 없이 흰 면으로만 분리하는 홈 검색 캡슐은 시안대로 예외. 카드·표·구분선에는 쓰지 않는다(그쪽은 `line`) |
 | Gray Soft | `#F0EDE5` | `graysoft` / `--gray-soft` | `btn-ghost` hover, 빈 상태 배경 워시 |
 | Warm | `#E8B968` | `warm` / `--warm` | 옐로 액센트 — pill 페어 전용 (`#fbefd7` / `#8e6620`) |
-| Coral | `#D97757` | `coral` / `--coral` | 코랄 액센트 — pill 페어(`#fce2d9` / `#9a3f23`) + 위험·로그아웃 (`rgba(217,119,87,0.05)` 배경) |
+| Coral | `#D97757` | `coral` / `--coral` | 코랄 액센트 — pill 페어(`#fce2d9` / `#9a3f23`). 흰 글자를 얹는 위험 버튼·긴급 배지는 coral 이 아니라 `danger` |
 | Berry | `#B65672` | `berry` / `--berry` | 베리 액센트 — pill 페어 (`#f6dce3` / `#7e2a45`) |
-| Sky | `#6A95B8` | `sky` / `--sky` | 블루 액센트 — pill 페어 (`#dde8f1` / `#2f557a`). 유일하게 50~950 풀 스케일 보유 |
+| Sky | `#6A95B8` | `sky` / `--sky` | 블루 액센트 — pill 페어 (`#dde8f1` / `#2f557a`). 숫자 스케일(`sky-100` 등)은 Tailwind 기본 하늘색이라 쓰지 않는다 |
+| Warm Deep | `#865D14` | `warm-deep` | `bg-warm/10` 배지·안내 글자 — 대기·주의 |
+| Coral Deep | `#A54525` | `coral-deep` / `--coral-deep` | `bg-coral/10` 배지·경고 글자 — 미납·충돌·오류. 흰 글자를 얹는 솔리드는 `danger` |
+| Sky Deep | `#406786` | `sky-deep` / `--sky-deep` | `bg-sky/10` 배지 글자, 차트 보조 계열 — 정보 |
+| Danger | `#B04A28` | `danger` / `--danger` | 파괴적 액션(정지·삭제·강제 로그아웃)과 긴급 상태 배지 — 흰 글자를 얹는 솔리드(5.45:1). hover 는 `#9A3F23` |
+| Neutral Mid | `#8A8F98` | `--neutral-mid` | 결과 없이 끝난 지원의 스테퍼 마디 — 진행 초록과 밝기로 구분되는 중간 회색(흰 바탕 3.25:1). 변수만 있고 Tailwind 토큰은 없다 |
+| Console | `#34463E` → `#2A382F` | `console` / `console-deep` | 운영진 콘솔 사이드바·모바일 상단바·동아리 전환 메뉴의 진한 초록 표면(위 → 아래 그라디언트) |
 
 액센트 4색(warm·coral·berry·sky)은 포인트 전용 — 파스텔 배경 + 딥톤 텍스트 pill 페어로만 쓰고 큰 면적에 깔지 않는다. 카테고리/도메인 틴트 배경은 `linear-gradient(135deg, ${color}22 0%, ${color}11 100%)` (hex 알파 13%/7%) 공식.
 
@@ -78,7 +87,7 @@ Tailwind 토큰과 `.duing` 스코프 CSS 변수(`var(--ink)` 등)가 1:1 동일
 ### Pretendard — 기능하는 모든 것: 본문·버튼·카드·네비. 디스플레이가 외칠 수 있도록 조용히 받친다 · `font-body`
 - **Substitute:** system-ui, -apple-system
 - **Weights:** 400, 600, 700, 800 (Font Guide 스케일 — 500 은 쓰지 않는다)
-- **Sizes:** 11.5, 12.5, 13, 13.5, 14, 15, 16(text-base), 18(text-lg) — 표준 스케일 대신 **픽셀 임의값이 기본** (`text-[13.5px]` 등)
+- **Sizes:** 11(콘솔에서는 칩·배지 한정 — 공개 화면의 탭바 라벨·사전식 주석은 예외), 11.5, 12(text-xs), 12.5, 13, 13.5, 14, 15, 16(text-base), 18(text-lg) — 표준 스케일 대신 **픽셀 임의값이 기본** (`text-[13.5px]` 등)
 - **Line height:** 1.5 (`.duing` 기본), 히어로 서브카피 1.6
 - **Letter spacing:** -0.005em (`.duing` 기본), `font-feature-settings: 'ss01' 'ss02' 'cv11'`
 - **Role:** 본문·UI 전부. 위계는 크기보다 **색 3단**(charcoal-3 → charcoal-2 → ink/ink-deep+bold)으로 만든다.
@@ -92,6 +101,9 @@ Tailwind 토큰과 `.duing` 스코프 CSS 변수(`var(--ink)` 등)가 1:1 동일
 - **자릿수 고정(카운터·시각·날짜):** `tabular-nums` 로 처리한다. 페이저(`1 / 4`), 주간 그리드
   시간 라벨(`09:00`), 금액처럼 행마다 폭이 흔들리면 안 되는 곳이 대상이다.
   모노를 걷어낸 뒤 이 속성이 유일한 정렬 수단이므로, 숫자가 세로로 쌓이는 UI 에서는 빠뜨리지 말 것.
+- **콘솔·내비의 그룹 라벨은 마이크로 라벨이 아니다:** 사이드바 그룹 이름(`모집`, `커뮤니티 운영`)과 드롭다운 머리말처럼
+  한글로 길을 알려 주는 라벨은 12px(`text-xs font-semibold`)로, 대문자·와이드 트래킹 없이 쓴다.
+  한글 10px 대 글자에 자간을 벌리면 읽기 어렵고, 한글에는 대문자 격식이 생기지 않는다.
 
 ### Type Scale
 
@@ -136,7 +148,7 @@ Tailwind 토큰과 `.duing` 스코프 CSS 변수(`var(--ink)` 등)가 1:1 동일
 - **Page max-width:** 1280px (`max-w-layout mx-auto`) + 섹션 좌우 패딩 `px-10` — 네비·히어로·섹션·푸터 전부 동일한 컨테이너 공식
 - **Section gap:** 비대칭 (예: `pt-24 pb-10`, `py-16`, `pt-20 pb-6`) — 리듬 조절용으로 섹션마다 다르게
 - **Card padding:** 16px (`p-4`), CTA 패널은 `px-14 py-11`
-- **Card grid:** `grid gap-5 md:grid-cols-2 lg:grid-cols-4` — md 는 2×2, lg 부터 4열. 관심도 카드는 래퍼 `lg:[container-type:inline-size]` + 카드 루트 `text-[16px] lg:text-[5.614cqw]`(1280 카드 폭 285 기준)로 안쪽 치수를 전부 em 으로 두어 폭에 비례해 통째로 줄어든다(1024 에서 0.78 배, 비율 0.98 고정). 히어로는 비대칭 2컬럼 `md:grid-cols-[1.15fr_1fr] gap-16`
+- **Card grid:** `grid gap-5 md:grid-cols-2 lg:grid-cols-4` — md 는 2×2, lg 부터 4열. 관심도 카드는 래퍼 `lg:[container-type:inline-size]` + 카드 루트 `text-[16px] lg:text-[5.614cqw]`(1280 카드 폭 285 기준)로 안쪽 치수를 전부 em 으로 두어 폭에 비례해 통째로 줄어든다(1024 에서 0.78 배). 카드에 최소 높이는 두지 않는다 — 높이는 내용이 정하고 같은 줄은 격자가 맞춘다(md 2×2 는 `auto-rows-fr` 로 두 줄도 같게). 히어로는 비대칭 2컬럼 `md:grid-cols-[1.15fr_1fr] gap-16`
 
 ## Components
 
@@ -148,7 +160,7 @@ Tailwind 토큰과 `.duing` 스코프 CSS 변수(`var(--ink)` 등)가 1:1 동일
 ### Secondary / Ghost Button (`.btn-secondary` / `.btn-ghost`)
 **Role:** 보조 액션, 텍스트성 컨트롤.
 
-Secondary: `bg-paper text-ink border border-line hover:border-sage` — 보더가 sage 로 물드는 것이 유일한 hover. Ghost: `bg-transparent text-charcoal-2 hover:bg-graysoft hover:text-charcoal`. 원형 아이콘 버튼(캐러셀 prev/next): `btn grid h-9 w-9 place-items-center rounded-full p-0` 에 prev 는 `bg-paper text-ink-deep ring-1 ring-ink/15 shadow-1`, next 는 `bg-ink-deep text-cream shadow-1` — 한 쌍에서 진행 방향을 색으로 구분한다.
+Secondary: `bg-paper text-ink border border-line hover:border-sage` — 보더가 sage 로 물드는 것이 유일한 hover. Ghost: `bg-transparent text-charcoal-2 hover:bg-graysoft hover:text-charcoal`. 원형 아이콘 버튼(캐러셀 prev/next): `btn grid h-9 w-9 place-items-center rounded-full p-0` 에 prev 는 `bg-paper text-ink-deep ring-1 ring-ink/15 shadow-1`, next 는 `bg-ink-deep text-cream shadow-1` — 한 쌍에서 진행 방향을 색으로 구분한다. 끝이 있는 줄(홈 카테고리)에서는 끝에 닿은 쪽을 `aria-disabled` + `opacity-40` 으로 끈다 — `disabled` 로 끄면 키보드 포커스가 사라진다.
 
 ### Search Capsule (캡슐 인 패널)
 **Role:** 히어로 검색 — 인풋과 버튼을 한 장의 흰 패널에 담는다.
@@ -159,6 +171,24 @@ Secondary: `bg-paper text-ink border border-line hover:border-sage` — 보더�
 **Role:** 카테고리 라벨, 상태 배지.
 
 `.pill` = `inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-sage-mist text-ink whitespace-nowrap`. 변형: `.pill-solid`(bg-ink text-paper), `.pill-outline`(border-line, text-charcoal-2), 파스텔 페어 `.pill-warm`(#fbefd7/#8e6620) `.pill-coral`(#fce2d9/#9a3f23) `.pill-berry`(#f6dce3/#7e2a45) `.pill-sky`(#dde8f1/#2f557a). 상태 배지에는 라이브 도트 `h-1.5 w-1.5 rounded-full bg-sage` 를 곁들인다. 표기는 `모집중`(붙여쓰기) 통일.
+
+**상태 배지 규약(콘솔 — 운영진·총동연).** 표·카드 안의 상태 배지와 안내 띠는 `.pill-*` 파스텔 페어나 hex 를 직접 적지 않고 토큰 조합으로 쓴다.
+
+| 뜻 | 클래스 |
+| --- | --- |
+| 중립(종료·해당 없음) | `bg-paper text-charcoal-2 ring-1 ring-inset ring-line` |
+| 긍정(납부·완료·면접) | `bg-sage/10 text-sage-deep` |
+| 대기·주의 | `bg-warm/10 text-warm-deep` |
+| 경고(미납·충돌) | `bg-coral/10 text-coral-deep` (+ 상자 테두리 `border-coral/50`) |
+| 정보(행사 등) | `bg-sky/10 text-sky-deep` |
+| 긴급 — 흰 글자 솔리드 | `bg-danger text-paper` |
+
+- 배경 농도: 기본은 `/10`. sage·warm 은 `/20` 까지 쓸 수 있고(`warm-deep` 은 `/20` 최악 4.52 라 값을 밝히지 않는다), coral·sky 는 `/10` 까지 — `/20` 은 크림 위에서 4.5:1 에 못 미친다. `coral/15` 는 흰 바탕에서만 쓴다.
+- 바탕이 옅어 경고가 묻히는 상자는 테두리로 보강한다 — 경고 `border-coral/50`, 주의 `border-warm/60`. 테두리는 글자를 얹지 않아 `/10` 상한과 무관하다.
+- `*-deep` 은 흰·크림·크림2 바탕의 `/10` 합성 위에서 WCAG AA 를 넘도록 고른 값이다. 기본 색(`text-sage`·`text-coral` …)을 글자로 쓰지 않는다.
+- 위험·종료 동작(버튼·링크)은 배지가 아니라 `text-danger hover:bg-danger/5`(+ `border-danger/30`).
+- 입력칸의 기본 테두리는 `border-field`, 포커스는 `focus:border-ink focus:outline-none focus:ring-[3px] focus:ring-ink/15`. 테두리 색만 바꾸는 포커스는 field 와 ink 의 차이가 작아 링을 함께 쓴다. 밝은 바탕에서 `ring-sage` 는 대비가 모자라 쓰지 않는다(진한 콘솔 사이드바 안에서만 쓴다).
+- 네이티브 체크박스는 `accent-ink` + `focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink` — `@tailwindcss/forms` 가 없어 `border-*`·`text-*`·`focus:ring-*` 는 아무것도 그리지 않는다.
 
 ### Default Card (`.card` 확장형)
 **Role:** 동아리·콘텐츠 카드의 표준형.
@@ -184,12 +214,12 @@ Secondary: `bg-paper text-ink border border-line hover:border-sage` — 보더�
 ### Section Heading Block
 **Role:** 모든 콘텐츠 섹션의 도입부.
 
-`mb-9 flex items-end justify-between` — 좌측: 아이브로우(**`영문 키워드 · 한글 설명`** 포맷, `text-[11.5px] font-semibold` + 와이드 트래킹 또는 `text-[13px] font-semibold tracking-wide08 text-ink`) + 큰 h2. 우측: 아이콘 전용 `전체 보기` 링크 — 면 없이 캐럿만(`-mr-2.5 grid h-11 w-11 rounded-full text-ink-deep hover:bg-sage-tint` + lucide `ChevronRight` 24px), 접근명은 `aria-label` 로. 44px 박스라 글리프 우측이 카드 열 끝선에 오도록 박스 여백만큼 당긴다.
+`mb-9 flex items-end justify-between` — 좌측: 큰 h2 단독(아이브로우는 새 화면에 두지 않는다 — 표기 규칙 참조. 남은 화면은 손볼 때 걷어낸다). 우측: 아이콘 전용 `전체 보기` 링크 — 면 없이 캐럿만(`-mr-2.5 grid h-11 w-11 rounded-full text-ink-deep hover:bg-sage-tint` + lucide `ChevronRight` 24px), 접근명은 `aria-label` 로. 44px 박스라 글리프 우측이 카드 열 끝선에 오도록 박스 여백만큼 당긴다.
 
 ### Nav Bar (HomeNav)
 **Role:** 사이트 전역 상단 바.
 
-`relative z-50 bg-cream/90 backdrop-blur` — 반투명 크림 + 블러. 하단 구분선 없음 — 본문과는 여백으로 나뉜다. 상단바 요소 크기는 어느 폭에서도 본문과 같은 축척(×0.815)을 지킨다 — 2xl 에서 상단바만 1:1 로 키우면 본문 대비 커 보인다(#1099 되돌림). xl 부터 위 여백만 28(`xl:pt-7`, 헤더 총 79 = 시안 115 × 뷰포트 캡 1280/1920)로 시안의 상단 여백 비율을 따른다. 내부 `max-w-layout mx-auto flex items-center gap-8 px-4 sm:px-6 md:px-10 py-3 lg:gap-12 xl:pt-7`(HomeNav·ExploreNav 가 `navLinkStyles.ts` 상수를 공유한다 — 값이 갈리면 페이지를 옮길 때 메뉴가 튄다). 링크 `text-[14px] font-semibold tracking-tightest lg:text-[16px]`, 항목 간격 `gap-6 lg:gap-10 xl:gap-14` — 시안 24px·88px(캔버스 1920·콘텐츠 1472 → 우리 1200 기준 ×0.815 ≈ 20px·72px)에서 요청으로 한 단계 낮춘 값. 비활성 `text-charcoal-3 hover:text-charcoal`, 활성 `text-ink-deep` + 언더라인 바 `absolute -bottom-1 h-[2px] rounded-full bg-ink`. 우측은 비로그인 로그인(면 없는 텍스트) + 회원가입(딥그린 알약, 위 Primary Button 참조), 로그인 시 Phosphor Bell(글리프 모바일 19·PC 24, 히트 40px 원, `text-ink-deep`) + 흰 알약 "이름님"(`bg-paper font-semibold text-ink-deep`, 모바일 `h-[26px] min-w-[70px] text-[14px]`·PC `h-[34px] px-5 text-[16px]`, 아바타 없음 — 이름은 /users/me). 드롭다운: `w-[280px] rounded-[16px] border border-line bg-paper` + `var(--shadow-3)`, 항목 hover `bg-sage-tint`.
+`relative z-50 bg-cream/90 backdrop-blur` — 반투명 크림 + 블러. 하단 구분선 없음 — 본문과는 여백으로 나뉜다. 상단바 요소 크기는 어느 폭에서도 본문과 같은 축척(×0.815)을 지킨다 — 2xl 에서 상단바만 1:1 로 키우면 본문 대비 커 보인다(#1099 되돌림). xl 부터 위 여백만 28(`xl:pt-7`, 헤더 총 79 = 시안 115 × 뷰포트 캡 1280/1920)로 시안의 상단 여백 비율을 따른다. 내부 `max-w-layout mx-auto flex items-center gap-8 px-4 sm:px-6 md:px-10 py-3 lg:gap-12 xl:pt-7`(HomeNav·ExploreNav 가 `navLinkStyles.ts` 상수를 공유한다 — 값이 갈리면 페이지를 옮길 때 메뉴가 튄다). 링크 `text-[14px] font-semibold tracking-tightest lg:text-[16px]`, 항목 간격 `gap-6 lg:gap-10 xl:gap-14` — 시안 24px·88px(캔버스 1920·콘텐츠 1472 → 우리 1200 기준 ×0.815 ≈ 20px·72px)에서 요청으로 한 단계 낮춘 값. 비활성 `text-charcoal-3 hover:text-charcoal`, 활성 `text-ink-deep` + 언더라인 바 `absolute -bottom-1 h-[2px] rounded-full bg-ink`. 우측은 비로그인 로그인(면 없는 텍스트) + 회원가입(딥그린 알약, 위 Primary Button 참조), 로그인 시 Phosphor Bell(글리프 모바일 19·PC 24, 보이는 원 40px — 좁은 폭 링크는 가상 요소로 누르는 영역만 44px, `text-ink-deep`) + 흰 알약 "이름님"(`bg-paper font-semibold text-ink-deep`, 모바일 `h-[26px] min-w-[70px] text-[14px]`·PC `h-[34px] px-5 text-[16px]`, 아바타 없음 — 이름은 /users/me). 드롭다운: 공용 `components/ui/dropdown-menu` 위에 `min-w-[160px] max-w-[240px] p-0`(`components/UserMenu.tsx`), 항목 hover `bg-sage-tint`.
 
 ### Carousel Controls
 **Role:** 배너 캐러셀 위치 표시·이동.
@@ -252,8 +282,9 @@ Secondary: `bg-paper text-ink border border-line hover:border-sage` — 보더�
 
 - 나열은 가운뎃점 `·`, 부연은 줄표 `—`, 기한은 `~ M.D` — 쉼표 나열·괄호 부연 대신 이 세 기호로 통일
 - 숫자는 단위와 결합: `{n}곳`, `{n}개 동아리`, `모집 20명`, `· 10기`
-- 아이브로우 포맷 고정: **`영문 대문자 키워드 · 한국어 설명`** (예: `FEATURED · 이번 주 주목`, `APPLICATION · 지원 현황`)
+- 아이브로우(`영문 대문자 키워드 · 한국어 설명`)는 새 화면에 쓰지 않는다 — 바로 아래 한글 제목이 같은 말을 해서 정보가 늘지 않는다. 남아 있는 것은 그 화면을 손볼 때 제목 하나로 합친다
 - 느낌표는 알림성 마이크로카피 한정 페이지당 최대 1회, 이모지는 카피 문장 안에 넣지 않는다
+- 이모지를 UI 아이콘으로 쓰지 않는다(빈 상태·오류·메뉴·표 머리 등) — 새 화면부터 지키고, 남은 것은 그 화면을 손볼 때 걷어낸다 — 아이콘이 필요하면 `lucide-react`, 뜻이 글자로 충분하면 아이콘 없이 쓴다. 카테고리 그림은 토스페이스 원본 SVG 를 쓴다. 썸네일·배너 워터마크 같은 그래픽 레이어(Imagery 절)는 이 규칙의 대상이 아니다
 - 헤드라인은 3~8어절, 줄바꿈으로 호흡을 끊는다. playful 함은 `두잉/ing` 워드플레이로만
 
 ### Empty State
@@ -275,7 +306,7 @@ Secondary: `bg-paper text-ink border border-line hover:border-sage` — 보더�
 ### Don't
 - 섹션과 섹션 사이에 가로 구분선을 긋지 않는다 — 헤더↔본문, 히어로↔콘텐츠, 필터↔목록, 카드 안 블록 사이는 전부 여백이 가른다. 가로선은 표의 행, 목록의 행, 모달·시트·고정 바의 chrome, 컴포넌트 외곽선, 활성·강조 표시(탭 언더라인·형광펜 밑줄)에만 쓴다
 - **고정 바의 chrome 판정 기준:** 콘텐츠가 그 바 *뒤로 겹쳐 지나가면* 가를 여백 자체가 없으므로 헤어라인을 둔다 — 하단 탭바의 `border-t`, 반투명 상단 sticky 바의 `border-b` 가 여기 해당한다. 같은 컴포넌트라도 `md:static` 처럼 겹침이 사라지는 구간에서는 선을 두지 않는다(`max-md:border-b` 로 분기). 배경이 불투명해 콘텐츠가 비치지 않는 바는 선 없이 배경 대비만으로 충분하다
-- `border-2 border-black`, 하드 드롭섀도, 임의 `shadow-[...]` — 네오브루탈 문법 금지. 테두리는 항상 1px `border-line`
+- `border-2 border-black`, 하드 드롭섀도, 임의 `shadow-[...]` — 네오브루탈 문법 금지. 테두리는 항상 1px `border-line`(입력칸은 `border-field`)
 - sage 를 텍스트 컬러로 쓰지 않는다 — 장식 전용이다
 - 버튼에 transform hover·그림자 변화를 주지 않는다 — 버튼 hover 는 색상 전환만
 - 무한 마퀴·과도한 스프링 모션 금지 — 모션은 절제가 기본값
@@ -322,7 +353,7 @@ Secondary: `bg-paper text-ink border border-line hover:border-sage` — 보더�
 
 **Example Component Prompts**
 
-1. **섹션 도입부**: `mb-9 flex items-end justify-between`. 좌측에 아이브로우 `text-[11.5px] font-semibold uppercase tracking-[0.22em]` 으로 `APPLICATION · 지원 현황`, 그 아래 h2(자동으로 ink-deep bold). 우측에 `flex items-center gap-1.5 text-sm font-semibold text-ink hover:gap-2` 링크 `전체 보기` + ArrowRight.
+1. **섹션 도입부**: `mb-9 flex items-end justify-between`. 좌측에 h2 `지원 현황`(자동으로 ink-deep bold) 단독. 우측에 아이콘 전용 `전체 보기` 링크(lucide `ChevronRight` 24px, 접근명은 `aria-label`).
 2. **표준 카드**: `rounded-lg border border-line bg-paper p-4 transition hover:shadow-2`. 상단 썸네일 `grid h-[156px] place-items-center rounded-md` + `linear-gradient(135deg, #1F4A3622, #1F4A3611)`. 제목 h3 17px, 설명 `text-[12.5px] text-charcoal-3`, 푸터 `pt-3` 양끝 정렬(구분선 없음).
 3. **상태 배지**: `.pill` + `h-1.5 w-1.5 rounded-full bg-sage` 도트 + `모집중`. 강조형은 `rounded-full bg-ink px-2.5 py-1 text-[11.5px] font-bold text-paper`.
 4. **CTA 패널**: `rounded-xl bg-sage-mist px-14 py-11 md:grid-cols-[1fr_auto]`, 좌측 h2 `text-4xl` + 서브 `지원자 관리 · 공지 발송 · 회비 정산까지.` 스타일 나열, 우측 `btn btn-primary btn-big` + ArrowRight. SparkleFull 48px sage 절대배치 1~2개.
@@ -355,13 +386,19 @@ Secondary: `bg-paper text-ink border border-line hover:border-sage` — 보더�
   --sage-tint:  #F1F5F1;
   --charcoal:   #2F3433;
   --charcoal-2: #4A504F;
-  --charcoal-3: #6F7574;
+  --charcoal-3: #5C645F;
   --gray-line:  #E5E2DA;
   --gray-soft:  #F0EDE5;
   --warm:       #E8B968;
   --coral:      #D97757;
   --berry:      #B65672;
+  --field:      #828884;
   --sky:        #6A95B8;
+  --sky-deep:   #406786;
+  --sage-deep:  #4D6850;
+  --coral-deep: #A54525;
+  --danger:     #B04A28;
+  --neutral-mid: #8A8F98;
   --font-body:    Pretendard, system-ui, sans-serif;
   --shadow-1: 0 1px 2px rgba(31,74,54,.04), 0 2px 8px rgba(31,74,54,.04);
   --shadow-2: 0 2px 6px rgba(31,74,54,.05), 0 12px 32px rgba(31,74,54,.08);
@@ -374,11 +411,13 @@ Secondary: `bg-paper text-ink border border-line hover:border-sage` — 보더�
 ```ts
 colors: {
   ink: { DEFAULT: '#1F4A36', deep: '#143025', soft: '#2E6149' },
-  sage: { DEFAULT: '#9DB6A0', soft: '#C9D8CC', mist: '#E8EEE8', tint: '#F1F5F1' },
-  charcoal: { DEFAULT: '#2F3433', 2: '#4A504F', 3: '#6F7574' },
+  sage: { DEFAULT: '#9DB6A0', deep: '#4D6850', soft: '#C9D8CC', mist: '#E8EEE8', tint: '#F1F5F1' },
+  charcoal: { DEFAULT: '#2F3433', 2: '#4A504F', 3: '#5C645F' },
   line: '#E5E2DA', graysoft: '#F0EDE5',
-  cream: { DEFAULT: '#F6F3EC', 2: '#EFEBE0' }, paper: '#FFFFFF',
-  warm: '#E8B968', coral: '#D97757', berry: '#B65672', sky: { DEFAULT: '#6A95B8' /* +50~950 */ },
+  cream: { DEFAULT: '#F6F3EC', 2: '#EFEBE0' }, paper: { DEFAULT: '#FFFFFF', warm: '#FBFAF6' },
+  console: { DEFAULT: '#34463E', deep: '#2A382F' }, danger: { DEFAULT: '#B04A28', hover: '#9A3F23' },
+  warm: { DEFAULT: '#E8B968', deep: '#865D14' }, coral: { DEFAULT: '#D97757', deep: '#A54525' }, berry: '#B65672',
+  sky: { DEFAULT: '#6A95B8', deep: '#406786' },
 },
 fontFamily: {
   body: ['Pretendard', 'system-ui', 'sans-serif'],
@@ -446,8 +485,8 @@ shadcn(Radix) 프리미티브는 **동작·접근성이 중요한 컴포넌트**
 
 | 영역 | 패턴 |
 |------|------|
-| 운영진(`/manage/*`) | `ManageShell` 사이드바(248px) → 모바일 상단바 + **Sheet 드로어**(ClubSelector + ManageNav 수용) |
-| 관리자(`/admin/*`) | `AdminSidebar`(`hidden md:block`) 유지 + 상단바 햄버거 → **Sheet 드로어** |
+| 운영진(`/manage/*`) | `ManageShell` 사이드바(펼침 280px / 접힘 84px) → 모바일 상단바 + **Sheet 드로어**(ClubSwitcher + ManageNav 수용) |
+| 관리자(`/admin/*`) | `AdminSidebar`(`hidden md:block`, 펼침 248px / 접힘 84px) 유지 + 상단바 햄버거 → **Sheet 드로어** |
 
 공개 영역은 하단 탭바가 네비를 대체하므로 **별도 드로어를 두지 않는다**. 무한 마퀴·과한 스프링 금지(Motion 원칙 준수).
 
@@ -469,7 +508,7 @@ shadcn(Radix) 프리미티브는 **동작·접근성이 중요한 컴포넌트**
 
 **확인 모달 실패 정책:** 공용 `ConfirmDialog` 는 실패해도 모달을 닫지 않고 `errorMessage` 로 모달 **안에서** 안내한다. 화면 본문에 그리면 스크림·`aria-hidden` 뒤에 갇힌다. 새 확인 모달을 만들지 말고 공용 `ConfirmDialog` 를 쓴다. (근거: 이슈 #826)
 
-**아직 이 규칙 밖인 것(후속):** 관리자 개별 다이얼로그(`AdminClubDeleteDialog` 등) — 자체 `errorMessage` 는 있으나 `role="alert"` 없음 · 슬롯 배정(`MemberAssignModal`) — 실패가 페이지 본문 피드백으로 빠짐 · 일괄 처리 — 부분 성공 결과라 **의도적 예외** · 시설 예약 폼 — 닫고 토스트(토스트는 스크림 위라 도달 가능).
+**아직 이 규칙 밖인 것(후속):** 관리자 개별 다이얼로그(`AdminClubDeleteDialog` 등) — 자체 `errorMessage` 는 있으나 `role="alert"` 없음 · 자동배정 확인(`AutoAssignDialog`) — 실패하면 창을 닫고 본문 피드백 · 일괄 처리 — 부분 성공 결과라 **의도적 예외** · 시설 예약 폼 — 닫고 토스트(토스트는 스크림 위라 도달 가능).
 
 **토큰:** 스크림 `bg-ink/35`, 패널 `bg-card`(시트 `rounded-t-xl` / 중앙 `rounded-lg`)·`shadow-3` — **두잉 토큰 고정, stone 금지.** **금지:** 중앙 Dialog 안 긴 세로 스크롤(상하 잘림) · 키보드가 액션 가리는 배치 · 파괴 액션을 스크림/Esc 로 실행.
 

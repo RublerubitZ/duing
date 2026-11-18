@@ -79,7 +79,7 @@ export function NotificationSheet({ open, onOpenChange, unreadCount }: Props) {
           <div className="flex items-center gap-2">
             <SheetTitle>알림</SheetTitle>
             {unreadCount > 0 && (
-              <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-rose-500 px-1.5 text-[11px] font-bold text-white">
+              <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-danger px-1.5 text-[11px] font-bold text-paper">
                 {unreadCount > 99 ? '99+' : unreadCount}
               </span>
             )}

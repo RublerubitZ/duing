@@ -319,13 +319,13 @@ export function SubmissionPrepareTab() {
           <input
             type="date" aria-label="시작일" value={startDate}
             onChange={(event) => applyPeriod(event.target.value, endDate)}
-            className="rounded-[10px] border border-line bg-paper px-3 py-[7px] text-[13px] text-charcoal"
+            className="rounded-[10px] border border-field bg-paper px-3 py-[7px] text-[13px] text-charcoal"
           />
           <span aria-hidden className="text-xs text-charcoal-3">–</span>
           <input
             type="date" aria-label="종료일" value={endDate}
             onChange={(event) => applyPeriod(startDate, event.target.value)}
-            className="rounded-[10px] border border-line bg-paper px-3 py-[7px] text-[13px] text-charcoal"
+            className="rounded-[10px] border border-field bg-paper px-3 py-[7px] text-[13px] text-charcoal"
           />
           <div role="group" aria-label="기간 프리셋" className="flex gap-1">
             {PERIOD_PRESETS.map((preset) => (
@@ -345,11 +345,11 @@ export function SubmissionPrepareTab() {
           <input
             type="search" aria-label="동아리 검색" value={clubKeyword} placeholder="동아리 검색"
             onChange={(event) => setClubKeyword(event.target.value)}
-            className="rounded-[10px] bg-graysoft px-3.5 py-2 text-[13px] text-charcoal placeholder:text-charcoal-3"
+            className="rounded-[10px] border border-field bg-graysoft px-3.5 py-2 text-[13px] text-charcoal placeholder:text-charcoal-3"
           />
           <select
             aria-label="제출 상태"
-            className="rounded-[10px] border border-line bg-paper px-3 py-2 text-[13px] font-semibold text-charcoal"
+            className="rounded-[10px] border border-field bg-paper px-3 py-2 text-[13px] font-semibold text-charcoal"
             value={summaryFilter}
             onChange={(event) => setSummaryFilter(toSummaryFilter(event.target.value))}
           >
@@ -375,10 +375,9 @@ export function SubmissionPrepareTab() {
         )}
         {!candidatesQuery.isLoading && candidatesQuery.isSuccess && visibleBookings.length === 0 && (
           summaryFilter !== 'ALL' || keyword !== '' ? (
-            <EmptyState icon="🔍" title="조건에 맞는 예약이 없어요" body="검색어나 필터를 바꿔보세요." />
+            <EmptyState title="조건에 맞는 예약이 없어요" body="검색어나 필터를 바꿔보세요." />
           ) : (
             <EmptyState
-              icon="✅"
               title="미제출 예약이 없어요"
               body={'예약을 승인하면 여기에 자동으로 표시돼요.\n대기 중인 신청은 예약 검토 탭에서 처리할 수 있어요.'}
               action={

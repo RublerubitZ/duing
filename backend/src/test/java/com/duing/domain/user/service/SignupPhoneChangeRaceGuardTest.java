@@ -10,6 +10,7 @@ import static org.mockito.Mockito.when;
 import com.duing.common.fixture.UserFixture;
 import com.duing.domain.clubmember.repository.ClubMemberRepository;
 import com.duing.domain.clubmember.service.ClubMemberCommandService;
+import com.duing.domain.interview.service.InterviewAssignmentService;
 import com.duing.domain.joincode.service.JoinRequestService;
 import com.duing.domain.user.entity.College;
 import com.duing.domain.user.entity.Grade;
@@ -59,6 +60,7 @@ class SignupPhoneChangeRaceGuardTest {
             mock(ApplicationEventPublisher.class),
             mock(ClubMemberCommandService.class),
             mock(JoinRequestService.class),
+            mock(InterviewAssignmentService.class),
             mock(ProfileCheckConfirmationRecorder.class));
 
     @Test

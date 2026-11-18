@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { AdminClubCreateForm } from '../_components/AdminClubCreateForm';
 import { toRoute } from '../../../../_lib/route';
+import { ArrowLeft } from '@/components/duing/Icon';
 
 export function AdminClubCreatePage() {
   return (
@@ -10,9 +11,10 @@ export function AdminClubCreatePage() {
       <header className="mb-6">
         <Link
           href={toRoute('/admin/clubs')}
-          className="text-charcoal-3 text-xs font-semibold hover:underline"
+          className="inline-flex items-center gap-1 text-charcoal-3 text-xs font-semibold hover:underline"
         >
-          ← 동아리 목록
+          <ArrowLeft size={14} aria-hidden />
+          동아리 목록
         </Link>
         <h1 className="mt-2 text-2xl font-bold text-ink">새 동아리 등록</h1>
         <p className="text-charcoal-3 mt-1 text-sm">

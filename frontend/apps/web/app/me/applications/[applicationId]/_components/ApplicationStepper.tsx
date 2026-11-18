@@ -21,6 +21,7 @@ const CLOSED_WITHOUT_RESULT_GUIDE = '모집이 종료되어 결과가 아직 발
 // 서류검토 단계는 제거하고, 면접 단계는 면접 모집(useInterview=true)에서만 표시한다 (스펙 §5-5).
 //   면접 모집   : 지원 완료(0) → 면접 대상(1) → 면접 일정 배정 완료(2) → 최종 결과(3)
 //   비면접 모집 : 지원 완료(0) → 최종 결과(1)
+// 목록 행(ApplicationsPage deriveSteps)·홈 미니 막대(SectionApply)도 같은 규칙이다.
 //
 // 활성 단계 결정:
 //   면접 모집 + phase != null && phase != 'NOT_APPLICABLE' → guide.stepIndex 우선
@@ -87,7 +88,7 @@ function resolveActiveStepIndexFromStatus(detail: StepperDetail): number {
     case 'ON_HOLD':
       return 0;
     case 'INTERVIEW_PENDING':
-      // 비면접 모집엔 면접 단계가 없어 지원 완료에 머문다 (정상 흐름에선 발생하지 않는 조합).
+      // 비면접 모집엔 면접 단계가 없어 지원 완료에 머문다 (운영진이 면접을 끈 모집에 남은 면접 대상).
       return detail.useInterview ? INTERVIEW_PENDING_STEP_INDEX : 0;
     case 'ACCEPTED':
     case 'REJECTED':
@@ -194,16 +195,16 @@ export function ApplicationStepper({ detail, phase }: Props) {
           const isPast = index < activeIndex;
           // 마지막 마디의 강조색 — 불합격은 경고색, 결과 없이 종료·운영 중단으로 선발 종료는 중립 회색.
           // 진행 초록을 그대로 쓰면 "여기까지 잘 진행됨"으로 읽혀 종료 사실이 흐려진다(isFinalReject 가 거짓이면 null → 초록).
-          const finalAccent = isFinalReject ? '#D9523A' : closedWithoutResult || endedByDeactivation ? '#8A8F98' : null;
+          const finalAccent = isFinalReject ? 'var(--danger)' : closedWithoutResult || endedByDeactivation ? 'var(--neutral-mid)' : null;
           const isAccentedFinal = step.key === 'finalized' && isActive && finalAccent !== null;
 
           const dotColor = isAccentedFinal
             ? finalAccent
             : isPast || isActive
-            ? '#2E6149'
-            : '#D9D6CC';
-          const dotBackground = isActive ? '#fff' : dotColor;
-          const dotBorder = isAccentedFinal ? finalAccent : isPast || isActive ? '#2E6149' : '#D9D6CC';
+            ? 'var(--ink-soft)'
+            : 'var(--gray-line)';
+          const dotBackground = isActive ? 'var(--paper)' : dotColor;
+          const dotBorder = isAccentedFinal ? finalAccent : isPast || isActive ? 'var(--ink-soft)' : 'var(--gray-line)';
           const labelColor = isPast || isActive ? 'var(--ink-deep)' : 'var(--charcoal-3)';
 
           return (
@@ -237,7 +238,7 @@ export function ApplicationStepper({ detail, phase }: Props) {
                       width: 7,
                       height: 7,
                       borderRadius: '50%',
-                      background: '#2E6149',
+                      background: 'var(--ink-soft)',
                     }}
                   />
                 )}
@@ -247,7 +248,7 @@ export function ApplicationStepper({ detail, phase }: Props) {
                       width: 7,
                       height: 7,
                       borderRadius: '50%',
-                      background: finalAccent ?? '#D9523A',
+                      background: finalAccent ?? 'var(--danger)',
                     }}
                   />
                 )}
@@ -277,7 +278,7 @@ export function ApplicationStepper({ detail, phase }: Props) {
             marginBottom: 0,
             padding: '10px 12px',
             borderRadius: 10,
-            background: 'var(--sage-tint, #E8EEE8)',
+            background: 'var(--sage-tint)',
             color: 'var(--ink-deep)',
             fontSize: 12.5,
             lineHeight: 1.5,

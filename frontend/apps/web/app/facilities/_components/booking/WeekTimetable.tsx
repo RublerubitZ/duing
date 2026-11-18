@@ -29,7 +29,7 @@ const PASTEL_BLOCK_CLASSES = [
 
 // 대기(warm) 고정색 블록 클래스(§8.2) — 파스텔과 달리 상태 고정색이라 라벨 무관 단일.
 // bg /20: 흰 격자 위 구분감(명도 대비) 보강 — /15 는 가용 셀(sage-mist)과 톤이 붙어 흐릿했다.
-const PENDING_BLOCK_CLASS = { bg: 'bg-warm/20', border: 'border-warm/60', accent: 'border-l-warm', name: 'text-[#8E6620]' } as const;
+const PENDING_BLOCK_CLASS = { bg: 'bg-warm/20', border: 'border-warm/60', accent: 'border-l-warm', name: 'text-warm-deep' } as const;
 
 type Props = {
   selectedDate: string;
@@ -75,10 +75,10 @@ function isWithinOperating(slot: BookingAvailabilitySlot, operatingNotes: Bookin
 
 /**
  * 한 요일 컬럼의 렌더 계획(§8.1) — 예약 건(dayBookingEntries: BLOCKED·PENDING 병합)을
- * rowSpan 블록으로, 나머지(AVAILABLE·PAST·DEADLINE_PASSED)를 1시간 셀로 배치한다. 확보 구간은 블록이 아니라
+ * rowSpan 블록으로, 나머지(AVAILABLE·PAST)를 1시간 셀로 배치한다. 확보 구간은 블록이 아니라
  * 셀의 operating 플래그(비차단 정보 표시 — 점선 장식, 스펙 §3 복원).
  * 데이터가 있는 날은 창 안팎과 무관하게 블록을 그린다(2026-09-03 기록 열람 — 지난 날짜·창 이후 익월 날짜의
- * "누가 예약했는지"). 빈 셀의 선택 가능 여부는 cellStateOf 가 창·지난·마감으로 게이팅한다. 데이터 없는 날은 empty. 길이 13(09~21시).
+ * "누가 예약했는지"). 빈 셀의 선택 가능 여부는 cellStateOf 가 창·지난으로 게이팅한다. 데이터 없는 날은 empty. 길이 13(09~21시).
  */
 function buildColumnPlan(day: BookingDayAvailability | undefined): PlanEntry[] {
   if (day === undefined) {
@@ -113,7 +113,7 @@ function buildColumnPlan(day: BookingDayAvailability | undefined): PlanEntry[] {
  * 예약 건은 병합 블록(확정=파스텔 순환·대기=warm — 전부 차단, PC 비인터랙티브), AVAILABLE 은 선택 가능 셀 —
  * 확보 노트 구간이면 점선 sage 가이드, 밖이면 sage(동작 동일: 탭=onTapSlot, 선택일=토글·다른 요일=그 날 전환+단일 선택).
  * 선택일 컬럼은 ink 프레임 + sage tint 로 강조하고, 블록이 여러 행을 차지해도 컬럼 좌우 보더가 이어진다.
- * 차단·지난·창 밖·신청 마감·데이터 없음은 비활성. 지난 날짜·창 밖 날짜도 점유 블록은 그린다(기록 열람).
+ * 차단·지난·창 밖·데이터 없음은 비활성. 지난 날짜·창 밖 날짜도 점유 블록은 그린다(기록 열람).
  */
 export function WeekTimetable({
   selectedDate,
@@ -268,7 +268,7 @@ export function WeekTimetable({
                           selected ? 'border-sage bg-ink text-cream shadow-sm' : state.toneClass
                         }`}
                       >
-                        {selected ? '✓' : slot.status === 'DEADLINE_PASSED' ? '마감' : null}
+                        {selected ? '✓' : null}
                       </button>
                     </td>
                   );
@@ -303,10 +303,8 @@ function blockAriaLabel(entry: PlanBlock, weekdayLabel: string | undefined, dayN
   return entry.label === '예약됨' ? `${prefix} 예약됨` : `${prefix} ${entry.label} 예약됨`;
 }
 
-// 셀 상태 파생 — 지난 > 신청 마감 > 창 밖(게이팅) > 가능(확보 구간=점선 sage·밖=sage) 순. AVAILABLE 만 탭 가능(§4).
+// 셀 상태 파생 — 지난 > 창 밖(게이팅) > 가능(확보 구간=점선 sage·밖=sage) 순. AVAILABLE 만 탭 가능(§4).
 // 지난 판정이 창 밖보다 앞이다 — bookableFrom 이 오늘이라 지난 날짜는 항상 창 밖인데, 기록 열람에서는 "지난"이 맞다(2026-09-03).
-// 신청 마감도 창 밖보다 앞이다 — 창 밖 오늘(오픈일 NULL·내일 오픈)의 남은 빈 칸은 "예약 기간 아님"보다 "마감"이 사실이고,
-// DEADLINE_PASSED 는 서버가 오늘·마감 지난 익일에만 내리므로 창 이후 미래 셀의 "예약 기간 아님"은 그대로다(2026-09-09).
 // BLOCKED/PENDING 은 블록으로 승격돼 미도달.
 function cellStateOf(
   status: BookingAvailabilitySlot['status'],
@@ -315,10 +313,6 @@ function cellStateOf(
   operating: boolean,
 ): CellState {
   if (isPast) return { statusText: '지난', toneClass: 'border-line/60 bg-graysoft/40', selectable: false };
-  // 신청 마감(서버 DEADLINE_PASSED — 사용일 전날 12:00 KST 경과) — 셀 안에 "마감" 텍스트로 자기 라벨을 가진다.
-  if (status === 'DEADLINE_PASSED') {
-    return { statusText: '신청 마감', toneClass: 'border-line/60 bg-graysoft/40 text-charcoal-3', selectable: false };
-  }
   if (!withinWindow) return { statusText: '예약 기간 아님', toneClass: 'border-line/60 bg-graysoft/40', selectable: false };
   if (status === 'AVAILABLE') {
     // 확보 노트 구간의 가용 셀 = 기본 확보 시간 가이드 레이어(스펙 §3 복원) — 색은 일반 가용 셀과 동일(sage),

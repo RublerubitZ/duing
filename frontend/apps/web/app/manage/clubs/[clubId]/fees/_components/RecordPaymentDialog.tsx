@@ -1,5 +1,6 @@
 'use client';
 
+import { useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 
@@ -32,7 +33,7 @@ type RecordPaymentDialogProps = {
 };
 
 const inputCls =
-  'w-full rounded-md border px-4 py-3 text-sm outline-none transition-colors border-line placeholder:text-charcoal-3 focus-visible:border-ink focus-visible:ring-1 focus-visible:ring-ink';
+  'w-full rounded-md border px-4 py-3 text-sm outline-none transition-colors border-field placeholder:text-charcoal-3 focus-visible:border-ink focus-visible:ring-1 focus-visible:ring-ink';
 const errorInputCls = 'border-coral focus-visible:border-coral focus-visible:ring-coral';
 
 // 수동 기록 가능한 납부 수단(AUTO_MATCHED 제외) — 스키마 enum 과 동일 순서.
@@ -51,7 +52,7 @@ export function RecordPaymentDialog({
     register,
     handleSubmit,
     formState: { errors, isSubmitting },
-  } = useForm<RecordPaymentInput>({
+  } = useForm({
     resolver: zodResolver(recordPaymentSchema),
     defaultValues: {
       amount: bill.remainingAmount,
@@ -61,11 +62,19 @@ export function RecordPaymentDialog({
     },
   });
 
+  // 제출 동기 가드 — isSubmitting·isPending 은 렌더 값이라 같은 순간 들어온 두 번째 제출(버튼을 거치지 않는 submit)을 못 막는다(#1608).
+  const isSubmittingRef = useRef(false);
+
   const onSubmit = (formData: RecordPaymentInput) => {
+    if (isSubmittingRef.current) return;
+    isSubmittingRef.current = true;
     recordPayment.mutate(formData, {
       onSuccess: () => {
         addToast('납부를 기록했습니다.');
         onClose();
+      },
+      onSettled: () => {
+        isSubmittingRef.current = false;
       },
     });
   };

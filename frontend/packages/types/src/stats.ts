@@ -1,3 +1,5 @@
+import type { RecruitmentAutoCloseOutlook } from './recruitment';
+
 export type StatsSummary = {
   total: number;
   submitted: number;
@@ -9,6 +11,13 @@ export type StatsSummary = {
   ratio: number;
   /** 가장 오래된 미처리(SUBMITTED) 지원서의 제출 시각. 미처리가 없으면 null, 필드가 없으면 옛 백엔드. */
   oldestPendingSubmittedAt?: string | null;
+  /**
+   * 지금 이 모집을 삭제할 수 있는지 — 서버 삭제 가드와 같은 판정(마감됨·지원서 0건·처리되지 않은 가입 요청 없음).
+   * 지원서는 탈퇴한 지원자 것도 세므로 total 이 0 이어도 false 일 수 있다. 필드가 없으면 옛 백엔드.
+   */
+  deletable?: boolean;
+  /** 자동 마감 전망 — 기간이 끝난 OPEN 모집에만 있다. 없으면(undefined·null) 운영진 안내는 옛 고정 문장이다. */
+  autoClose?: RecruitmentAutoCloseOutlook | null;
 };
 
 export type StatsDailyPoint = {

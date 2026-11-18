@@ -194,7 +194,7 @@ export const FEE_PAYMENT_STATUS_LABEL: Record<PaymentStatus, string> = {
 /** 청구 상태 배지 색. 심각도 배지와 같은 이유로 pill-* 를 쓴다(11.5px 글자 대비 확보). */
 const FEE_BILL_STATUS_BADGE_CLASS: Record<FeeStatus, string> = {
   PENDING: 'pill-warm',
-  PAID: 'bg-sage-mist text-ink',
+  PAID: 'bg-sage/10 text-sage-deep',
   PARTIAL_PAID: 'pill-sky',
   OVERDUE: 'pill-coral',
   CANCELLED: 'bg-graysoft text-charcoal-2',

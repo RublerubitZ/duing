@@ -1,5 +1,7 @@
 'use client';
 
+import Link from 'next/link';
+
 import {
   buildPendingTrendBars,
   pendingTrendComparison,
@@ -8,6 +10,7 @@ import {
   useAdminPendingTrendQuery,
 } from '@duing/hooks';
 import { cn } from '@/app/_lib/cn';
+import { toRoute } from '@/app/_lib/route';
 import { DashboardCard } from '@/components/dashboard/DashboardCard';
 
 import {
@@ -44,6 +47,14 @@ export function AdminPendingTrendCard() {
       // pending-counts 실패는 오늘 막대 "—" 로만 드러낸다 — 이 카드에 "일부 정보를 불러오지 못했어요"를 붙이지 않는다.
       isError={trendQuery.isError}
       isEmpty={!trend}
+      footer={
+        <Link
+          href={toRoute('/admin/weekly-briefing')}
+          className="inline-flex min-h-11 items-center rounded text-xs font-medium text-ink hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink"
+        >
+          주간 브리핑 보기
+        </Link>
+      }
     >
       {trend ? <PendingTrendBody trend={trend} todayTotal={pendingCountsQuery.data?.totalPendingCount ?? null} /> : null}
     </DashboardCard>

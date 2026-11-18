@@ -17,12 +17,15 @@ import com.duing.domain.interview.entity.RoundMemberStatus;
 import com.duing.domain.interview.entity.RoundStatus;
 import com.duing.domain.interview.repository.InterviewScheduleRepository;
 import com.duing.domain.interview.repository.InterviewSlotRepository;
+import com.duing.domain.notification.entity.Notification;
+import com.duing.domain.notification.entity.NotificationType;
 import com.duing.domain.notification.repository.NotificationRepository;
 import com.duing.domain.recruitment.entity.Recruitment;
 import com.duing.domain.user.entity.User;
 import io.restassured.RestAssured;
 import io.restassured.http.ContentType;
 import java.time.LocalDateTime;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -47,6 +50,8 @@ class LeaderInterviewRescheduleControllerTest extends InterviewControllerTestSup
     private static final String SLOT_PATH = "/api/v1/leader/interview-slots/{slotId}";
     private static final String SCHEDULE_PATH =
             "/api/v1/leader/interview-rounds/{roundId}/members/{memberId}/schedule";
+    private static final String ROUND_STATUS_CHANGED_MESSAGE =
+            "라운드 단계가 바뀌었습니다. 최신 상태를 확인한 뒤 다시 시도해주세요.";
 
     @LocalServerPort
     private int port;
@@ -163,10 +168,8 @@ class LeaderInterviewRescheduleControllerTest extends InterviewControllerTestSup
         // 멤버 상태 ASSIGNED 유지 — §16-1 불변식
         assertThat(interviewRoundMemberRepository.findById(member.getId()).orElseThrow().getStatus())
                 .isEqualTo(RoundMemberStatus.ASSIGNED);
-        // INTERVIEW_UPDATED 알림 — dedupKey = "INTERVIEW_UPDATED:a={app}:s={newSlot}"
-        String dedupKey = "INTERVIEW_UPDATED:a=" + application.getId() + ":s=" + newSlot.getId();
-        assertThat(notificationRepository.existsByUserIdAndDedupKey(
-                application.getUser().getId(), dedupKey)).isTrue();
+        // INTERVIEW_UPDATED 알림 — 새 슬롯 시각으로 한 건
+        assertThat(updatedNotificationBodies(application)).containsExactly("07/03 11:00으로 일정이 변경되었습니다");
     }
 
     @Test
@@ -184,9 +187,7 @@ class LeaderInterviewRescheduleControllerTest extends InterviewControllerTestSup
                 .then().statusCode(HttpStatus.NO_CONTENT.value());
 
         // ASSIGNING 은 draft — INTERVIEW_UPDATED 알림 없음
-        String dedupKey = "INTERVIEW_UPDATED:a=" + application.getId() + ":s=" + slot.getId();
-        assertThat(notificationRepository.existsByUserIdAndDedupKey(
-                application.getUser().getId(), dedupKey)).isFalse();
+        assertThat(updatedNotificationBodies(application)).isEmpty();
     }
 
     @Test
@@ -268,27 +269,30 @@ class LeaderInterviewRescheduleControllerTest extends InterviewControllerTestSup
     }
 
     @Test
-    @DisplayName("같은 슬롯으로 다시 옮기는 멱등 재배정도 성공한다")
-    void scheduledRoundIdempotentReassignToSameSlotSucceeds() {
+    @DisplayName("확정된 라운드에서 지금 일정과 같은 슬롯을 보내면 아무것도 바뀌지 않고 알림도 없다")
+    void scheduledRoundSameSlotIsNoOpWithoutNotification() {
         InterviewRound round = saveRound(RoundStatus.SCHEDULED);
         InterviewSlot slot = saveSlot(round, "2026-07-08T10:00:00", 1);
         Application application = saveInterviewPendingApplication(recruitment, "멱등재배정확정");
         InterviewRoundMember member = saveMember(round, application, RoundMemberStatus.ASSIGNED);
-        interviewScheduleRepository.save(InterviewScheduleFixture.assigned(
+        // 지금 일정이 확정으로 정해진 경우 — 앞선 일정 변경 알림이 없어 이벤트가 나가면 알림 행이 반드시 생긴다.
+        InterviewSchedule confirmedSchedule = interviewScheduleRepository.save(InterviewScheduleFixture.assigned(
                 application.getId(), slot.getId(), round.getId()));
 
-        // 같은 슬롯으로 재배정 — BE#10 전례(ASSIGNING 멱등)를 SCHEDULED 에서 확인
         givenLeader()
                 .contentType(ContentType.JSON)
-                .body(Map.of("slotId", slot.getId()))
+                .body(Map.of("slotId", slot.getId(), "expectedRoundStatus", "SCHEDULED"))
                 .when().put(SCHEDULE_PATH, round.getId(), member.getId())
                 .then().statusCode(HttpStatus.NO_CONTENT.value());
 
-        Optional<InterviewSchedule> activeSchedule = interviewScheduleRepository
+        // 이벤트 0건의 대리 단언 — @RecordApplicationEvents 는 테스트 스레드 ThreadLocal 이라 요청 스레드의 이벤트를 받지 못한다.
+        assertThat(notificationRepository.countByUserIdAndReadAtIsNull(application.getUser().getId())).isZero();
+        InterviewSchedule activeSchedule = interviewScheduleRepository
                 .findByRoundIdAndApplicationIdAndStatus(
-                        round.getId(), application.getId(), InterviewScheduleStatus.ASSIGNED);
-        assertThat(activeSchedule).isPresent();
-        assertThat(activeSchedule.orElseThrow().getSlotId()).isEqualTo(slot.getId());
+                        round.getId(), application.getId(), InterviewScheduleStatus.ASSIGNED)
+                .orElseThrow();
+        assertThat(activeSchedule.getId()).isEqualTo(confirmedSchedule.getId());
+        assertThat(activeSchedule.getSlotId()).isEqualTo(slot.getId());
     }
 
     @Test
@@ -328,7 +332,168 @@ class LeaderInterviewRescheduleControllerTest extends InterviewControllerTestSup
                 .then().statusCode(HttpStatus.CONFLICT.value());
     }
 
+    @Test
+    @DisplayName("배정 검토 화면에서 보낸 배정이 그 사이 확정된 라운드에 오면 거절되고 일정 변경 알림도 없다")
+    void staleAssigningScreenOnScheduledRoundIsRejected() {
+        InterviewRound round = saveRound(RoundStatus.SCHEDULED);
+        InterviewSlot oldSlot = saveSlot(round, "2026-07-08T10:00:00", 1);
+        InterviewSlot newSlot = saveSlot(round, "2026-07-08T11:00:00", 1);
+        Application application = saveInterviewPendingApplication(recruitment, "낡은화면대상");
+        InterviewRoundMember member = saveMember(round, application, RoundMemberStatus.ASSIGNED);
+        interviewScheduleRepository.save(InterviewScheduleFixture.assigned(
+                application.getId(), oldSlot.getId(), round.getId()));
+
+        givenLeader()
+                .contentType(ContentType.JSON)
+                .body(Map.of("slotId", newSlot.getId(), "expectedRoundStatus", "ASSIGNING"))
+                .when().put(SCHEDULE_PATH, round.getId(), member.getId())
+                .then().statusCode(HttpStatus.CONFLICT.value())
+                .body("message", org.hamcrest.Matchers.equalTo(ROUND_STATUS_CHANGED_MESSAGE));
+
+        // 배정은 원래 슬롯 그대로, 새 슬롯으로의 변경 알림 없음
+        assertThat(interviewScheduleRepository
+                .findByRoundIdAndApplicationIdAndStatus(
+                        round.getId(), application.getId(), InterviewScheduleStatus.ASSIGNED)
+                .orElseThrow().getSlotId()).isEqualTo(oldSlot.getId());
+        assertThat(updatedNotificationBodies(application)).isEmpty();
+    }
+
+    @Test
+    @DisplayName("확정 화면에서 보낸 일정 변경은 그대로 바뀌고 알림이 간다")
+    void scheduledScreenRescheduleWithMatchingExpectedStatus() {
+        InterviewRound round = saveRound(RoundStatus.SCHEDULED);
+        InterviewSlot oldSlot = saveSlot(round, "2026-07-09T10:00:00", 1);
+        InterviewSlot newSlot = saveSlot(round, "2026-07-09T11:00:00", 1);
+        Application application = saveInterviewPendingApplication(recruitment, "확정화면대상");
+        InterviewRoundMember member = saveMember(round, application, RoundMemberStatus.ASSIGNED);
+        interviewScheduleRepository.save(InterviewScheduleFixture.assigned(
+                application.getId(), oldSlot.getId(), round.getId()));
+
+        givenLeader()
+                .contentType(ContentType.JSON)
+                .body(Map.of("slotId", newSlot.getId(), "expectedRoundStatus", "SCHEDULED"))
+                .when().put(SCHEDULE_PATH, round.getId(), member.getId())
+                .then().statusCode(HttpStatus.NO_CONTENT.value());
+
+        assertThat(interviewScheduleRepository
+                .findByRoundIdAndApplicationIdAndStatus(
+                        round.getId(), application.getId(), InterviewScheduleStatus.ASSIGNED)
+                .orElseThrow().getSlotId()).isEqualTo(newSlot.getId());
+        assertThat(updatedNotificationBodies(application)).containsExactly("07/09 11:00으로 일정이 변경되었습니다");
+    }
+
+    @Test
+    @DisplayName("배정 검토 화면에서 보낸 배정은 배정 검토 라운드에 그대로 들어가고 알림이 없다")
+    void assigningScreenAssignWithMatchingExpectedStatus() {
+        InterviewRound round = saveRound(RoundStatus.ASSIGNING);
+        InterviewSlot slot = saveSlot(round, "2026-07-10T10:00:00", 1);
+        Application application = saveInterviewPendingApplication(recruitment, "배정검토화면대상");
+        InterviewRoundMember member = saveMember(round, application, RoundMemberStatus.RESPONDED);
+
+        givenLeader()
+                .contentType(ContentType.JSON)
+                .body(Map.of("slotId", slot.getId(), "expectedRoundStatus", "ASSIGNING"))
+                .when().put(SCHEDULE_PATH, round.getId(), member.getId())
+                .then().statusCode(HttpStatus.NO_CONTENT.value());
+
+        assertThat(interviewScheduleRepository
+                .findByRoundIdAndApplicationIdAndStatus(
+                        round.getId(), application.getId(), InterviewScheduleStatus.ASSIGNED)).isPresent();
+        assertThat(updatedNotificationBodies(application)).isEmpty();
+    }
+
+    @Test
+    @DisplayName("취소된 라운드에 배정 검토 화면에서 보내면 단계가 바뀌었다는 문구로 거절된다")
+    void cancelledRoundWithExpectedAssigningGetsStatusChangedMessage() {
+        InterviewRound round = saveRound(RoundStatus.CANCELLED);
+        InterviewSlot slot = saveSlot(round, "2026-07-11T10:00:00", 1);
+        Application application = saveInterviewPendingApplication(recruitment, "취소라운드대상");
+        InterviewRoundMember member = saveMember(round, application, RoundMemberStatus.RESPONDED);
+
+        givenLeader()
+                .contentType(ContentType.JSON)
+                .body(Map.of("slotId", slot.getId(), "expectedRoundStatus", "ASSIGNING"))
+                .when().put(SCHEDULE_PATH, round.getId(), member.getId())
+                .then().statusCode(HttpStatus.CONFLICT.value())
+                // 기대 단계 검사가 단계 허용 검사보다 먼저인지 문구로 구분한다
+                .body("message", org.hamcrest.Matchers.equalTo(ROUND_STATUS_CHANGED_MESSAGE));
+    }
+
+    @Test
+    @DisplayName("다른 동아리 사용자는 기대 단계가 달라도 404 — 남의 라운드 단계가 새지 않는다")
+    void outsiderGets404EvenWithMismatchedExpectedStatus() {
+        InterviewRound round = saveRound(RoundStatus.SCHEDULED);
+        InterviewSlot slot = saveSlot(round, "2026-07-12T10:00:00", 1);
+        Application application = saveInterviewPendingApplication(recruitment, "외부요청대상");
+        InterviewRoundMember member = saveMember(round, application, RoundMemberStatus.ASSIGNED);
+        User outsider = saveUser("다른동아리회장");
+        Club otherClub = saveActiveClub("다른동아리");
+        clubMemberRepository.save(ClubMember.asLeader(otherClub, outsider));
+        String outsiderToken = jwtTokenProvider.createToken(outsider.getId(), outsider.getRole().name());
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + outsiderToken)
+                .contentType(ContentType.JSON)
+                .body(Map.of("slotId", slot.getId(), "expectedRoundStatus", "ASSIGNING"))
+                .when().put(SCHEDULE_PATH, round.getId(), member.getId())
+                .then().statusCode(HttpStatus.NOT_FOUND.value());
+    }
+
+    @Test
+    @DisplayName("지금 일정과 같은 슬롯이어도 낡은 배정 검토 화면에서 보내면 단계가 바뀌었다는 문구로 거절된다")
+    void staleScreenSameSlotGetsStatusChangedMessage() {
+        InterviewRound round = saveRound(RoundStatus.SCHEDULED);
+        InterviewSlot slot = saveSlot(round, "2026-07-13T10:00:00", 1);
+        Application application = saveInterviewPendingApplication(recruitment, "낡은화면같은슬롯");
+        InterviewRoundMember member = saveMember(round, application, RoundMemberStatus.ASSIGNED);
+        interviewScheduleRepository.save(InterviewScheduleFixture.assigned(
+                application.getId(), slot.getId(), round.getId()));
+
+        givenLeader()
+                .contentType(ContentType.JSON)
+                .body(Map.of("slotId", slot.getId(), "expectedRoundStatus", "ASSIGNING"))
+                .when().put(SCHEDULE_PATH, round.getId(), member.getId())
+                .then().statusCode(HttpStatus.CONFLICT.value())
+                // 같은 슬롯 생략이 기대 단계 검사보다 앞이면 낡은 화면이 204 를 받는다
+                .body("message", org.hamcrest.Matchers.equalTo(ROUND_STATUS_CHANGED_MESSAGE));
+    }
+
+    @Test
+    @DisplayName("확정된 라운드에서 A→B→A→B 로 옮기면 옮길 때마다 변경 알림이 가고 마지막 알림은 B 시각이다")
+    void scheduledRoundBackAndForthNotifiesEveryMove() {
+        InterviewRound round = saveRound(RoundStatus.SCHEDULED);
+        InterviewSlot slotA = saveSlot(round, "2026-07-14T10:00:00", 1);
+        InterviewSlot slotB = saveSlot(round, "2026-07-14T11:00:00", 1);
+        Application application = saveInterviewPendingApplication(recruitment, "왕복재배정");
+        InterviewRoundMember member = saveMember(round, application, RoundMemberStatus.ASSIGNED);
+        interviewScheduleRepository.save(InterviewScheduleFixture.assigned(
+                application.getId(), slotA.getId(), round.getId()));
+
+        // 세 번째 이동(다시 B)은 앞서 변경 알림을 받은 슬롯으로 돌아가는 이동이다 — 키가 (지원, 슬롯)뿐이면 여기서 빠진다.
+        for (InterviewSlot targetSlot : List.of(slotB, slotA, slotB)) {
+            givenLeader()
+                    .contentType(ContentType.JSON)
+                    .body(Map.of("slotId", targetSlot.getId(), "expectedRoundStatus", "SCHEDULED"))
+                    .when().put(SCHEDULE_PATH, round.getId(), member.getId())
+                    .then().statusCode(HttpStatus.NO_CONTENT.value());
+        }
+
+        assertThat(updatedNotificationBodies(application)).containsExactly(
+                "07/14 11:00으로 일정이 변경되었습니다",
+                "07/14 10:00으로 일정이 변경되었습니다",
+                "07/14 11:00으로 일정이 변경되었습니다");
+    }
+
     // ── 헬퍼 ─────────────────────────────────────────────────────────────────
+
+    private List<String> updatedNotificationBodies(Application application) {
+        return notificationRepository.findAll().stream()
+                .filter(notification -> notification.getUserId().equals(application.getUser().getId()))
+                .filter(notification -> notification.getType() == NotificationType.INTERVIEW_UPDATED)
+                .sorted(Comparator.comparing(Notification::getId))
+                .map(Notification::getBody)
+                .toList();
+    }
 
     private io.restassured.specification.RequestSpecification givenLeader() {
         return RestAssured.given().header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken);

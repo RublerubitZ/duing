@@ -6,10 +6,14 @@ const MAX_QUERY_RETRIES = 1;
 
 // 재시도가 무의미하거나 해로운 오류: 인증 실패(401/403)는 반복해도 결과가 같고,
 // TIMEOUT 은 이미 분류별 타임아웃만큼 대기했으므로 재시도가 체감 대기를 배가시킨다.
+// 요청 한도(429)는 약 1초 뒤 재시도해도 서버의 창이 대개 그대로라 다시 429 다 — 거절 건수만 두 배가 된다.
 export function isNonRetryableError(error: unknown): boolean {
   return (
     error instanceof ApiError &&
-    (error.status === 401 || error.status === 403 || error.code === 'TIMEOUT')
+    (error.status === 401 ||
+      error.status === 403 ||
+      error.status === 429 ||
+      error.code === 'TIMEOUT')
   );
 }
 

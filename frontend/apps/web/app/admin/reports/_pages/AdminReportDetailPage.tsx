@@ -13,6 +13,7 @@ import {
   REPORT_TARGET_TYPE_LABEL,
   REPORT_REASON_LABEL,
 } from '../_lib/reportLabels';
+import { ArrowLeft } from '@/components/duing/Icon';
 
 type Props = {
   reportId: number;
@@ -63,9 +64,10 @@ export function AdminReportDetailPage({ reportId }: Props) {
       <header className="mb-6 flex items-center gap-3">
         <Link
           href="/admin/reports"
-          className="text-[13px] text-charcoal-2 hover:text-ink"
+          className="inline-flex items-center gap-1 text-[13px] text-charcoal-2 hover:text-ink"
         >
-          ← 목록으로
+          <ArrowLeft size={14} aria-hidden />
+          목록으로
         </Link>
         <h1 className="text-[22px] font-bold text-ink">신고 상세</h1>
       </header>

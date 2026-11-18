@@ -47,4 +47,10 @@ public interface ClubAuditEventRepositoryCustom {
      */
     Map<ClubAuditEventType, Long> countEventsByTypeSince(Collection<ClubAuditEventType> types,
                                                          LocalDateTime since);
+
+    /**
+     * 기간 안에 types 이벤트를 남긴 동아리 수 — 주간 브리핑의 "입금 계좌를 바꾸거나 지운 동아리"가 첫 사용처라 전 동아리 집계다.
+     * 경계는 created_at 과 같은 JVM 존 벽시계, from 포함·to 미만. 대상 종류가 없으면 0.
+     */
+    long countDistinctClubsBetween(Collection<ClubAuditEventType> types, LocalDateTime createdFrom, LocalDateTime createdTo);
 }

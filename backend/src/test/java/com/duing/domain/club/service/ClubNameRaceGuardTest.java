@@ -90,7 +90,7 @@ class ClubNameRaceGuardTest {
     @DisplayName("선조회를 함께 통과한 동시 개명이 uk_club_name_active 에 걸리면 사전 검사와 같은 중복 이름 409 로 표면화된다")
     void racedClubRenameSurfacesAsDuplicateClubName() {
         Club club = ClubFixture.academic("기존이름");
-        when(clubRepository.findById(1L)).thenReturn(Optional.of(club));
+        when(clubRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(club));
         when(clubRepository.existsByName("새이름")).thenReturn(false);
         doThrow(uniqueViolation("uk_club_name_active")).when(clubRepository).flush();
 

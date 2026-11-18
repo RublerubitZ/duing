@@ -126,7 +126,7 @@ describe('SubmissionBatchDetailPage', () => {
   it('REVIEWING 배치의 뒤로가기는 제출 대기 탭, 완료 배치는 제출 이력 탭으로 향한다', () => {
     mockDetailQuery.mockReturnValue(detailSuccess(makeDetail()));
     const { unmount } = render(<SubmissionBatchDetailPage batchId={1} />);
-    expect(screen.getByRole('link', { name: '← 제출 대기' })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: '제출 대기 목록' })).toHaveAttribute(
       'href',
       '/admin/facility-bookings?tab=ready',
     );
@@ -136,7 +136,7 @@ describe('SubmissionBatchDetailPage', () => {
       detailSuccess(makeDetail({ batch: makeBatch({ completed: true, completedAt: '2026-08-02T09:00:00' }) })),
     );
     render(<SubmissionBatchDetailPage batchId={1} />);
-    expect(screen.getByRole('link', { name: '← 제출 이력' })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: '제출 이력 목록' })).toHaveAttribute(
       'href',
       '/admin/facility-bookings?tab=archive',
     );
@@ -145,7 +145,7 @@ describe('SubmissionBatchDetailPage', () => {
   it('상세 로딩 전에는 뒤로가기가 제출 이력 탭을 가리킨다(상태를 모를 때의 폴백)', () => {
     mockDetailQuery.mockReturnValue({ data: undefined, isLoading: true, isSuccess: false, isError: false });
     render(<SubmissionBatchDetailPage batchId={1} />);
-    expect(screen.getByRole('link', { name: '← 제출 이력' })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: '제출 이력 목록' })).toHaveAttribute(
       'href',
       '/admin/facility-bookings?tab=archive',
     );

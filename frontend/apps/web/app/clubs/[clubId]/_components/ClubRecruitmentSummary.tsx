@@ -50,7 +50,8 @@ export function ClubRecruitmentSummary({ recruitment }: Props) {
     { label: '기간', value: recruitmentPeriodLabel(recruitment.startDate, recruitment.endDate) },
     { label: '대상', value: recruitment.targetRole === 'OFFICER' ? '운영진' : '부원' },
   ];
-  if (recruitment.interviewStartDate && recruitment.interviewEndDate) {
+  // 면접을 끄면 서버가 면접 기간을 그대로 둔다(부분 갱신) — 인원의 '(서류)' 와 같은 기준으로 가린다.
+  if (recruitment.useInterview && recruitment.interviewStartDate && recruitment.interviewEndDate) {
     rows.push({
       label: '면접',
       value: `${recruitment.interviewStartDate} ~ ${recruitment.interviewEndDate}`,
@@ -67,7 +68,7 @@ export function ClubRecruitmentSummary({ recruitment }: Props) {
     <section className="rounded-2xl bg-sage-mist px-4 py-3" aria-label="모집 정보">
       <div className="mb-2 flex items-center justify-between">
         <span className="flex items-center gap-1.5 text-[13px] font-bold text-ink-deep">
-          <Sparkle size={13} color="#1F4A36" />
+          <Sparkle size={13} color="var(--ink)" />
           {header}
         </span>
         {end && <span className="tabular-nums text-[12.5px] font-bold text-ink">{end}</span>}

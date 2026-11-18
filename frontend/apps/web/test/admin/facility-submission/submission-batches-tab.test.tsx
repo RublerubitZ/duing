@@ -169,7 +169,7 @@ describe('SubmissionBatchesTab', () => {
     render(<SubmissionBatchesTab />);
 
     const agingLabel = screen.getByText('생성 4일 경과');
-    expect(agingLabel).toHaveClass('text-[#8E6620]');
+    expect(agingLabel).toHaveClass('text-warm-deep');
   });
 
   it('완료·취소 배치는 배지만 노출하고 REVIEWING 전용 액션(제출 완료·취소)은 없다', () => {

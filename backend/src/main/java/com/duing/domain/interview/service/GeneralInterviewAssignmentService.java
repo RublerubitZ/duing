@@ -1,5 +1,7 @@
 package com.duing.domain.interview.service;
 
+import com.duing.domain.application.entity.ApplicationStatus;
+import com.duing.domain.application.repository.ApplicationRepository;
 import com.duing.domain.interview.entity.InterviewAvailability;
 import com.duing.domain.interview.entity.InterviewRound;
 import com.duing.domain.interview.entity.InterviewRoundMember;
@@ -28,6 +30,7 @@ import java.time.LocalDateTime;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
@@ -40,8 +43,8 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional(readOnly = true)
 public class GeneralInterviewAssignmentService implements InterviewAssignmentService {
 
-    private static final Set<RoundStatus> EXCLUDABLE_ROUND_STATUSES =
-            Set.of(RoundStatus.DRAFT, RoundStatus.COLLECTING, RoundStatus.ASSIGNING);
+    // 운영진 제외는 진행 중 라운드에서만 — 결과 확정 정리(releaseOnResultDecided)와 같은 집합이어야 한다.
+    private static final Set<RoundStatus> EXCLUDABLE_ROUND_STATUSES = RoundStatus.inProgressSet();
 
     // §6.4 — ASSIGNING(draft 수동 배정)·SCHEDULED(확정 후 개별 재배정) 허용.
     // CANCELLED 는 집합에 없으므로 종결 상태가 새지 않는다.
@@ -53,6 +56,7 @@ public class GeneralInterviewAssignmentService implements InterviewAssignmentSer
     private final InterviewAvailabilityRepository interviewAvailabilityRepository;
     private final InterviewSlotRepository interviewSlotRepository;
     private final InterviewScheduleRepository interviewScheduleRepository;
+    private final ApplicationRepository applicationRepository;
     private final InterviewRoundAccessor interviewRoundAccessor;
     private final InterviewMatchingService interviewMatchingService;
     private final ApplicationEventPublisher eventPublisher;
@@ -80,6 +84,12 @@ public class GeneralInterviewAssignmentService implements InterviewAssignmentSer
 
         List<InterviewRoundMember> respondedMembers = interviewRoundMemberRepository
                 .findAllByRoundIdAndStatusForUpdate(roundId, RoundMemberStatus.RESPONDED);
+        // 결과를 정한(합격·불합격) 응답자는 배정하지 않는다 — 결과 확정 정리(#1659) 전에 결과를 정한 멤버는 응답 완료로 남아 있다.
+        // 지원서는 잠그지 않고 상태만 읽는다(수동 배정과 같은 이유). 겹치는 결과 확정은 멤버 잠금에서 갈린다 — 결과 확정이 먼저 잡았으면 위 조회가 그 멤버를 거르고,
+        // 늦으면 이 배정이 커밋된 뒤 결과 확정이 초안을 지운다(releaseOnResultDecided). 그래서 여기서 거르는 것은 이미 커밋된 결과뿐이다.
+        Set<Long> undecidedApplicationIds = Set.copyOf(applicationRepository.findIdsByIdInAndStatusIn(
+                respondedMembers.stream().map(InterviewRoundMember::getApplicationId).toList(),
+                ApplicationStatus.activeSet()));
 
         Map<Long, Set<Long>> selectedSlotIdsByApplicationId = interviewAvailabilityRepository
                 .findByRoundId(roundId).stream()
@@ -88,6 +98,7 @@ public class GeneralInterviewAssignmentService implements InterviewAssignmentSer
 
         MatchingInput matchingInput = new MatchingInput(
                 respondedMembers.stream()
+                        .filter(member -> undecidedApplicationIds.contains(member.getApplicationId()))
                         .map(member -> new MatchingInput.ApplicantSelection(
                                 member.getApplicationId(),
                                 selectedSlotIdsByApplicationId.getOrDefault(
@@ -117,11 +128,16 @@ public class GeneralInterviewAssignmentService implements InterviewAssignmentSer
 
     @Override
     @Transactional
-    public void assignSchedule(Long roundId, Long memberId, Long slotId, Long currentUserId) {
+    public void assignSchedule(Long roundId, Long memberId, Long slotId, RoundStatus expectedRoundStatus,
+                               Long currentUserId) {
         // 잠금 순서 §16-7-4: round → slot → member.
         interviewRoundAccessor.requireManagerForWriteByRoundId(roundId, currentUserId);
         InterviewRound round = interviewRoundRepository.findByIdForUpdate(roundId)
                 .orElseThrow(InterviewException.RoundNotFound::new);
+        // 잠금 조회로 읽은 단계와 비교한다(앞에서 라운드 엔티티를 읽지 않는다) — 화면을 연 뒤 확정·취소된 라운드를 낡은 화면이 바꾸지 않게.
+        if (expectedRoundStatus != null && expectedRoundStatus != round.getStatus()) {
+            throw new InterviewException.RoundStatusChanged();
+        }
         // SCHEDULED 재배정 성공 시 INTERVIEW_UPDATED 알림 발행 (메서드 마지막).
         if (!ASSIGNABLE_ROUND_STATUSES.contains(round.getStatus())) {
             throw new InterviewException.RoundTransitionNotAllowed();
@@ -130,18 +146,34 @@ public class GeneralInterviewAssignmentService implements InterviewAssignmentSer
         InterviewSlot slot = interviewSlotRepository.findByIdAndRoundIdForUpdate(slotId, roundId)
                 .orElseThrow(InterviewException.InvalidSlotSelection::new);
         InterviewRoundMember member = getLockedMemberOfRound(roundId, memberId);
+        // 결과를 정한 지원은 일정을 바꾸지 않는다 — 확정 라운드는 결과 확정 정리 대상이 아니라 ASSIGNED 로 남는다(#1659).
+        // 지원서는 잠그지 않는다: 결과 확정(지원서 → 멤버)·응답 API(지원서 → 슬롯)가 지원서를 먼저 잠가, 슬롯·멤버를 쥔 채 잠그면 교착이다.
+        // 잠그지 않아 남는 경합 — 배정 검토는 결과 확정이 멤버 잠금을 기다렸다가 정리해 남는 것이 없다. 확정 단계는 직렬화 지점이 없어 일정이 옮겨질 수 있고,
+        // 알림은 리스너가 커밋 뒤 다시 읽은 상태로 갈린다(결과가 먼저 커밋됐으면 빠지고, 아니면 나간다 — 일정 변경 → 결과 순서와 같다).
+        if (applicationRepository.findStatusById(member.getApplicationId())
+                .filter(ApplicationStatus::isTerminal)
+                .isPresent()) {
+            throw new InterviewException.ApplicationAlreadyDecided();
+        }
         if (member.getStatus() == RoundMemberStatus.EXCLUDED) {
             throw new InterviewException.MemberTransitionNotAllowed();
         }
 
-        // 본인 기존 배정을 먼저 비워야 "만석 슬롯 내 본인 재배정(멱등)" 이 자연 통과한다.
-        removeActiveSchedule(roundId, member.getApplicationId());
+        Optional<InterviewSchedule> activeSchedule = interviewScheduleRepository
+                .findByRoundIdAndApplicationIdAndStatus(roundId, member.getApplicationId(),
+                        InterviewScheduleStatus.ASSIGNED);
+        // 지금 배정과 같은 슬롯이면 바꿀 것이 없다 — 지웠다 다시 만들면 확정 단계에서 지원자에게 일정 변경 알림이 나간다.
+        if (activeSchedule.filter(schedule -> schedule.getSlotId().equals(slotId)).isPresent()) {
+            return;
+        }
+        // 삭제는 count 앞 — count 쿼리의 자동 flush 가 soft delete 를 INSERT 보다 먼저 보낸다(활성 배정 유니크 uq_interview_schedule_active_per_round).
+        activeSchedule.ifPresent(interviewScheduleRepository::delete);
         long assignedCount = interviewScheduleRepository
                 .countBySlotIdAndStatus(slotId, InterviewScheduleStatus.ASSIGNED);
         if (assignedCount >= slot.getCapacity()) {
             throw new InterviewException.SlotCapacityExceeded();
         }
-        interviewScheduleRepository.save(InterviewSchedule.create(
+        InterviewSchedule newSchedule = interviewScheduleRepository.save(InterviewSchedule.create(
                 member.getApplicationId(), slotId, roundId, LocalDateTime.now(clock)));
 
         // SCHEDULED 재배정 — 확정 완료된 지원자에게 변경 알림 발행 (§6.4·§8).
@@ -149,7 +181,7 @@ public class GeneralInterviewAssignmentService implements InterviewAssignmentSer
         // AFTER_COMMIT 리스너가 처리하므로 롤백 시 알림은 발송되지 않는다 (BE#11 전례).
         if (round.getStatus() == RoundStatus.SCHEDULED) {
             eventPublisher.publishEvent(new InterviewUpdatedEvent(
-                    member.getApplicationId(), slotId, round.getRecruitmentId()));
+                    member.getApplicationId(), slotId, round.getRecruitmentId(), newSchedule.getId()));
         }
     }
 
@@ -190,6 +222,36 @@ public class GeneralInterviewAssignmentService implements InterviewAssignmentSer
         member.exclude();
         // §16-3 — 누락 시 제외된 지원자에게 리마인더가 발송되고 dashboard 에 배정이 잔존한다.
         removeActiveSchedule(roundId, member.getApplicationId());
+    }
+
+    @Override
+    @Transactional
+    public void releaseAllOnWithdrawal(Long userId) {
+        // 멤버 행만 id 순으로 잠근다 — 라운드 writer 는 round → (slots →) members 순이고 이 경로는 round·slot 을
+        // 잡지 않는다. 순서가 엇갈리는 곳은 둘이다: 지원자 본인의 가능 시간 응답(availability → member), 그리고 동아리
+        // 폐쇄(schedule → club_member — 탈퇴는 club_member 를 먼저 잡고 schedule 은 그 뒤 flush 때 쓴다). 둘 다 같은 사람·
+        // 같은 동아리에서 동시에 일어나야만 맞물리고, 그때도 PostgreSQL 이 한쪽을 교착으로 끊어 남는 데이터는 없다.
+        for (InterviewRoundMember member
+                : interviewRoundMemberRepository.findAllOfUserInUncancelledRoundsForUpdate(userId)) {
+            interviewAvailabilityRepository.softDeleteByRoundIdAndApplicationIdKeepingContext(
+                    member.getRoundId(), member.getApplicationId());
+            removeActiveSchedule(member.getRoundId(), member.getApplicationId());
+            member.excludeOnWithdrawal();
+        }
+    }
+
+    @Override
+    @Transactional
+    public void releaseOnResultDecided(Long applicationId) {
+        // 잠금 순서: 지원서(호출자의 flush) → 멤버(id 순) — 응답 API(지원서 → 슬롯 → 멤버)와 같은 방향이고 라운드·슬롯은 잡지 않는다.
+        for (InterviewRoundMember member : interviewRoundMemberRepository
+                .findAllExcludableOfApplicationInRoundsForUpdate(
+                        applicationId, RoundMemberStatus.excludableSet(), RoundStatus.inProgressSet())) {
+            interviewAvailabilityRepository.softDeleteByRoundIdAndApplicationIdKeepingContext(
+                    member.getRoundId(), member.getApplicationId());
+            removeActiveSchedule(member.getRoundId(), member.getApplicationId());
+            member.exclude();
+        }
     }
 
     private InterviewRoundMember getLockedMemberOfRound(Long roundId, Long memberId) {

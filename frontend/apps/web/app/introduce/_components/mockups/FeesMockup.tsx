@@ -27,7 +27,7 @@ export function FeesMockup() {
         ))}
       </div>
 
-      <p className="mb-2 tabular-nums text-[11px] font-semibold uppercase tracking-[0.14em] text-charcoal-3">
+      <p className="mb-2 text-[11px] font-semibold text-charcoal-3">
         은행 입금 자동매칭
       </p>
       <div className="overflow-hidden rounded-md border border-line">

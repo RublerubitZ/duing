@@ -27,7 +27,7 @@ type FeeAccountSectionProps = {
 };
 
 const inputCls =
-  'w-full rounded-md border px-4 py-3 text-sm outline-none transition-colors border-line placeholder:text-charcoal-3 focus-visible:border-ink focus-visible:ring-1 focus-visible:ring-ink';
+  'w-full rounded-md border px-4 py-3 text-sm outline-none transition-colors border-field placeholder:text-charcoal-3 focus-visible:border-ink focus-visible:ring-1 focus-visible:ring-ink';
 const errorInputCls = 'border-coral focus-visible:border-coral focus-visible:ring-coral';
 
 export function FeeAccountSection({ clubId }: FeeAccountSectionProps) {

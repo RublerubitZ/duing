@@ -27,6 +27,29 @@ public interface FederationInquiryRepository extends JpaRepository<FederationInq
     @Query("SELECT COUNT(inquiry) FROM FederationInquiry inquiry WHERE COALESCE(inquiry.answeredAt, inquiry.closedAt) >= :since")
     long countHandledSince(@Param("since") LocalDateTime since);
 
+    /** 주간 브리핑 — 기간 접수(감사 created_at, system regime). 작성자 삭제 건은 빠진다. */
+    long countByCreatedAtGreaterThanEqualAndCreatedAtLessThan(LocalDateTime from, LocalDateTime to);
+
+    /** 주간 브리핑 — 기간 처리. countHandledSince 와 같은 규칙(답변 시각, 답변 없이 닫혔으면 닫은 시각)의 범위판이다. */
+    @Query("SELECT COUNT(inquiry) FROM FederationInquiry inquiry "
+            + "WHERE COALESCE(inquiry.answeredAt, inquiry.closedAt) >= :from "
+            + "AND COALESCE(inquiry.answeredAt, inquiry.closedAt) < :to")
+    long countHandledBetween(@Param("from") LocalDateTime from, @Param("to") LocalDateTime to);
+
+    /** 주간 브리핑 — 기간에 나간 답변 수(answered_at, 무클럭 now() = system regime). */
+    long countByAnsweredAtGreaterThanEqualAndAnsweredAtLessThan(LocalDateTime from, LocalDateTime to);
+
+    /**
+     * 주간 브리핑 — 기간에 나간 답변의 접수부터 답변까지 평균(분). 답변이 없으면 null.
+     * 두 열이 같은 regime(감사·무클럭 now())이라 차는 존과 무관하다. 네이티브라 @SQLRestriction 이 붙지 않아 삭제 조건을 직접 건다.
+     * Pageable·Sort 를 받지 않는다(NativeQuerySortGuardTest).
+     */
+    @Query(value = "SELECT CAST(AVG(EXTRACT(EPOCH FROM (answered_at - created_at)) / 60) AS double precision) "
+            + "FROM federation_inquiry "
+            + "WHERE deleted_at IS NULL AND answered_at >= :from AND answered_at < :to",
+            nativeQuery = true)
+    Double averageFirstAnswerMinutes(@Param("from") LocalDateTime from, @Param("to") LocalDateTime to);
+
     // 도배 가드 (b): 최근 24시간 생성 건수 — '삭제→재작성' 루프 우회를 막기 위해 soft delete 포함이어야
     // 하므로 native. (@SQLRestriction 은 native 에 적용되지 않는다)
     @Query(value = "select count(*) from federation_inquiry "

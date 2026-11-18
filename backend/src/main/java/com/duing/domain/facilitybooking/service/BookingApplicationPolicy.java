@@ -6,13 +6,12 @@ import com.duing.domain.facility.entity.Facility;
 import com.duing.domain.facilitybooking.exception.FacilityBookingException;
 import java.time.Clock;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import org.springframework.stereotype.Component;
 
 /**
  * 예약 신청 비즈니스 정책의 단일 진입점(Facade/Orchestrator, 설계 spec 2026-07-18) —
  * 정책을 직접 구현하지 않고 조합·검증 순서만 관리한다. 순서 = 오류 우선순위:
- * ① 시설 오픈 창 → ② 신청 마감 → ③ 중앙동아리 → ④ 역할. 첫 실패의 예외만 던진다(다중 오류 미반환).
+ * ① 시설 오픈 창 → ② 중앙동아리 → ③ 역할. 첫 실패의 예외만 던진다(다중 오류 미반환).
  * 날짜 정책이 권한보다 먼저다 — 사용자에게 먼저 알릴 것은 "신청 가능한 날짜인지"이기 때문.
  *
  * <p>새 정책(시험기간·동아리별·관리자 예외 등)은 내부 정책 클래스를 추가하고 이 조합만 확장한다 —
@@ -24,7 +23,6 @@ public class BookingApplicationPolicy {
 
     private final Clock clock;
     private final BookingOpenDatePolicy openDatePolicy = new BookingOpenDatePolicy();
-    private final BookingDeadlinePolicy deadlinePolicy = new BookingDeadlinePolicy();
     private final ClubEligibilityPolicy eligibilityPolicy = new ClubEligibilityPolicy();
     private final BookingRolePolicy rolePolicy = new BookingRolePolicy();
 
@@ -32,14 +30,12 @@ public class BookingApplicationPolicy {
         this.clock = clock;
     }
 
-    /** 순서 = 오류 우선순위: ① 시설 오픈 창 → ② 신청 마감 → ③ 중앙동아리 → ④ 역할. 첫 실패만 던진다. */
+    /** 순서 = 오류 우선순위: ① 시설 오픈 창 → ② 중앙동아리 → ③ 역할. 첫 실패만 던진다. */
     public void validateApplication(Facility facility, Club club, ClubMember applicant, LocalDate reservationDate) {
-        LocalDateTime now = LocalDateTime.now(clock);
-        BookingWindow window = windowFor(facility, now.toLocalDate());
+        BookingWindow window = windowFor(facility, LocalDate.now(clock));
         if (!window.contains(reservationDate)) {
             throw new FacilityBookingException.OutOfBookingWindowException(window);
         }
-        deadlinePolicy.validate(reservationDate, now);
         eligibilityPolicy.validate(club);
         rolePolicy.validate(applicant);
     }

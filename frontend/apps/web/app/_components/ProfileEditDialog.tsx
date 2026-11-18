@@ -145,7 +145,7 @@ export function ProfileEditDialog({
               value={name}
               onChange={(event) => setName(event.target.value)}
               maxLength={7}
-              className="w-full rounded-lg border border-line px-3 py-2 text-sm text-ink-deep focus:border-sage focus:outline-none"
+              className="w-full rounded-lg border border-field px-3 py-2 text-sm text-ink-deep focus:border-ink focus:ring-[3px] focus:ring-ink/15 focus:outline-none"
             />
           </label>
           <div className="flex flex-col gap-1.5">
@@ -173,7 +173,7 @@ export function ProfileEditDialog({
               onChange={(event) => setMajor(event.target.value)}
               maxLength={50}
               placeholder="학과명 입력 (예: 컴퓨터정보공학부)"
-              className="w-full rounded-lg border border-line px-3 py-2 text-sm text-ink-deep focus:border-sage focus:outline-none"
+              className="w-full rounded-lg border border-field px-3 py-2 text-sm text-ink-deep focus:border-ink focus:ring-[3px] focus:ring-ink/15 focus:outline-none"
             />
           </label>
           {error && <p role="alert" className="text-[12.5px] text-coral-deep">{error}</p>}

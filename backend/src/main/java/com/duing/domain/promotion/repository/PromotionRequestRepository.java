@@ -29,6 +29,12 @@ public interface PromotionRequestRepository
     /** 처리 대기 추이 — 최근 처리(수락·반려 handled_at, 무클럭 now() = system regime). 동아리 폐쇄 반려도 여기 든다. */
     long countByHandledAtGreaterThanEqual(LocalDateTime since);
 
+    /** 주간 브리핑 — 기간 접수(감사 created_at, system regime). from 포함·to 미만. */
+    long countByCreatedAtGreaterThanEqualAndCreatedAtLessThan(LocalDateTime from, LocalDateTime to);
+
+    /** 주간 브리핑 — 기간 처리(수락·반려 handled_at, 무클럭 now() = system regime). from 포함·to 미만. */
+    long countByHandledAtGreaterThanEqualAndHandledAtLessThan(LocalDateTime from, LocalDateTime to);
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT r FROM PromotionRequest r WHERE r.id = :id")
     Optional<PromotionRequest> findByIdForUpdate(@Param("id") Long id);

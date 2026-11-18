@@ -25,7 +25,7 @@ const AUTH_USER: User = {
   role: 'STUDENT',
 };
 const CLUB_ID = 7;
-// 마감 게이트(사용일 전날 12:00 KST)를 항상 통과하도록 now 를 고정하고 사용일은 오늘+2 로 둔다.
+// 실행 시각 무관 결정성 — now 를 고정하고 사용일은 오늘+2 로 둔다.
 const FIXED_NOW = new Date('2026-07-31T12:30:00+09:00');
 const DATE_ISO = '2026-08-02';
 const OWN_DUPLICATE_MESSAGE =

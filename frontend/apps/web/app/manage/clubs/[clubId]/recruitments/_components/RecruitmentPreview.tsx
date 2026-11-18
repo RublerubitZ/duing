@@ -1,11 +1,13 @@
 'use client';
 
+import { Link2 } from 'lucide-react';
 import type { BuilderQuestion } from './QuestionBuilder';
 import { MarkdownProse } from '@/components/markdown/MarkdownProse';
 import {
   RECRUITMENT_DISPLAY_STATUS_LABEL,
   recruitmentDaysLeft,
 } from '@/app/_lib/recruitmentDisplay';
+import { ArrowRight } from '@/components/duing/Icon';
 
 export type RecruitmentPreviewData = {
   title: string;
@@ -88,7 +90,7 @@ export function RecruitmentPreview({ data }: { data: RecruitmentPreviewData }) {
           {isExternal ? (
             <>
               <div className="mb-3 flex items-center gap-2 rounded-[13px] border border-line bg-cream px-3.5 py-3">
-                <span className="text-xl">🔗</span>
+                <Link2 size={20} aria-hidden className="shrink-0 text-ink" />
                 <div className="min-w-0 flex-1">
                   <div className="text-[12.5px] font-bold text-ink-deep">외부 폼으로 지원해요</div>
                   <div className="truncate tabular-nums text-[11px] text-charcoal-3">
@@ -99,7 +101,10 @@ export function RecruitmentPreview({ data }: { data: RecruitmentPreviewData }) {
               <p className="mb-4 text-[11.5px] leading-relaxed text-charcoal-3">
                 버튼을 누르면 새 창에서 외부 폼이 열려요. 제출은 해당 폼에서 완료됩니다.
               </p>
-              <span className="btn btn-primary pointer-events-none w-full justify-center">지원 폼 열기 →</span>
+              <span className="btn btn-primary pointer-events-none w-full justify-center">
+                지원 폼 열기
+                <ArrowRight size={14} aria-hidden />
+              </span>
             </>
           ) : (
             <>

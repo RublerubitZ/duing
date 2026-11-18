@@ -43,7 +43,8 @@ public class LeaderInterviewAssignmentController implements LeaderInterviewAssig
             @AuthenticationPrincipal UserPrincipal currentUser
     ) {
         interviewAssignmentService.assignSchedule(
-                roundId, memberId, assignScheduleRequest.slotId(), currentUser.id());
+                roundId, memberId, assignScheduleRequest.slotId(),
+                assignScheduleRequest.expectedRoundStatus(), currentUser.id());
         return ResponseEntity.noContent().build();
     }
 

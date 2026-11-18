@@ -280,8 +280,8 @@ class MyApplicationControllerStepperTest extends IntegrationTestBase {
     }
 
     @Test
-    @DisplayName("면접을 사용하지 않는 모집의 본인 지원 상세는 useInterview 가 false 이고 마감·배정 정보가 모두 null 이다")
-    void useInterviewFalseReturnsNullDeadline() {
+    @DisplayName("면접을 사용하지 않는 모집의 본인 지원은 목록·상세 모두 useInterview 가 false 이고, 상세의 마감·배정 정보가 모두 null 이다")
+    void nonInterviewRecruitmentExposesUseInterviewFalseInListAndDetail() {
         User applicant = saveUser("일반지원자");
         String applicantToken = jwtTokenProvider.createToken(applicant.getId(), applicant.getRole().name());
 
@@ -289,6 +289,13 @@ class MyApplicationControllerStepperTest extends IntegrationTestBase {
         Recruitment recruitment = saveSimpleRecruitment(club, "면접없는모집");
         Application application = applicationRepository.save(
                 Application.submit(recruitment, applicant, List.of()));
+
+        // 내 지원 목록 행 진행 표시가 면접 마디를 뺄지 정하는 근거 — 상세와 같은 모집 설정 값이다.
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + applicantToken)
+                .when().get("/api/v1/users/me/applications")
+                .then().statusCode(HttpStatus.OK.value())
+                .body("data.find { it.id == %d }.useInterview".formatted(application.getId()), is(false));
 
         RestAssured.given()
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + applicantToken)
@@ -301,14 +308,20 @@ class MyApplicationControllerStepperTest extends IntegrationTestBase {
     }
 
     @Test
-    @DisplayName("면접 사용 모집이지만 라운드가 아직 없으면 useInterview 는 true 이고 availabilityDeadline 만 null 이다")
-    void useInterviewWithoutRoundReturnsNullDeadline() {
+    @DisplayName("면접 사용 모집이지만 라운드가 아직 없으면 목록·상세 모두 useInterview 는 true 이고 상세의 availabilityDeadline 만 null 이다")
+    void interviewRecruitmentWithoutRoundExposesUseInterviewTrueInListAndDetail() {
         User applicant = saveUser("설정전지원자");
         String applicantToken = jwtTokenProvider.createToken(applicant.getId(), applicant.getRole().name());
 
         Club club = saveActiveClub("설정전동아리");
         Recruitment recruitment = saveInterviewRecruitment(club, "설정전모집");
         Application application = saveInterviewPendingApplication(recruitment, applicant);
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + applicantToken)
+                .when().get("/api/v1/users/me/applications")
+                .then().statusCode(HttpStatus.OK.value())
+                .body("data.find { it.id == %d }.useInterview".formatted(application.getId()), is(true));
 
         RestAssured.given()
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + applicantToken)

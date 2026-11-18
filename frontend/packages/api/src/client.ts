@@ -15,6 +15,7 @@ import type {
   RoundAutoAssignResult,
   RoundConfirmResult,
   UpdateInterviewSlotPayload,
+  InterviewRoundStatus,
 } from '@duing/types';
 import type {
   SubmitSuccessionRequestPayload,
@@ -171,14 +172,13 @@ import type {
   UpdateFederationInquiryPayload,
 } from '@duing/types';
 import { clearToken, readToken, writeToken } from './token';
-import { isKnownOffline } from './connectivity';
+import { blockedRequestMessage, isKnownOffline } from './connectivity';
 import { createRefreshCoordinator } from './refresh-coordinator';
 import type { RefreshOutcome } from './refresh-coordinator';
 import {
   ApiError,
   BLOB_BODY_READ_TIMEOUT_MS,
   JSON_BODY_READ_TIMEOUT_MS,
-  NETWORK_ERROR_MESSAGE,
   REQUEST_TIMEOUT_MS,
   cleanParams,
   readBodyWithTimeout,
@@ -520,8 +520,9 @@ export type DuingApiClient = {
     // PATCH /leader/interview-rounds/{roundId}
     update(roundId: number, payload: UpdateInterviewRoundPayload): Promise<void>;
     // === 면접 라운드 취소 ===
-    // POST /leader/interview-rounds/{roundId}/cancel
-    cancel(roundId: number): Promise<void>;
+    // POST /leader/interview-rounds/{roundId}/cancel?expectedRoundStatus=
+    // expectedRoundStatus = 화면이 본 라운드 단계(마법사의 폐기는 DRAFT) — 서버가 검증하면 다를 때 409(옛 서버는 무시한다)
+    cancel(roundId: number, expectedRoundStatus?: InterviewRoundStatus): Promise<void>;
     // === 슬롯 일괄 생성 (BE#4) ===
     // POST /leader/interview-rounds/{roundId}/slots
     createSlots(roundId: number, payload: CreateRoundSlotsPayload): Promise<CreateRoundSlotsResult>;
@@ -536,7 +537,12 @@ export type DuingApiClient = {
     autoAssign(roundId: number): Promise<RoundAutoAssignResult>;
     // === 수동 배정 (BE#11) ===
     // PUT /leader/interview-rounds/{roundId}/members/{memberId}/schedule
-    assignMemberSchedule(roundId: number, memberId: number, payload: { slotId: number }): Promise<void>;
+    // expectedRoundStatus = [배정]을 누를 때 화면이 본 단계 — 서버가 검증하면 단계가 다를 때 409(옛 서버는 모르는 필드라 무시한다)
+    assignMemberSchedule(
+      roundId: number,
+      memberId: number,
+      payload: { slotId: number; expectedRoundStatus: InterviewRoundStatus },
+    ): Promise<void>;
     // === 배정 해제 (BE#11) ===
     // DELETE /leader/interview-rounds/{roundId}/members/{memberId}/schedule
     unassignMemberSchedule(roundId: number, memberId: number): Promise<void>;
@@ -634,6 +640,11 @@ export type CreateApiClientOptions = {
   authTransport?: AuthTransport;
 };
 
+// 웹 로그인 요청인가(POST 이고, 쿼리스트링이 없어 URL 끝으로 본다) — 401 분기와 웹 연결 어댑터(요청 시점 막기에서 로그인만 뺀다)가 같이 쓴다.
+export function isWebLoginRequest(request: Request): boolean {
+  return request.method === 'POST' && request.url.endsWith('/auth/web/login');
+}
+
 export function createApiClient(options: CreateApiClientOptions): DuingApiClient {
   const { baseUrl } = options;
   const authTransport = options.authTransport ?? 'bearer';
@@ -646,6 +657,9 @@ export function createApiClient(options: CreateApiClientOptions): DuingApiClient
   const refreshCoordinator =
     authTransport === 'cookie'
       ? createRefreshCoordinator(async (): Promise<RefreshOutcome> => {
+          // 401 이 막기 가드를 지난 뒤 탭 사이 잠금·저장소 읽기를 기다리는 사이 막혔을 수 있다 — 훅 없는 갱신 요청이
+          // 바뀐 계정 쿠키로 나가지 않게 한다. 진짜 오프라인이면 원래도 'unavailable' 이라 동작이 같다.
+          if (isKnownOffline()) return 'unavailable';
           try {
             // 결과를 가르는 건 refresh 가 전송된 시점의 쿠키라 원 요청 시각이 아니라 이 시각을 싣는다.
             // 벽시계 역행에 흔들리지 않게 문서 단조 시각을 쓴다(세션 개시 시각과 같은 축).
@@ -658,6 +672,8 @@ export function createApiClient(options: CreateApiClientOptions): DuingApiClient
             });
             if (refreshResponse.status === 204) return 'refreshed';
             if (refreshResponse.status === 401 || refreshResponse.status === 404) {
+              // 막히기 전에 나간 갱신이 막힌 뒤 돌아왔다 — 막힌 문서에서 만료 안내·로그인 이동을 띄우지 않는다.
+              if (isKnownOffline()) return 'unavailable';
               notifyUnauthorized(refreshStartedAt);
               return 'session-expired';
             }
@@ -678,9 +694,10 @@ export function createApiClient(options: CreateApiClientOptions): DuingApiClient
     hooks: {
       beforeRequest: [
         async (request) => {
-          // 확실한 오프라인이면 타임아웃까지 기다리지 않고 즉시 실패시킨다. (스펙 §3.3)
-          if (isKnownOffline()) {
-            throw new ApiError(0, NETWORK_ERROR_MESSAGE, undefined, 'NETWORK');
+          // 확실한 오프라인이면 타임아웃까지 기다리지 않고 즉시 실패시킨다(스펙 §3.3). 막힘이면 어댑터가 준 원인 문구로 — 코드는 같은 NETWORK.
+          const blockedMessage = blockedRequestMessage(request);
+          if (blockedMessage !== null) {
+            throw new ApiError(0, blockedMessage, undefined, 'NETWORK');
           }
           if (authTransport === 'bearer') {
             const token = await readToken();
@@ -696,6 +713,11 @@ export function createApiClient(options: CreateApiClientOptions): DuingApiClient
             return;
           }
           if (authTransport === 'cookie') {
+            // 막힌 뒤 도착한 401 — 갱신·재시도는 훅 없는 ky 라 막기를 비켜 바뀐 쿠키로 나간다. 원 401 을 그대로 올린다.
+            // 진짜 오프라인에서도 결과가 같다(원 401 이 그대로 올라감).
+            if (isKnownOffline()) {
+              return;
+            }
             // authTransport==='cookie' 면 refreshCoordinator 는 구조상 항상 존재하지만,
             // 타입 내로잉으로 non-null 단언(!)을 피한다(레포 규약). 도달 불가 가드.
             if (refreshCoordinator === null) {
@@ -703,7 +725,7 @@ export function createApiClient(options: CreateApiClientOptions): DuingApiClient
             }
             // 로그인(자격 오류)·로그아웃(의도적)·refresh 자신(조율기가 전담)의 401 은 갱신 대상이 아니다.
             const isAuthPath =
-              request.url.endsWith('/auth/web/login') ||
+              isWebLoginRequest(request) ||
               request.url.endsWith('/auth/web/logout') ||
               request.url.endsWith('/auth/web/refresh');
             if (isAuthPath) {
@@ -718,6 +740,8 @@ export function createApiClient(options: CreateApiClientOptions): DuingApiClient
             // 매 호출 request.clone() — new Request(사용된 Request) 는 바디 소비 TypeError 라, 두 번째
             // 재시도(skip→401→강제 갱신)에서 바디 있는 요청이 네트워크 오류로 둔갑한다.
             const retryOriginalRequest = () => {
+              // 갱신을 기다리는 사이(공유 잠금·저장소·갱신 요청) 막혔을 수 있다 — 세 재시도 자리가 모두 여기를 지난다.
+              if (isKnownOffline()) return;
               const preservedTimeout = Reflect.get(options, 'timeout');
               if (typeof preservedTimeout === 'number' || preservedTimeout === false) {
                 return ky(request.clone(), { retry: 0, timeout: preservedTimeout });
@@ -1414,8 +1438,14 @@ export function createApiClient(options: CreateApiClientOptions): DuingApiClient
         ),
       update: (roundId, payload) =>
         jsonVoid(http.patch(`leader/interview-rounds/${roundId}`, { json: payload })),
-      cancel: (roundId) =>
-        jsonVoid(http.post(`leader/interview-rounds/${roundId}/cancel`)),
+      // 값이 없으면 searchParams 를 넘기지 않는다 — 빈 값(?expectedRoundStatus=)은 서버 검사를 끄고, ky 는 빈 searchParams 에도 '?' 를 붙인다.
+      cancel: (roundId, expectedRoundStatus) =>
+        jsonVoid(
+          http.post(
+            `leader/interview-rounds/${roundId}/cancel`,
+            expectedRoundStatus === undefined ? undefined : { searchParams: { expectedRoundStatus } },
+          ),
+        ),
       createSlots: (roundId, payload) =>
         jsonOk<CreateRoundSlotsResult>(
           http.post(`leader/interview-rounds/${roundId}/slots`, { json: payload }),

@@ -153,7 +153,7 @@ export function MyEvaluationCard({ applicationId, myEvaluation, readOnly = false
         onChange={(event) => setMemo(event.target.value)}
         placeholder="강점, 약점, 협업 경험, 추가 검증 필요 사항 등"
         disabled={readOnly}
-        className="mt-1 w-full rounded-[10px] border border-line bg-paper px-3 py-2 text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink disabled:bg-graysoft disabled:text-charcoal-3"
+        className="mt-1 w-full rounded-[10px] border border-field bg-paper px-3 py-2 text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink disabled:bg-graysoft disabled:text-charcoal-3"
         rows={4}
         maxLength={2000}
       />

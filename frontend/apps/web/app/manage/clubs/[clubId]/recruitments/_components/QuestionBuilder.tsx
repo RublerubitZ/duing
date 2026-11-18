@@ -3,6 +3,7 @@
 import type { QuestionItemPayload, QuestionType, RecruitmentQuestionItem } from '@duing/types';
 
 import { FormSegment } from './form-controls';
+import { ChevronDown, ChevronUp, X } from 'lucide-react';
 
 /** 빌더 내부 상태 — key 는 React 렌더 전용 식별자로 서버가 발급하는 id 와 별개다. */
 export type BuilderChoice = { key: string; id: string | null; label: string };
@@ -170,7 +171,7 @@ export function QuestionBuilder({ questions, onChange, nextKey }: QuestionBuilde
               value={question.text}
               onChange={(event) => handleChangeText(question.key, event.target.value)}
               placeholder={`질문 ${index + 1}을 입력하세요`}
-              className="min-w-0 flex-1 rounded-[10px] border border-line bg-paper px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sage"
+              className="min-w-0 flex-1 rounded-[10px] border border-field bg-paper px-3 py-2 text-sm focus:border-ink focus:outline-none focus:ring-[3px] focus:ring-ink/15"
             />
             <div className="flex basis-full justify-end gap-1 md:basis-auto">
               <button
@@ -180,7 +181,7 @@ export function QuestionBuilder({ questions, onChange, nextKey }: QuestionBuilde
                 className="grid h-9 w-9 place-items-center rounded text-charcoal-3 hover:bg-graysoft disabled:opacity-30"
                 aria-label="위로 이동"
               >
-                ▲
+                <ChevronUp size={16} aria-hidden />
               </button>
               <button
                 type="button"
@@ -189,7 +190,7 @@ export function QuestionBuilder({ questions, onChange, nextKey }: QuestionBuilde
                 className="grid h-9 w-9 place-items-center rounded text-charcoal-3 hover:bg-graysoft disabled:opacity-30"
                 aria-label="아래로 이동"
               >
-                ▼
+                <ChevronDown size={16} aria-hidden />
               </button>
               <button
                 type="button"
@@ -197,7 +198,7 @@ export function QuestionBuilder({ questions, onChange, nextKey }: QuestionBuilde
                 className="grid h-9 w-9 place-items-center rounded text-danger hover:bg-danger/5"
                 aria-label="삭제"
               >
-                ✕
+                <X size={16} aria-hidden />
               </button>
             </div>
           </div>
@@ -231,7 +232,7 @@ export function QuestionBuilder({ questions, onChange, nextKey }: QuestionBuilde
                         handleChangeChoiceLabel(question.key, choice.key, event.target.value)
                       }
                       placeholder={`선택지 ${choiceIndex + 1}`}
-                      className="min-w-0 flex-1 rounded-[10px] border border-line bg-paper px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sage"
+                      className="min-w-0 flex-1 rounded-[10px] border border-field bg-paper px-3 py-2 text-sm focus:border-ink focus:outline-none focus:ring-[3px] focus:ring-ink/15"
                     />
                     <button
                       type="button"
@@ -239,7 +240,7 @@ export function QuestionBuilder({ questions, onChange, nextKey }: QuestionBuilde
                       className="grid h-9 w-9 place-items-center rounded text-danger hover:bg-danger/5"
                       aria-label="선택지 삭제"
                     >
-                      ✕
+                      <X size={16} aria-hidden />
                     </button>
                   </div>
                 ))}

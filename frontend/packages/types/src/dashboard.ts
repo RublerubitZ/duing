@@ -1,6 +1,7 @@
 // 운영자 대시보드 v1 뷰모델 — 백엔드 DTO가 아니라 FE에서 조합한 파생 타입.
 // 라우팅 경로(href)는 담지 않는다(식별자만). 링크는 web 레이어에서 toRoute로 생성.
 import type { BookingStatus } from './facility';
+import type { InterviewRoundStatus } from './interviewRound';
 
 export type ActionItemType =
   | 'APPLICANTS_AWAITING_REVIEW'
@@ -16,12 +17,19 @@ export type ActionItem = {
   recruitmentTitle: string;
   roundId?: number;
   roundTitle?: string;
+  /** 라운드 상태 — INTERVIEW_ROUND_UNCONFIRMED 에만. 같은 줄 이름 아래 묶음·버튼·이동을 상태별로 나누는 데 쓴다. */
+  roundStatus?: InterviewRoundStatus;
+  /** 남은 면접 대상이 없는 초안 — INTERVIEW_ROUND_UNCONFIRMED·DRAFT 에만(아니면 키가 없다). 이어 쓸 수 없어 정리(폐기)로 안내한다. */
+  draftWithoutMembers?: true;
   /** 검토 대기 인원, 미응답 인원 등 맥락 수치 */
   count?: number;
   /** 마감/기한까지 남은 일수. 음수면 경과 */
   daysLeft?: number;
   /** 가장 오래된 미처리 지원서부터 지난 KST 날짜 수 — APPLICANTS_AWAITING_REVIEW 에만, 미처리가 있을 때만 */
   pendingDays?: number;
+  /** 지원 완료·보류 인원 — APPLICANTS_AWAITING_REVIEW 에만, 통계가 있을 때만. 모집 상세 할 일 줄의 둘째 줄이 쓴다. */
+  submitted?: number;
+  onHold?: number;
 };
 
 export type TodayScheduleKind = 'INTERVIEW' | 'EVENT';

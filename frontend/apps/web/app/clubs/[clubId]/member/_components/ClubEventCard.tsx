@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { MapPin } from 'lucide-react';
 import { formatDateTimeKst } from '@duing/hooks';
 import type { ClubEventCard as Event } from '@duing/types';
 import { toRoute } from '@/app/_lib/route';
@@ -27,7 +28,10 @@ export function ClubEventCard({ clubId, event, canEdit, canDelete, onEdit, onDel
             {formatDateTimeKst(event.startAt)} ~ {formatDateTimeKst(event.endAt)}
           </p>
           {event.location && (
-            <p className="mt-0.5 text-xs text-charcoal-3">📍 {event.location}</p>
+            <p className="mt-0.5 flex items-center gap-1 text-xs text-charcoal-3">
+              <MapPin size={12} aria-hidden className="shrink-0" />
+              {event.location}
+            </p>
           )}
         </Link>
         {(canEdit || canDelete) && (
@@ -40,7 +44,7 @@ export function ClubEventCard({ clubId, event, canEdit, canDelete, onEdit, onDel
             )}
             {canDelete && (
               <button type="button" onClick={onDelete}
-                className="rounded-md px-2 py-1 text-xs text-danger hover:bg-rose-50">
+                className="rounded-md px-2 py-1 text-xs text-danger hover:bg-danger/5">
                 삭제
               </button>
             )}

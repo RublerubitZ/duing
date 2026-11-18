@@ -23,9 +23,10 @@ export function AdminSchoolSyncCard() {
       // 응답이 없을 때만 빈 상태 — 0건은 본문("반영 대기 없음")으로 그려 링크를 남긴다.
       isEmpty={!bookingCounts}
       footer={
+        // 화면 이동 링크라 인쇄에서 뺀다(주간 브리핑 인쇄에 함께 실린다).
         <Link
           href={toRoute('/admin/facility-bookings?tab=review')}
-          className="inline-flex min-h-11 items-center rounded text-xs font-medium text-ink hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink"
+          className="no-print inline-flex min-h-11 items-center rounded text-xs font-medium text-ink hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink"
         >
           시설 예약 관리
         </Link>

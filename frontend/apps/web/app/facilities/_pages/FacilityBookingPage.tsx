@@ -14,7 +14,6 @@ import { bookingWindowNote, bookingWindowToastMessage } from '../_lib/bookingHom
 import type { SlotRange } from '../_lib/bookingCalendar';
 import {
   adjacentMonthToFetch,
-  isDayApplicationClosed,
   isSelectableSlot,
   isWithinBookable,
   shiftDateByDays,
@@ -194,15 +193,19 @@ export function FacilityBookingPage() {
   }, [availability, secondAvailability]);
   const selectedDay = selectedDate !== null ? daysByIso.get(selectedDate) : undefined;
   const selectedFacility = contextFacilities.find((candidate) => candidate.id === effectiveFacilityId);
+  // 선택일이 신청 창 안인가 — 창 밖 오늘(오픈일 NULL·내일 오픈)은 기록 열람으로만 열리므로 남은 칸도 고를 수 없다.
+  const selectedDayBookable =
+    availability !== undefined &&
+    selectedDate !== null &&
+    isWithinBookable(selectedDate, availability.bookableFrom, availability.bookableUntil);
 
-  // §9.8 경합 실패 재조회 후 선택 무효화 — 갱신 데이터에서 선택 범위에 선택 불가 슬롯이 생기거나, 그 날이 신청 마감
-  // (서버 applicationClosed)으로 바뀌면 선택을 비우고 폼이면 슬롯 화면으로 되돌린다. 대기(PENDING_HOLD)만 고른 선택은
-  // isSelectableSlot 로는 무효가 되지 않으므로 날짜 단위 마감을 함께 본다(2026-09-03 후속). 성공 화면은 보존.
+  // §9.8 경합 실패 재조회 후 선택 무효화 — 갱신 데이터에서 그 날이 창 밖이 되거나 선택 범위에 선택 불가 슬롯(점유·지난
+  // 시간)이 생기면 선택을 비우고 폼이면 슬롯 화면으로 되돌린다. 성공 화면은 보존.
   const selectionInvalid =
     step !== 'success' &&
     selection !== null &&
     selectedDay !== undefined &&
-    (isDayApplicationClosed(selectedDay) ||
+    (!selectedDayBookable ||
       selectedDay.slots.some((slot) => slotInRange(slot, selection) && !isSelectableSlot(slot)));
 
   useEffect(() => {
@@ -437,6 +440,7 @@ export function FacilityBookingPage() {
       <BookingPanel
         facility={selectedFacility}
         day={selectedDay}
+        bookable={selectedDayBookable}
         selection={selection}
         onToggleSlot={toggleSlot}
         step={step}
@@ -467,7 +471,7 @@ export function FacilityBookingPage() {
         </div>
       )}
       {/* 재요청이 실패해도 이미 받은 이용현황은 남긴다 — TanStack Query 는 이때 isSuccess 를 내리지만 data 는 유지한다.
-          재방문 때 캐시로 그린 캘린더가 마운트·재연결 재요청의 실패로 통째로 오류 문구 한 줄로 바뀌던 결함이다. */}
+          재방문 때 캐시로 그린 캘린더가 마운트 재요청의 실패로 통째로 오류 문구 한 줄로 바뀌던 결함이다. */}
       {usageQuery.isError && usageQuery.data && (
         <div
           role="alert"
@@ -501,8 +505,7 @@ export function FacilityBookingPage() {
                 <p className="break-keep text-[12.5px] text-charcoal-3">{BOOKING_SCOPE_NOTE}</p>
               </div>
               <header>
-                <p className="text-xs font-medium tracking-widest text-charcoal-3">RESERVE · 시설 예약</p>
-                <h1 className="mt-1 text-2xl text-ink-deep">예약할 시설을 골라보세요</h1>
+                <h1 className="text-2xl text-ink-deep">예약할 시설을 골라보세요</h1>
                 <p className="mt-1.5 text-sm text-charcoal-2">
                   학교 예약 현황을 반영해요. 비어 있는 시간만 신청할 수 있어요.
                 </p>
@@ -526,8 +529,7 @@ export function FacilityBookingPage() {
               <div>
                 <PageSegment label="일정·시설" items={CALENDAR_FACILITY_SEGMENT_ITEMS} />
                 <p className="mb-4 break-keep text-[12.5px] text-charcoal-3">{BOOKING_SCOPE_NOTE}</p>
-                <p className="text-xs font-medium tracking-widest text-charcoal-3">FACILITY · 시설 예약</p>
-                <h1 className="mb-3 mt-1 text-2xl text-ink-deep">{selectedFacility?.roomName ?? '시설'} 예약</h1>
+                <h1 className="mb-3 text-2xl text-ink-deep">{selectedFacility?.roomName ?? '시설'} 예약</h1>
                 <FacilityContextBar
                   facilities={contextFacilities}
                   selectedId={effectiveFacilityId}
@@ -647,6 +649,7 @@ export function FacilityBookingPage() {
         dateIso={selectedDate}
         facility={selectedFacility ?? null}
         day={selectedDay ?? null}
+        bookable={selectedDayBookable}
         selection={selection}
         onToggleSlot={toggleSlot}
         step={step}

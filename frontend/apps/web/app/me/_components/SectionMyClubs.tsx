@@ -77,7 +77,7 @@ export function SectionMyClubs({ myClubs, isPending = false }: Props) {
           <div className="bg-paper border border-line rounded-lg px-8 py-12 text-center text-charcoal-3 text-sm">
             아직 가입한 동아리가 없어요.{' '}
             <Link href="/clubs" className="text-ink font-semibold hover:underline">
-              동아리 탐색하러 가기 →
+              동아리 탐색하러 가기
             </Link>
           </div>
         ) : (
@@ -93,7 +93,8 @@ export function SectionMyClubs({ myClubs, isPending = false }: Props) {
                 <div
                   key={club.clubId}
                   className={cn(
-                    'bg-paper rounded-[18px] px-5 py-5 flex flex-wrap lg:flex-nowrap items-center gap-x-4 gap-y-3',
+                    // 한 줄 배치는 xl 부터(버튼 줄의 xl:w-auto 와 한 쌍) — lg 에서 켜면 두 열 목록의 카드에서 버튼 줄에 밀려 정보 열이 눌린다.
+                    'bg-paper rounded-[18px] px-5 py-5 flex flex-wrap xl:flex-nowrap items-center gap-x-4 gap-y-3',
                     'transition-[transform,box-shadow] duration-150',
                     'hover:-translate-y-0.5 hover:shadow-2',
                     isManager ? 'border-[1.5px] border-ink' : 'border border-line',
@@ -106,20 +107,20 @@ export function SectionMyClubs({ myClubs, isPending = false }: Props) {
                     )}
                   >
                     <ClubLogo logoUrl={club.logoUrl} alt={club.clubName}>
-                      <span>🏛</span>
+                      <span aria-hidden className="font-bold">{(club.clubName || '?').trim().charAt(0)}</span>
                     </ClubLogo>
                   </div>
 
-                  <div className="flex-1 min-w-0">
+                  {/* 띄어쓰기 없는 긴 이름도 카드 안에서 줄바꿈 — 이름은 flex 줄의 항목이라 min-w-0 이 있어야 열 폭까지 줄어든다. */}
+                  <div className="flex-1 min-w-0 break-words">
                     <div className="flex items-center gap-2 flex-wrap mb-1.5">
-                      <span className="font-bold text-[16px] text-ink-deep">{club.clubName}</span>
+                      <span className="min-w-0 font-bold text-[16px] text-ink-deep">{club.clubName}</span>
                       <span
                         className={cn(
-                          'pill text-[10.5px]',
+                          'pill text-[11px]',
                           isManager && 'bg-ink text-white border-ink',
                         )}
                       >
-                        {isManager && '✦ '}
                         {roleLabel}
                       </span>
                     </div>
@@ -134,7 +135,7 @@ export function SectionMyClubs({ myClubs, isPending = false }: Props) {
                     <span className="text-[12px] text-charcoal-3 shrink-0">{statusNotice}</span>
                   ) : isManager ? (
                     // 운영진에게도 부원 동선(공지·회비·일정)이 필요하다 — "관리" 앞에 같은 3개를 둔다.
-                    <div className="flex w-full justify-end lg:w-auto items-center gap-1.5 shrink-0">
+                    <div className="flex w-full justify-end xl:w-auto items-center gap-1.5 shrink-0">
                       <MemberQuickLinks club={club} />
                       <Link
                         href={`/manage?clubId=${club.clubId}`}
@@ -146,7 +147,7 @@ export function SectionMyClubs({ myClubs, isPending = false }: Props) {
                       </Link>
                     </div>
                   ) : (
-                    <div className="flex w-full justify-end lg:w-auto items-center gap-1.5 shrink-0">
+                    <div className="flex w-full justify-end xl:w-auto items-center gap-1.5 shrink-0">
                       <MemberQuickLinks club={club} />
                       <button
                         type="button"

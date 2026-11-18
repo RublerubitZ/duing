@@ -124,7 +124,7 @@ export function CashbookPanel({ clubId }: CashbookPanelProps) {
           aria-label="카테고리 필터"
           value={categoryFilter}
           onChange={(event) => setCategoryFilter(isCashbookCategory(event.target.value) ? event.target.value : 'ALL')}
-          className="rounded-md border border-line px-3 py-1.5 text-sm outline-none focus-visible:border-ink focus-visible:ring-1 focus-visible:ring-ink"
+          className="rounded-md border border-field px-3 py-1.5 text-sm outline-none focus-visible:border-ink focus-visible:ring-1 focus-visible:ring-ink"
         >
           <option value="ALL">전체 카테고리</option>
           {ALL_CATEGORIES.map((code) => (
@@ -136,14 +136,14 @@ export function CashbookPanel({ clubId }: CashbookPanelProps) {
           aria-label="시작일"
           value={fromDate}
           onChange={(event) => setFromDate(event.target.value)}
-          className="rounded-md border border-line px-3 py-1.5 text-sm outline-none focus-visible:border-ink focus-visible:ring-1 focus-visible:ring-ink"
+          className="rounded-md border border-field px-3 py-1.5 text-sm outline-none focus-visible:border-ink focus-visible:ring-1 focus-visible:ring-ink"
         />
         <input
           type="date"
           aria-label="종료일"
           value={toDate}
           onChange={(event) => setToDate(event.target.value)}
-          className="rounded-md border border-line px-3 py-1.5 text-sm outline-none focus-visible:border-ink focus-visible:ring-1 focus-visible:ring-ink"
+          className="rounded-md border border-field px-3 py-1.5 text-sm outline-none focus-visible:border-ink focus-visible:ring-1 focus-visible:ring-ink"
         />
         <input
           type="text"
@@ -151,7 +151,7 @@ export function CashbookPanel({ clubId }: CashbookPanelProps) {
           placeholder="설명·메모·카테고리 검색"
           value={keyword}
           onChange={(event) => setKeyword(event.target.value)}
-          className="ml-auto rounded-md border border-line px-3 py-1.5 text-sm outline-none focus-visible:border-ink focus-visible:ring-1 focus-visible:ring-ink"
+          className="ml-auto rounded-md border border-field px-3 py-1.5 text-sm outline-none focus-visible:border-ink focus-visible:ring-1 focus-visible:ring-ink"
         />
       </div>
 

@@ -1,7 +1,8 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
+import { useQueryClient } from '@tanstack/react-query';
 import { ApiError } from '@duing/api';
 import {
   useInterviewRoundDetailQuery,
@@ -12,6 +13,7 @@ import {
   useCancelInterviewRoundMutation,
   useExcludeMemberMutation,
   useAssignMemberScheduleMutation,
+  interviewRoundKeys,
 } from '@duing/hooks';
 import { isUnresolvedMembersPayload } from '@duing/types';
 import type { InterviewRoundDetailMember, UnresolvedMembersPayload } from '@duing/types';
@@ -24,11 +26,13 @@ import { AutoAssignDialog } from './AutoAssignDialog';
 import { ConfirmRoundDialog } from './ConfirmRoundDialog';
 import { MemberAssignModal } from './MemberAssignModal';
 import { ExtendDeadlineModal } from './ExtendDeadlineModal';
-import { RoundStatusBanner } from './RoundStatusBanner';
+import { RoundStatusBanner, ROUND_STATUS_BANNER_ID } from './RoundStatusBanner';
 import { RoundCountCards } from './RoundCountCards';
-import { RoundMemberTable } from './RoundMemberTable';
+import { RoundMemberTable, roundMemberRowId } from './RoundMemberTable';
 import { NoSlotSection } from './NoSlotSection';
+import { isDecidedApplicationResult } from './memberStatusLabels';
 import { RoundSlotsSection } from './RoundSlotsSection';
+import { ArrowLeft } from '@/components/duing/Icon';
 
 // 라운드 dashboard 컨테이너 — detail 단일 쿼리를 섹션 5종에 분배하고
 // 액션 mutation·모달 상태·피드백을 관장한다. 섹션·모달은 같은 _components/ 개별 파일.
@@ -77,6 +81,14 @@ function ExcludeDialog({
   );
 }
 
+// 포커스가 body 로 빠졌을 때만 그 요소(멤버 행·상태 배너)로 보낸다 — 공용 복귀가 돌려놓은 버튼이나 사용자가 옮긴 자리는 건드리지 않는다.
+// 멤버 행은 화면이 튀지 않게 그 자리에서 받고, 상태 배너는 [확정]을 누른 뒤 스크롤했거나 [라운드 취소](페이지 아래 동작 막대)를 눌러 화면 밖이면 보이게 한다.
+function focusElementIfFocusLost(elementId: string) {
+  const activeElement = document.activeElement;
+  if (activeElement !== null && activeElement !== document.body) return;
+  document.getElementById(elementId)?.focus({ preventScroll: elementId !== ROUND_STATUS_BANNER_ID });
+}
+
 // ── RoundDashboard ───────────────────────────────────────────────────────────
 
 export function RoundDashboard({ clubId, recruitmentId, roundId }: Props) {
@@ -96,6 +108,8 @@ export function RoundDashboard({ clubId, recruitmentId, roundId }: Props) {
   const [extendDeadlineError, setExtendDeadlineError] = useState<string | null>(null);
   // 라운드 취소·멤버 제외 확인 모달의 실패 — 전역 피드백에 넣으면 모달 스크림·aria-hidden 뒤에 갇힌다.
   const [confirmActionError, setConfirmActionError] = useState<string | null>(null);
+  // 수동 배정 창의 실패 — 창을 열어 둔 채 안에서 안내한다(409 면 다시 받은 슬롯·단계로 창이 다시 그려진다).
+  const [assignDialogError, setAssignDialogError] = useState<string | null>(null);
 
   // 인라인 피드백
   const [feedbackMessage, setFeedbackMessage] = useState<FeedbackMessage | null>(null);
@@ -106,6 +120,45 @@ export function RoundDashboard({ clubId, recruitmentId, roundId }: Props) {
     const dismissTimer = setTimeout(() => setFeedbackMessage(null), 4_000);
     return () => clearTimeout(dismissTimer);
   }, [feedbackMessage]);
+
+  // 멤버 동작 창이 닫힌 뒤 포커스가 body 면(돌아갈 버튼이 사라졌거나, 클릭이 버튼에 포커스를 주지 않는 Safari 처럼 기억한 자리가 없을 때) 그 멤버 행으로,
+  // 확정·라운드 취소가 성공해 누른 버튼([확정]·동작 막대)이 사라지면 상태 배너로 — 표지(포커스를 보낼 요소 id)는 멤버 창이 닫힐 때·확정이나 라운드 취소가 성공할 때 세우고,
+  // 기다릴 다시 받기가 없거나 세운 뒤 첫 상세 갱신(실패 포함)이 오거나 이 화면이 여는 다른 창이 열리면 지운다.
+  const queryClient = useQueryClient();
+  const focusGuardTargetIdRef = useRef<string | null>(null);
+  const memberDialogMemberId = excludeTarget?.memberId ?? assignTarget?.memberId ?? null;
+  const isAnyDialogOpen =
+    memberDialogMemberId !== null ||
+    showAutoAssignDialog ||
+    showCancelDialog ||
+    showExtendDeadlineModal ||
+    confirmDialogPayload !== null;
+
+  useEffect(() => {
+    if (isAnyDialogOpen) focusGuardTargetIdRef.current = null;
+  }, [isAnyDialogOpen]);
+
+  useEffect(() => {
+    if (memberDialogMemberId === null) return;
+    return () => {
+      const memberRowId = roundMemberRowId(memberDialogMemberId);
+      focusGuardTargetIdRef.current = memberRowId;
+      // 창 언마운트 때 Radix FocusScope 가 건 복귀(setTimeout 0)가 먼저 돌게 한다 — 이 정리는 창의 언마운트 정리 뒤에 실행된다.
+      setTimeout(() => {
+        focusElementIfFocusLost(memberRowId);
+        // 다시 받는 중이 아니면 기다릴 상세 갱신도 없다 — 표지를 남기면 나중의 관계없는 갱신(자동배정 등)이 이 행으로 끌어온다.
+        if (queryClient.isFetching({ queryKey: interviewRoundKeys.detail(roundId) }) === 0) focusGuardTargetIdRef.current = null;
+      }, 0);
+    };
+  }, [memberDialogMemberId, queryClient, roundId]);
+
+  useEffect(() => {
+    const guardedElementId = focusGuardTargetIdRef.current;
+    if (guardedElementId === null) return;
+    focusGuardTargetIdRef.current = null;
+    // 바로 옮기지 않는다 — 다시 받기가 창의 닫힘 복귀(setTimeout 0)보다 먼저 그려지면 남아 있는 버튼 대신 행으로 간다.
+    setTimeout(() => focusElementIfFocusLost(guardedElementId), 0);
+  }, [detailQuery.dataUpdatedAt, detailQuery.errorUpdatedAt]);
 
   // Mutations
   const autoAssignMutation = useRoundAutoAssignMutation(recruitmentId, roundId);
@@ -125,7 +178,7 @@ export function RoundDashboard({ clubId, recruitmentId, roundId }: Props) {
       detailQuery.error instanceof ApiError
         ? detailQuery.error.message
         : '라운드 정보를 불러오지 못했습니다.';
-    return <p className="p-6 text-sm text-rose-700">{message}</p>;
+    return <p className="p-6 text-sm text-coral-deep">{message}</p>;
   }
 
   const detail = detailQuery.data;
@@ -140,9 +193,16 @@ export function RoundDashboard({ clubId, recruitmentId, roundId }: Props) {
 
   const handleAutoAssignConfirm = () => {
     autoAssignMutation.mutate(undefined, {
-      onSuccess: () => {
+      onSuccess: (autoAssignResult) => {
         setShowAutoAssignDialog(false);
-        setFeedbackMessage({ kind: 'success', text: '자동배정이 완료되었습니다.' });
+        // unassignedMemberCount = 매칭 입력(RESPONDED) 중 고른 슬롯이 모두 차 못 받은 사람 수
+        setFeedbackMessage({
+          kind: 'success',
+          text:
+            autoAssignResult.unassignedMemberCount > 0
+              ? `자동배정이 완료되었습니다 — 응답자 ${autoAssignResult.unassignedMemberCount}명은 고른 시간이 모두 차 배정받지 못했습니다.`
+              : '자동배정이 완료되었습니다.',
+        });
       },
       onError: (mutationError) => {
         setShowAutoAssignDialog(false);
@@ -158,6 +218,9 @@ export function RoundDashboard({ clubId, recruitmentId, roundId }: Props) {
   const handleConfirm = () => {
     confirmMutation.mutate(false, {
       onSuccess: (result) => {
+        // 확정 단계로 다시 받으면 [확정]이 사라져 포커스가 body 로 빠진다 — 그 갱신 한 번에 상태 배너로 보낸다.
+        // (훅은 무효화를 기다리지 않아 다시 받은 상세보다 이 콜백이 먼저 돈다)
+        focusGuardTargetIdRef.current = ROUND_STATUS_BANNER_ID;
         setFeedbackMessage({
           kind: 'success',
           text: `확정 완료 — ${result.assignedMemberCount}명 알림`,
@@ -185,6 +248,8 @@ export function RoundDashboard({ clubId, recruitmentId, roundId }: Props) {
   const handleForceConfirm = () => {
     confirmMutation.mutate(true, {
       onSuccess: (result) => {
+        // 창이 닫히고 확정 상세를 다시 받으면 [확정]이 사라진다 — 위 handleConfirm 과 같다.
+        focusGuardTargetIdRef.current = ROUND_STATUS_BANNER_ID;
         setConfirmDialogPayload(null);
         setConfirmDialogError(null);
         setFeedbackMessage({
@@ -246,6 +311,8 @@ export function RoundDashboard({ clubId, recruitmentId, roundId }: Props) {
     setConfirmActionError(null);
     cancelMutation.mutate(undefined, {
       onSuccess: () => {
+        // 취소된 상세를 다시 받으면 동작 막대가 사라져 포커스가 body 로 빠진다 — 확정과 같이 그 갱신 한 번에 상태 배너로 보낸다.
+        focusGuardTargetIdRef.current = ROUND_STATUS_BANNER_ID;
         setShowCancelDialog(false);
         setFeedbackMessage({ kind: 'success', text: '라운드가 취소되었습니다.' });
       },
@@ -268,7 +335,8 @@ export function RoundDashboard({ clubId, recruitmentId, roundId }: Props) {
         setExcludeTarget(null);
         setFeedbackMessage({
           kind: 'success',
-          text: `${excludeTarget.userName}이(가) 제외되었습니다.`,
+          // '님'은 늘 '이'를 받는다 — 받침 판별 없이 영문 이름에도 맞다(콘솔의 `OOO 님을 …` 관례).
+          text: `${excludeTarget.userName} 님이 제외되었습니다.`,
         });
       },
       onError: (excludeError) => {
@@ -283,14 +351,19 @@ export function RoundDashboard({ clubId, recruitmentId, roundId }: Props) {
 
   const handleAssignConfirm = (slotId: number) => {
     if (!assignTarget) return;
+    setAssignDialogError(null);
     assignMutation.mutate(
-      { memberId: assignTarget.memberId, slotId },
+      { memberId: assignTarget.memberId, slotId, expectedRoundStatus: status },
       {
         onSuccess: () => {
           setAssignTarget(null);
           setFeedbackMessage({
             kind: 'success',
-            text: `${assignTarget.userName}에게 슬롯이 배정되었습니다.`,
+            // 실어 보낸 단계(status)를 서버가 검증한다 — 확정 단계의 성공은 지원자에게 일정 변경 알림이 가는 재배정이다.
+            text:
+              status === 'SCHEDULED'
+                ? `${assignTarget.userName} 님의 면접 일정이 변경되었습니다. 지원자에게 일정 변경 알림이 발송됩니다.`
+                : `${assignTarget.userName} 님에게 슬롯이 배정되었습니다.`,
           });
         },
         onError: (assignError) => {
@@ -298,10 +371,16 @@ export function RoundDashboard({ clubId, recruitmentId, roundId }: Props) {
             assignError instanceof ApiError
               ? assignError.message
               : '수동 배정 중 오류가 발생했습니다.';
-          setFeedbackMessage({ kind: 'error', text: message });
+          setAssignDialogError(message);
         },
       },
     );
+  };
+
+  const openAssignDialog = (member: InterviewRoundDetailMember) => {
+    setAssignTarget(member);
+    // 확정 단계는 바꾸면 지원자에게 알림이 간다 — 창을 닫은 사이 다른 탭이 옮긴 일정이 '지금 일정'으로 보이게 열 때 다시 받는다(창은 다시 받은 상세의 멤버를 쓴다).
+    if (status === 'SCHEDULED') void detailQuery.refetch();
   };
 
   const handleSlotsCreated = (reinvitedCount: number) => {
@@ -319,9 +398,10 @@ export function RoundDashboard({ clubId, recruitmentId, roundId }: Props) {
       <div className="mb-6">
         <Link
           href={toRoute(`/manage/clubs/${clubId}/recruitments/${recruitmentId}/interview`)}
-          className="text-sm text-slate-500 hover:text-slate-700"
+          className="inline-flex items-center gap-1 text-sm text-charcoal-3 hover:text-charcoal"
         >
-          ← 면접 관리로 돌아가기
+          <ArrowLeft size={14} aria-hidden />
+          면접 관리로 돌아가기
         </Link>
       </div>
 
@@ -332,8 +412,8 @@ export function RoundDashboard({ clubId, recruitmentId, roundId }: Props) {
           className={cn(
             'mb-4 rounded-md px-4 py-2 text-sm',
             feedbackMessage.kind === 'error'
-              ? 'bg-rose-50 text-rose-700'
-              : 'bg-emerald-50 text-emerald-700',
+              ? 'bg-coral/10 text-coral-deep'
+              : 'bg-sage-mist text-ink',
           )}
         >
           {feedbackMessage.text}
@@ -360,7 +440,7 @@ export function RoundDashboard({ clubId, recruitmentId, roundId }: Props) {
           <NoSlotSection
             detail={detail}
             onExclude={setExcludeTarget}
-            onManualAssign={setAssignTarget}
+            onManualAssign={openAssignDialog}
           />
         )}
 
@@ -368,7 +448,7 @@ export function RoundDashboard({ clubId, recruitmentId, roundId }: Props) {
         <RoundMemberTable
           detail={detail}
           onExclude={setExcludeTarget}
-          onManualAssign={setAssignTarget}
+          onManualAssign={openAssignDialog}
         />
 
         {/* 슬롯 섹션 */}
@@ -379,14 +459,14 @@ export function RoundDashboard({ clubId, recruitmentId, roundId }: Props) {
 
         {/* 액션 바 — 비터미널 상태 */}
         {isNonTerminal && (
-          <div className="flex flex-wrap gap-2 rounded-xl border border-slate-200 bg-white px-5 py-4">
+          <div className="flex flex-wrap gap-2 rounded-xl border border-line bg-white px-5 py-4">
             {/* 재알림 — COLLECTING */}
             {status === 'COLLECTING' && (
               <button
                 type="button"
                 onClick={handleRemind}
                 disabled={remindMutation.isPending}
-                className="inline-flex items-center gap-1.5 rounded-md border border-slate-300 px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                className="inline-flex items-center gap-1.5 rounded-md border border-line px-3 py-1.5 text-sm text-charcoal hover:bg-cream disabled:opacity-50"
               >
                 {remindMutation.isPending && <ButtonSpinner />}재알림
               </button>
@@ -400,7 +480,7 @@ export function RoundDashboard({ clubId, recruitmentId, roundId }: Props) {
                   setExtendDeadlineError(null);
                   setShowExtendDeadlineModal(true);
                 }}
-                className="rounded-md border border-slate-300 px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50"
+                className="rounded-md border border-line px-3 py-1.5 text-sm text-charcoal hover:bg-cream"
               >
                 마감 연장
               </button>
@@ -410,7 +490,7 @@ export function RoundDashboard({ clubId, recruitmentId, roundId }: Props) {
             <button
               type="button"
               onClick={() => setShowCancelDialog(true)}
-              className="rounded-md border border-rose-200 px-3 py-1.5 text-sm text-rose-600 hover:bg-rose-50"
+              className="rounded-md border border-line px-3 py-1.5 text-sm text-danger hover:bg-danger/5"
             >
               라운드 취소
             </button>
@@ -433,6 +513,15 @@ export function RoundDashboard({ clubId, recruitmentId, roundId }: Props) {
       {confirmDialogPayload && (
         <ConfirmRoundDialog
           unresolvedPayload={confirmDialogPayload}
+          // 409 뒤 상세를 다시 받는 동안엔 낡은 정원·배정으로 빈 자리를 판정하지 않는다(null = 보류) — 다 받은 뒤 표시
+          slots={detailQuery.isFetching ? null : detail.slots}
+          decidedApplicationIds={
+            new Set(
+              detail.members
+                .filter((member) => isDecidedApplicationResult(member.applicationResult))
+                .map((member) => member.applicationId),
+            )
+          }
           onForceConfirm={handleForceConfirm}
           onCancel={() => {
             setConfirmDialogPayload(null);
@@ -453,6 +542,8 @@ export function RoundDashboard({ clubId, recruitmentId, roundId }: Props) {
           onCancel={() => {
             setShowCancelDialog(false);
             setConfirmActionError(null);
+            // 409 로 다시 받은 상세가 종결 단계면 창이 열린 채 동작 막대가 사라져 돌아갈 [라운드 취소]가 없다 — 닫힌 뒤 body 면 상태 배너로.
+            if (!isNonTerminal) setTimeout(() => focusElementIfFocusLost(ROUND_STATUS_BANNER_ID), 0);
           }}
           isPending={cancelMutation.isPending}
           busyLabel="라운드 취소 중"
@@ -488,12 +579,18 @@ export function RoundDashboard({ clubId, recruitmentId, roundId }: Props) {
 
       {assignTarget && (
         <MemberAssignModal
-          member={assignTarget}
+          // 연 때의 사본이 아니라 지금 상세의 그 멤버 — 409 뒤 다시 받은 상세에서 지금 일정이 바뀌었을 수 있다.
+          // 지금 일정 판정과 함께, 아직 고르지 않은 동안의 선택 출처이기도 하다.
+          member={detail.members.find((detailMember) => detailMember.memberId === assignTarget.memberId) ?? assignTarget}
           slots={detail.slots}
+          roundStatus={status}
           onAssign={handleAssignConfirm}
-          onCancel={() => setAssignTarget(null)}
+          onCancel={() => {
+            setAssignTarget(null);
+            setAssignDialogError(null);
+          }}
           isPending={assignMutation.isPending}
-          showRescheduleNotice={status === 'SCHEDULED'}
+          errorMessage={assignDialogError}
         />
       )}
     </div>

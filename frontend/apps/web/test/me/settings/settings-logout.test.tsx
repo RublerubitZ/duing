@@ -1,9 +1,19 @@
-import { beforeEach, describe, expect, it, vi, beforeAll, afterAll } from 'vitest';
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi, beforeAll, afterAll } from 'vitest';
+import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
-import { ToastProvider } from '@/app/_components/toast/ToastProvider';
+import { ApiError, NETWORK_ERROR_MESSAGE } from '@duing/api';
 
+import { ToastProvider } from '@/app/_components/toast/ToastProvider';
+import { SESSION_USER_KEY } from '@/app/_lib/authBoot';
+
+// 로그아웃 실패 문구 — 리터럴로 적는다(상수를 import 하면 문구가 바뀌어도 통과한다).
+const SWITCHED_TEXT = '다른 탭에서 로그인 상태가 바뀌었어요. 이 화면에서는 저장되지 않아요.';
+const ENDED_TEXT = '로그아웃되었어요. 이 화면에서는 저장되지 않아요.';
+const LOGOUT_BLOCKED_TEXT =
+  '로그아웃하지 못했어요. 다른 탭에서 로그인 상태가 바뀌었어요 — 새로고침한 뒤 다시 로그아웃해주세요.';
+const OFFLINE_LOGOUT_TEXT =
+  '로그아웃하지 못했습니다. 네트워크 연결 후 다시 시도하고 이 기기를 떠나지 마세요.';
 const mockLogout = vi.fn();
 const mockReplace = vi.fn();
 
@@ -48,7 +58,9 @@ describe('SettingsPage logout', () => {
     mockLogout.mockReset();
     mockReplace.mockReset();
     hardReplaceSpy.mockClear();
+    window.localStorage.removeItem(SESSION_USER_KEY);
   });
+  afterEach(() => vi.useRealTimers());
 
   // 계정 카드는 "한 번 더 확인 후 진행"이라고 안내한다 — 버튼이 바로 세션을 끊으면 안내와 어긋난다.
   it('로그아웃은 확인 모달을 거치고, 취소하면 세션을 끊지 않는다', async () => {
@@ -77,6 +89,39 @@ describe('SettingsPage logout', () => {
 
     await waitFor(() => expect(hardReplaceSpy).toHaveBeenCalledWith('/'));
     expect(mockLogout).toHaveBeenCalledTimes(1);
+  });
+
+  // 다른 탭 때문에 막혔으면 누를 때의 표지로 고른 문구(비면 로그아웃됨, 사용자가 있으면 못 함), 진짜 오프라인이면 지금 문구 그대로.
+  // 표지는 로그아웃을 누를 때의 공유 표지 — 막혔으면 그 값으로 다시 판정한다(사용자가 있으면 로그아웃되지 않았다).
+  it.each<[string, string, string | null, string]>([
+    ['다른 탭의 계정 전환으로 막힘(표지에 다른 사용자)', SWITCHED_TEXT, '2', LOGOUT_BLOCKED_TEXT],
+    ['다른 탭의 로그아웃·만료로 막힘(표지 없음)', ENDED_TEXT, null, ENDED_TEXT],
+    ['로그아웃으로 막힌 뒤 다른 탭이 다시 로그인(표지에 사용자)', ENDED_TEXT, '3', LOGOUT_BLOCKED_TEXT],
+    ['진짜 오프라인(표지 그대로)', NETWORK_ERROR_MESSAGE, '1', OFFLINE_LOGOUT_TEXT],
+  ])('로그아웃 실패 문구 — %s', async (_label, rejectedMessage, sharedSessionUser, expectedToast) => {
+    if (sharedSessionUser !== null) window.localStorage.setItem(SESSION_USER_KEY, sharedSessionUser);
+    mockLogout.mockRejectedValueOnce(new ApiError(0, rejectedMessage, undefined, 'NETWORK'));
+    // 기본 시간(5초)을 흘려 토스트가 남는지 본다 — 실제 시간도 흐르게 둬 userEvent·findBy 대기는 그대로 돈다.
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    render(
+      <ToastProvider>
+        <SettingsPage />
+      </ToastProvider>,
+    );
+
+    await user.click(screen.getByRole('button', { name: '로그아웃' }));
+    await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: '로그아웃' }));
+
+    expect(await screen.findByText(expectedToast)).toBeInTheDocument();
+    expect(hardReplaceSpy).not.toHaveBeenCalled();
+    // 막혔으면 '로그아웃하지 못했습니다' 는 뜨지 않는다(오프라인 행은 그 문구 하나).
+    expect(screen.queryAllByText(/로그아웃하지 못했습니다/)).toHaveLength(
+      expectedToast === OFFLINE_LOGOUT_TEXT ? 1 : 0,
+    );
+    // 막혔으면 닫을 때까지 남고(공용 기기에서 '못 했다' 가 사라지지 않게), 막히지 않은 실패는 기본 시간 뒤 닫힌다.
+    act(() => vi.advanceTimersByTime(6_000));
+    expect(screen.queryAllByText(expectedToast)).toHaveLength(expectedToast === OFFLINE_LOGOUT_TEXT ? 0 : 1);
   });
 
   it('로그아웃 실패 시 이동하지 않고 오류를 표시한 뒤 재시도할 수 있다', async () => {

@@ -32,10 +32,37 @@ public interface RecruitmentRepository extends JpaRepository<Recruitment, Long>,
      * <p>마감(close)과 면접 라운드 생성(createRound)도 같은 잠금을 쓴다 — 라운드 생성이 OPEN 을 확인한
      * 뒤 마감이 커밋되면 마감된 모집에 라운드가 잔존하기 때문이다(아카이브 스펙 §9). 소비 경로가 잠그는
      * 순서는 모집 → 지원서 / 모집 → 가입 코드로 모두 모집이 먼저라 사이클이 없다.
+     *
+     * <p>모집 수정(update)도 첫 조회로 이 잠금을 쓰고, 질문 목록을 보낼 때(자체 폼 수정 화면은 늘 보낸다)는
+     * 모집 → 폼 FOR UPDATE(lockFormForQuestionChange) 순으로 잠근다.
+     * ⚠ 제출은 폼 FOR SHARE → 지원 INSERT(모집 FK 의 KEY SHARE) 순이라 방향이 반대다 — PESSIMISTIC_WRITE 는 PG 에서
+     * FOR NO KEY UPDATE 라 KEY SHARE 와 충돌하지 않아 교착이 없지만, 잠금 모드가 FOR UPDATE 로 바뀌는 순간
+     * 수정(모집 → 폼 UPDATE) ↔ 제출(폼 SHARE → 모집 KEY SHARE) 교착이 된다(가드: RecruitmentRowLockModeTest).
+     *
+     * <p>총동연 강제 마감(forceClose)도 이 잠금을 쓴다. 모집 생성(create)은 {@link #findOpenByClubIdForUpdate} 로 잠근다.
      */
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT recruitment FROM Recruitment recruitment WHERE recruitment.id = :recruitmentId")
     Optional<Recruitment> findByIdForUpdate(@Param("recruitmentId") Long recruitmentId);
+
+    /**
+     * 동아리의 OPEN 모집 1건을 행 잠금으로 읽는다 — 새 모집을 만들기 전에 기간이 지난 OPEN 모집을 자동 마감할 때 쓴다(create).
+     * endDate 는 거르지 않는다. uk_recruitment_club_active(V38)가 동아리당 1건을 보장한다.
+     * 잠그지 않으면 옛 값을 읽은 전 컬럼 UPDATE 가 그 사이 커밋된 수정(기간 연장 등)을 되돌린다.
+     * club 을 조인하지 않는다(조인하면 잠금이 club 행까지 번진다). 동아리당 1건이라 정렬·LIMIT 가 필요 없다.
+     * 대기하는 사이 그 모집이 마감·삭제되면 빈 결과가 되고, 그것이 맞는 결과다.
+     *
+     * <p>잠금 순서: club(FOR NO KEY UPDATE) → 모집.
+     * ⚠ 반대 방향으로, 모집 잠금을 쥔 채 club 외래 키를 확인(KEY SHARE)하는 INSERT 가 있다 — 총동연 강제 마감·삭제·가입 코드 발급.
+     * club 잠금이 FOR NO KEY UPDATE 라 충돌하지 않지만, FOR UPDATE 로 바뀌는 순간 교착이 된다(가드: RecruitmentRowLockModeTest).
+     */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("""
+            SELECT recruitment FROM Recruitment recruitment
+             WHERE recruitment.club.id = :clubId
+               AND recruitment.status = com.duing.domain.recruitment.entity.RecruitmentStatus.OPEN
+            """)
+    Optional<Recruitment> findOpenByClubIdForUpdate(@Param("clubId") Long clubId);
 
     /**
      * 제출이 읽는 질문 정의를 고정한다. 질문 변경(FOR UPDATE)과 상호 배타이고,
@@ -136,4 +163,13 @@ public interface RecruitmentRepository extends JpaRepository<Recruitment, Long>,
                AND r.deletedAt IS NULL
             """)
     int closeAllOpenByClubId(@Param("clubId") Long clubId, @Param("closedAt") LocalDateTime closedAt);
+
+    /** 주간 브리핑 — 기간에 등록한 모집(감사 created_at, system regime). 시작 전 모집도 든다. from 포함·to 미만. */
+    long countByCreatedAtGreaterThanEqualAndCreatedAtLessThan(LocalDateTime from, LocalDateTime to);
+
+    /**
+     * 주간 브리핑 — 모집 기간이 그 주(KST 날짜, 양끝 포함)에 끝난 모집. 날짜 열이라 Between 이 반열린 구간과 같다.
+     * 상시모집(end_date NULL)은 빠지고, 상태는 가리지 않는다(접수 마감 stopIntake 로 생긴 종료일 포함).
+     */
+    long countByEndDateBetween(LocalDate firstDay, LocalDate lastDay);
 }

@@ -10,6 +10,8 @@ import {
   APPLICATION_STATUS_LABEL,
 } from '../../../../../../../../_constants/application-status';
 import { toRoute } from '../../../../../../../../_lib/route';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ArrowLeft } from '@/components/duing/Icon';
 
 type Props = {
   clubId: number;
@@ -51,8 +53,9 @@ export function ApplicantNavBar({
         href={toRoute(`/manage/clubs/${clubId}/recruitments/${recruitmentId}/applicants${qs ? `?${qs}` : ''}`)}
         className="inline-flex min-h-11 items-center gap-1 rounded-sm px-2 text-sm text-charcoal-2 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
       >
-        {/* 화살표는 장식 — aria-hidden 으로 빼야 SR 이 "홑화살괄호 목록"으로 읽지 않는다. */}
-        <span aria-hidden="true">←</span> 목록
+        {/* 화살표는 장식 — 접근 이름에 섞이지 않게 aria-hidden 아이콘으로 둔다. */}
+        <ArrowLeft size={14} aria-hidden="true" />
+        목록
       </Link>
       <button
         type="button"
@@ -64,7 +67,8 @@ export function ApplicantNavBar({
         }}
         className={cn(NAV_BUTTON_CLASS, 'ml-3')}
       >
-        <span aria-hidden="true">‹</span> 이전
+        <ChevronLeft size={14} aria-hidden="true" />
+        이전
       </button>
       <button
         type="button"
@@ -76,7 +80,8 @@ export function ApplicantNavBar({
         }}
         className={NAV_BUTTON_CLASS}
       >
-        다음 <span aria-hidden="true">›</span>
+        다음
+        <ChevronRight size={14} aria-hidden="true" />
       </button>
       <span
         className={cn(

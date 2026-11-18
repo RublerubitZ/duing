@@ -25,7 +25,7 @@ export function GradeSelect({ value, onChange, id, ariaDescribedBy }: Props) {
         onChange={(changeEvent) => {
           if (isGrade(changeEvent.target.value)) onChange(changeEvent.target.value);
         }}
-        className="w-full appearance-none rounded-md border border-line bg-paper px-3.5 py-3 pr-10 text-sm text-charcoal outline-none transition focus:border-ink focus:ring-1 focus:ring-ink/20"
+        className="w-full appearance-none rounded-md border border-field bg-paper px-3.5 py-3 pr-10 text-sm text-charcoal outline-none transition focus:border-ink focus:ring-1 focus:ring-ink/20"
       >
         <option value="" disabled>학년 선택</option>
         {GRADE_OPTIONS.map((grade) => (

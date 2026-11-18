@@ -14,6 +14,7 @@ import com.duing.domain.club.entity.ClubCategory;
 import com.duing.domain.club.repository.ClubRepository;
 import com.duing.domain.club.service.ClubVisibilityPolicy;
 import com.duing.domain.clubmember.service.ClubAuthService;
+import com.duing.domain.interview.repository.InterviewRoundRepository;
 import com.duing.domain.joincode.repository.ClubJoinRequestRepository;
 import com.duing.domain.joincode.service.JoinCodeService;
 import com.duing.domain.recruitment.entity.ApplicationMode;
@@ -54,6 +55,7 @@ class RecruitmentQuestionItemsUpdateTest {
     private final GeneralRecruitmentService recruitmentService = new GeneralRecruitmentService(
             recruitmentRepository,
             applicationRepository,
+            mock(InterviewRoundRepository.class),
             mock(ClubJoinRequestRepository.class),
             mock(JoinCodeService.class),
             clubRepository,
@@ -81,7 +83,7 @@ class RecruitmentQuestionItemsUpdateTest {
                 club, "2026 봄 모집", "내용", LocalDate.now(), LocalDate.now().plusDays(14), 10);
         setField(recruitment, "id", RECRUITMENT_ID);
         recruitment.attachForm(RecruitmentForm.create(recruitment, questions));
-        when(recruitmentRepository.findById(RECRUITMENT_ID)).thenReturn(Optional.of(recruitment));
+        when(recruitmentRepository.findByIdForUpdate(RECRUITMENT_ID)).thenReturn(Optional.of(recruitment));
         return recruitment;
     }
 
@@ -473,7 +475,7 @@ class RecruitmentQuestionItemsUpdateTest {
                 club, "2026 봄 모집", "내용", LocalDate.now(), LocalDate.now().plusDays(14), 10);
         setField(recruitment, "id", RECRUITMENT_ID);
         setField(recruitment, "applicationMode", ApplicationMode.EXTERNAL);
-        when(recruitmentRepository.findById(RECRUITMENT_ID)).thenReturn(Optional.of(recruitment));
+        when(recruitmentRepository.findByIdForUpdate(RECRUITMENT_ID)).thenReturn(Optional.of(recruitment));
 
         assertThatThrownBy(() -> recruitmentService.update(withQuestionItems(List.of(
                 textItem(null, "지원 동기는?", true)))))

@@ -15,10 +15,10 @@ export const JOIN_CODE_STATUS_LABEL: Record<AdminJoinCodeStatus, string> = {
 
 /** 동아리 상태 뱃지(`STATUS_BADGE_CLASS`)와 같은 색 어휘 — 쓸 수 있음은 초록, 끊긴 것은 붉은색이다. */
 export const JOIN_CODE_STATUS_BADGE_CLASS: Record<AdminJoinCodeStatus, string> = {
-  ACTIVE: 'bg-emerald-100 text-emerald-800',
-  EXPIRED: 'bg-slate-200 text-slate-700',
-  EXHAUSTED: 'bg-amber-100 text-amber-800',
-  REVOKED: 'bg-rose-100 text-rose-800',
+  ACTIVE: 'bg-sage/10 text-sage-deep',
+  EXPIRED: 'bg-line text-charcoal',
+  EXHAUSTED: 'bg-warm/10 text-warm-deep',
+  REVOKED: 'bg-coral/10 text-coral-deep',
 };
 
 /**

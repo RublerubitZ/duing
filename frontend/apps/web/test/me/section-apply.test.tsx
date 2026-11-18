@@ -1,12 +1,12 @@
-import { render, screen } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
-import type { ApplicationSummary } from '@duing/types';
+import { render, screen, within } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { ApplicationSummary, AssignedInterview } from '@duing/types';
 
 import { SectionApply } from '../../app/me/_components/SectionApply';
 
 vi.mock('next/link', () => ({
-  default: ({ href, children }: { href: string; children: React.ReactNode }) => (
-    <a href={href}>{children}</a>
+  default: ({ href, className, children }: { href: string; className?: string; children: React.ReactNode }) => (
+    <a href={href} className={className}>{children}</a>
   ),
 }));
 
@@ -22,6 +22,24 @@ const base: ApplicationSummary = {
   status: 'SUBMITTED',
   interview: null,
   submittedAt: '2026-05-26T10:00:00Z',
+};
+
+// 카드는 확정 면접이 끝났는지를 지금 시각으로 가른다 — 픽스처 면접일(6/20·11/20)보다 앞선 시각에 묶어 날짜가 지나도 깨지지 않게 한다.
+// 이보다 이른 면접일로 '다가옴'을 단언하려면 그 테스트에서 setSystemTime 을 다시 맞춘다.
+beforeEach(() => {
+  vi.useFakeTimers({ toFake: ['Date'] });
+  vi.setSystemTime(new Date('2026-06-01T09:00:00+09:00'));
+});
+
+afterEach(() => {
+  vi.useRealTimers();
+});
+
+// 카드 뿌리는 'relative' 클래스를 가진 div 다(다음 일정 배지를 겹쳐 올리는 기준).
+const cardOf = (clubName: string): HTMLElement => {
+  const card = screen.getByText(clubName).closest<HTMLElement>('.relative');
+  if (!card) throw new Error(`카드를 찾지 못함: ${clubName}`);
+  return card;
 };
 
 describe('SectionApply — active 상태만 렌더', () => {
@@ -100,5 +118,292 @@ describe('SectionApply — active 상태만 렌더', () => {
     for (const node of interviewTexts) {
       expect(node.textContent ?? '').not.toMatch(/—/);
     }
+  });
+});
+
+describe('SectionApply — 진행 상태 마디는 면접을 쓰는 모집에만 면접 마디를 둔다', () => {
+  it('면접을 쓰지 않는 모집은 심사·최종 결과이고 심사가 진행 중이다', () => {
+    render(<SectionApply applications={[{ ...base, useInterview: false }]} />);
+    expect(screen.queryByText('면접')).not.toBeInTheDocument();
+    expect(screen.getByText('최종 결과')).toBeInTheDocument();
+    expect(screen.getByText('심사')).toHaveClass('font-bold');
+  });
+
+  it('운영진이 면접을 끈 모집에 남은 면접 대상도 심사에 머문다', () => {
+    render(<SectionApply applications={[{ ...base, status: 'INTERVIEW_PENDING', useInterview: false }]} />);
+    expect(screen.getByText('심사')).toHaveClass('font-bold');
+    expect(screen.getByText('최종 결과')).not.toHaveClass('font-bold');
+  });
+
+  it.each([true, undefined])('useInterview=%s 면 지금처럼 심사·면접이다', (useInterview) => {
+    render(<SectionApply applications={[{ ...base, useInterview }]} />);
+    expect(screen.getByText('면접')).toBeInTheDocument();
+    expect(screen.queryByText('최종 결과')).not.toBeInTheDocument();
+  });
+
+  it('면접 사용·미사용 카드가 섞여도 카드마다 자기 모집 값을 따른다', () => {
+    render(
+      <SectionApply
+        applications={[
+          { ...base, id: 1, clubName: '면접 없는 동아리', useInterview: false },
+          { ...base, id: 2, clubName: '면접 보는 동아리', useInterview: true },
+        ]}
+      />,
+    );
+    expect(within(cardOf('면접 없는 동아리')).getByText('최종 결과')).toBeInTheDocument();
+    expect(within(cardOf('면접 없는 동아리')).queryByText('면접')).not.toBeInTheDocument();
+    expect(within(cardOf('면접 보는 동아리')).getByText('면접')).toBeInTheDocument();
+    expect(within(cardOf('면접 보는 동아리')).queryByText('최종 결과')).not.toBeInTheDocument();
+  });
+});
+
+describe('SectionApply — 면접을 끈 모집에 남은 면접 대상은 면접 일정을 안내하지 않는다', () => {
+  const leftover: ApplicationSummary = {
+    ...base,
+    status: 'INTERVIEW_PENDING',
+    interview: { startAt: '2026-11-20T14:00:00', endAt: '2026-11-20T14:30:00', location: '학생회관 302호' },
+    useInterview: false,
+  };
+
+  it.each([
+    ['확정 배정이 남은', leftover],
+    ['배정이 없는', { ...leftover, interview: null }],
+  ])('%s 카드는 다음 일정·면접 안내 없이 심사 중 카드처럼 보인다', (_case, summary) => {
+    render(<SectionApply applications={[summary]} />);
+    const card = cardOf('두잉 댄스');
+    expect(within(card).queryByText('다음 일정')).not.toBeInTheDocument();
+    expect(card.textContent).not.toMatch(/면접:/);
+    expect(card.textContent).not.toContain('학생회관 302호');
+    expect(within(card).getByText('동아리에서 심사 중입니다')).toBeInTheDocument();
+    expect(card).toHaveClass('border-line');
+    expect(card).not.toHaveClass('border-ink');
+    const link = within(card).getByRole('link');
+    expect(link).toHaveTextContent('지원서 보기');
+    expect(link).toHaveClass('btn-secondary');
+    expect(link).toHaveAttribute('href', '/me/applications/1');
+  });
+
+  it.each([true, undefined])('useInterview=%s 면 지금처럼 다음 일정·면접 일정 보기·면접 안내다(fail-open)', (useInterview) => {
+    render(<SectionApply applications={[{ ...leftover, useInterview }]} />);
+    const card = cardOf('두잉 댄스');
+    expect(within(card).getByText('다음 일정')).toBeInTheDocument();
+    expect(within(card).getByText(/면접: .+ — 학생회관 302호/)).toBeInTheDocument();
+    expect(card).toHaveClass('border-ink');
+    const link = within(card).getByRole('link');
+    expect(link).toHaveTextContent('면접 일정 보기');
+    expect(link).toHaveClass('btn-primary');
+  });
+
+  it.each([true, undefined])('useInterview=%s 인 모집의 심사 중 카드에는 면접 표기가 붙지 않는다', (useInterview) => {
+    render(<SectionApply applications={[{ ...base, useInterview }]} />);
+    const card = cardOf('두잉 댄스');
+    expect(within(card).queryByText('다음 일정')).not.toBeInTheDocument();
+    const link = within(card).getByRole('link');
+    expect(link).toHaveTextContent('지원서 보기');
+    expect(link).toHaveClass('btn-secondary');
+  });
+
+  it('면접을 끈 모집의 면접 대상 카드는 같은 모집의 심사 중 카드와 똑같다', () => {
+    const sectionHtml = (summary: ApplicationSummary): string => {
+      const { container, unmount } = render(<SectionApply applications={[summary]} />);
+      const html = container.querySelector('[data-section="apply"]')?.innerHTML ?? '';
+      unmount();
+      return html;
+    };
+    // 의도한 잠금 — 상태별 속성(data-*·aria-label)을 넣으면 여기서 깨지니 그때 비교 범위를 좁힌다.
+    expect(sectionHtml(leftover)).toBe(sectionHtml({ ...leftover, status: 'SUBMITTED', interview: null }));
+  });
+});
+
+describe('SectionApply — 확정 면접이 끝나면 다음 일정으로 안내하지 않는다', () => {
+  const SCHEDULED_INTERVIEW: AssignedInterview = {
+    startAt: '2026-11-10T14:00:00',
+    endAt: '2026-11-10T14:30:00',
+    location: '학생회관 302호',
+  };
+  const scheduled: ApplicationSummary = {
+    ...base,
+    status: 'INTERVIEW_PENDING',
+    interview: SCHEDULED_INTERVIEW,
+    useInterview: true,
+  };
+
+  const expectUpcoming = (card: HTMLElement) => {
+    expect(within(card).getByText('다음 일정')).toBeInTheDocument();
+    expect(within(card).getByText(/면접: .+ — 학생회관 302호/)).toBeInTheDocument();
+    expect(within(card).getByText('면접: 2026.11.10 14:00')).toBeInTheDocument();
+    expect(card).toHaveClass('border-ink');
+    const link = within(card).getByRole('link');
+    expect(link).toHaveTextContent('면접 일정 보기');
+    expect(link).toHaveClass('btn-primary');
+  };
+
+  const expectEnded = (card: HTMLElement) => {
+    expect(within(card).queryByText('다음 일정')).not.toBeInTheDocument();
+    expect(card.textContent).not.toMatch(/면접:/);
+    expect(card.textContent).not.toContain('학생회관 302호');
+    expect(within(card).getByText('동아리에서 심사 중입니다')).toBeInTheDocument();
+    expect(card).toHaveClass('border-line');
+    expect(card).not.toHaveClass('border-ink');
+    const link = within(card).getByRole('link');
+    expect(link).toHaveTextContent('지원서 보기');
+    expect(link).toHaveClass('btn-secondary');
+    expect(link).toHaveAttribute('href', '/me/applications/1');
+    // 진행 막대는 그대로 면접 단계다 — 결과가 나올 때까지 면접 대상이다.
+    expect(within(card).getByText('면접')).toHaveClass('font-bold');
+  };
+
+  it.each([
+    ['시작 전', '2026-11-10T13:00:00+09:00'],
+    // 진행 중(시작은 지났고 끝나지 않음)에도 장소가 필요하다 — 늦게 온 지원자, 여러 명이 나눠 쓰는 긴 슬롯.
+    ['시작 직후', '2026-11-10T14:10:00+09:00'],
+    ['끝나기 1초 전', '2026-11-10T14:29:59+09:00'],
+  ])('%s에는 지금처럼 다음 일정이다', (_case, now) => {
+    vi.setSystemTime(new Date(now));
+    render(<SectionApply applications={[scheduled]} />);
+    expectUpcoming(cardOf('두잉 댄스'));
+  });
+
+  it.each([
+    ['끝 시각', '2026-11-10T14:30:00+09:00'],
+    ['다음 날 아침', '2026-11-11T09:00:00+09:00'],
+  ])('%s에는 다음 일정·면접 안내 없이 결과를 기다리는 카드다', (_case, now) => {
+    vi.setSystemTime(new Date(now));
+    render(<SectionApply applications={[scheduled]} />);
+    expectEnded(cardOf('두잉 댄스'));
+  });
+
+  it('끝 시각은 기기 시간대와 상관없이 한국 시간으로 읽는다', () => {
+    const originalTz = process.env.TZ;
+    process.env.TZ = 'America/New_York';
+    try {
+      vi.setSystemTime(new Date('2026-11-10T15:00:00+09:00'));
+      render(<SectionApply applications={[scheduled]} />);
+      expectEnded(cardOf('두잉 댄스'));
+    } finally {
+      // undefined 를 대입하면 문자열 "undefined" 가 들어가 UTC 로 동작한다 — 원래 없었으면 지운다.
+      if (originalTz === undefined) delete process.env.TZ;
+      else process.env.TZ = originalTz;
+    }
+  });
+
+  it('읽지 못하는 끝 시각은 끝나지 않은 쪽(지금 화면)으로 둔다', () => {
+    vi.setSystemTime(new Date('2026-11-11T09:00:00+09:00'));
+    render(<SectionApply applications={[{ ...scheduled, interview: { ...SCHEDULED_INTERVIEW, endAt: 'not-a-time' } }]} />);
+    expect(within(cardOf('두잉 댄스')).getByText('다음 일정')).toBeInTheDocument();
+  });
+
+  it('끝난 카드와 다가올 카드가 섞여도 카드마다 자기 면접 시각을 따른다', () => {
+    vi.setSystemTime(new Date('2026-11-11T09:00:00+09:00'));
+    render(
+      <SectionApply
+        applications={[
+          { ...scheduled, id: 1, clubName: '끝난 동아리' },
+          {
+            ...scheduled,
+            id: 2,
+            clubName: '다가올 동아리',
+            interview: { startAt: '2026-11-12T14:00:00', endAt: '2026-11-12T14:30:00', location: '학생회관 302호' },
+          },
+        ]}
+      />,
+    );
+    expect(within(cardOf('끝난 동아리')).queryByText('다음 일정')).not.toBeInTheDocument();
+    expect(within(cardOf('다가올 동아리')).getByText('다음 일정')).toBeInTheDocument();
+  });
+
+  it('배정 없는 면접 대상은 시각과 상관없이 강조가 남고, 일정을 단정하지 않는 문구를 쓴다', () => {
+    vi.setSystemTime(new Date('2026-11-11T09:00:00+09:00'));
+    render(<SectionApply applications={[{ ...scheduled, interview: null }]} />);
+    const card = cardOf('두잉 댄스');
+    expect(card).toHaveClass('border-ink');
+    expect(within(card).getByText('면접 대상')).toBeInTheDocument();
+    expect(within(card).getByRole('link')).toHaveTextContent('진행 상황 보기');
+    expect(within(card).getByText('면접 대상으로 선정되었습니다')).toBeInTheDocument();
+  });
+});
+
+describe('SectionApply — 확정 배정이 없는 면접 대상에게는 일정을 단정하지 않는다', () => {
+  const unassigned: ApplicationSummary = { ...base, status: 'INTERVIEW_PENDING', interview: null };
+
+  it.each([true, undefined])('useInterview=%s 면 배지는 면접 대상, 안내 줄은 선정 문구, 버튼은 진행 상황 보기이고 강조는 그대로다', (useInterview) => {
+    render(<SectionApply applications={[{ ...unassigned, useInterview }]} />);
+    const card = cardOf('두잉 댄스');
+    expect(within(card).getByText('면접 대상')).toBeInTheDocument();
+    expect(within(card).queryByText('다음 일정')).not.toBeInTheDocument();
+    expect(within(card).getByText('면접 대상으로 선정되었습니다')).toBeInTheDocument();
+    expect(within(card).queryByText('동아리에서 심사 중입니다')).not.toBeInTheDocument();
+    expect(card.textContent).not.toMatch(/면접:/);
+    // 막대 아래 줄은 지원 시각 그대로다(base.submittedAt 의 한국 시간).
+    expect(within(card).getByText('2026.05.26 19:00')).toBeInTheDocument();
+    expect(card).toHaveClass('border-ink');
+    const link = within(card).getByRole('link');
+    expect(link).toHaveTextContent('진행 상황 보기');
+    expect(link).toHaveClass('btn-primary');
+    expect(link).toHaveAttribute('href', '/me/applications/1');
+  });
+
+  it('확정 배정이 있으면 지금처럼 다음 일정·면접 일정 보기이고 안내 줄에 선정 문구가 없다', () => {
+    const interview = { startAt: '2026-11-20T14:00:00', endAt: '2026-11-20T14:30:00', location: null };
+    render(<SectionApply applications={[{ ...unassigned, interview, useInterview: true }]} />);
+    const card = cardOf('두잉 댄스');
+    expect(within(card).getByText('다음 일정')).toBeInTheDocument();
+    expect(within(card).queryByText('면접 대상')).not.toBeInTheDocument();
+    expect(within(card).getByRole('link')).toHaveTextContent('면접 일정 보기');
+    expect(within(card).queryByText('면접 대상으로 선정되었습니다')).not.toBeInTheDocument();
+    expect(within(card).queryByText('동아리에서 심사 중입니다')).not.toBeInTheDocument();
+  });
+
+  it.each<[string, ApplicationSummary]>([
+    ['심사 중', { ...base, useInterview: true }],
+    ['면접을 끈 모집의 면접 대상', { ...unassigned, useInterview: false }],
+    [
+      '확정 면접이 끝난 면접 대상',
+      {
+        ...unassigned,
+        useInterview: true,
+        interview: { startAt: '2026-05-20T14:00:00', endAt: '2026-05-20T14:30:00', location: null },
+      },
+    ],
+  ])('%s 카드에는 면접 대상 배지가 없고 안내 줄은 심사 중, 버튼은 지원서 보기다', (_case, summary) => {
+    render(<SectionApply applications={[summary]} />);
+    const card = cardOf('두잉 댄스');
+    expect(within(card).queryByText('면접 대상')).not.toBeInTheDocument();
+    expect(within(card).queryByText('다음 일정')).not.toBeInTheDocument();
+    expect(within(card).getByRole('link')).toHaveTextContent('지원서 보기');
+    expect(within(card).getByText('동아리에서 심사 중입니다')).toBeInTheDocument();
+    expect(within(card).queryByText('면접 대상으로 선정되었습니다')).not.toBeInTheDocument();
+  });
+});
+
+describe('SectionApply — 네 열 배치는 1024px(lg)부터 켠다', () => {
+  it.each<[string, ApplicationSummary]>([
+    ['면접 대상', { ...base, status: 'INTERVIEW_PENDING', interview: null, useInterview: true }],
+    ['심사 중', { ...base, useInterview: true }],
+  ])('%s 카드: 네 열 배치와 함께 켜지는 클래스가 모두 lg 이고, 정보 열은 줄어들며 긴 낱말을 줄바꿈한다', (_case, summary) => {
+    render(<SectionApply applications={[summary]} />);
+    const card = cardOf('두잉 댄스');
+    const progress = within(card).getByText('진행 상태').parentElement!;
+    const link = within(card).getByRole('link');
+    const info = within(card).getByRole('heading', { level: 3 }).parentElement!;
+
+    expect(card).toHaveClass('lg:grid-cols-[auto_1fr_360px_auto]', 'lg:gap-5', 'lg:items-center');
+    expect(progress).toHaveClass('lg:col-span-1');
+    // 두 열 배치에서 버튼은 한 줄을 통째로 쓴다 — justify-self-start 가 없으면 그 줄 폭만큼 늘어난다.
+    expect(link).toHaveClass('lg:col-span-1', 'justify-self-start');
+    // 640px(sm)에서 네 열이 켜지면 진행 막대(360px 고정)에 밀려 정보 열이 글자 하나 폭까지 눌리고, 그보다 넓어도 한동안 안내 줄이 여러 줄로 꺾인다
+    // — sm 으로 켜지는 클래스가 하나라도 남으면 안 된다.
+    for (const element of [card, info, progress, link]) {
+      expect([...element.classList].filter((name) => name.startsWith('sm:'))).toEqual([]);
+    }
+    // 배치를 정하는 클래스는 이것이 전부여야 한다 — 1024px 미만은 두 열(모바일 배치), 그 위는 네 열. md 같은 다른 기준점이 끼거나 기본 클래스가 빠지면 안 된다.
+    const utilitiesOf = (element: HTMLElement, utility: RegExp) => [...element.classList].filter((name) => utility.test(name));
+    expect(utilitiesOf(card, /(^|:)grid-cols-/)).toEqual(['grid-cols-[auto_1fr]', 'lg:grid-cols-[auto_1fr_360px_auto]']);
+    expect(utilitiesOf(card, /(^|:)gap-/)).toEqual(['gap-4', 'lg:gap-5']);
+    expect(utilitiesOf(card, /(^|:)items-/)).toEqual(['items-start', 'lg:items-center']);
+    expect(utilitiesOf(progress, /(^|:)col-span-/)).toEqual(['col-span-2', 'lg:col-span-1']);
+    expect(utilitiesOf(link, /(^|:)col-span-/)).toEqual(['col-span-2', 'lg:col-span-1']);
+    // min-w-0 이 없으면 break-words 를 줘도 열이 줄지 않아 긴 이름이 카드를 넘친다.
+    expect(info).toHaveClass('min-w-0', 'break-words');
   });
 });

@@ -1,19 +1,13 @@
 'use client';
 
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
-import { ButtonSpinner } from '@/components/loading/Spinner';
+import { ConfirmDialog } from '@/app/_components/ConfirmDialog';
 
 type Props = {
   /** 이번 등록으로 마감 처리될 기존 모집의 제목. */
   recruitmentTitle: string;
   isPending: boolean;
+  /** 등록이 거절됐을 때의 안내 — 창을 닫지 않고 창 안에 그린다. */
+  errorMessage?: string | null;
   onConfirm: () => void;
   onCancel: () => void;
 };
@@ -24,62 +18,36 @@ type Props = {
  *
  * 마감되면 그 모집의 지원현황이 조회 전용으로 굳고 심사 액션이 일괄 409 로 전환된다. 되돌릴 수 없는
  * 전환인데 지금까지는 예고가 없었으므로 제출 직전에 한 번 묻는다.
- * 골격(취소 정책·isPending 가드)은 StatusConfirmDialog / BulkConfirmDialog 와 동일하게 유지.
+ * 골격(취소 정책·처리 중 가드·실패 안내)은 공용 ConfirmDialog 가 맡는다.
  */
 export function RecruitmentCloseConfirmDialog({
   recruitmentTitle,
   isPending,
+  errorMessage = null,
   onConfirm,
   onCancel,
 }: Props) {
   return (
-    <Dialog
+    <ConfirmDialog
       open
-      onOpenChange={(open) => {
-        if (!open && !isPending) onCancel();
-      }}
+      title="기존 모집을 마감하시겠습니까?"
+      description={<>새 모집을 등록하면 현재 진행 중인 모집 &apos;{recruitmentTitle}&apos; 이 마감 처리됩니다.</>}
+      confirmLabel="등록 및 마감"
+      confirmVariant="primary"
+      isPending={isPending}
+      busyLabel="기존 모집 마감 중"
+      errorMessage={errorMessage}
+      onConfirm={onConfirm}
+      onCancel={onCancel}
     >
-      <DialogContent
-        className="max-w-md"
-        busy={isPending}
-      >
-        <DialogHeader>
-          <DialogTitle>기존 모집을 마감하시겠습니까?</DialogTitle>
-          <DialogDescription>
-            새 모집을 등록하면 현재 진행 중인 모집 &apos;{recruitmentTitle}&apos; 이 마감 처리됩니다.
-          </DialogDescription>
-        </DialogHeader>
-
-        <p className="text-[13px] leading-relaxed text-charcoal-2">
-          마감된 모집은 평가와 면접 진행이 멈추고, 남은 지원서는 합격·불합격 확정만 할 수 있습니다.
-        </p>
-        {/* create 경로에서 이 다이얼로그가 뜨면 공개 확인은 생략된다 — 공개 시점 고지를 여기서 대신한다. */}
-        <p className="text-[13px] leading-relaxed text-charcoal-2">
-          등록과 동시에 학생에게 공개돼요.
-        </p>
-        <p className="text-[13px] leading-relaxed text-charcoal-2">계속하시겠습니까?</p>
-
-        <DialogFooter>
-          <button
-            type="button"
-            onClick={onCancel}
-            disabled={isPending}
-            className="btn btn-ghost btn-sm"
-          >
-            취소
-          </button>
-          <button
-            type="button"
-            onClick={onConfirm}
-            disabled={isPending}
-            className="btn btn-primary btn-sm disabled:opacity-50"
-          >
-            {isPending && <ButtonSpinner />}
-            등록 및 마감
-          </button>
-        </DialogFooter>
-        <span role="status" className="sr-only">{isPending ? '기존 모집 마감 중' : null}</span>
-      </DialogContent>
-    </Dialog>
+      <p className="text-[13px] leading-relaxed text-charcoal-2">
+        마감된 모집은 평가와 면접 진행이 멈추고, 남은 지원서는 합격·불합격 확정만 할 수 있습니다.
+      </p>
+      {/* create 경로에서 이 다이얼로그가 뜨면 공개 확인은 생략된다 — 공개 시점 고지를 여기서 대신한다. */}
+      <p className="text-[13px] leading-relaxed text-charcoal-2">
+        등록과 동시에 학생에게 공개돼요.
+      </p>
+      <p className="text-[13px] leading-relaxed text-charcoal-2">계속하시겠습니까?</p>
+    </ConfirmDialog>
   );
 }

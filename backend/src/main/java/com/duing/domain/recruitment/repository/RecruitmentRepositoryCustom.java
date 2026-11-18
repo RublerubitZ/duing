@@ -3,6 +3,7 @@ package com.duing.domain.recruitment.repository;
 import com.duing.domain.recruitment.entity.Recruitment;
 import com.duing.domain.recruitment.service.dto.query.AdminRecruitmentRow;
 import com.duing.domain.recruitment.service.dto.query.AdminRecruitmentSearchCondition;
+import com.duing.domain.recruitment.service.dto.query.ClosingRecruitmentRow;
 import com.duing.domain.recruitment.service.dto.query.RecruitmentSummaryRow;
 import com.duing.domain.recruitment.service.dto.query.RepresentativeRecruitmentRow;
 import java.time.LocalDate;
@@ -25,13 +26,6 @@ public interface RecruitmentRepositoryCustom {
 
     /** 쓰기 경로(운영 중단 시 일괄 마감 등) 전용 엔티티 조회 — 공개 읽기는 위 projection 을 쓴다. */
     List<Recruitment> findByClubIdOrderByStatusOpenFirstAndStartDateDesc(Long clubId);
-
-    /**
-     * status=OPEN 인 모집 1건 조회. endDate 필터를 적용하지 않으므로 endDate 가 지난 OPEN 행도 반환된다.
-     * uk_recruitment_club_active 인덱스는 endDate 와 무관하게 status='OPEN' 만 보므로,
-     * 새 모집을 만들기 전 만료된 OPEN 행을 자동 마감 처리하기 위해 사용한다.
-     */
-    Optional<Recruitment> findOpenByClubId(Long clubId);
 
     /**
      * 동아리 id 묶음에 대해 대표 모집을 1건씩 조회한다.
@@ -71,7 +65,16 @@ public interface RecruitmentRepositoryCustom {
      * 총동연(ADMIN) 모집 콘솔의 전 동아리 모집 검색. 페이지네이션은 두지 않는다(스펙 2.1).
      *
      * <p>지원자 수는 외부 폼 모집까지 포함해 한 번에 집계하고(실제 값은 0), 화면에 비울지 여부는
-     * 응답 매핑이 결정한다. 삭제된 모집은 {@code @SQLRestriction} 으로 자동 제외된다.
+     * 응답 매핑이 결정한다. 탈퇴한 지원자의 지원서는 지원자 목록처럼 세지 않는다.
+     * 삭제된 모집은 {@code @SQLRestriction} 으로 자동 제외된다.
      */
     List<AdminRecruitmentRow> searchForAdmin(AdminRecruitmentSearchCondition searchCondition);
+
+    /**
+     * 총동연 주간 브리핑 '이번 주 모집 기간이 끝나는 모집' — status=OPEN ∧ firstDay ≤ end_date ≤ lastDay(KST 날짜).
+     * 이미 기간이 지난 진행 중 모집도 든다(자동 마감 전). 모집·동아리만 읽는다 — 결과 안 정한 지원 수는 서비스가 자동 마감
+     * 전망과 같은 집계 쿼리(ApplicationRepository#countByRecruitmentIdsAndStatusInExcludingWithdrawnApplicants)로 센다.
+     * 종료일 오름차순, 같으면 id 오름차순.
+     */
+    List<ClosingRecruitmentRow> findOpenEndingBetween(LocalDate firstDay, LocalDate lastDay);
 }

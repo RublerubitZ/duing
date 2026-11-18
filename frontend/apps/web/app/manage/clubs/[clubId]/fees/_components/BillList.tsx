@@ -33,7 +33,7 @@ type BillListProps = {
 const PAGE_SIZE = 20;
 
 const inputCls =
-  'rounded-md border border-line px-3 py-2 text-sm outline-none transition-colors focus-visible:border-ink focus-visible:ring-1 focus-visible:ring-ink';
+  'rounded-md border border-field px-3 py-2 text-sm outline-none transition-colors focus-visible:border-ink focus-visible:ring-1 focus-visible:ring-ink';
 
 // 부원 검색 드롭다운에 한 번에 보여줄 최대 결과 수.
 const MEMBER_SEARCH_LIMIT = 8;
@@ -338,7 +338,7 @@ function BillRow({ clubId, bill, member, onCancel, onRecord, onHistory }: BillRo
           </p>
           <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-graysoft">
             <div
-              className="h-full rounded-full bg-sage transition-[width]"
+              className="h-full rounded-full bg-sage"
               style={{ width: `${progressPercent}%` }}
             />
           </div>

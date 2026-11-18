@@ -2,6 +2,8 @@ package com.duing.domain.fee.repository;
 
 import com.duing.domain.fee.entity.Payment;
 import com.duing.domain.fee.entity.PaymentStatus;
+import java.time.Instant;
+import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
@@ -33,4 +35,10 @@ public interface PaymentRepository extends JpaRepository<Payment, Long> {
             GROUP BY p.feeBillId
             """)
     List<Object[]> sumActiveGroupedByFeeBillIds(@Param("feeBillIds") Collection<Long> feeBillIds);
+
+    /** 주간 브리핑 — 기간에 입력한 납부 기록(감사 created_at). 나중에 정정된 납부도 센다(상태 무관). from 포함·to 미만. */
+    long countByCreatedAtGreaterThanEqualAndCreatedAtLessThan(LocalDateTime from, LocalDateTime to);
+
+    /** 주간 브리핑 — 기간에 정정한 납부(voided_at, 절대 시각). 이상 징후 FA-02 와 같은 축. from 포함·to 미만. */
+    long countByVoidedAtGreaterThanEqualAndVoidedAtLessThan(Instant from, Instant to);
 }

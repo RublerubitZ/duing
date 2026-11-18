@@ -2,6 +2,7 @@ package com.duing.domain.application.repository;
 
 import com.duing.domain.application.entity.Application;
 import com.duing.domain.application.entity.ApplicationStatus;
+import com.duing.domain.recruitment.repository.RecruitmentCountRow;
 import jakarta.persistence.LockModeType;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -21,7 +22,13 @@ public interface ApplicationRepository extends JpaRepository<Application, Long>,
 
     long countByRecruitmentId(Long recruitmentId);
 
-    boolean existsByRecruitmentIdAndStatusIn(Long recruitmentId, Collection<ApplicationStatus> statuses);
+    /**
+     * 지원자 목록에 보이는 지원서 수 — 목록처럼 탈퇴한 지원자의 지원서는 세지 않는다(#1594).
+     * 삭제·질문 수정 가드는 지원서가 남아 있는지를 보므로 {@link #countByRecruitmentId} 를 쓴다(공개 지원자 수도 이 수정 범위 밖이라 그대로 그 메서드를 쓴다).
+     */
+    @Query("SELECT COUNT(a) FROM Application a JOIN a.user u "
+            + "WHERE a.recruitment.id = :recruitmentId AND a.deletedAt IS NULL AND u.deletedAt IS NULL")
+    long countByRecruitmentIdExcludingWithdrawnApplicants(@Param("recruitmentId") Long recruitmentId);
 
     @Query("SELECT a FROM Application a "
             + "JOIN FETCH a.recruitment r "
@@ -59,6 +66,22 @@ public interface ApplicationRepository extends JpaRepository<Application, Long>,
      */
     @Query("SELECT c.id FROM Application a JOIN a.recruitment r JOIN r.club c WHERE a.id = :applicationId")
     Optional<Long> findClubIdByApplicationId(@Param("applicationId") Long applicationId);
+
+    /**
+     * 상태만 읽는 경량 조회 — 지원서 엔티티(답변 jsonb)를 1차 캐시에 올리지 않는다(ClubRepository#findStatusById 와 같은 모양).
+     * 면접 수동 배정이 결과를 정한 지원을 거절할 때 쓴다. soft delete 된 지원은 @SQLRestriction 으로 빈 값이다.
+     */
+    @Query("SELECT a.status FROM Application a WHERE a.id = :applicationId")
+    Optional<ApplicationStatus> findStatusById(@Param("applicationId") Long applicationId);
+
+    /**
+     * 넘긴 지원 중 상태가 넘긴 상태 가운데 하나인 것의 id — 상태만 읽어 지원서 엔티티(답변 jsonb)를 1차 캐시에 올리지 않는다.
+     * 면접 자동 배정이 결과를 정하지 않은 응답자만 고를 때 쓴다(statuses = {@link ApplicationStatus#activeSet()}).
+     * soft delete 된 지원은 @SQLRestriction 으로 빠진다(후보가 아니다).
+     */
+    @Query("SELECT a.id FROM Application a WHERE a.id IN :applicationIds AND a.status IN :statuses")
+    List<Long> findIdsByIdInAndStatusIn(@Param("applicationIds") Collection<Long> applicationIds,
+                                        @Param("statuses") Collection<ApplicationStatus> statuses);
 
     /**
      * 배치 잡 등에서 다건 페치 조인 조회용. {@link #findWithRecruitmentAndClubById} 의 plural 버전으로,
@@ -117,13 +140,16 @@ public interface ApplicationRepository extends JpaRepository<Application, Long>,
      * 미처리 지원서 리마인더 후보 — 제출 뒤 기준 시각이 지나도록 SUBMITTED 로 남은 지원서를 모집별로 센다.
      * 모집은 raw status OPEN(마감일이 지난 심사 기간 포함), 동아리는 ACTIVE 만 — DeadlineNotificationJob 후보와 같은 동아리 규칙.
      * created_at 은 system regime 이라 {@code submittedBefore} 도 TimeMapper.systemNow 기준으로 넘긴다.
+     * 탈퇴한 지원자의 지원서는 세지 않는다 — 운영진 지원자 목록이 지원자를 조인해 빼므로, 세면 목록에 없어 치울 수 없는 건이 남는다(#1594).
      */
     @Query(value = """
             SELECT r.id AS recruitmentId, r.club_id AS clubId, r.title AS title, COUNT(a.id) AS pendingCount
               FROM application a
+              JOIN users u ON u.id = a.user_id
               JOIN recruitment r ON r.id = a.recruitment_id
               JOIN club c ON c.id = r.club_id
              WHERE a.status = 'SUBMITTED' AND a.deleted_at IS NULL AND a.created_at <= :submittedBefore
+               AND u.deleted_at IS NULL
                AND r.status = 'OPEN' AND r.deleted_at IS NULL
                AND c.status = 'ACTIVE' AND c.deleted_at IS NULL
              GROUP BY r.id, r.club_id, r.title
@@ -132,7 +158,7 @@ public interface ApplicationRepository extends JpaRepository<Application, Long>,
 
     /**
      * 총동연 모집 목록의 미처리 열 — 모집별 SUBMITTED 지원서 수와 가장 오래된 제출 시각(created_at, system regime).
-     * 미처리 정의는 리마인더 후보와 같다(보류·합격·불합격은 처리, 철회는 소프트 삭제라 제외).
+     * 미처리 정의는 리마인더 후보와 같다(보류·합격·불합격은 처리, 철회는 소프트 삭제라 제외, 탈퇴한 지원자의 지원서도 제외).
      * 운영진 통계 요약(GeneralRecruitmentStatsService#getSummary)도 이 쿼리를 단건({@code List.of(recruitmentId)})으로 쓴다 —
      * 미처리 정의를 바꾸면 두 화면이 같이 바뀐다.
      * 미처리가 없는 모집은 행이 없다. 빈 컬렉션으로 부르지 않는다({@code IN ()} 은 SQL 오류).
@@ -140,11 +166,26 @@ public interface ApplicationRepository extends JpaRepository<Application, Long>,
     @Query(value = """
             SELECT a.recruitment_id AS recruitmentId, COUNT(a.id) AS pendingCount, MIN(a.created_at) AS oldestSubmittedAt
               FROM application a
+              JOIN users u ON u.id = a.user_id
              WHERE a.recruitment_id IN (:recruitmentIds) AND a.status = 'SUBMITTED' AND a.deleted_at IS NULL
+               AND u.deleted_at IS NULL
              GROUP BY a.recruitment_id
             """, nativeQuery = true)
     List<PendingApplicationStatsRow> findPendingStatsByRecruitmentIds(
             @Param("recruitmentIds") Collection<Long> recruitmentIds);
+
+    /**
+     * 기간 종료 자동 마감을 막는 "결과 없는 지원" 수(모집별) — 잡의 마감 판정과 화면의 자동 마감 전망(운영진 통계 요약·
+     * 총동연 목록)과 총동연 주간 브리핑의 이번 주 끝나는 모집 '결과 안 정한 지원' 수가 이 한 쿼리를 쓴다(#1572). 운영진 지원자 목록처럼 탈퇴한 지원자의 지원서는 세지 않는다(#1635) —
+     * 운영진도 지원자도 처리할 수 없어, 세면 그 모집은 수동 마감 말고는 닫히지 않는다.
+     * 건수가 0 인 모집은 행이 없다. 빈 컬렉션으로 부르지 않는다.
+     */
+    @Query("SELECT a.recruitment.id AS recruitmentId, COUNT(a) AS itemCount FROM Application a JOIN a.user u "
+            + "WHERE a.recruitment.id IN :recruitmentIds AND a.status IN :statuses "
+            + "AND a.deletedAt IS NULL AND u.deletedAt IS NULL GROUP BY a.recruitment.id")
+    List<RecruitmentCountRow> countByRecruitmentIdsAndStatusInExcludingWithdrawnApplicants(
+            @Param("recruitmentIds") Collection<Long> recruitmentIds,
+            @Param("statuses") Collection<ApplicationStatus> statuses);
 
     /**
      * 보관기간을 넘긴 soft-delete 지원서의 자유서술 답변(jsonb)을 비운다(이미 빈 답변은 제외 — 멱등).
@@ -194,4 +235,7 @@ public interface ApplicationRepository extends JpaRepository<Application, Long>,
     int purgeExpiredTextAnswers(@Param("closedCutoffDate") LocalDate closedCutoffDate,
                                 @Param("withdrawnCutoff") LocalDateTime withdrawnCutoff,
                                 @Param("placeholder") String placeholder);
+
+    /** 주간 브리핑 — 기간에 제출된 지원서(감사 created_at). 철회(소프트 삭제)는 빠진다. from 포함·to 미만. */
+    long countByCreatedAtGreaterThanEqualAndCreatedAtLessThan(LocalDateTime from, LocalDateTime to);
 }

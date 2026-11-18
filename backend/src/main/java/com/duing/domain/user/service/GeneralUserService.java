@@ -3,6 +3,7 @@ package com.duing.domain.user.service;
 import com.duing.domain.clubmember.entity.ClubMemberRole;
 import com.duing.domain.clubmember.repository.ClubMemberRepository;
 import com.duing.domain.clubmember.service.ClubMemberCommandService;
+import com.duing.domain.interview.service.InterviewAssignmentService;
 import com.duing.domain.joincode.service.JoinRequestService;
 import com.duing.domain.user.entity.AdminUserAction;
 import com.duing.domain.user.entity.AdminUserActionLog;
@@ -84,6 +85,7 @@ public class GeneralUserService implements UserService {
     private final ApplicationEventPublisher eventPublisher;
     private final ClubMemberCommandService clubMemberCommandService;
     private final JoinRequestService joinRequestService;
+    private final InterviewAssignmentService interviewAssignmentService;
     // 학기 중 프로필 저장·가입을 그 학기 정보 확인으로 기록한다(학기별 정보 확인 팝업 — 학년 이중 상승 방지).
     private final ProfileCheckConfirmationRecorder profileCheckConfirmationRecorder;
     private final ReservedNamePolicy reservedNamePolicy = new ReservedNamePolicy();
@@ -451,6 +453,9 @@ public class GeneralUserService implements UserService {
         clubMemberCommandService.leaveAllOnWithdrawal(user.getId());
         // 본인 PENDING 가입 요청은 자동 거절하고 확보했던 자리를 환급한다(#1142) — 잠금 순서 users → club_member → club_join_code.
         joinRequestService.rejectAllPendingOnWithdrawal(user.getId());
+        // 면접 라운드의 가능 시간 응답·배정을 지우고 멤버를 제외한다 — 탈퇴자는 운영진 인원 목록에 없어
+        // 자동 배정·정원·확정에 남으면 아무도 치울 수 없다(#1637). 잠금은 위 뒤에 interview_round_member(id 순).
+        interviewAssignmentService.releaseAllOnWithdrawal(user.getId());
         userRepository.delete(user);
     }
 

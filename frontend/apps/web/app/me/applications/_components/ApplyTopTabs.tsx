@@ -26,7 +26,7 @@ export function ApplyTopTabs({ active, onToggle, counts }: Props) {
               borderRadius: 999,
               border: isActive ? 'none' : '1px solid var(--gray-line)',
               background: isActive ? 'var(--ink-deep)' : 'var(--paper)',
-              color: isActive ? '#fff' : 'var(--charcoal-2)',
+              color: isActive ? 'var(--paper)' : 'var(--charcoal-2)',
               fontSize: 12.5, fontWeight: 600,
               fontFamily: 'inherit',
               cursor: 'pointer',

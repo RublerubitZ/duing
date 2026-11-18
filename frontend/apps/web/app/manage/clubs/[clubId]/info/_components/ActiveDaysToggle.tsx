@@ -44,8 +44,8 @@ export function ActiveDaysToggle({ value, onChange, disabled = false }: Props) {
             className={cn(
               'w-9 h-9 rounded-full border text-[13px] font-medium transition-colors',
               selected
-                ? 'bg-[#3e5b34] border-[#3e5b34] text-[#fbf6e6]'
-                : 'bg-white border-[#cfcab8] text-[#4a5247] hover:border-[#5b7e4d] hover:text-[#3e5b34]',
+                ? 'bg-ink border-ink text-paper'
+                : 'bg-white border-line text-charcoal-2 hover:border-ink hover:text-ink',
             )}
           >
             {day.label}

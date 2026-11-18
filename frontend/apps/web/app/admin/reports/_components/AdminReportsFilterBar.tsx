@@ -30,7 +30,7 @@ export function AdminReportsFilterBar({ status, targetType, onStatusChange, onTa
           const next = event.target.value;
           if (isStatusOption(next)) onStatusChange(next);
         }}
-        className="px-3 py-1.5 rounded-md border border-line bg-paper text-[13px]"
+        className="px-3 py-1.5 rounded-md border border-field bg-paper text-[13px]"
       >
         {STATUS_OPTIONS.map((opt) => (
           <option key={opt} value={opt}>
@@ -45,7 +45,7 @@ export function AdminReportsFilterBar({ status, targetType, onStatusChange, onTa
           const next = event.target.value;
           if (isTargetTypeOption(next)) onTargetTypeChange(next);
         }}
-        className="px-3 py-1.5 rounded-md border border-line bg-paper text-[13px]"
+        className="px-3 py-1.5 rounded-md border border-field bg-paper text-[13px]"
       >
         {TARGET_TYPE_OPTIONS.map((opt) => (
           <option key={opt} value={opt}>

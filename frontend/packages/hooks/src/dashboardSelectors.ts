@@ -25,6 +25,13 @@ export const CLOSING_SOON_DAYS = 3;
 /** 미처리 대기가 이 일수(KST 날짜) 이상이면 늦은 것 — 두 콘솔의 칩 톤·운영진 '지금 처리'가 같이 쓴다. 서버 미처리 알림의 168시간 경계와는 다른 규칙이다(합치지 않는다). */
 export const STALE_WAITING_DAYS = 7;
 
+// 판정은 raw status — 마감일이 지났어도 수동 마감 전이면 백엔드는 모집을 OPEN(심사 진행 중)으로 다루고,
+// 그 구간에 미결 지원자가 남아 있다. displayStatus 로 판정하면 이 필터를 공유하는 진행 중 모집 카드·
+// 지원자 요약·처리 필요 업무가 모두 그 모집을 통째로 빼버려 "처리 필요 0건"이 표시된다.
+export function isActiveRecruitment(recruitment: RecruitmentSummary): boolean {
+  return recruitment.status !== 'CLOSED';
+}
+
 /** 모집 1건 + 그 모집의 통계·면접 라운드 묶음 */
 export type RecruitmentDashboardInput = {
   recruitment: RecruitmentSummary;
@@ -62,42 +69,58 @@ export function buildActionItems(inputs: RecruitmentDashboardInput[], now: Date)
           type: 'APPLICANTS_AWAITING_REVIEW',
           ...base,
           count: awaiting,
+          submitted: stats.submitted,
+          onHold: stats.onHold,
           ...(pendingDays === undefined ? {} : { pendingDays }),
         });
       }
     }
 
-    // 면접 라운드 생성 필요: 대기열 인원 존재 + 신규 인원 수용 가능 라운드(DRAFT·COLLECTING·ASSIGNING) 없음
-    // (SCHEDULED는 확정 라운드라 수용 불가, CANCELLED는 무시)
-    // rounds === undefined(라운드 쿼리 미로딩·실패)면 '수용 라운드 없음'으로 단정할 수 없어 생성하지 않는다.
-    const hasAcceptingRound = (rounds ?? []).some(
-      (round) => round.status === 'DRAFT' || round.status === 'COLLECTING' || round.status === 'ASSIGNING',
-    );
-    if (rounds !== undefined && candidateCount !== undefined && candidateCount > 0 && !hasAcceptingRound) {
+    // 면접 라운드 생성 필요: 대기열 인원 존재 + 발송 전 초안(DRAFT) 없음.
+    // 대기열 = 취소되지 않은 라운드에 제외되지 않은 멤버로 들어 있지 않은 면접 대상(제외·라운드 취소면 돌아온다). 기존 라운드에 사람을 더하는 API 가 없어 새 라운드로만 잡는다.
+    // 새 라운드 생성을 막는 것은 초안뿐이라(DraftRoundAlreadyExists) 초안이 있으면 아래에서 내는 그 초안의 미확정 줄이 운영진을 데려간다.
+    // rounds === undefined(라운드 쿼리 미로딩·실패)면 '초안 없음'으로 단정할 수 없어 생성하지 않는다.
+    const hasDraftRound = (rounds ?? []).some((round) => round.status === 'DRAFT');
+    if (rounds !== undefined && candidateCount !== undefined && candidateCount > 0 && !hasDraftRound) {
       items.push({ type: 'INTERVIEW_ROUND_NEEDED', ...base, count: candidateCount });
     }
 
-    // 면접 라운드 기반
+    // 면접 라운드 기반 — 진행 중 라운드마다 한 줄, 인원 0 인 응답 수집·배정 검토 라운드만 줄이 없다.
     for (const round of rounds ?? []) {
-      if (round.status === 'ASSIGNING') {
-        items.push({ type: 'INTERVIEW_ROUND_UNCONFIRMED', ...base, roundId: round.roundId, roundTitle: round.title });
-      }
+      if (isEmptyInProgressRound(round)) continue;
+      const roundBase = { ...base, roundId: round.roundId, roundTitle: round.title };
+      const daysLeft = round.availabilityDeadline ? daysUntilKst(round.availabilityDeadline, now) : undefined;
       if (round.status === 'COLLECTING' && round.respondedMemberCount < round.totalMemberCount) {
         items.push({
-          type: 'INTERVIEW_RESPONSE_UNCOLLECTED', ...base,
-          roundId: round.roundId, roundTitle: round.title,
+          type: 'INTERVIEW_RESPONSE_UNCOLLECTED', ...roundBase,
           count: round.totalMemberCount - round.respondedMemberCount,
-          daysLeft: round.availabilityDeadline ? daysUntilKst(round.availabilityDeadline, now) : undefined,
+          daysLeft,
+        });
+      } else if (round.status === 'COLLECTING') {
+        // 응답 수는 인원 수를 넘지 않아 이 갈래는 응답이 다 모인 라운드다 — 다음 단계인 자동 배정은 운영진이 눌러야 하고 대신 하는 잡이 없다.
+        items.push({ type: 'INTERVIEW_ROUND_UNCONFIRMED', ...roundBase, roundStatus: round.status, daysLeft });
+      } else if (round.status === 'DRAFT' || round.status === 'ASSIGNING') {
+        // 인원 0 초안은 발송할 수 없어 마법사가 폐기를 안내한다 — 표지는 그때만 싣는다(키 자체를 빼야 다른 줄 모양이 그대로다).
+        const draftWithoutMembers = round.status === 'DRAFT' && round.totalMemberCount === 0;
+        items.push({
+          type: 'INTERVIEW_ROUND_UNCONFIRMED', ...roundBase, roundStatus: round.status,
+          ...(draftWithoutMembers ? { draftWithoutMembers: true } : {}),
         });
       }
     }
 
-    // 결과 미확정: SCHEDULED 라운드에 배정됐지만 합/불 미결정인 인원(배정됨 ∩ 미결정).
-    // interviewPending에는 대기열 인원도 포함되므로 candidateCount를 빼서 배정 인원만 센다.
+    // 결과 미확정: 확정(SCHEDULED) 라운드에 배정됐지만 합/불이 아직 없는 인원.
+    // 면접 대상(interviewPending) = 대기열(candidateCount) + 진행 중(초안·응답 수집·배정 검토) 라운드 멤버 + 확정 라운드에서 결과를 기다리는 멤버다 —
+    // 한 지원은 취소되지 않은 라운드에 제외되지 않은 멤버로 하나만 들고(라운드 생성 가드), 진행 중 라운드의 제외 안 된 멤버는 모두 면접 대상이다(결과를 정하면 서버가 뺀다, #1659).
+    // 그래서 앞의 둘을 빼면 확정 라운드 몫만 남는다. 확정 라운드 인원 수는 결과를 정한 배정 멤버도 세므로 쓸 수 없고, 취소 라운드 멤버는 대기열로 돌아가 빼지 않는다.
     // (대기열 인원은 INTERVIEW_ROUND_NEEDED 소관. candidateCount 미로딩이면 단정 불가라 생성하지 않는다.)
+    // shortcut: #1659 전에 결과를 정한 진행 중 라운드 멤버(백필 안 함)는 인원에 남아 그만큼 적게 센다, 그런 행이 문제가 되면 BE 라운드 요약에 결과 대기 인원을 싣는다.
     const scheduledRounds = (rounds ?? []).filter((round) => round.status === 'SCHEDULED');
     if (scheduledRounds.length > 0 && stats !== undefined && candidateCount !== undefined) {
-      const assignedPendingCount = stats.interviewPending - candidateCount;
+      const inProgressMemberCount = (rounds ?? [])
+        .filter((round) => round.status !== 'SCHEDULED' && round.status !== 'CANCELLED')
+        .reduce((sum, round) => sum + round.totalMemberCount, 0);
+      const assignedPendingCount = stats.interviewPending - candidateCount - inProgressMemberCount;
       if (assignedPendingCount > 0) {
         // 단일 SCHEDULED 라운드면 그 라운드로 귀속, 복수면 모집 단위로만 노출
         const attributedRound = scheduledRounds.length === 1 ? scheduledRounds[0] : undefined;
@@ -111,6 +134,14 @@ export function buildActionItems(inputs: RecruitmentDashboardInput[], now: Date)
   }
 
   return items;
+}
+
+/**
+ * 사람이 남지 않은 응답 수집·배정 검토 라운드(전원 결과 확정·제외·탈퇴) — 사람을 더할 수도 확정할 수도 없고 자동 마감도 막지 않아
+ * 할 일도 진행 단계도 아니다(취소는 라운드 화면에서). 초안은 새 라운드 생성을 막으므로 들지 않는다.
+ */
+export function isEmptyInProgressRound(round: InterviewRoundSummary): boolean {
+  return (round.status === 'COLLECTING' || round.status === 'ASSIGNING') && round.totalMemberCount === 0;
 }
 
 /** 검토 대기 = 지원 완료 + 보류 — 면접 대상은 이미 검토를 넘긴 지원이라 세지 않는다. */
@@ -145,6 +176,16 @@ export function buildClosedRecruitmentItems(inputs: ClosedRecruitmentDashboardIn
     }
   }
   return items;
+}
+
+/**
+ * 모집 1건의 할 일 — 운영진 홈(useClubActionItems)과 모집 상세(useRecruitmentActionItems)가 함께 쓰는 단일 입구라 두 화면 규칙이 갈리지 않는다.
+ * 진행 중(외부 폼 포함)은 buildActionItems, 마감 자체 폼은 결과 미확정만, 마감 외부 폼은 지원서가 없어 없다. 정렬은 부르는 쪽이 한다.
+ */
+export function buildRecruitmentActionItems(input: RecruitmentDashboardInput, now: Date): ActionItem[] {
+  if (isActiveRecruitment(input.recruitment)) return buildActionItems([input], now);
+  if (input.recruitment.applicationMode === 'SELF') return buildClosedRecruitmentItems([input]);
+  return [];
 }
 
 export function sortActionItems(items: ActionItem[]): ActionItem[] {
@@ -264,7 +305,12 @@ export function dashboardTaskGroupOf(task: DashboardTask): DashboardTaskGroupKey
   switch (task.item.type) {
     case 'CLOSED_RECRUITMENT_UNDECIDED':
     case 'INTERVIEW_RESULT_PENDING':
+      return 'NOW';
     case 'INTERVIEW_ROUND_UNCONFIRMED':
+      // 초안은 운영진이 아직 쓰는 중이거나(인원 0 이면) 치워야 할 뿐이고, 대기열의 '라운드 생성 필요'와 같은 단계라 처리 대기.
+      if (task.item.roundStatus === 'DRAFT') return 'WAITING';
+      // 응답 마감 날짜(KST)까지는 재응답이 열려 있을 수 있어 기다린다 — 당일은 마감 시각이 지나도 처리 대기(응답 미수집 줄과 같은 날짜 기준).
+      if (task.item.roundStatus === 'COLLECTING') return task.item.daysLeft !== undefined && task.item.daysLeft < 0 ? 'NOW' : 'WAITING';
       return 'NOW';
     case 'INTERVIEW_RESPONSE_UNCOLLECTED':
       return task.item.daysLeft !== undefined && task.item.daysLeft < 0 ? 'NOW' : 'WAITING';

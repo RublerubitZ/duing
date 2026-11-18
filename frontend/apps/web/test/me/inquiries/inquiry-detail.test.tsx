@@ -143,7 +143,7 @@ describe('InquiryDetailPage', () => {
     render(<InquiryDetailPage inquiryId={INQUIRY_ID} />);
 
     expect(screen.getByText('문의를 찾을 수 없습니다.')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: '← 내 문의 목록으로' })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: '내 문의 목록으로' })).toHaveAttribute(
       'href',
       '/me/inquiries',
     );

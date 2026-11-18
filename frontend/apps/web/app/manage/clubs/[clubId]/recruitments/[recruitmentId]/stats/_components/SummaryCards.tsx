@@ -31,12 +31,12 @@ export function SummaryCards({ statsSummary }: SummaryCardsProps) {
       {cards.map((card) => (
         <div
           key={card.label}
-          className="rounded-xl border border-slate-200 bg-white p-4"
+          className="rounded-xl border border-line bg-white p-4"
         >
-          <p className="text-xs font-medium text-slate-500">{card.label}</p>
-          <p className="mt-1 text-3xl font-bold text-slate-900">{card.value}</p>
+          <p className="text-xs font-medium text-charcoal-3">{card.label}</p>
+          <p className="mt-1 text-3xl font-bold text-ink-deep">{card.value}</p>
           {card.subLabel && (
-            <p className="mt-1 text-xs text-slate-400">{card.subLabel}</p>
+            <p className="mt-1 text-xs text-charcoal-3">{card.subLabel}</p>
           )}
         </div>
       ))}

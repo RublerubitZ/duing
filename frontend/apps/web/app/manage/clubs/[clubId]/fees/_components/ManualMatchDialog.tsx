@@ -28,7 +28,7 @@ type ManualMatchDialogProps = {
 };
 
 const inputCls =
-  'w-full rounded-md border border-line px-3 py-2 text-sm outline-none transition-colors placeholder:text-charcoal-3 focus-visible:border-ink focus-visible:ring-1 focus-visible:ring-ink';
+  'w-full rounded-md border border-field px-3 py-2 text-sm outline-none transition-colors placeholder:text-charcoal-3 focus-visible:border-ink focus-visible:ring-1 focus-visible:ring-ink';
 
 // 부원 검색 드롭다운에 한 번에 보여줄 최대 결과 수(BillList 와 동일).
 const MEMBER_SEARCH_LIMIT = 8;

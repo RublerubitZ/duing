@@ -2,6 +2,7 @@ package com.duing.domain.notification.job;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.tuple;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -14,6 +15,7 @@ import com.duing.common.fixture.UserFixture;
 import com.duing.domain.application.entity.Application;
 import com.duing.domain.application.entity.ApplicationStatus;
 import com.duing.domain.application.repository.ApplicationRepository;
+import com.duing.domain.application.repository.PendingApplicationRow;
 import com.duing.domain.application.service.PendingApplicationPolicy;
 import com.duing.domain.club.entity.Club;
 import com.duing.domain.club.repository.ClubRepository;
@@ -26,6 +28,7 @@ import com.duing.domain.recruitment.entity.Recruitment;
 import com.duing.domain.recruitment.repository.RecruitmentRepository;
 import com.duing.domain.user.entity.User;
 import com.duing.domain.user.repository.UserRepository;
+import com.duing.domain.user.service.UserService;
 import com.duing.global.jobrun.JobRunOutcome;
 import com.duing.global.jobrun.JobRunRecorder;
 import com.duing.global.jobrun.MonitoredJob;
@@ -60,6 +63,7 @@ class ApplicationPendingReminderJobTest extends IntegrationTestBase {
     @Autowired private ClubRepository clubRepository;
     @Autowired private ClubMemberRepository clubMemberRepository;
     @Autowired private UserRepository userRepository;
+    @Autowired private UserService userService;
     @Autowired private NotificationRepository notificationRepository;
     @Autowired private JdbcTemplate jdbcTemplate;
     @Autowired private Clock clock;
@@ -205,6 +209,34 @@ class ApplicationPendingReminderJobTest extends IntegrationTestBase {
         job.run();
 
         assertThat(allReminders()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("탈퇴한 지원자의 미처리 지원서는 세지 않는다 — 운영진 목록에 없어 치울 수 없으니 그런 지원서만 남은 모집은 리마인더 대상이 아니다")
+    void excludesSubmittedApplicationsOfWithdrawnApplicants() {
+        Staff mixedStaff = saveClubWithStaff();
+        Recruitment mixedRecruitment = saveOngoingRecruitment(mixedStaff.club());
+        saveSubmittedApplicationDaysAgo(mixedRecruitment, 10);
+        Application withdrawnInMixed = saveApplication(mixedRecruitment, ApplicationStatus.SUBMITTED);
+        submittedAgo(withdrawnInMixed, Duration.ofDays(10));
+        userService.withdraw(withdrawnInMixed.getUser().getId());
+
+        Staff withdrawnOnlyStaff = saveClubWithStaff();
+        Recruitment withdrawnOnlyRecruitment = saveOngoingRecruitment(withdrawnOnlyStaff.club());
+        Application withdrawnOnly = saveApplication(withdrawnOnlyRecruitment, ApplicationStatus.SUBMITTED);
+        submittedAgo(withdrawnOnly, Duration.ofDays(10));
+        userService.withdraw(withdrawnOnly.getUser().getId());
+
+        // 총동연 홈의 오래 방치된 모집 칸도 이 후보 목록의 개수를 쓴다(AdminPendingCountsQueryService).
+        assertThat(applicationRepository.findPendingReminderCandidates(PendingApplicationPolicy.submittedBefore(clock)))
+                .extracting(PendingApplicationRow::getRecruitmentId, PendingApplicationRow::getPendingCount)
+                .containsExactly(tuple(mixedRecruitment.getId(), 1L));
+        job.run();
+
+        assertThat(remindersOf(mixedStaff.leader())).extracting(Notification::getTitle)
+                .containsExactly("지원서 1건이 7일 넘게 대기 중이에요");
+        assertThat(remindersOf(withdrawnOnlyStaff.leader())).isEmpty();
+        assertThat(remindersOf(withdrawnOnlyStaff.officer())).isEmpty();
     }
 
     @Test

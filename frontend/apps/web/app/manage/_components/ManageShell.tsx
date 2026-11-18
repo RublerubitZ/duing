@@ -8,6 +8,7 @@ import { CircleHelp, LogOut, PanelLeftClose, PanelLeftOpen } from 'lucide-react'
 import type { ManagedClub } from '@duing/types';
 import { useLogout, useManagedClubsQuery, useMeQuery } from '@duing/hooks';
 import { useToast } from '@/app/_components/toast/ToastProvider';
+import { logoutBlockedMessageOf } from '@/app/_lib/authBoot';
 import { skipNextOverlayReclaim } from '@/app/_lib/backDismiss';
 import { cn } from '@/app/_lib/cn';
 import { clearOperatorLocalState } from '@/app/_lib/operatorLocalState';
@@ -27,7 +28,7 @@ type ManageShellProps = {
 const SIDEBAR_WIDTH = { expanded: 280, collapsed: 84 } as const;
 const COLLAPSED_STORAGE_KEY = 'duing:manage:sidebar-collapsed';
 /** 다크 그린 그라데이션 표면 — 데스크탑 aside 와 모바일 Sheet 드로어가 공유한다. */
-const SIDEBAR_SURFACE_CLASS = 'bg-[linear-gradient(180deg,#34463E_0%,#2A382F_100%)]';
+const SIDEBAR_SURFACE_CLASS = 'bg-gradient-to-b from-console to-console-deep';
 
 // 사이드바 내용(로고·클럽 전환·내비·푸터) — 데스크탑 aside 와 모바일 Sheet 드로어가 공유한다.
 // 접기 토글은 데스크탑 전용(onToggleCollapse 미전달 시 숨김), 드로어는 항상 펼침 구성.
@@ -116,10 +117,17 @@ function ManageSidebarFooter({ collapsed }: { collapsed: boolean }) {
       // back() 이 진행 중인 이동을 취소할 수 있으므로(#855 실측 경합), 다음 닫힘 1회의 회수를 건너뛴다.
       skipNextOverlayReclaim();
       window.location.replace('/');
-    } catch {
-      addToast('로그아웃하지 못했습니다. 네트워크 연결 후 다시 시도해 주세요.', {
-        variant: 'error',
-      });
+    } catch (logoutError) {
+      // 다른 탭의 로그인 상태 바뀜으로 막혔으면 네트워크가 아니라 누를 때의 상태(로그아웃됨·못 함)를 보인다(오프라인·타임아웃은 아래 문구 그대로).
+      const blockedMessage = logoutBlockedMessageOf(logoutError);
+      // 막혔으면 닫을 때까지 남긴다 — 공용 기기에서 로그아웃됐는지·못 했는지가 5초 뒤 사라지지 않게.
+      if (blockedMessage !== null) {
+        addToast(blockedMessage, { variant: 'error', durationMs: 0 });
+      } else {
+        addToast('로그아웃하지 못했습니다. 네트워크 연결 후 다시 시도해 주세요.', {
+          variant: 'error',
+        });
+      }
     } finally {
       setLoggingOut(false);
     }
@@ -237,7 +245,6 @@ export function ManageShell({ currentClubId, children }: ManageShellProps) {
             'sticky top-0 hidden h-[calc(100dvh-1.5rem)] shrink-0 flex-col self-start overflow-hidden md:flex',
             'm-3 rounded-xl shadow-4',
             SIDEBAR_SURFACE_CLASS,
-            'motion-safe:transition-[width] motion-safe:duration-200 motion-safe:ease-out',
           )}
         >
           <ManageSidebarContent
@@ -252,7 +259,7 @@ export function ManageShell({ currentClubId, children }: ManageShellProps) {
             sticky 기준만 가로채 하위 sticky(미리보기·모바일 상단바)를 죽인다 */}
         <main className="min-w-0 flex-1 bg-cream">
           {/* 모바일 상단바 — 햄버거로 드로어 열기 */}
-          <div className="sticky top-0 z-30 flex items-center gap-3 bg-[#34463E] px-4 py-2.5 md:hidden">
+          <div className="sticky top-0 z-30 flex items-center gap-3 bg-console px-4 py-2.5 md:hidden">
             <button
               type="button"
               onClick={() => setDrawerOpen(true)}
@@ -273,7 +280,7 @@ export function ManageShell({ currentClubId, children }: ManageShellProps) {
               </svg>
             </button>
             <div className="min-w-0 leading-tight">
-              <div className="text-[10.5px] text-cream/50">운영진 콘솔</div>
+              <div className="text-xs text-cream/65">운영진 콘솔</div>
               <div className="truncate text-[14px] font-semibold text-cream">{currentClubName ?? 'Du·ing'}</div>
             </div>
           </div>

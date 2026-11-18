@@ -44,7 +44,7 @@ const BRAND_PRESENTATIONS: Record<SnsBrand, (clubName: string) => SnsPresentatio
   SLACK: () => ({ label: 'Slack', value: '참여하기' }),
 };
 
-/** 브랜드를 못 알아낸 링크. CONTACT 카드는 URL 목록이 아니라 연락 수단 목록이다. */
+/** 브랜드를 못 알아낸 링크. 연락처 카드(ClubContactCard)는 URL 목록이 아니라 연락 수단 목록이다. */
 const GENERIC_PRESENTATION: SnsPresentation = { label: '공식 홈페이지', value: '방문하기' };
 
 const BRAND_HOSTS: Record<SnsBrand, RegExp> = {

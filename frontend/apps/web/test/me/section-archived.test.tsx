@@ -26,17 +26,17 @@ const make = (overrides: Partial<ApplicationSummary> = {}): ApplicationSummary =
 });
 
 describe('SectionArchived', () => {
-  it('ACCEPTED 카드는 "🎉 최종 합격" pill 과 /me/applications/{id} 링크를 노출한다', () => {
+  it('ACCEPTED 카드는 "최종 합격" pill 과 /me/applications/{id} 링크를 노출한다', () => {
     render(<SectionArchived applications={[make({ id: 5, status: 'ACCEPTED', clubName: '합격동' })]} />);
-    expect(screen.getByText(/🎉\s*최종 합격/)).toBeInTheDocument();
+    expect(screen.getByText(/^최종 합격$/)).toBeInTheDocument();
     expect(screen.getByText('합격동')).toBeInTheDocument();
     const link = screen.getByRole('link', { name: /합격동/ });
     expect(link).toHaveAttribute('href', '/me/applications/5');
   });
 
-  it('REJECTED 카드는 "📝 최종 불합격" pill 과 상세 링크를 노출한다', () => {
+  it('REJECTED 카드는 "최종 불합격" pill 과 상세 링크를 노출한다', () => {
     render(<SectionArchived applications={[make({ id: 7, status: 'REJECTED', clubName: '불합격동' })]} />);
-    expect(screen.getByText(/📝\s*최종 불합격/)).toBeInTheDocument();
+    expect(screen.getByText(/^최종 불합격$/)).toBeInTheDocument();
     const link = screen.getByRole('link', { name: /불합격동/ });
     expect(link).toHaveAttribute('href', '/me/applications/7');
   });
@@ -81,18 +81,36 @@ describe('SectionArchived', () => {
     expect(screen.getByText(/지난 지원 · 3/)).toBeInTheDocument();
   });
 
-  it('운영 중단 정리로 끝난 지원은 "🗂 선발 종료" pill 이다 — 결과 미발표와 같은 색', () => {
+  it('운영 중단 정리로 끝난 지원은 "선발 종료" pill 이다 — 결과 미발표와 같은 색', () => {
     render(
       <SectionArchived
         applications={[make({ id: 13, status: 'REJECTED', endedByClubDeactivation: true, clubName: '중단동' })]}
       />,
     );
-    expect(screen.getByText(/🗂\s*선발 종료/)).toHaveClass('bg-graysoft', 'text-charcoal-2');
+    expect(screen.getByText(/^선발 종료$/)).toHaveClass('bg-graysoft', 'text-charcoal-2');
     expect(screen.queryByText(/최종 불합격/)).toBeNull();
   });
 
-  it('운영진 불합격(표시 칸 거짓)은 "📝 최종 불합격" 그대로다', () => {
+  it('운영진 불합격(표시 칸 거짓)은 "최종 불합격" 그대로다', () => {
     render(<SectionArchived applications={[make({ id: 14, status: 'REJECTED', endedByClubDeactivation: false })]} />);
-    expect(screen.getByText(/📝\s*최종 불합격/)).toBeInTheDocument();
+    expect(screen.getByText(/^최종 불합격$/)).toBeInTheDocument();
+  });
+});
+
+describe('SectionArchived — 긴 모집 제목·동아리 이름은 카드 안에서 줄바꿈', () => {
+  it('모집 제목과 동아리 이름이 긴 낱말을 줄바꿈하고, 날짜 줄은 그대로 둔다', () => {
+    render(<SectionArchived applications={[make()]} />);
+    const name = screen.getByRole('heading', { level: 3, name: '두잉 댄스' });
+    const title = screen.getByText('봄 신입 모집');
+    const info = name.parentElement!;
+    const date = name.nextElementSibling!;
+
+    expect(title).toHaveClass('break-words');
+    expect(name).toHaveClass('break-words');
+    // min-w-0 이 없으면 정보 열이 가장 긴 낱말 폭까지 늘어 줄바꿈이 일어나지 않는다.
+    expect(info).toHaveClass('min-w-0');
+    // 정보 열 전체에 걸면 좁은 폭에서 날짜가 숫자 중간에서 끊긴다 — 이름·제목에만 건다.
+    expect(info).not.toHaveClass('break-words');
+    expect(date).not.toHaveClass('break-words');
   });
 });

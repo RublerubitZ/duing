@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import type { InterviewRoundSummary, InterviewRoundStatus } from '@duing/types';
-import { useInterviewRoundsQuery } from '@duing/hooks';
+import { isEmptyInProgressRound, useInterviewRoundsQuery } from '@duing/hooks';
 import { toRoute } from '@/app/_lib/route';
 import { cn } from '@/app/_lib/cn';
 import { Spinner } from '@/components/loading/Spinner';
@@ -10,35 +10,43 @@ import { Spinner } from '@/components/loading/Spinner';
 // 면접 진행 단계 칩 — §10.5 가드레일 1:1.
 // 최신 비CANCELLED 라운드(생성 최신순 첫 항목)의 상태를 라벨로 변환.
 // BE#6 이 생성 최신순(createdAtDesc)으로 반환 — 계약 확정.
-// 라운드 없음·최신이 CANCELLED 이면 "면접 대상 선정 전" 취급.
+// 라운드 없음·전부 CANCELLED 이면 "면접 대상 선정 전" 취급.
+// 인원 0 응답 수집·배정 검토 라운드는 기다릴 응답도 검토할 배정도 없어 건너뛴다 — 그것뿐이면 "라운드 인원 없음"(대기열에 사람이 있을 수 있어 모집 전체를 말하지 않는다).
+// 인원 0 초안은 건너뛰지 않는다(새 라운드 생성을 막는다) — 이어 쓸 수 없어 "라운드 정리 필요"(마법사가 폐기를 안내한다).
 // useInterview=false 모집은 부모에서 미렌더링.
 
 type StageLabel =
   | '면접 대상 선정 전'
   | '라운드 작성 중'
+  | '라운드 정리 필요'
   | `응답 대기 ${number}/${number}`
   | '배정 검토 중'
-  | '면접 확정';
+  | '면접 확정'
+  | '라운드 인원 없음';
 
 const STAGE_CHIP_CLASS: Record<string, string> = {
-  '면접 대상 선정 전': 'bg-slate-100 text-slate-600',
-  '라운드 작성 중': 'bg-slate-100 text-slate-700',
-  '배정 검토 중': 'bg-amber-100 text-amber-700',
-  '면접 확정': 'bg-emerald-100 text-emerald-700',
+  '면접 대상 선정 전': 'bg-paper text-charcoal-2 ring-1 ring-inset ring-line',
+  '라운드 작성 중': 'bg-paper text-charcoal-2 ring-1 ring-inset ring-line',
+  // 대기·주의 — 운영진이 치워야 새 라운드를 만들 수 있다.
+  '라운드 정리 필요': 'bg-warm/10 text-warm-deep',
+  '배정 검토 중': 'bg-warm/10 text-warm-deep',
+  '면접 확정': 'bg-sage/10 text-sage-deep',
+  '라운드 인원 없음': 'bg-paper text-charcoal-2 ring-1 ring-inset ring-line',
 };
 
 /** 라운드 목록 → 단계 라벨 (§10.5) */
 function resolveStageLabel(rounds: InterviewRoundSummary[]): StageLabel {
   // 비CANCELLED 최신 라운드를 탐색 (목록은 BE#6 최신순 정렬)
-  const activeRound = rounds.find(
+  const liveRounds = rounds.filter(
     (round) => (round.status satisfies InterviewRoundStatus) !== 'CANCELLED',
   );
+  const activeRound = liveRounds.find((round) => !isEmptyInProgressRound(round));
 
-  if (!activeRound) return '면접 대상 선정 전';
+  if (!activeRound) return liveRounds.length > 0 ? '라운드 인원 없음' : '면접 대상 선정 전';
 
   switch (activeRound.status) {
     case 'DRAFT':
-      return '라운드 작성 중';
+      return activeRound.totalMemberCount === 0 ? '라운드 정리 필요' : '라운드 작성 중';
     case 'COLLECTING':
       return `응답 대기 ${activeRound.respondedMemberCount}/${activeRound.totalMemberCount}`;
     case 'ASSIGNING':
@@ -77,8 +85,8 @@ export function InterviewStageChip({ clubId, recruitmentId }: InterviewStageChip
   // COLLECTING 라운드에는 "응답 대기" 칩을 파란 톤으로
   const isCollecting = stageLabel.startsWith('응답 대기');
   const chipClass = isCollecting
-    ? 'bg-blue-100 text-blue-700'
-    : (STAGE_CHIP_CLASS[stageLabel] ?? 'bg-slate-100 text-slate-600');
+    ? 'bg-sky/10 text-sky-deep'
+    : (STAGE_CHIP_CLASS[stageLabel] ?? 'bg-paper text-charcoal-2 ring-1 ring-inset ring-line');
 
   return (
     <div className="flex items-center gap-2">
@@ -91,7 +99,7 @@ export function InterviewStageChip({ clubId, recruitmentId }: InterviewStageChip
         href={toRoute(
           `/manage/clubs/${clubId}/recruitments/${recruitmentId}/interview`,
         )}
-        className="rounded-md border border-slate-300 px-2 py-0.5 text-xs font-medium text-slate-600 hover:bg-slate-50"
+        className="rounded-md border border-line px-2 py-0.5 text-xs font-medium text-charcoal-2 hover:bg-graysoft"
       >
         면접 관리
       </Link>

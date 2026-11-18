@@ -21,8 +21,8 @@ export function InterviewMockup() {
   return (
     <div className="rounded-lg border border-line bg-paper p-4 shadow-2">
       <div className="mb-3.5 flex items-center justify-between">
-        <p className="tabular-nums text-[11.5px] font-semibold uppercase tracking-[0.14em] text-charcoal-3">
-          INTERVIEW · 1라운드
+        <p className="text-[11.5px] font-semibold text-charcoal-3">
+          면접 1라운드
         </p>
         <span className="pill pill-solid gap-1.5">
           <span className="h-1.5 w-1.5 rounded-full bg-sage" />

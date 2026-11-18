@@ -75,7 +75,7 @@ export function ApplicantsFilterBar({ filters, onChange, useInterview, counts }:
                 college: isCollege(event.target.value) ? event.target.value : undefined,
               })
             }
-            className="rounded-full border border-line bg-paper px-3 py-1.5 text-[13px] font-medium text-charcoal-2"
+            className="rounded-full border border-field bg-paper px-3 py-1.5 text-[13px] font-medium text-charcoal-2"
           >
             <option value="">단과대 전체</option>
             {COLLEGE_OPTIONS.map((college) => (
@@ -92,7 +92,7 @@ export function ApplicantsFilterBar({ filters, onChange, useInterview, counts }:
             onChange={(event) =>
               onChange({ ...filters, submittedFrom: event.target.value || undefined })
             }
-            className="rounded-full border border-line bg-paper px-3 py-1.5 text-[13px] text-charcoal-2"
+            className="rounded-full border border-field bg-paper px-3 py-1.5 text-[13px] text-charcoal-2"
           />
           <span aria-hidden className="text-charcoal-3">
             ~
@@ -104,7 +104,7 @@ export function ApplicantsFilterBar({ filters, onChange, useInterview, counts }:
             onChange={(event) =>
               onChange({ ...filters, submittedTo: event.target.value || undefined })
             }
-            className="rounded-full border border-line bg-paper px-3 py-1.5 text-[13px] text-charcoal-2"
+            className="rounded-full border border-field bg-paper px-3 py-1.5 text-[13px] text-charcoal-2"
           />
         </div>
 

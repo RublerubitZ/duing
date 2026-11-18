@@ -16,6 +16,7 @@ import com.duing.domain.club.service.ClubClosureService;
 import com.duing.domain.club.service.ClubPendingCleanupService;
 import com.duing.domain.club.service.ClubService;
 import com.duing.domain.club.service.dto.query.AdminClubSearchCondition;
+import com.duing.domain.club.service.dto.query.AdminClubSignal;
 import com.duing.domain.club.service.dto.query.ClubViewer;
 import com.duing.global.auth.UserPrincipal;
 import com.duing.global.response.ApiResponse;
@@ -51,10 +52,11 @@ public class AdminClubController implements AdminClubApi {
             @RequestParam(required = false) String division,
             @RequestParam(required = false) String keyword,
             @RequestParam(defaultValue = "false") boolean needsPendingCleanup,
+            @RequestParam(required = false) AdminClubSignal signal,
             Pageable pageable
     ) {
         AdminClubSearchCondition condition =
-                new AdminClubSearchCondition(status, category, division, keyword, needsPendingCleanup);
+                new AdminClubSearchCondition(status, category, division, keyword, needsPendingCleanup, signal);
         Page<AdminClubSummaryResponse> page = clubService.searchForAdmin(condition, pageable)
                 .map(AdminClubSummaryResponse::from);
         return ResponseEntity.ok(ApiResponse.success(PageResponse.from(page)));

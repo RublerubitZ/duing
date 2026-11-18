@@ -267,6 +267,8 @@ return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success(id));
 
 - 기존 파일 절대 수정 금지 — 변경은 새 버전 파일만
 - `CREATE TABLE IF NOT EXISTS` / `ADD COLUMN IF NOT EXISTS` 사용
+- 새 테이블은 같은 파일에서 `ENABLE ROW LEVEL SECURITY` 를 켠다(정책 없음 = 공개 키 전면 거부) — `RowLevelSecurityMigrationTest` 가 막는다
+- 버전 마이그레이션에서 `flyway_schema_history` 를 `ALTER` 하지 않는다 — migrate 중 Flyway 의 다른 연결이 그 테이블 잠금을 쥐고 있어 기동이 멈춘다. 그 테이블의 RLS 는 콜백 `db/migration/afterMigrate.sql` 이 켠다(기동마다 실행, 이력에 남지 않음)
 - 컬럼 추가와 같은 릴리스에서 `DROP DEFAULT`·`SET NOT NULL` 로 제약을 강화하거나 `DROP COLUMN` 으로 컬럼을 지우지 말 것 — 배포 실패 시 자동 롤백으로 그 컬럼을 모르는(또는 아직 매핑 중인) 구 이미지가 다시 뜨는데 Flyway 는 되돌아가지 않아 해당 기능의 INSERT 만 조용히 깨진다(제약 강화·컬럼 삭제는 다음 릴리스에서 단독 마이그레이션으로)
 
 ---
@@ -364,7 +366,7 @@ SLACK_WEBHOOK_URL=                     # 운영 Slack 알림(Incoming Webhook). 
 DUING_FRONTEND_REVALIDATE_SECRET=      # 동아리 탐색(/clubs) 정각·상세(/clubs/<id>) 변경 시·매일 00:05 재생성 트리거. Vercel REVALIDATE_SECRET 과 같은 값(32바이트+). 비움=비활성(시작 로그 WARN)
 DUING_CLUB_DETAIL_DAILY_REVALIDATE_ENABLED=  # 동아리 상세 매일 재생성(00:05 KST, 진행 중·최근 마감 모집 동아리). 운영 기본 활성(application-prod.yml), 끄려면 false
 DUING_CLUB_LOGO_THUMBNAIL_BACKFILL_ENABLED=  # 동아리 로고 썸네일 백필(기동 뒤 백그라운드 1회, 썸네일 없는 로고). 운영 기본 활성(application-prod.yml), 끄려면 false
-DUING_RECRUITMENT_AUTO_CLOSE_ENABLED=  # 기간 종료 모집 자동 마감(00:40 KST, 종료 7일 경과·결과 없는 지원·진행 중 면접 라운드 0인 OPEN 모집). 운영 기본 활성(application-prod.yml), 끄려면 false
+DUING_RECRUITMENT_AUTO_CLOSE_ENABLED=  # 기간 종료 모집 자동 마감(00:40 KST, 종료 7일 경과·결과 없는 지원·결과를 기다리는 면접 대상이 남은 진행 중 면접 라운드 0인 OPEN 모집). 운영 기본 활성(application-prod.yml), 끄려면 false — 끄면 화면의 자동 마감 전망도 숨긴다
 DUING_ADMIN_PENDING_SNAPSHOT_ENABLED=  # 총동연 홈 처리 대기 추이 일별 기록(00:01 KST, KST 어제 하루 끝 남은 대기 건수). 운영 기본 활성(application-prod.yml), 끄려면 false
 
 # 로컬 전용

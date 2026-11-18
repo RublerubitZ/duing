@@ -18,6 +18,9 @@ import { captureEvent } from '../../../_lib/analytics';
 import { ApplyForm } from '../_components/ApplyForm';
 import type { DraftAnswer, RecruitmentQuestionItem } from '@duing/types';
 
+// 서버 자격 검증이 내는 확정 거절(외부 폼·회원 자격·없음·마감·시작 전·이미 지원·이미 회원) — 그 밖은 일시 실패로 본다(401 은 토큰 갱신이 잠깐 안 될 때도 온다).
+const ELIGIBILITY_REJECTION_STATUSES = [400, 403, 404, 409];
+
 export function ApplyPage() {
   const params = useParams<{ recruitmentId: string }>();
   const recruitmentId = Number(params.recruitmentId);
@@ -54,8 +57,7 @@ export function ApplyPage() {
   if (detail.isError && detail.error instanceof ApiError && detail.error.status === 404) {
     return (
       <div
-        className="duing min-h-dvh"
-        style={{ background: 'linear-gradient(180deg, #ece6d3 0%, #f3efe4 8%, #f3efe4 92%, #ece6d3 100%)' }}
+        className="apply-paper duing min-h-dvh"
       >
         <ResourceNotFound
           title="이 모집은 찾을 수 없어요"
@@ -69,15 +71,15 @@ export function ApplyPage() {
 
   // 상세 조회 실패 시 isLoading=false·data=undefined 라 아래 로딩 분기가 영구 표류한다 — 먼저 탈출.
   // clubId 를 모르는 상태라 안전한 복귀처는 탐색 목록뿐이다.
-  if (detail.isError) {
+  // 데이터가 있는 재조회 실패는 폼을 그대로 둔다 — 내리면 쓰던 화면이 끊기고, 떠날 때 저장이 실패하면 답도 잃는다(저장본 게이트와 같은 규칙).
+  if (detail.isError && detail.data === undefined) {
     const detailErrorMessage =
       detail.error instanceof ApiError
         ? detail.error.message
         : '모집 정보를 불러오지 못했습니다. 잠시 후 다시 시도해주세요.';
     return (
       <div
-        className="flex min-h-dvh flex-col items-center justify-center gap-5 px-6"
-        style={{ background: 'linear-gradient(180deg, #ece6d3 0%, #f3efe4 8%, #f3efe4 92%, #ece6d3 100%)' }}
+        className="apply-paper flex min-h-dvh flex-col items-center justify-center gap-5 px-6"
       >
         <p role="alert" className="rounded-[10px] bg-coral/5 px-4 py-3 text-center text-sm text-coral-deep">
           {detailErrorMessage}
@@ -97,8 +99,7 @@ export function ApplyPage() {
   ) {
     return (
       <div
-        className="min-h-dvh"
-        style={{ background: 'linear-gradient(180deg, #ece6d3 0%, #f3efe4 8%, #f3efe4 92%, #ece6d3 100%)' }}
+        className="apply-paper min-h-dvh"
       >
         <LoadingGate label="불러오는 중" className="min-h-dvh" />
       </div>
@@ -108,23 +109,27 @@ export function ApplyPage() {
   if (isExternal) {
     return (
       <div
-        className="min-h-dvh"
-        style={{ background: 'linear-gradient(180deg, #ece6d3 0%, #f3efe4 8%, #f3efe4 92%, #ece6d3 100%)' }}
+        className="apply-paper min-h-dvh"
       >
         <LoadingGate label="이동 중" className="min-h-dvh" />
       </div>
     );
   }
 
-  if (eligibility.isError) {
+  // 데이터가 있는 재조회 실패는 확정 거절일 때만 막는다 — 일시 실패에 폼을 내리면 쓰던 화면이 끊기고, 떠날 때 저장이 실패하면 답도 잃는다(제출 때 서버가 다시 검증한다).
+  if (
+    eligibility.isError &&
+    (eligibility.data === undefined ||
+      (eligibility.error instanceof ApiError &&
+        ELIGIBILITY_REJECTION_STATUSES.includes(eligibility.error.status)))
+  ) {
     const blockedMessage =
       eligibility.error instanceof ApiError
         ? eligibility.error.message
         : '지원 가능 여부를 확인하지 못했습니다. 잠시 후 다시 시도해주세요.';
     return (
       <div
-        className="flex min-h-dvh flex-col items-center justify-center gap-5 px-6"
-        style={{ background: 'linear-gradient(180deg, #ece6d3 0%, #f3efe4 8%, #f3efe4 92%, #ece6d3 100%)' }}
+        className="apply-paper flex min-h-dvh flex-col items-center justify-center gap-5 px-6"
       >
         <p role="alert" className="rounded-[10px] bg-coral/5 px-4 py-3 text-center text-sm text-coral-deep">
           {blockedMessage}
@@ -132,6 +137,30 @@ export function ApplyPage() {
         <Link href={toRoute(`/clubs/${recruitment.clubId}`)} className="btn btn-secondary">
           동아리 페이지로 돌아가기
         </Link>
+      </div>
+    );
+  }
+
+  // 조회 실패를 "초안 없음"으로 보고 빈 폼을 그리면 첫 자동저장이 서버 초안을 빈 답으로 통째로 덮는다.
+  // 초안 없음은 200 + exists:false 라 여기 오지 않는다. 데이터가 있는 재조회 실패는 폼을 그대로 둔다 —
+  // isError 만 보면 데이터가 있는 채로 다시 받다 실패할 때 쓰던 폼이 언마운트돼 화면이 끊기고, 떠날 때 저장이 실패하면 답도 잃는다
+  // (저장본은 떠나면 바로 버려 지금은 다시 받는 계기가 없다 — 생길 때를 지킨다).
+  if (draftQuery.isError && draftQuery.data === undefined) {
+    return (
+      <div
+        className="apply-paper flex min-h-dvh flex-col items-center justify-center gap-5 px-6"
+      >
+        <p role="alert" className="rounded-[10px] bg-coral/5 px-4 py-3 text-center text-sm text-coral-deep">
+          임시저장한 답변을 불러오지 못했습니다. 잠시 후 다시 시도해주세요.
+        </p>
+        <div className="flex flex-wrap justify-center gap-2">
+          <button type="button" onClick={() => void draftQuery.refetch()} className="btn btn-primary">
+            다시 시도
+          </button>
+          <Link href={toRoute(`/clubs/${recruitment.clubId}`)} className="btn btn-secondary">
+            동아리 페이지로 돌아가기
+          </Link>
+        </div>
       </div>
     );
   }
@@ -147,7 +176,7 @@ export function ApplyPage() {
       choices: [],
     }));
 
-  // draft 가 settle 된 뒤 mount 하므로 자식은 initialAnswers 만 받아 useState 초기값으로 쓴다.
+  // draft 가 settle 된 뒤 mount 하므로 자식은 initialAnswers·restoredDraft·draftUpdatedAt 을 마운트 때만 읽는다(useState 초기값).
   const draft = draftQuery.data;
   const initialAnswers: DraftAnswer[] = questionItems.map((question) => {
     const saved = draft?.exists

@@ -8,12 +8,13 @@ import { useCompletePasswordResetMutation } from '@duing/hooks';
 import { passwordSchema } from '@duing/schemas';
 import { PhoneVerificationField } from '@/app/_components/PhoneVerificationField';
 import { ButtonSpinner } from '@/components/loading/Spinner';
+import { ArrowLeft } from '@/components/duing/Icon';
 import { usePasswordResetVerification } from '@/app/_lib/use-phone-verification';
 import { useToast } from '@/app/_components/toast/ToastProvider';
 import { captureEvent } from '@/app/_lib/analytics';
 
 const inputCls =
-  'w-full rounded-md border border-line bg-paper px-3.5 py-3 text-sm text-charcoal outline-none transition focus:border-ink focus:ring-1 focus:ring-ink/20 placeholder:text-charcoal-3/50';
+  'w-full rounded-md border border-field bg-paper px-3.5 py-3 text-sm text-charcoal outline-none transition focus:border-ink focus:ring-1 focus:ring-ink/20 placeholder:text-charcoal-3/50';
 
 export function ForgotPasswordPanel() {
   const router = useGuardedRouter();
@@ -70,7 +71,8 @@ export function ForgotPasswordPanel() {
           href="/login"
           className="flex items-center gap-1 text-sm text-charcoal-2 transition-colors hover:text-charcoal"
         >
-          ← 로그인으로
+          <ArrowLeft size={14} aria-hidden />
+          로그인으로
         </Link>
       </nav>
 

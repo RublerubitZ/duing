@@ -20,10 +20,10 @@ export function RoundCountCards({ detail }: { detail: InterviewRoundDetail }) {
       ].map(({ label, value }) => (
         <div
           key={label}
-          className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-center"
+          className="rounded-xl border border-line bg-white px-4 py-3 text-center"
         >
-          <p className="text-xs text-slate-500">{label}</p>
-          <p className="text-2xl font-bold text-slate-900">{value}</p>
+          <p className="text-xs text-charcoal-3">{label}</p>
+          <p className="text-2xl font-bold text-ink-deep">{value}</p>
         </div>
       ))}
     </div>

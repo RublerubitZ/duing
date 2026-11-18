@@ -19,7 +19,10 @@ import com.duing.domain.application.entity.ApplicationStatus;
 import com.duing.domain.application.repository.ApplicationRepository;
 import com.duing.domain.club.entity.Club;
 import com.duing.domain.club.repository.ClubRepository;
+import com.duing.domain.interview.entity.InterviewRound;
+import com.duing.domain.interview.entity.InterviewRoundMember;
 import com.duing.domain.interview.entity.RoundStatus;
+import com.duing.domain.interview.repository.InterviewRoundMemberRepository;
 import com.duing.domain.interview.repository.InterviewRoundRepository;
 import com.duing.domain.recruitment.entity.ApplicationMode;
 import com.duing.domain.recruitment.entity.Recruitment;
@@ -28,6 +31,7 @@ import com.duing.domain.recruitment.entity.TargetRole;
 import com.duing.domain.recruitment.repository.RecruitmentRepository;
 import com.duing.domain.user.entity.User;
 import com.duing.domain.user.repository.UserRepository;
+import com.duing.domain.user.service.UserService;
 import com.duing.global.frontend.FrontendRevalidationAsyncConfig;
 import com.duing.global.frontend.FrontendRevalidator;
 import java.time.LocalDate;
@@ -47,15 +51,18 @@ import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 /**
- * 기간 종료 모집 자동 마감의 판정·마감 계약 — 종료일 다음 날부터 7일이 지났고 결과 없는 지원·진행 중 면접 라운드가 없는
- * OPEN 모집만 닫는다. 오늘은 {@link FixedClockConfig#TODAY}(2026-06-15 자정 KST)로 고정한다.
+ * 기간 종료 모집 자동 마감의 판정·마감 계약 — 종료일 다음 날부터 7일이 지났고 결과 없는 지원·결과를 기다리는 면접 대상이 남은
+ * 진행 중 면접 라운드가 없는 OPEN 모집만 닫는다. 오늘은 {@link FixedClockConfig#TODAY}(2026-06-15 자정 KST)로 고정한다.
  *
  * <p>클래스에 {@code @Transactional} 을 두지 않는다 — 서비스의 모집별 트랜잭션이 실제로 커밋돼야 마감 결과와
  * 커밋 뒤(AFTER_COMMIT) 상세 재생성 요청을 그대로 볼 수 있다. 데이터는 {@link IntegrationTestBase} 가 매번 비운다.
  * 동아리당 OPEN 모집은 1건뿐이라(uk_recruitment_club_active) 모집마다 동아리를 따로 만든다.
  */
 @Import({TestcontainersConfiguration.class, FixedClockConfig.class})
-@SpringBootTest
+// AutoCloseOutlookTest 와 설정(웹 환경·자동 마감 켬)을 맞춰 테스트 컨텍스트 하나를 함께 쓴다 — 이 클래스는 잡 메서드를 직접 부르므로
+// 스위치 값과 무관하다(스위치는 잡 등록과 화면 전망만 본다).
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
+        properties = "duing.recruitment.auto-close.enabled=true")
 class RecruitmentAutoCloseServiceTest extends IntegrationTestBase {
 
     private static final long ASYNC_WAIT_MS = 3_000;
@@ -70,8 +77,10 @@ class RecruitmentAutoCloseServiceTest extends IntegrationTestBase {
     @Autowired RecruitmentRepository recruitmentRepository;
     @Autowired ApplicationRepository applicationRepository;
     @Autowired InterviewRoundRepository interviewRoundRepository;
+    @Autowired InterviewRoundMemberRepository interviewRoundMemberRepository;
     @Autowired ClubRepository clubRepository;
     @Autowired UserRepository userRepository;
+    @Autowired UserService userService;
     @Autowired JdbcTemplate jdbcTemplate;
     @Autowired @Qualifier(FrontendRevalidationAsyncConfig.EXECUTOR_BEAN_NAME)
     ThreadPoolTaskExecutor frontendRevalidationTaskExecutor;
@@ -128,8 +137,8 @@ class RecruitmentAutoCloseServiceTest extends IntegrationTestBase {
         return application;
     }
 
-    private void saveRound(Recruitment recruitment, RoundStatus status) {
-        interviewRoundRepository.save(InterviewRoundFixture.withStatus(
+    private InterviewRound saveRound(Recruitment recruitment, RoundStatus status) {
+        return interviewRoundRepository.save(InterviewRoundFixture.withStatus(
                 recruitment.getId(), FIXED_NOW.minusDays(3), "학생회관 201호", status));
     }
 
@@ -217,15 +226,32 @@ class RecruitmentAutoCloseServiceTest extends IntegrationTestBase {
         assertThat(reload(recruitment).getStatus()).isEqualTo(RecruitmentStatus.CLOSED);
     }
 
+    @Test
+    @DisplayName("결과 없는 지원이 탈퇴한 지원자의 것뿐이면 모집은 마감된다 — 운영진 목록에 없어 아무도 처리할 수 없다")
+    void closesRecruitmentWhoseOnlyUnsettledApplicationBelongsToWithdrawnApplicant() {
+        Recruitment recruitment = saveOpenRecruitmentEndedDaysAgo(8);
+        saveApplication(recruitment, ApplicationStatus.ACCEPTED);
+        Application withdrawnApplication = saveApplication(recruitment, ApplicationStatus.SUBMITTED);
+        userService.withdraw(withdrawnApplication.getUser().getId());
+
+        assertThat(recruitmentAutoCloseService.closeIfSettled(recruitment.getId())).isTrue();
+        assertThat(reload(recruitment).getStatus()).isEqualTo(RecruitmentStatus.CLOSED);
+    }
+
     @ParameterizedTest(name = "{0}")
     @EnumSource(value = RoundStatus.class, mode = EnumSource.Mode.EXCLUDE, names = {"SCHEDULED", "CANCELLED"})
-    @DisplayName("진행 중인 면접 라운드가 있는 모집은 마감하지 않는다")
-    void keepsRecruitmentWithInProgressRound(RoundStatus inProgressStatus) {
+    @DisplayName("결과를 기다리는 면접 대상이 남은 진행 중 라운드가 있는 모집은 마감하지 않고, 전망은 그 라운드를 막는 라운드로 센다")
+    void keepsRecruitmentWithAwaitingInProgressRound(RoundStatus inProgressStatus) {
         Recruitment recruitment = saveOpenRecruitmentEndedDaysAgo(8);
-        saveRound(recruitment, inProgressStatus);
+        InterviewRound round = saveRound(recruitment, inProgressStatus);
+        Application awaitingApplication = saveApplication(recruitment, ApplicationStatus.INTERVIEW_PENDING);
+        interviewRoundMemberRepository.save(InterviewRoundMember.invite(round.getId(), awaitingApplication.getId()));
 
         assertThat(recruitmentAutoCloseService.closeIfSettled(recruitment.getId())).isFalse();
         assertThat(reload(recruitment).getStatus()).isEqualTo(RecruitmentStatus.OPEN);
+        // 그 지원 하나로도 닫히지 않으므로 마감 여부만으로는 라운드 상태별로 세는지 가릴 수 없다.
+        assertThat(recruitmentAutoCloseService.findOutlook(reload(recruitment)).orElseThrow().inProgressRoundCount())
+                .isEqualTo(1);
     }
 
     @Test

@@ -21,7 +21,7 @@ import { LoadingGate } from '@/components/loading/LoadingGate';
 
 // 상태 배너 전용 톤 — 배지 필 클래스(.pill-*)와 분리해 전역 배지 개편의 파급을 차단한다(기존 팔레트 유지).
 const STATUS_BANNER_TONE: Record<BookingStatus, string> = {
-  PENDING: 'bg-[#FBEFD7] text-[#8E6620]',
+  PENDING: 'bg-warm/10 text-warm-deep',
   APPROVED: 'bg-ink/10 text-ink',
   CONFIRMED: 'bg-ink text-cream',
   REJECTED: 'bg-graysoft text-charcoal-3',

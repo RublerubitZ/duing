@@ -12,9 +12,9 @@ export const ROUND_STATUS_LABEL: Record<InterviewRoundStatus, string> = {
 };
 
 export const ROUND_STATUS_BADGE_CLASS: Record<InterviewRoundStatus, string> = {
-  DRAFT: 'bg-slate-100 text-slate-700',
-  COLLECTING: 'bg-blue-100 text-blue-700',
-  ASSIGNING: 'bg-amber-100 text-amber-700',
-  SCHEDULED: 'bg-emerald-100 text-emerald-700',
-  CANCELLED: 'bg-rose-100 text-rose-700',
+  DRAFT: 'bg-paper text-charcoal-2 ring-1 ring-inset ring-line',
+  COLLECTING: 'bg-sky/10 text-sky-deep',
+  ASSIGNING: 'bg-warm/10 text-warm-deep',
+  SCHEDULED: 'bg-sage/10 text-sage-deep',
+  CANCELLED: 'bg-coral/10 text-coral-deep',
 };

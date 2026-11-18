@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import type {
   ActionItem,
   DashboardTask,
+  DashboardTaskGroupKey,
   FacilityBookingSummary,
   FeeBillSummary,
   JoinRequestSummary,
@@ -126,7 +127,6 @@ describe('dashboardTaskGroupOf', () => {
   it.each([
     ['CLOSED_RECRUITMENT_UNDECIDED', 'NOW'],
     ['INTERVIEW_RESULT_PENDING', 'NOW'],
-    ['INTERVIEW_ROUND_UNCONFIRMED', 'NOW'],
     ['APPLICANTS_AWAITING_REVIEW', 'WAITING'],
     ['INTERVIEW_ROUND_NEEDED', 'WAITING'],
   ] as const)('모집 업무 %s → %s', (type, group) => {
@@ -151,6 +151,18 @@ describe('dashboardTaskGroupOf', () => {
     expect(dashboardTaskGroupOf(task(-1))).toBe('NOW');
     expect(dashboardTaskGroupOf(task(0))).toBe('WAITING');
     expect(dashboardTaskGroupOf(task(undefined))).toBe('WAITING');
+  });
+
+  it.each<[string, DashboardTaskGroupKey, ActionItem['roundStatus'], number | undefined]>([
+    ['상태 없음(타입상 기본값)', 'NOW', undefined, undefined],
+    ['ASSIGNING', 'NOW', 'ASSIGNING', undefined],
+    ['DRAFT', 'WAITING', 'DRAFT', undefined],
+    ['COLLECTING·응답 마감 없음', 'WAITING', 'COLLECTING', undefined],
+    ['COLLECTING·응답 마감 D-day', 'WAITING', 'COLLECTING', 0],
+    ['COLLECTING·응답 마감 1일 지남', 'NOW', 'COLLECTING', -1],
+  ])('면접 일정 미확정 %s → %s', (_name, group, roundStatus, daysLeft) => {
+    const item = recruitmentItem({ type: 'INTERVIEW_ROUND_UNCONFIRMED', roundId: 7, roundStatus, daysLeft });
+    expect(dashboardTaskGroupOf({ source: 'RECRUITMENT', item })).toBe(group);
   });
 
   it('운영 업무: 회비 연체는 지금 처리, 시설은 확인만, 나머지는 처리 대기', () => {

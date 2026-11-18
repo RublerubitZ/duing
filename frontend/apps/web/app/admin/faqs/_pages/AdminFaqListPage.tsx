@@ -20,6 +20,7 @@ import { FaqCategoryManager } from '../_components/FaqCategoryManager';
 import { FaqSearchMissPanel } from '../_components/FaqSearchMissPanel';
 import { extractErrorMessage } from '@/app/_lib/extractErrorMessage';
 import { FAQ_FULL_LIST_SIZE } from '../_lib/faqListConstants';
+import { ChevronDown, ChevronUp } from 'lucide-react';
 
 const PAGE_SIZE = 20;
 
@@ -163,7 +164,7 @@ export function AdminFaqListPage() {
             setCategoryId(next === 'ALL' ? 'ALL' : Number(next));
             resetToFirstPage();
           }}
-          className="px-3 py-1.5 rounded-md border border-line bg-paper text-[13px]"
+          className="px-3 py-1.5 rounded-md border border-field bg-paper text-[13px]"
         >
           <option value="ALL">전체 카테고리</option>
           {(categoriesQuery.data ?? []).map((category) => (
@@ -180,7 +181,7 @@ export function AdminFaqListPage() {
             value={keywordInput}
             onChange={(event) => setKeywordInput(event.target.value)}
             placeholder="질문 검색"
-            className="px-3 py-1.5 rounded-md border border-line bg-paper text-[13px]"
+            className="px-3 py-1.5 rounded-md border border-field bg-paper text-[13px]"
           />
           <button type="submit" className="px-3 py-1.5 rounded-md bg-ink text-paper text-[13px] font-semibold">검색</button>
         </form>
@@ -230,7 +231,7 @@ export function AdminFaqListPage() {
                           <span
                             className={cn(
                               'inline-block px-2 py-0.5 rounded-full text-[11.5px] font-semibold',
-                              faq.published ? 'bg-sage-mist text-ink-deep' : 'bg-graysoft text-charcoal-2',
+                              faq.published ? 'bg-sage/10 text-sage-deep' : 'bg-graysoft text-charcoal-2',
                             )}
                           >{faq.published ? '공개' : '비공개'}</span>
                         </Td>
@@ -257,7 +258,9 @@ export function AdminFaqListPage() {
                               title={filtersActive ? FILTER_DISABLED_TITLE : undefined}
                               aria-label="위로 이동"
                               className="grid h-7 w-7 place-items-center rounded text-charcoal-2 hover:bg-graysoft disabled:opacity-30"
-                            >▲</button>
+                            >
+                              <ChevronUp size={14} aria-hidden />
+                            </button>
                             <button
                               type="button"
                               onClick={() => handleMove(faq.id, 'down')}
@@ -265,7 +268,9 @@ export function AdminFaqListPage() {
                               title={filtersActive ? FILTER_DISABLED_TITLE : undefined}
                               aria-label="아래로 이동"
                               className="grid h-7 w-7 place-items-center rounded text-charcoal-2 hover:bg-graysoft disabled:opacity-30"
-                            >▼</button>
+                            >
+                              <ChevronDown size={14} aria-hidden />
+                            </button>
                           </div>
                         </Td>
                         <Td className="whitespace-nowrap">

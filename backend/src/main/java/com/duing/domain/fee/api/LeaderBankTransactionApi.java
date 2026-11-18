@@ -38,7 +38,10 @@ public interface LeaderBankTransactionApi {
 
     @Operation(summary = "BANK 거래 동기화 (LEADER/OFFICER)",
             description = "계좌 비밀번호와 주민등록번호 앞 6자리로 BANK API 를 호출해 기간 내 거래를 멱등 적재한다. "
-                    + "인증정보는 API 호출에만 쓰고 저장하지 않는다. 매칭은 후속 단계에서 처리한다.")
+                    + "조회 기간은 마지막 적재 거래 전날과 14일 전 가운데 이른 날부터 오늘까지이고 오늘 포함 최대 31일이다. "
+                    + "마지막 거래일이 그보다 앞이면 이번 동기화에서 확인하지 못한 기간을 missedFrom~missedTo(KST 날짜)로 돌려주고, 없으면 둘 다 null 이다. "
+                    + "14일보다 오래된 입금과 직전 마지막 적재 거래보다 앞선(같은 시각 포함) 새 입금은 자동매칭하지 않고 검토 대기로 둔다. "
+                    + "인증정보는 API 호출에만 쓰고 저장하지 않는다.")
     @PostMapping("/leader/clubs/{clubId}/bank-transactions/sync")
     ResponseEntity<ApiResponse<SyncResultResponse>> sync(
             @PathVariable Long clubId,

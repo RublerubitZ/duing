@@ -3,16 +3,14 @@
 import { useState } from 'react';
 import type { FormEvent } from 'react';
 import { useGuardedRouter } from '@/app/_lib/useGuardedRouter';
-import { useQueryClient } from '@tanstack/react-query';
 import { ApiError } from '@duing/api';
 import type {
-  ApplicationDraft,
   DraftAnswer,
   RecruitmentDetail,
   RecruitmentQuestionItem,
   SubmitApplicationPayload,
 } from '@duing/types';
-import { kstDateTimeFormatter, parseKstInstant, useSubmitApplicationMutation, draftQueryKeys } from '@duing/hooks';
+import { kstDateTimeFormatter, parseKstInstant, useSubmitApplicationMutation } from '@duing/hooks';
 import { ConfirmDialog } from '@/app/_components/ConfirmDialog';
 import { Spinner, ButtonSpinner } from '@/components/loading/Spinner';
 import { MarkdownProse } from '@/components/markdown/MarkdownProse';
@@ -26,9 +24,9 @@ type Props = {
   recruitmentId: number;
   questionItems: RecruitmentQuestionItem[];
   initialAnswers: DraftAnswer[];
-  /** 임시저장을 되살려 시드했는지 — 안내 배너 노출 조건(ApplyPage 가 판정). */
+  /** 임시저장을 되살려 시드했는지 — 안내 배너 노출 조건(ApplyPage 가 판정). 마운트 때만 읽는다. */
   restoredDraft?: boolean;
-  /** 임시저장 시각(오프셋 없는 KST 벽시계). 있으면 배너에 "· M월 D일 HH:mm 저장" 을 병기한다. */
+  /** 임시저장 시각(오프셋 없는 KST 벽시계). 있으면 배너에 "· M월 D일 HH:mm 저장" 을 병기한다. 마운트 때만 읽는다. */
   draftUpdatedAt?: string | null;
 };
 
@@ -86,7 +84,6 @@ function collectRequiredViolations(
 
 export function ApplyForm({ recruitment, recruitmentId, questionItems, initialAnswers, restoredDraft = false, draftUpdatedAt = null }: Props) {
   const router = useGuardedRouter();
-  const queryClient = useQueryClient();
   const submit = useSubmitApplicationMutation(recruitmentId);
 
   const [answers, setAnswers] = useState<DraftAnswer[]>(initialAnswers);
@@ -95,16 +92,16 @@ export function ApplyForm({ recruitment, recruitmentId, questionItems, initialAn
   // 제출 시점에 마감(409 RECRUITMENT_CLOSED)·시작 전(409 RECRUITMENT_NOT_STARTED)이면 자동저장 410 과 같은
   // 지원 불가 UI 로 수렴시킨다 — 문구만 사유별로 다르다. 시작 전은 폼을 연 뒤 운영진이 시작일을 미룬 경우다.
   const [blockedBySubmit, setBlockedBySubmit] = useState<'closed' | 'notStarted' | null>(null);
-  // 복원 안내는 세션 안에서만 닫힌다(새로고침하면 다시 뜬다 — 다시 시드되기 때문).
-  const [restoredNoticeDismissed, setRestoredNoticeDismissed] = useState(false);
-  const draftSavedAtLabel = draftSavedAtLabelOf(draftUpdatedAt);
+  // 복원 안내는 폼을 열 때의 저장본으로 한 번 정한다 — 자동저장·재조회가 캐시를 바꿔도 다시 계산하지 않는다(닫기는 세션 안에서만).
+  const [restoredNoticeVisible, setRestoredNoticeVisible] = useState(restoredDraft);
+  const [draftSavedAtLabel] = useState(() => draftSavedAtLabelOf(draftUpdatedAt));
   // 제출 확인 — 제출 후 수정 API 가 없어 되돌릴 수 없는 행동이라 검증 통과 후 한 번 묻는다.
   const [confirmOpen, setConfirmOpen] = useState(false);
 
-  // 제출로 지원 불가가 확정되면 끈다 — enabled 가 effect deps 라 cleanup 이 보류 중인 debounce 타이머까지 취소한다.
+  // 제출 중·제출 뒤(늦은 PUT 이 제출하며 지운 서버 저장본을 되살린다)와 제출로 지원 불가가 확정되면 끈다 — enabled 가 effect deps 라 보류 중인 타이머도 취소된다.
   const autosaveStatus = useAutosaveDraft(answers, {
     recruitmentId,
-    enabled: blockedBySubmit === null,
+    enabled: blockedBySubmit === null && !submit.isPending && !submit.isSuccess,
   });
 
   const isClosed = autosaveStatus.kind === 'closed' || blockedBySubmit !== null;
@@ -135,7 +132,7 @@ export function ApplyForm({ recruitment, recruitmentId, questionItems, initialAn
     }
   }
 
-  const submitDisabled = submit.isPending || isClosed;
+  const submitDisabled = submit.isPending || submit.isSuccess || isClosed;
 
   function handleSubmit(event: FormEvent) {
     event.preventDefault();
@@ -170,12 +167,6 @@ export function ApplyForm({ recruitment, recruitmentId, questionItems, initialAn
         club_name: recruitment.clubName,
         application_id: applicationId,
       });
-      // 서버가 제출 시 draft 를 삭제하므로 재조회 대신 캐시를 직접 비운다 — GET 1회 제거(#985).
-      queryClient.setQueryData<ApplicationDraft>(draftQueryKeys.byRecruitment(recruitmentId), {
-        exists: false,
-        answers: [],
-        updatedAt: null,
-      });
       setConfirmOpen(false);
       router.push(toRoute(`/me/applications/${applicationId}`));
     } catch (submitError) {
@@ -199,8 +190,7 @@ export function ApplyForm({ recruitment, recruitmentId, questionItems, initialAn
 
   return (
     <div
-      className="min-h-dvh"
-      style={{ background: 'linear-gradient(180deg, #ece6d3 0%, #f3efe4 8%, #f3efe4 92%, #ece6d3 100%)' }}
+      className="apply-paper min-h-dvh"
     >
       <main className="mx-auto max-w-[760px] px-8 pb-24 pt-16">
 
@@ -215,14 +205,14 @@ export function ApplyForm({ recruitment, recruitmentId, questionItems, initialAn
 
           {/* 자동저장 상태 */}
           {isClosed ? (
-            <span className="tabular-nums text-[12.5px] tracking-wide text-coral-deep">
+            <span className="tabular-nums text-[12.5px] text-coral-deep">
               {isNotStarted ? '모집 시작 전' : '모집 마감'} — 임시저장 및 제출 불가
             </span>
           ) : (
-            <span className="inline-flex items-center gap-1.5 tabular-nums text-[12.5px] tracking-wide text-charcoal-3">
+            <span className="inline-flex items-center gap-1.5 tabular-nums text-[12.5px] text-charcoal-3">
               {autosaveStatus.kind === 'saved' && (
                 <>
-                  <span className="h-1.5 w-1.5 rounded-full bg-ink-soft shadow-[0_0_0_3px_rgba(46,97,73,0.18)]" />
+                  <span className="h-1.5 w-1.5 rounded-full bg-ink-soft ring-[3px] ring-ink-soft/20" />
                   마지막 저장 {AUTOSAVE_TIME_FORMATTER.format(autosaveStatus.at)}
                 </>
               )}
@@ -251,7 +241,7 @@ export function ApplyForm({ recruitment, recruitmentId, questionItems, initialAn
         )}
 
         {/* 임시저장 복원 안내 — 답변이 미리 채워진 이유를 알린다. 닫기는 세션 내 useState. */}
-        {restoredDraft && !restoredNoticeDismissed && (
+        {restoredNoticeVisible && (
           <div
             role="status"
             className="mb-6 flex items-center justify-between gap-3 rounded-[12px] border border-sage/30 bg-sage-tint px-4 py-3"
@@ -262,7 +252,7 @@ export function ApplyForm({ recruitment, recruitmentId, questionItems, initialAn
             </p>
             <button
               type="button"
-              onClick={() => setRestoredNoticeDismissed(true)}
+              onClick={() => setRestoredNoticeVisible(false)}
               aria-label="임시저장 안내 닫기"
               className="btn btn-ghost btn-sm -my-2 min-h-11 shrink-0"
             >
@@ -274,7 +264,7 @@ export function ApplyForm({ recruitment, recruitmentId, questionItems, initialAn
         {/* 모집 안내문 — 모집 정보(헤더) → 안내문 → 지원서 질문 순서 정책. content 없으면 미표시 */}
         {recruitment.content && (
           <section aria-label="모집 안내" className="mb-9">
-            <h2 className="mb-3 text-[13px] font-bold tracking-wide text-ink">모집 안내</h2>
+            <h2 className="mb-3 text-[13px] font-bold text-ink">모집 안내</h2>
             <MarkdownProse content={recruitment.content} className="text-[14.5px]" />
           </section>
         )}

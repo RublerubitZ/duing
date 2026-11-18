@@ -24,6 +24,8 @@ import {
 import { crawlFreshnessLabel, isFacilityBookingConflictPayload } from '../_lib/adminBookingDisplay';
 import { AdminSlotStrip } from './AdminSlotStrip';
 import { BookingActionDialog } from './BookingActionDialog';
+import { Satellite, TriangleAlert } from 'lucide-react';
+import { ArrowLeft, ArrowRight } from '@/components/duing/Icon';
 
 type ActionKind = 'approve' | 'reject' | 'confirm' | 'markConflict' | 'cancel';
 
@@ -89,16 +91,18 @@ function ValidationCards({
           <div
             key={check.label}
             className={`rounded-[12px] border px-3.5 py-3 ${
-              check.count > 0 ? 'border-[#E8B9A8] bg-[#FCE2D9]' : 'border-line bg-paper'
+              check.count > 0 ? 'border-coral/50 bg-coral/10' : 'border-line bg-paper'
             }`}
           >
             <p className="text-[11.5px] text-charcoal-3">{check.label}</p>
             <p
               className={`mt-1 flex items-center gap-1.5 text-[13.5px] font-bold ${
-                check.count > 0 ? 'text-[#9A3F23]' : 'text-ink'
+                check.count > 0 ? 'text-coral-deep' : 'text-ink'
               }`}
             >
-              {check.count === 0 && (
+              {check.count > 0 ? (
+                <TriangleAlert size={15} aria-hidden className="shrink-0" />
+              ) : (
                 <svg
                   aria-hidden
                   viewBox="0 0 24 24"
@@ -112,7 +116,7 @@ function ValidationCards({
                   <path d="M20 6 9 17l-5-5" />
                 </svg>
               )}
-              {check.count > 0 ? `⚠ ${check.count}건` : '없음'}
+              {check.count > 0 ? `${check.count}건` : '없음'}
             </p>
           </div>
         ))}
@@ -278,7 +282,8 @@ export function AdminBookingDetailModal({ bookingId, onClose, neighborIds, onNav
                     if (neighborIds.previous !== null) onNavigate(neighborIds.previous);
                   }}
                 >
-                  ← 이전
+                  <ArrowLeft size={14} aria-hidden />
+                  이전
                 </button>
                 <button
                   type="button"
@@ -288,7 +293,8 @@ export function AdminBookingDetailModal({ bookingId, onClose, neighborIds, onNav
                     if (neighborIds.next !== null) onNavigate(neighborIds.next);
                   }}
                 >
-                  다음 →
+                  다음
+                  <ArrowRight size={14} aria-hidden />
                 </button>
               </div>
             )}
@@ -347,7 +353,7 @@ export function AdminBookingDetailModal({ bookingId, onClose, neighborIds, onNav
                   </p>
                 )}
                 {detail.conflictDetail && (
-                  <p className="rounded-[12px] bg-[#FCE2D9] px-3.5 py-2.5 text-xs text-[#9A3F23]">
+                  <p className="rounded-[12px] bg-coral/10 px-3.5 py-2.5 text-xs text-coral-deep">
                     충돌 상세 — {detail.conflictDetail}
                   </p>
                 )}
@@ -356,12 +362,10 @@ export function AdminBookingDetailModal({ bookingId, onClose, neighborIds, onNav
                 <div
                   role={detail.stale ? 'alert' : undefined}
                   className={`flex items-center gap-2.5 rounded-[12px] px-3.5 py-3 text-[12.5px] leading-normal ${
-                    detail.stale ? 'bg-[#FCE2D9] text-[#9A3F23]' : 'bg-sage-mist text-ink-deep'
+                    detail.stale ? 'bg-coral/10 text-coral-deep' : 'bg-sage-mist text-ink-deep'
                   }`}
                 >
-                  <span aria-hidden className="text-[15px]">
-                    {detail.stale ? '⚠️' : '🛰'}
-                  </span>
+                  {detail.stale ? <TriangleAlert size={16} aria-hidden className="shrink-0" /> : <Satellite size={16} aria-hidden className="shrink-0" />}
                   <span className="flex-1">
                     {detail.stale
                       ? `${crawlFreshnessLabel(detail.crawlBasisAt, new Date())} — 최신 크롤링을 확인하지 못했습니다. 마지막 수집 데이터를 기준으로 판단하세요.`
@@ -396,15 +400,15 @@ export function AdminBookingDetailModal({ bookingId, onClose, neighborIds, onNav
                 {conflictPayload && (
                   <div
                     role="alert"
-                    className="rounded-[14px] border-[1.5px] border-[#E8B9A8] bg-[#FCE2D9] px-[18px] py-4"
+                    className="rounded-[14px] border-[1.5px] border-coral/50 bg-coral/10 px-[18px] py-4"
                   >
-                    <p className="flex items-center gap-2 text-[13.5px] font-extrabold text-[#9A3F23]">
-                      <span className="rounded-md bg-[#9A3F23] px-[7px] py-0.5 tabular-nums text-[11px] font-bold text-paper">
+                    <p className="flex items-center gap-2 text-[13.5px] font-extrabold text-coral-deep">
+                      <span className="rounded-md bg-danger px-[7px] py-0.5 tabular-nums text-[11px] font-bold text-paper">
                         409
                       </span>
                       학교 예약과 시간이 충돌하여 승인할 수 없습니다.
                     </p>
-                    <ul className="mt-2 space-y-0.5 text-[12.5px] leading-relaxed text-[#7E2A45]">
+                    <ul className="mt-2 space-y-0.5 text-[12.5px] leading-relaxed text-coral-deep">
                       {conflictPayload.conflicts.map((conflict, index) => (
                         <li key={`${conflict.start}-${index}`}>
                           {conflict.organization} · {conflict.start}~{conflict.end}
@@ -412,11 +416,11 @@ export function AdminBookingDetailModal({ bookingId, onClose, neighborIds, onNav
                       ))}
                     </ul>
                     {conflictPayload.crawlBasisAt && (
-                      <p className="mt-1 text-[12.5px] text-[#7E2A45]">
+                      <p className="mt-1 text-[12.5px] text-coral-deep">
                         기준 수집 시각 {formatDateTimeKst(conflictPayload.crawlBasisAt)}
                       </p>
                     )}
-                    <p className="mt-1 text-[12.5px] text-[#7E2A45]">
+                    <p className="mt-1 text-[12.5px] text-coral-deep">
                       겹침이 해소되기 전에는 승인할 수 없어요 — 아래 다른 액션으로 처리해주세요.
                     </p>
                     {/* 거절 바로가기(개편 스펙 §3) — 충돌 내용을 사유로 프리필해 재입력을 줄인다. reject 가 가능한 상태(PENDING)에만 노출. */}
@@ -508,7 +512,7 @@ export function AdminBookingDetailModal({ bookingId, onClose, neighborIds, onNav
                     type="button"
                     className={`btn btn-sm ${
                       ACTION_META[kind].destructive
-                        ? 'btn-secondary border-[#E8B9A8] text-danger hover:border-danger'
+                        ? 'btn-secondary border-danger/30 text-danger hover:border-danger'
                         : 'btn-primary bg-ink-deep hover:bg-ink'
                     }`}
                     disabled={isActionPending}

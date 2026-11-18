@@ -1,6 +1,7 @@
 import { Code } from 'lucide-react';
 import Link from 'next/link';
 import { toRoute } from '@/app/_lib/route';
+import { ArrowRight, Check } from '@/components/duing/Icon';
 import { SparkleFull } from '@/components/duing/Sparkle';
 import { CategoryIcon } from '../CategoryIcon';
 import { HeroBackdrop } from '../motion/HeroBackdrop';
@@ -11,8 +12,8 @@ function RecruitCard() {
   return (
     <div className="rounded-lg border border-line bg-paper p-4 shadow-3">
       <div className="mb-3 flex items-center justify-between">
-        <span className="tabular-nums text-[10.5px] font-semibold uppercase tracking-[0.14em] text-charcoal-3">
-          RECRUITING
+        <span className="text-[11px] font-semibold text-charcoal-3">
+          모집 공고
         </span>
         <span className="pill pill-solid gap-1.5 text-[11px]">
           <span className="h-1.5 w-1.5 rounded-full bg-sage" />
@@ -21,8 +22,7 @@ function RecruitCard() {
       </div>
       <div className="flex items-center gap-3">
         <span
-          className="grid h-11 w-11 shrink-0 place-items-center rounded-md text-ink"
-          style={{ background: 'linear-gradient(135deg, #1F4A3622 0%, #1F4A3611 100%)' }}
+          className="grid h-11 w-11 shrink-0 place-items-center rounded-md bg-gradient-to-br from-ink/[0.13] to-ink/[0.07] text-ink"
         >
           <Code size={20} strokeWidth={1.75} aria-hidden />
         </span>
@@ -40,8 +40,8 @@ function StatusCard() {
   return (
     <div className="rounded-lg border border-line bg-paper p-3.5 shadow-3">
       <div className="mb-3 flex items-center justify-between">
-        <span className="tabular-nums text-[10.5px] font-semibold uppercase tracking-[0.14em] text-charcoal-3">
-          MY APPLICATION
+        <span className="text-[11px] font-semibold text-charcoal-3">
+          내 지원
         </span>
         <span className="pill gap-1.5 text-[11px]">
           <span className="h-1.5 w-1.5 rounded-full bg-sage" />
@@ -50,8 +50,7 @@ function StatusCard() {
       </div>
       <div className="flex items-center gap-3">
         <span
-          className="grid h-10 w-10 shrink-0 place-items-center rounded-md text-berry"
-          style={{ background: 'linear-gradient(135deg, #B6567222 0%, #B6567211 100%)' }}
+          className="grid h-10 w-10 shrink-0 place-items-center rounded-md bg-gradient-to-br from-berry/[0.13] to-berry/[0.07] text-berry"
         >
           <CategoryIcon cat="음악" size={18} />
         </span>
@@ -101,7 +100,7 @@ export function Hero() {
           <div className="mb-5 flex flex-wrap gap-3">
             <Link href={toRoute('/clubs')} className="btn btn-primary rounded-full">
               동아리 둘러보기
-              <span aria-hidden>→</span>
+              <ArrowRight size={16} aria-hidden />
             </Link>
             <Link href={toRoute('/signup')} className="btn btn-secondary rounded-full">
               회원가입하고 시작하기
@@ -109,8 +108,8 @@ export function Hero() {
           </div>
 
           <div className="inline-flex items-center gap-1.5 text-[12.5px] text-charcoal-3">
-            <span className="grid h-[15px] w-[15px] shrink-0 place-items-center rounded-full bg-ink text-[9px] font-bold text-paper">
-              ✓
+            <span className="grid h-[15px] w-[15px] shrink-0 place-items-center rounded-full bg-ink text-paper">
+              <Check size={9} strokeWidth={3.5} aria-hidden />
             </span>
             휴대폰 인증으로 30초 만에 가입
           </div>

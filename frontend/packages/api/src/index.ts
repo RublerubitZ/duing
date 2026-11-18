@@ -5,6 +5,7 @@ export {
   TIMEOUT_ERROR_MESSAGE,
   NETWORK_ERROR_MESSAGE,
   httpFallbackMessage,
+  isWebLoginRequest,
 } from './client';
 export type { AuthTransport, CreateApiClientOptions, DuingApiClient } from './client';
 export { TOKEN_STORAGE_KEY, readToken, writeToken, clearToken } from './token';

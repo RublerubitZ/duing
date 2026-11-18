@@ -185,7 +185,7 @@ class ApplicationSubmitQuestionChangeConcurrencyTest extends IntegrationTestBase
         AtomicReference<Throwable> staleUpdateFailure = new AtomicReference<>();
 
         transactionTemplate.executeWithoutResult(staleManagerTransaction -> {
-            // 옛 질문 목록을 이 트랜잭션의 1차 캐시에 올린다. 뒤이은 update() 의 findById 는 이 인스턴스를
+            // 옛 질문 목록을 이 트랜잭션의 1차 캐시에 올린다. 뒤이은 update() 의 첫 조회(findByIdForUpdate)는 이 인스턴스를
             // 재사용하므로, 운영진이 낡은 화면을 열어둔 채 수정 버튼을 누른 상황과 같아진다.
             recruitmentRepository.findById(fixture.recruitmentId()).orElseThrow();
             replaceQuestionsAndSubmitInSeparateTransactions(fixture);

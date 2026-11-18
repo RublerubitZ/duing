@@ -11,14 +11,17 @@ type Props = {
 };
 
 const TEXTAREA_CLASS =
-  'w-full resize-y rounded-[12px] border border-[#cfcab8] bg-white px-4 py-3.5 text-sm leading-[1.55] text-charcoal shadow-[0_1px_0_rgba(47,58,46,0.04),_0_1px_2px_rgba(47,58,46,0.05)] transition-[border-color,box-shadow] placeholder:text-[#b8b8ac] focus:border-ink focus:outline-none focus:ring-[3px] focus:ring-ink/[.15] disabled:bg-[#f5f3ef] disabled:text-charcoal-3';
+  'w-full resize-y rounded-[12px] border border-field bg-white px-4 py-3.5 text-sm leading-[1.55] text-charcoal shadow-[0_1px_0_rgba(47,58,46,0.04),_0_1px_2px_rgba(47,58,46,0.05)] transition-[border-color,box-shadow] placeholder:text-charcoal-3 focus:border-ink focus:outline-none focus:ring-[3px] focus:ring-ink/[.15] disabled:bg-graysoft disabled:text-charcoal-3';
 
 const CHOICE_LABEL_CLASS =
-  'flex cursor-pointer items-center gap-2.5 rounded-[10px] border border-[#cfcab8] bg-white px-4 py-3 text-sm leading-[1.55] text-charcoal transition-colors hover:border-ink/40 has-[:disabled]:cursor-not-allowed has-[:disabled]:bg-[#f5f3ef] has-[:disabled]:text-charcoal-3';
+  'flex cursor-pointer items-center gap-2.5 rounded-[10px] border border-field bg-white px-4 py-3 text-sm leading-[1.55] text-charcoal transition-colors hover:border-ink has-[:disabled]:cursor-not-allowed has-[:disabled]:bg-graysoft has-[:disabled]:text-charcoal-3';
 
 // 선택형 컨테이너는 tabIndex=-1 로 두어 검증 실패 시 프로그램적으로 포커스를 받을 수 있게 한다
 // (개별 radio/checkbox 로 보내면 스크린리더가 그룹 안내와 에러 메시지를 건너뛴다).
 const CHOICE_GROUP_CLASS = 'space-y-2 focus:outline-none';
+
+// 서버 UpsertDraftRequest·SubmitApplicationRequest 의 @Size(max = 2000) 과 같은 값 — 넘치면 제출은 400, 자동저장은 보내지 않고 화면에 안내한다.
+export const TEXT_ANSWER_MAX_LENGTH = 2000;
 
 function questionControlId(questionId: string): string {
   return `q-${questionId}`;
@@ -121,18 +124,24 @@ export function ApplyAnswersStep({
             </legend>
 
             {question.type === 'TEXT' && (
-              <textarea
-                id={controlId}
-                aria-labelledby={legendId}
-                aria-required={question.required}
-                aria-invalid={hasError}
-                aria-describedby={describedBy}
-                disabled={disabled}
-                value={selectedValues[0] ?? ''}
-                onChange={(event) => handleTextChange(question.id, event.target.value)}
-                className={TEXTAREA_CLASS}
-                style={{ minHeight: '180px' }}
-              />
+              <>
+                <textarea
+                  id={controlId}
+                  aria-labelledby={legendId}
+                  aria-required={question.required}
+                  aria-invalid={hasError}
+                  aria-describedby={describedBy}
+                  disabled={disabled}
+                  maxLength={TEXT_ANSWER_MAX_LENGTH}
+                  value={selectedValues[0] ?? ''}
+                  onChange={(event) => handleTextChange(question.id, event.target.value)}
+                  className={TEXTAREA_CLASS}
+                  style={{ minHeight: '180px' }}
+                />
+                <p className="text-right text-xs tabular-nums text-charcoal-3">
+                  {(selectedValues[0] ?? '').length}/{TEXT_ANSWER_MAX_LENGTH}
+                </p>
+              </>
             )}
 
             {question.type === 'SINGLE_CHOICE' && (

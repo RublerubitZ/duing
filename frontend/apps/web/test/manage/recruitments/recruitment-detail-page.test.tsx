@@ -5,10 +5,11 @@ import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { setupServer } from 'msw/node';
-import { http, HttpResponse } from 'msw';
+import { delay, http, HttpResponse } from 'msw';
 import { createApiClient } from '@duing/api';
 import { ApiClientProvider, todayKstDateString } from '@duing/hooks';
 import type {
+  InterviewRoundSummary,
   RecruitmentDisplayStatus,
   RecruitmentQuestionItem,
   RecruitmentStatus,
@@ -50,7 +51,17 @@ function statsSummaryHandler(summary: Partial<StatsSummary> = {}) {
   );
 }
 
-const server = setupServer(statsSummaryHandler());
+// 할 일 카드 — 면접 사용 진행 중이면 면접 대기열, 지원 완료 > 0 이면 지원 완료 목록을 부른다.
+const emptyCandidatesHandler = http.get(`*/leader/recruitments/${RECRUITMENT_ID}/interview-round-candidates`, () =>
+  HttpResponse.json({ ok: true, data: [], message: null }),
+);
+function submittedApplicantsHandler(applicants: unknown[] = []) {
+  return http.get(`*/leader/recruitments/${RECRUITMENT_ID}/applications`, () =>
+    HttpResponse.json({ ok: true, data: applicants, message: null }),
+  );
+}
+
+const server = setupServer(statsSummaryHandler(), emptyCandidatesHandler, submittedApplicantsHandler());
 const apiClient = createApiClient({ baseUrl: 'http://localhost:8080/api/v1' });
 
 type RecruitmentDetailMockOpts = {
@@ -327,6 +338,56 @@ describe('RecruitmentDetailPage — 면접 진행 단계표시 칩 (§10.5)', ()
       expect(screen.getByText('면접 대상 선정 전')).toBeInTheDocument();
     });
   });
+
+  const stageRound = (over: Partial<InterviewRoundSummary>): InterviewRoundSummary => ({
+    roundId: 99, title: '1차 면접', status: 'COLLECTING', availabilityDeadline: null, location: null,
+    totalMemberCount: 3, respondedMemberCount: 3, ...over,
+  });
+  const noMembers = { totalMemberCount: 0, respondedMemberCount: 0 };
+
+  // 서버는 최신 라운드를 앞에 준다 — 인원 0 라운드가 앞에 오는 순서로 본다.
+  it.each<[string, InterviewRoundSummary[], string]>([
+    ['응답 수집 인원 0 뿐이면 인원 없음', [stageRound(noMembers)], '라운드 인원 없음'],
+    ['배정 검토 인원 0 뿐이면 인원 없음', [stageRound({ status: 'ASSIGNING', ...noMembers })], '라운드 인원 없음'],
+    ['인원 0 과 취소 라운드뿐이면 인원 없음', [stageRound(noMembers), stageRound({ roundId: 98, status: 'CANCELLED', ...noMembers })], '라운드 인원 없음'],
+    ['인원 0 라운드 뒤에 확정 라운드가 있으면 그 단계', [stageRound(noMembers), stageRound({ roundId: 98, status: 'SCHEDULED' })], '면접 확정'],
+    ['인원 0 라운드 뒤에 응답 수집 라운드가 있으면 그 단계', [stageRound(noMembers), stageRound({ roundId: 98, respondedMemberCount: 1 })], '응답 대기 1/3'],
+    ['인원 0 뒤에 라운드가 여럿이면 그중 최신 단계', [stageRound(noMembers), stageRound({ roundId: 98, status: 'ASSIGNING' }), stageRound({ roundId: 97, status: 'SCHEDULED' })], '배정 검토 중'],
+    ['확정은 인원 0 이어도 면접 확정', [stageRound({ status: 'SCHEDULED', ...noMembers })], '면접 확정'],
+    ['취소 라운드뿐이면 선정 전 그대로', [stageRound({ status: 'CANCELLED', ...noMembers })], '면접 대상 선정 전'],
+    // 인원 0 초안도 건너뛰지 않는다(새 라운드 생성을 막는다) — 이어 쓸 수 없어 정리 문맥으로 보인다.
+    ['초안이 인원 0 이면 정리 필요', [stageRound({ status: 'DRAFT', ...noMembers })], '라운드 정리 필요'],
+    ['인원 있는 초안은 작성 중', [stageRound({ status: 'DRAFT', totalMemberCount: 2, respondedMemberCount: 0 })], '라운드 작성 중'],
+    ['발송 직후 응답 0/3 은 응답 대기', [stageRound({ respondedMemberCount: 0 })], '응답 대기 0/3'],
+    ['배정 검토 1명이면 검토 중', [stageRound({ status: 'ASSIGNING', totalMemberCount: 1, respondedMemberCount: 0 })], '배정 검토 중'],
+  ])('단계 칩 — %s', async (_name, rounds, expectedLabel) => {
+    server.use(
+      mockRecruitmentDetail(true),
+      http.get(`*/recruitments/${RECRUITMENT_ID}/interview-rounds`, () =>
+        HttpResponse.json({ ok: true, data: rounds, message: null }),
+      ),
+    );
+
+    renderPage();
+
+    expect(await screen.findByText(expectedLabel)).toBeInTheDocument();
+  });
+
+  // DESIGN.md 콘솔 상태 배지 규약 — 해당 없음은 중립 배지.
+  it('단계 칩 — 라운드 인원 없음은 중립 배지로 그린다', async () => {
+    server.use(
+      mockRecruitmentDetail(true),
+      http.get(`*/recruitments/${RECRUITMENT_ID}/interview-rounds`, () =>
+        HttpResponse.json({ ok: true, data: [stageRound(noMembers)], message: null }),
+      ),
+    );
+
+    renderPage();
+
+    const chip = await screen.findByText('라운드 인원 없음');
+    expect(chip).toHaveClass('bg-paper', 'text-charcoal-2', 'ring-1', 'ring-inset', 'ring-line');
+    expect(chip).not.toHaveClass('bg-graysoft');
+  });
 });
 
 // 수제 오버레이였던 마감 확인을 공용 ConfirmDialog 로 교체한 변경을 고정한다.
@@ -436,8 +497,9 @@ describe('RecruitmentDetailPage — 마감일 경과·수동 마감 전(만료-O
     expect(await screen.findByRole('button', { name: '모집 마감' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: '수정' })).toBeInTheDocument();
     expect(screen.queryByText('이미 마감된 모집입니다.')).not.toBeInTheDocument();
+    // 기간 종료 안내의 완성 문장은 통계 요약(자동 마감 전망)이 온 뒤에 채워진다(#1572) — 상세 조회만 기다리면 경합이다.
+    expect(await screen.findByText(/남은 지원자 심사를 이어서 진행/)).toBeInTheDocument();
     expect(screen.getByText(/모집 기간이 끝났지만 아직 마감 전이에요/)).toBeInTheDocument();
-    expect(screen.getByText(/남은 지원자 심사를 이어서 진행/)).toBeInTheDocument();
     // 상태 칩도 '모집마감'이 아니라 기간 종료로 표기한다.
     expect(screen.getByText('기간 종료')).toBeInTheDocument();
     expect(screen.queryByText('모집마감')).not.toBeInTheDocument();
@@ -458,6 +520,45 @@ describe('RecruitmentDetailPage — 마감일 경과·수동 마감 전(만료-O
   });
 });
 
+// #1572: 기간 종료 안내가 서버 자동 마감 전망(통계 요약)으로 무엇이 막는지·언제 닫히는지를 말한다.
+describe('RecruitmentDetailPage — 자동 마감 전망 안내', () => {
+  it('결과를 다 정했는데 끝나지 않은 면접 라운드가 막으면 라운드를 정리하라고 알린다(운영 모집 80 모양)', async () => {
+    server.use(
+      mockRecruitmentDetail(false, { status: 'OPEN', displayStatus: 'CLOSED' }),
+      EMPTY_ROUNDS_HANDLER,
+      statsSummaryHandler({
+        total: 3,
+        accepted: 2,
+        rejected: 1,
+        autoClose: { closesOn: '2026-12-08', gracePeriodOver: true, undecidedApplicationCount: 0, inProgressRoundCount: 1 },
+      }),
+    );
+
+    renderPage();
+
+    expect(
+      await screen.findByText(/끝나지 않은 면접 라운드 1개가 남아 있어 자동으로 마감되지 않아요/),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/남은 지원자 심사를 이어서 진행/)).not.toBeInTheDocument();
+  });
+
+  it('통계 요약을 받기 전에는 첫 문장으로 자리만 잡고 완성 문장을 채우지 않는다 — 낭독 영역이 문장을 두 번 읽지 않게', async () => {
+    server.use(
+      mockRecruitmentDetail(false, { status: 'OPEN', displayStatus: 'CLOSED' }),
+      EMPTY_ROUNDS_HANDLER,
+      http.get(`*/leader/recruitments/${RECRUITMENT_ID}/stats/summary`, async () => {
+        await delay('infinite');
+      }),
+    );
+
+    renderPage();
+
+    expect(await screen.findByRole('button', { name: '모집 마감' })).toBeInTheDocument();
+    expect(screen.getByRole('status')).toHaveTextContent('모집 기간이 끝났지만 아직 마감 전이에요.');
+    expect(screen.getByRole('status')).not.toHaveTextContent('자동으로 마감');
+  });
+});
+
 // #943: 상태 칩 색은 공용 맵(house pill)에서 받는다 — 직접 지정 팔레트가 섞이지 않게 고정.
 describe('RecruitmentDetailPage — 상태 칩 house pill', () => {
   it.each([
@@ -473,5 +574,124 @@ describe('RecruitmentDetailPage — 상태 칩 house pill', () => {
     expect(chip).toHaveClass(...badge);
     expect(chip).not.toHaveClass(absent);
     expect(chip.className).not.toMatch(/bg-(emerald|slate|amber)-/);
+  });
+});
+
+describe('RecruitmentDetailPage — 이 모집에서 할 일 카드', () => {
+  it('진행 중 자체 폼이면 헤더 아래 카드가 할 일과 먼저 볼 지원서를 실제 응답으로 그린다', async () => {
+    server.use(
+      mockRecruitmentDetail(false),
+      statsSummaryHandler({ total: 3, submitted: 2, onHold: 1, oldestPendingSubmittedAt: '2026-10-20T01:00:00Z' }),
+      submittedApplicantsHandler([
+        { applicationId: 21, userId: 1, userName: '박지후', studentId: '20260021', college: 'GLOBAL_BUSINESS', major: '경영학과', grade: 'FRESHMAN',
+          answers: [], status: 'SUBMITTED', submittedAt: '2026-10-25T01:00:00Z', interviewStartAt: null, myScore: null },
+        { applicationId: 20, userId: 2, userName: '김서연', studentId: '20260020', college: 'GLOBAL_BUSINESS', major: '경영학과', grade: 'FRESHMAN',
+          answers: [], status: 'SUBMITTED', submittedAt: '2026-10-20T01:00:00Z', interviewStartAt: null, myScore: null },
+      ]),
+    );
+    renderPage();
+    const card = await screen.findByRole('region', { name: '이 모집에서 할 일' });
+    expect(await within(card).findByText('검토 대기 지원자 3명')).toBeInTheDocument();
+    const preview = await within(card).findByRole('region', { name: '먼저 볼 지원서' });
+    const names = within(preview).getAllByRole('listitem').map((row) => row.textContent ?? '');
+    expect(names[0]).toContain('김서연');
+    expect(names[1]).toContain('박지후');
+  });
+
+  it('자동 마감을 막는 발송 전 라운드는 할 일 줄로 보인다 — 기간 종료 안내와 "할 일 없음"이 부딪히지 않게', async () => {
+    server.use(
+      mockRecruitmentDetail(true, { status: 'OPEN', displayStatus: 'CLOSED' }),
+      http.get(`*/recruitments/${RECRUITMENT_ID}/interview-rounds`, () =>
+        HttpResponse.json({
+          ok: true,
+          data: [{ roundId: 99, title: '1차 면접', status: 'DRAFT', availabilityDeadline: null, location: null, totalMemberCount: 2, respondedMemberCount: 0 }],
+          message: null,
+        }),
+      ),
+      statsSummaryHandler({
+        total: 3,
+        accepted: 2,
+        rejected: 1,
+        autoClose: { closesOn: '2026-12-08', gracePeriodOver: true, undecidedApplicationCount: 0, inProgressRoundCount: 1 },
+      }),
+    );
+
+    renderPage();
+
+    expect(await screen.findByText(/끝나지 않은 면접 라운드 1개가 남아 있어 자동으로 마감되지 않아요/)).toBeInTheDocument();
+    const card = await screen.findByRole('region', { name: '이 모집에서 할 일' });
+    // 카드는 로딩 중에도 바로 그려진다 — 줄을 기다린 뒤에 부재를 본다.
+    expect(await within(card).findByText('면접 일정 미확정')).toBeInTheDocument();
+    expect(within(card).queryByText('지금 처리할 일이 없어요.')).not.toBeInTheDocument();
+  });
+});
+
+// #1635: 삭제 버튼은 서버가 내려 준 삭제 가능 여부로만 보인다 — 지원자 수(목록 기준)는 탈퇴한 지원자의 지원서를
+// 빼지만 서버 삭제 가드는 그 지원서도 이력으로 세므로, 수로 판정하면 버튼을 눌렀을 때 409 가 난다.
+describe('RecruitmentDetailPage — 삭제 버튼(서버 삭제 가능 여부)', () => {
+  it('마감 모집이라도 서버가 삭제할 수 없다고 하면 지원자가 0명이어도 삭제 버튼이 없다', async () => {
+    server.use(
+      mockRecruitmentDetail(false, { status: 'CLOSED', displayStatus: 'CLOSED' }),
+      statsSummaryHandler({ total: 0, deletable: false }),
+      EMPTY_ROUNDS_HANDLER,
+    );
+
+    renderPage();
+
+    expect(await screen.findByText('이미 마감된 모집입니다.')).toBeInTheDocument();
+    await waitFor(() => expect(screen.queryByRole('button', { name: '삭제' })).not.toBeInTheDocument());
+  });
+
+  it('서버가 삭제할 수 있다고 하면 마감 모집에 삭제 버튼이 보인다', async () => {
+    server.use(
+      mockRecruitmentDetail(false, { status: 'CLOSED', displayStatus: 'CLOSED' }),
+      statsSummaryHandler({ total: 0, deletable: true }),
+      EMPTY_ROUNDS_HANDLER,
+    );
+
+    renderPage();
+
+    const deleteButton = await screen.findByRole('button', { name: '삭제' });
+    await waitFor(() => expect(deleteButton).toBeEnabled());
+    expect(deleteButton).not.toHaveClass('invisible');
+  });
+
+  it('같은 화면에서 모집을 마감하면 통계를 다시 받아 삭제 버튼이 바로 보인다', async () => {
+    server.use(
+      mockRecruitmentDetail(false),
+      statsSummaryHandler({ total: 0, deletable: false }),
+      EMPTY_ROUNDS_HANDLER,
+      http.patch(`*/leader/recruitments/${RECRUITMENT_ID}/close`, () => {
+        // 마감 뒤 다시 받는 상세·통계는 마감된 값으로 답한다 — 통계를 다시 받지 않으면 진행 중일 때의 false 가 남는다.
+        server.use(
+          mockRecruitmentDetail(false, { status: 'CLOSED', displayStatus: 'CLOSED' }),
+          statsSummaryHandler({ total: 0, deletable: true }),
+        );
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+
+    renderPage();
+
+    await userEvent.click(await screen.findByRole('button', { name: '모집 마감' }));
+    await userEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: '마감' }));
+
+    expect(await screen.findByText('이미 마감된 모집입니다.')).toBeInTheDocument();
+    const deleteButton = await screen.findByRole('button', { name: '삭제' });
+    await waitFor(() => expect(deleteButton).toBeEnabled());
+    expect(deleteButton).not.toHaveClass('invisible');
+  });
+
+  it('통계 요약에 삭제 가능 여부가 없으면(옛 백엔드) 삭제 버튼을 보이지 않는다', async () => {
+    server.use(
+      mockRecruitmentDetail(false, { status: 'CLOSED', displayStatus: 'CLOSED' }),
+      statsSummaryHandler({ total: 0 }),
+      EMPTY_ROUNDS_HANDLER,
+    );
+
+    renderPage();
+
+    expect(await screen.findByText('이미 마감된 모집입니다.')).toBeInTheDocument();
+    await waitFor(() => expect(screen.queryByRole('button', { name: '삭제' })).not.toBeInTheDocument());
   });
 });

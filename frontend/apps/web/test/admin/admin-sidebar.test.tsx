@@ -1,15 +1,17 @@
 import { describe, it, expect, beforeAll, afterAll, afterEach, beforeEach, vi } from 'vitest';
 import type { ReactNode } from 'react';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { setupServer } from 'msw/node';
 import { http, HttpResponse } from 'msw';
 import { createApiClient } from '@duing/api';
 import { ApiClientProvider } from '@duing/hooks';
+import { useAuthStore } from '@duing/stores';
 import type { AdminPendingCounts } from '@duing/types';
 
 import { AdminSidebar } from '@/app/admin/_components/AdminSidebar';
+import { ADMIN_SECTIONS } from '@/app/admin/_lib/adminSections';
 import { ToastProvider } from '@/app/_components/toast/ToastProvider';
 
 /* ── 모듈 모킹 ─────────────────────────────────────────────── */
@@ -50,6 +52,7 @@ beforeAll(() => server.listen({ onUnhandledRequest: 'error' }));
 afterEach(() => {
   server.resetHandlers();
   window.localStorage.clear();
+  useAuthStore.setState(useAuthStore.getInitialState(), true);
 });
 afterAll(() => server.close());
 beforeEach(() => mockUsePathname.mockReturnValue('/admin'));
@@ -188,6 +191,28 @@ describe('AdminSidebar', () => {
     expect(screen.getByRole('button', { name: '로그아웃' })).toBeInTheDocument();
   });
 
+  it('로그인 상태면 알림 종과 내 이름(마이페이지 링크)을 사이드바가 맡는다 — 콘솔에는 사이트 상단바가 없다', async () => {
+    server.use(
+      http.get('*/users/me', () => HttpResponse.json({ ok: true, data: { id: 1, name: '김총무', role: 'ADMIN' }, message: null })),
+      http.get('*/notifications/unread-count', () => HttpResponse.json({ ok: true, data: { count: 3 }, message: null })),
+    );
+    useAuthStore.setState({ status: 'authenticated', isVerified: true, user: null });
+    renderSidebar();
+
+    const myPageLink = await screen.findByRole('link', { name: /김총무/ });
+    expect(myPageLink).toHaveAttribute('href', '/me');
+    // 좁은 폭용 링크와 넓은 폭용 버튼이 함께 그려지고 CSS 가 하나만 보인다 — 여기서는 둘 다 건수를 읽는지만 본다.
+    await waitFor(() => expect(screen.getByRole('link', { name: '알림 3개' })).toHaveAttribute('href', '/notifications'));
+    expect(screen.getByRole('button', { name: '알림 3개' })).toBeInTheDocument();
+  });
+
+  it('로그인 전에는 이름 줄과 알림 종 없이 홈으로·로그아웃만 둔다', () => {
+    renderSidebar();
+    expect(screen.queryByRole('link', { name: /마이페이지/ })).toBeNull();
+    expect(screen.queryByRole('button', { name: /^알림/ })).toBeNull();
+    expect(screen.getByRole('link', { name: '홈으로' })).toBeInTheDocument();
+  });
+
   it('접힌 상태에서 부모를 누르면 사이드바가 펼쳐지며 자식 메뉴에 도달할 수 있다', async () => {
     const user = userEvent.setup();
     renderSidebar();
@@ -232,5 +257,25 @@ describe('AdminSidebar', () => {
     await waitFor(() =>
       expect(screen.getByRole('link', { name: /1:1 문의/ })).not.toHaveTextContent('7'),
     );
+  });
+
+  it('대시보드 바로 아래에 주간 브리핑이 뱃지 없는 단독 메뉴로 있고, ADMIN_SECTIONS 에는 없다', async () => {
+    renderSidebar();
+
+    const navLinks = within(screen.getByRole('navigation', { name: '관리 영역' })).getAllByRole('link');
+    expect(navLinks[0]).toHaveAccessibleName('대시보드');
+    expect(navLinks[1]).toHaveAccessibleName('주간 브리핑');
+    expect(navLinks[1]).toHaveAttribute('href', '/admin/weekly-briefing');
+    expect(ADMIN_SECTIONS.some((section) => section.href === '/admin/weekly-briefing')).toBe(false);
+  });
+
+  it('주간 브리핑 경로(하위 포함)에서는 주간 브리핑만 활성이고 대시보드는 활성이 아니다', async () => {
+    for (const pathname of ['/admin/weekly-briefing', '/admin/weekly-briefing/print']) {
+      mockUsePathname.mockReturnValue(pathname);
+      const { unmount } = renderSidebar();
+      expect(screen.getByRole('link', { name: '주간 브리핑' })).toHaveAttribute('aria-current', 'page');
+      expect(screen.getByRole('link', { name: '대시보드' })).not.toHaveAttribute('aria-current');
+      unmount();
+    }
   });
 });

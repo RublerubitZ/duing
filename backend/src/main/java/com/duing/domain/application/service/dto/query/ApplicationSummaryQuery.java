@@ -27,7 +27,9 @@ public record ApplicationSummaryQuery(
          * 운영 중단 동아리 남은 미결 정리로 불합격된 지원서인지(스펙 §3-2) — 지원자 화면이 "최종 불합격" 대신 "선발 종료"를 보인다.
          * 지원서 칸을 그대로 옮긴다(추가 조회 없음).
          */
-        boolean endedByClubDeactivation
+        boolean endedByClubDeactivation,
+        /** 면접 사용 모집 여부 — 내 지원 목록 행이 진행 표시에 면접 마디를 둘지 판단한다. 모집 설정을 그대로 옮긴다(추가 조회 없음). */
+        boolean useInterview
 ) {
     /**
      * 면접 배정 정보 없이 위임한다.
@@ -55,7 +57,8 @@ public record ApplicationSummaryQuery(
                 application.getStatus(),
                 interview,
                 application.getCreatedAt(),
-                application.isEndedByClubDeactivation()
+                application.isEndedByClubDeactivation(),
+                application.getRecruitment().isUseInterview()
         );
     }
 }

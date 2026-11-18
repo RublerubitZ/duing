@@ -48,7 +48,7 @@ export function FaqForm({ initialState, submitLabel, isSubmitting, onSubmit, err
           value={state.categoryId || ''}
           onChange={(event) => update('categoryId', Number(event.target.value))}
           required
-          className="px-3 py-2 rounded-md border border-line bg-paper text-[13.5px]"
+          className="px-3 py-2 rounded-md border border-field bg-paper text-[13.5px]"
         >
           <option value="" disabled>
             카테고리를 선택하세요
@@ -67,7 +67,7 @@ export function FaqForm({ initialState, submitLabel, isSubmitting, onSubmit, err
           value={state.question}
           onChange={(event) => update('question', event.target.value)}
           required
-          className="w-full px-3.5 py-2 rounded-md border border-line bg-paper text-[14px]"
+          className="w-full px-3.5 py-2 rounded-md border border-field bg-paper text-[14px]"
         />
       </Field>
 
@@ -76,7 +76,7 @@ export function FaqForm({ initialState, submitLabel, isSubmitting, onSubmit, err
           value={state.answer} maxLength={4000} rows={12}
           onChange={(event) => update('answer', event.target.value)}
           required
-          className="w-full px-3.5 py-2 rounded-md border border-line bg-paper text-[14px]"
+          className="w-full px-3.5 py-2 rounded-md border border-field bg-paper text-[14px]"
         />
       </Field>
 

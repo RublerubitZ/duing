@@ -185,6 +185,43 @@ describe('관리자 모집 목록', () => {
     expect(within(rowByTitle('상시 열린 모집')).queryByText('운영 개입 필요')).toBeNull();
   });
 
+  // #1583: 서버 자동 마감 전망으로 '운영 개입 필요'와 '자동 마감 예정'을 나눈다. 막는 이유는 툴팁이 아니라 보이는 글자다.
+  it('자동 마감 전망에 따라 유예 중인 모집은 자동 마감 예정, 유예가 끝났는데 막힌 모집만 운영 개입 필요를 단다', () => {
+    const outlook = { closesOn: '2026-12-08', gracePeriodOver: false, undecidedApplicationCount: 0, inProgressRoundCount: 0 };
+    mockRecruitmentsQuery.mockReturnValue(
+      listSuccess([
+        makeRecruitment({ recruitmentId: 1, title: '유예 중 모집', status: 'OPEN', displayStatus: 'CLOSED',
+          endDate: YESTERDAY, autoClose: outlook }),
+        makeRecruitment({ recruitmentId: 2, title: '오늘 밤 닫힐 모집', status: 'OPEN', displayStatus: 'CLOSED',
+          endDate: YESTERDAY, autoClose: { ...outlook, gracePeriodOver: true } }),
+        makeRecruitment({ recruitmentId: 3, title: '라운드에 막힌 모집', status: 'OPEN', displayStatus: 'CLOSED',
+          endDate: YESTERDAY, autoClose: { ...outlook, gracePeriodOver: true, inProgressRoundCount: 1 } }),
+        makeRecruitment({ recruitmentId: 4, title: '유예 중 막힌 모집', status: 'OPEN', displayStatus: 'CLOSED',
+          endDate: YESTERDAY, autoClose: { ...outlook, undecidedApplicationCount: 2 } }),
+        makeRecruitment({ recruitmentId: 5, title: '자동 마감 꺼진 모집', status: 'OPEN', displayStatus: 'CLOSED',
+          endDate: YESTERDAY, autoClose: null }),
+      ]),
+    );
+
+    render(<AdminRecruitmentsPage />);
+
+    // '자동 마감 예정'은 할 일이 없는 상태라 칩 없이 흐린 한 줄이다(중립 칩은 '모집마감' 칩과 헷갈린다).
+    const inGrace = within(rowByTitle('유예 중 모집'));
+    expect(inGrace.getByText('자동 마감 예정 · 12월 8일 새벽')).toBeInTheDocument();
+    expect(inGrace.queryByText('운영 개입 필요')).toBeNull();
+    expect(within(rowByTitle('오늘 밤 닫힐 모집')).getByText('자동 마감 예정 · 다음 새벽')).toBeInTheDocument();
+
+    const blocked = within(rowByTitle('라운드에 막힌 모집'));
+    expect(blocked.getByText('운영 개입 필요')).toBeInTheDocument();
+    expect(blocked.getByText('진행 중 면접 라운드 1개')).toBeInTheDocument();
+
+    const blockedInGrace = within(rowByTitle('유예 중 막힌 모집'));
+    expect(blockedInGrace.queryByText('운영 개입 필요')).toBeNull();
+    expect(blockedInGrace.queryByText(/자동 마감 예정/)).toBeNull();
+
+    expect(within(rowByTitle('자동 마감 꺼진 모집')).getByText('운영 개입 필요')).toBeInTheDocument();
+  });
+
   describe('일수 경계', () => {
     beforeEach(() => {
       vi.useFakeTimers({ toFake: ['Date'] });
@@ -222,6 +259,7 @@ describe('관리자 모집 목록', () => {
       mockRecruitmentsQuery.mockReturnValue(
         listSuccess([
           makeRecruitment({ recruitmentId: 1, title: '오늘 접속 모집', operatorsLastActiveAt: daysAgoIso(0) }),
+          makeRecruitment({ recruitmentId: 5, title: '어제 접속 모집', operatorsLastActiveAt: daysAgoIso(1) }),
           makeRecruitment({ recruitmentId: 2, title: '한 달째 모집', operatorsLastActiveAt: daysAgoIso(30) }),
           makeRecruitment({ recruitmentId: 3, title: '한 달 넘은 모집', operatorsLastActiveAt: daysAgoIso(31) }),
           makeRecruitment({ recruitmentId: 4, title: '기록 없는 모집', operatorsLastActiveAt: null }),
@@ -232,6 +270,7 @@ describe('관리자 모집 목록', () => {
 
       expect(screen.getByRole('columnheader', { name: '운영진 접속' })).toBeInTheDocument();
       expect(within(rowByTitle('오늘 접속 모집')).getByText('오늘')).not.toHaveClass('text-coral-deep');
+      expect(within(rowByTitle('어제 접속 모집')).getByText('1일 전')).not.toHaveClass('text-coral-deep');
       expect(within(rowByTitle('한 달째 모집')).getByText('30일 전')).not.toHaveClass('text-coral-deep');
       expect(within(rowByTitle('한 달 넘은 모집')).getByText('31일 전')).toHaveClass('text-coral-deep');
       // 세션·로그인 기록이 모두 없으면 가장 오래 방치된 경우다 — 정보 없음이 아니라 주의 대상이다.

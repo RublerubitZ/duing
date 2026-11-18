@@ -72,7 +72,7 @@ class FacilityBookingQueryIntegrationTest extends IntegrationTestBase {
     }
 
     private Long createBooking(int startHour, int endHour) {
-        // 시각 무관 항상 신청 가능한 날짜(모레) — 내일은 신청 마감 정책(전날 12:01 KST)에 걸릴 수 있어 모레를 쓴다.
+        // 시각 무관 항상 신청 가능한 날짜(모레) — 고정 슬롯 시각 타임밤을 피한다.
         return bookingService.create(new CreateFacilityBookingCommand(club.getId(), leader.getId(),
                 facility.getId(), BookingWindowFixture.bookableDate(), LocalTime.of(startHour, 0),
                 LocalTime.of(endHour, 0), "정기 연습", null,

@@ -19,7 +19,7 @@ import { useHydrated } from '@/app/_lib/useHydrated';
 import { useSeededAuthStatus } from '@/app/_lib/useSeededAuthStatus';
 import { TextLinesSkeleton } from '@/components/loading/Skeleton';
 import type { SlotRange } from '../../_lib/bookingCalendar';
-import { isApplicationDeadlinePassed, rangeLabel } from '../../_lib/bookingCalendar';
+import { rangeLabel } from '../../_lib/bookingCalendar';
 import { BookingConfirmDialog } from './BookingConfirmDialog';
 
 const PURPOSE_MAX_LENGTH = 200;
@@ -99,18 +99,6 @@ export function BookingForm({
       <div className="space-y-3 text-sm text-charcoal-2">
         <p>예약 신청은 동아리 운영진 로그인 후 이용할 수 있어요.</p>
         <Link href={toRoute(loginHref)} className="btn btn-primary inline-flex">로그인하기</Link>
-      </div>
-    );
-  }
-
-  // 신청 마감 사전 안내 — 표시용 힌트(클라 시계). 최종 판단은 서버가 한다(정책 spec 2026-07-18).
-  if (isApplicationDeadlinePassed(date, new Date())) {
-    return (
-      <div className="space-y-3 text-sm text-charcoal-2">
-        <p role="alert">이 날짜는 신청이 마감됐어요. 시설 사용일 전날 12:00까지만 신청할 수 있어요.</p>
-        <button type="button" className="btn btn-secondary" onClick={onBack}>
-          시간 다시 선택
-        </button>
       </div>
     );
   }
@@ -240,7 +228,7 @@ export function BookingForm({
           <label htmlFor="booking-club" className="mb-1 block text-xs text-charcoal-3">신청 동아리</label>
           <select
             id="booking-club"
-            className="w-full rounded-md border border-line bg-paper px-3 py-2 text-base"
+            className="w-full rounded-md border border-field bg-paper px-3 py-2 text-base"
             value={String(effectiveClubId ?? '')}
             onChange={(event) => setClubId(Number(event.target.value))}
           >
@@ -291,7 +279,7 @@ export function BookingForm({
           maxLength={PURPOSE_MAX_LENGTH}
           placeholder="사용 목적을 입력해주세요"
           aria-label="사용 목적"
-          className="w-full rounded-md border border-line bg-paper px-3 py-2 text-base"
+          className="w-full rounded-md border border-field bg-paper px-3 py-2 text-base"
         />
       </div>
 
@@ -304,7 +292,7 @@ export function BookingForm({
           onChange={(event) => setAttendeeCount(event.target.value.replace(/[^0-9]/g, ''))}
           maxLength={4}
           placeholder="예: 15"
-          className="w-full rounded-md border border-line bg-paper px-3 py-2 text-base"
+          className="w-full rounded-md border border-field bg-paper px-3 py-2 text-base"
         />
       </div>
 
@@ -322,7 +310,7 @@ export function BookingForm({
           aria-label="대표 연락처"
           aria-invalid={contactError !== null}
           placeholder="연락 가능한 휴대폰 번호를 입력해주세요."
-          className="w-full rounded-md border border-line bg-paper px-3 py-2 text-base"
+          className="w-full rounded-md border border-field bg-paper px-3 py-2 text-base"
         />
         <p className="mt-1 text-[11px] text-charcoal-3">
           관리자나 시설 담당자가 예약 관련 연락이 필요할 때 사용해요.

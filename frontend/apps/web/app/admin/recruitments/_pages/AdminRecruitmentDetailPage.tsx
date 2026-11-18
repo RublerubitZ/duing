@@ -19,6 +19,7 @@ import { AdminExternalRecruitmentPanel } from '../_components/AdminExternalRecru
 import { AdminForceCloseDialog } from '../_components/AdminForceCloseDialog';
 import { AdminSelfRecruitmentPanel } from '../_components/AdminSelfRecruitmentPanel';
 import { applicationModeLabel } from '../_lib/recruitmentLabels';
+import { ArrowLeft } from '@/components/duing/Icon';
 
 type Props = {
   recruitmentId: number;
@@ -61,8 +62,9 @@ export function AdminRecruitmentDetailPage({ recruitmentId }: Props) {
   return (
     <main className="max-w-layout mx-auto px-4 py-10 sm:px-6 md:px-10">
       <header className="mb-6 flex items-center gap-3">
-        <Link href={toRoute('/admin/recruitments')} className="text-[13px] text-charcoal-2 hover:text-ink">
-          ← 목록으로
+        <Link href={toRoute('/admin/recruitments')} className="inline-flex items-center gap-1 text-[13px] text-charcoal-2 hover:text-ink">
+          <ArrowLeft size={14} aria-hidden />
+          목록으로
         </Link>
         <h1 className="text-[22px] font-bold text-ink">모집 상세</h1>
       </header>

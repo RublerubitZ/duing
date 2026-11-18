@@ -200,7 +200,7 @@ export default function ClubMembersPage({
             >
               가입 요청
               {pendingCount > 0 && (
-                <span className="rounded-full bg-coral px-1.5 py-0.5 text-xs font-semibold text-paper">
+                <span className="rounded-full bg-danger px-1.5 py-0.5 text-xs font-semibold text-paper">
                   {pendingCount}
                 </span>
               )}

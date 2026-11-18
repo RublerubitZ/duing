@@ -15,7 +15,12 @@ import {
   Wallet,
   type LucideIcon,
 } from 'lucide-react';
-import { useClubRecruitmentsQuery, useRecruitmentDetailQuery } from '@duing/hooks';
+import {
+  useClubFacilityBookingsQuery,
+  useClubRecruitmentsQuery,
+  useManagedClubsQuery,
+  useRecruitmentDetailQuery,
+} from '@duing/hooks';
 import { cn } from '../../_lib/cn';
 import { toRoute } from '../../_lib/route';
 
@@ -55,6 +60,17 @@ export function ManageNav({ currentClubId, collapsed = false }: ManageNavProps) 
   const feesPath = toRoute(`/manage/clubs/${currentClubId}/fees`);
   const infoPath = toRoute(`/manage/clubs/${currentClubId}/info`);
   const facilityBookingsPath = toRoute(`/manage/clubs/${currentClubId}/facility-bookings`);
+
+  // 시설 예약은 중앙동아리만 신청할 수 있다(백엔드 ClubEligibilityPolicy) — 중앙동아리가 아니면 메뉴를 숨긴다.
+  // 다만 중앙에서 해제돼도 예약은 남으므로(해제가 예약을 취소하지 않는다) 기록이 하나라도 있으면 메뉴를 남긴다.
+  // fail-open — 운영 동아리 목록을 아직 모르거나 예약 조회가 실패하면 숨기지 않는다("알려진 비중앙·알려진 0건만 숨김").
+  // 예약 조회는 비중앙일 때만 한다.
+  const { data: managedClubs } = useManagedClubsQuery();
+  const isKnownNonCentral = managedClubs?.find((club) => club.clubId === currentClubId)?.centralClub === false;
+  const { data: nonCentralBookings, isError: isBookingsError } = useClubFacilityBookingsQuery(
+    isKnownNonCentral ? currentClubId : undefined,
+  );
+  const showFacilityBookings = !isKnownNonCentral || isBookingsError || (nonCentralBookings?.length ?? 0) > 0;
 
   // 모집 하위 페이지(상세/지원자/통계/면접 등)를 보는 중이면 해당 모집 컨텍스트로
   // 지원자·통계 진입을 활성화한다. 모집을 선택하지 않은 목록·신규 작성 화면에서는 비활성 안내를 유지한다.
@@ -153,13 +169,17 @@ export function ManageNav({ currentClubId, collapsed = false }: ManageNavProps) 
           active: pathname.startsWith(membersPath),
         },
         { key: 'fees', label: '회비 관리', icon: Wallet, href: feesPath, active: pathname.startsWith(feesPath) },
-        {
-          key: 'facility-bookings',
-          label: '시설 예약',
-          icon: CalendarCheck,
-          href: facilityBookingsPath,
-          active: pathname.startsWith(facilityBookingsPath),
-        },
+        ...(showFacilityBookings
+          ? [
+              {
+                key: 'facility-bookings',
+                label: '시설 예약',
+                icon: CalendarCheck,
+                href: facilityBookingsPath,
+                active: pathname.startsWith(facilityBookingsPath),
+              },
+            ]
+          : []),
         { key: 'photos', label: '활동 피드', icon: ImageIcon, href: photosPath, active: pathname.startsWith(photosPath) },
       ],
     },
@@ -182,7 +202,7 @@ export function ManageNav({ currentClubId, collapsed = false }: ManageNavProps) 
             (collapsed ? (
               groupIndex > 0 && <div aria-hidden className="h-2" />
             ) : (
-              <p className="px-3 pb-1 pt-2.5 text-[10.5px] font-bold uppercase tracking-[0.1em] text-white/35">
+              <p className="px-3 pb-1 pt-2.5 text-xs font-semibold text-white/60">
                 {group.label}
               </p>
             ))}
@@ -218,7 +238,8 @@ function ManageNavItem({ item, collapsed }: { item: NavItem; collapsed: boolean 
           <Icon size={19} aria-hidden className="shrink-0 text-white/25" />
           {item.label}
         </span>
-        <span className="mt-0.5 block pl-8 text-[11px] leading-tight text-white/30">{hint}</span>
+        {/* 안내 문구는 읽혀야 하는 설명이라 비활성 라벨보다 밝게 둔다(진한 바탕 위 4.5:1 이상). */}
+        <span className="mt-0.5 block pl-8 text-xs leading-tight text-white/60">{hint}</span>
       </span>
     );
   }
@@ -232,7 +253,7 @@ function ManageNavItem({ item, collapsed }: { item: NavItem; collapsed: boolean 
         'relative my-0.5 flex items-center gap-3 rounded-md py-2.5 text-[13.5px] font-semibold outline-none',
         'focus-visible:ring-2 focus-visible:ring-sage motion-safe:transition-colors motion-safe:duration-200',
         collapsed ? 'justify-center px-0' : 'px-3',
-        item.active ? 'bg-white/10 font-bold text-white' : 'text-white/60 hover:bg-white/5 hover:text-white',
+        item.active ? 'bg-white/10 font-bold text-white' : 'text-white/75 hover:bg-white/5 hover:text-white',
       )}
     >
       {item.active && (

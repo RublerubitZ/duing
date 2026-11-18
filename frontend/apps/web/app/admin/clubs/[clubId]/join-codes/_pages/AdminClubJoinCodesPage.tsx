@@ -3,6 +3,7 @@
 import Link from 'next/link';
 
 import { AdminClubJoinCodesTable } from '../_components/AdminClubJoinCodesTable';
+import { ArrowLeft } from '@/components/duing/Icon';
 
 type Props = {
   clubId: number;
@@ -17,9 +18,10 @@ export function AdminClubJoinCodesPage({ clubId, highlightJoinCodeId }: Props) {
         <div className="flex flex-wrap items-center gap-3">
           <Link
             href={`/admin/clubs/${clubId}`}
-            className="text-[13px] text-charcoal-2 hover:text-ink"
+            className="inline-flex items-center gap-1 text-[13px] text-charcoal-2 hover:text-ink"
           >
-            ← 동아리 상세
+            <ArrowLeft size={14} aria-hidden />
+            동아리 상세
           </Link>
           <h1 className="text-[22px] font-bold text-ink">가입 링크</h1>
           <span className="text-[13px] text-charcoal-3">(동아리 ID: {clubId})</span>

@@ -3,6 +3,7 @@ package com.duing.domain.recruitment.stats.controller;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasKey;
+import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.nullValue;
 
 import com.duing.common.IntegrationTestBase;
@@ -22,6 +23,7 @@ import com.duing.domain.recruitment.entity.TargetRole;
 import com.duing.domain.recruitment.repository.RecruitmentRepository;
 import com.duing.domain.user.entity.User;
 import com.duing.domain.user.repository.UserRepository;
+import com.duing.domain.user.service.UserService;
 import com.duing.global.auth.JwtTokenProvider;
 import com.duing.global.time.TimeMapper;
 import io.restassured.RestAssured;
@@ -50,10 +52,12 @@ import org.springframework.jdbc.core.JdbcTemplate;
 class LeaderRecruitmentStatsSummaryControllerTest extends IntegrationTestBase {
 
     private static final String SUMMARY_PATH = "/api/v1/leader/recruitments/{recruitmentId}/stats/summary";
+    private static final String APPLICANTS_PATH = "/api/v1/leader/recruitments/{recruitmentId}/applications";
 
     @LocalServerPort int port;
 
     @Autowired UserRepository userRepository;
+    @Autowired UserService userService;
     @Autowired ClubRepository clubRepository;
     @Autowired ClubMemberRepository clubMemberRepository;
     @Autowired RecruitmentRepository recruitmentRepository;
@@ -121,6 +125,57 @@ class LeaderRecruitmentStatsSummaryControllerTest extends IntegrationTestBase {
                     // 키 부재도 JsonPath 로는 null 이라, 필드가 있고 값이 null 인지 따로 본다.
                     .body("data", hasKey("oldestPendingSubmittedAt"))
                     .body("data.oldestPendingSubmittedAt", nullValue());
+    }
+
+    @Test
+    @DisplayName("탈퇴한 지원자의 지원서는 요약 건수와 가장 오래된 미처리 제출 시각에서 빠져 지원자 목록과 같은 건수가 나온다")
+    void excludesWithdrawnApplicantsLikeTheApplicantList() {
+        LocalDateTime remainingSubmittedAt = submittedAgo(saveApplication(), Duration.ofDays(2));
+        // 탈퇴자 지원서가 더 오래됐다 — 집계가 탈퇴자를 세면 가장 오래된 미처리 시각이 이쪽으로 잡힌다.
+        Application withdrawnApplication = saveApplication();
+        submittedAgo(withdrawnApplication, Duration.ofDays(9));
+        userService.withdraw(withdrawnApplication.getUser().getId());
+
+        RestAssured
+                .given()
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
+                .when()
+                    .get(APPLICANTS_PATH, recruitment.getId())
+                .then()
+                    .statusCode(HttpStatus.OK.value())
+                    .body("data", hasSize(1));
+
+        String oldestPendingSubmittedAt = RestAssured
+                .given()
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
+                .when()
+                    .get(SUMMARY_PATH, recruitment.getId())
+                .then()
+                    .statusCode(HttpStatus.OK.value())
+                    .body("data.total", equalTo(1))
+                    .body("data.submitted", equalTo(1))
+                    .extract().path("data.oldestPendingSubmittedAt");
+
+        assertThat(Instant.parse(oldestPendingSubmittedAt))
+                .as("가장 오래된 미처리 시각은 목록에 남은 지원서의 제출 시각이다")
+                .isEqualTo(TimeMapper.systemWallClockToInstant(remainingSubmittedAt));
+    }
+
+    @Test
+    @DisplayName("자동 마감이 꺼져 있으면 기간이 끝난 모집에도 자동 마감 전망을 싣지 않는다 — '자동 마감 예정'이 거짓이 되지 않게")
+    void omitsAutoCloseOutlookWhileAutoCloseIsOff() {
+        jdbcTemplate.update("UPDATE recruitment SET start_date = ?, end_date = ? WHERE id = ?",
+                LocalDate.now(clock).minusDays(40), LocalDate.now(clock).minusDays(10), recruitment.getId());
+
+        RestAssured
+                .given()
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
+                .when()
+                    .get(SUMMARY_PATH, recruitment.getId())
+                .then()
+                    .statusCode(HttpStatus.OK.value())
+                    .body("data", hasKey("autoClose"))
+                    .body("data.autoClose", nullValue());
     }
 
     private Application saveApplication() {

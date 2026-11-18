@@ -14,6 +14,7 @@ import {
 } from '@duing/hooks';
 import { COLLEGE_DISPLAY_NAME, GRADE_DISPLAY_NAME, isCollege, type Grade } from '@duing/types';
 
+import { logoutBlockedMessageOf } from '@/app/_lib/authBoot';
 import { skipNextOverlayReclaim } from '@/app/_lib/backDismiss';
 import { clearOperatorLocalState } from '@/app/_lib/operatorLocalState';
 import { toRoute } from '@/app/_lib/route';
@@ -22,7 +23,7 @@ import { ConfirmDialog } from '@/app/_components/ConfirmDialog';
 import { HomeNav } from '@/app/_components/HomeNav';
 import { ProfileEditDialog } from '@/app/_components/ProfileEditDialog';
 import { useToast } from '@/app/_components/toast/ToastProvider';
-import { ArrowRight } from '@/components/duing/Icon';
+import { ArrowLeft, ArrowRight } from '@/components/duing/Icon';
 import { SparkleFull } from '@/components/duing/Sparkle';
 
 import { MyPageHeader } from '../../_components/MyPageHeader';
@@ -62,8 +63,7 @@ function SettingsCard({ title, hint, children, danger = false, id }: SettingsCar
   return (
     <section id={id} className="bg-paper rounded-lg border border-line mb-4 overflow-hidden scroll-mt-24">
       <div
-        className="px-7 py-5"
-        style={danger ? { background: 'rgba(217,119,87,0.05)' } : undefined}
+        className={danger ? 'px-7 py-5 bg-coral/5' : 'px-7 py-5'}
       >
         <h3 className="text-[17px] font-body font-bold text-ink-deep">{title}</h3>
         {hint && <p className="text-[12.5px] text-charcoal-3 mt-1">{hint}</p>}
@@ -94,7 +94,8 @@ function SettingsPageTabs() {
           href="/me"
           className="btn btn-ghost btn-sm px-2.5 py-1.5 text-[13px] flex items-center gap-1"
         >
-          ← 마이페이지로
+          <ArrowLeft size={14} aria-hidden />
+          마이페이지로
         </Link>
         {TAB_LABELS.map((tab) => {
           const isActive = tab === activeTab;
@@ -178,11 +179,18 @@ export function SettingsPage() {
       // back() 이 진행 중인 이동을 취소할 수 있으므로(#855 실측 경합), 다음 닫힘 1회의 회수를 건너뛴다.
       skipNextOverlayReclaim();
       window.location.replace('/');
-    } catch {
-      addToast(
-        '로그아웃하지 못했습니다. 네트워크 연결 후 다시 시도하고 이 기기를 떠나지 마세요.',
-        { variant: 'error' },
-      );
+    } catch (logoutError) {
+      // 다른 탭의 로그인 상태 바뀜으로 막혔으면 네트워크가 아니라 누를 때의 상태(로그아웃됨·못 함)를 보인다(오프라인·타임아웃은 아래 문구 그대로).
+      const blockedMessage = logoutBlockedMessageOf(logoutError);
+      // 막혔으면 닫을 때까지 남긴다 — 공용 기기에서 로그아웃됐는지·못 했는지가 5초 뒤 사라지지 않게.
+      if (blockedMessage !== null) {
+        addToast(blockedMessage, { variant: 'error', durationMs: 0 });
+      } else {
+        addToast(
+          '로그아웃하지 못했습니다. 네트워크 연결 후 다시 시도하고 이 기기를 떠나지 마세요.',
+          { variant: 'error' },
+        );
+      }
     } finally {
       setLogoutPending(false);
       // 실패 안내는 토스트라 모달을 닫아야 오버레이·aria-hidden 뒤에 갇히지 않는다.
@@ -293,8 +301,7 @@ export function SettingsPage() {
               <button
                 type="button"
                 onClick={() => setWithdrawOpen(true)}
-                className="btn btn-big rounded-[14px] btn-danger-quiet"
-                style={{ border: '1px solid rgba(217,119,87,0.3)' }}
+                className="btn btn-big rounded-[14px] btn-danger-quiet border border-danger/30"
               >
                 회원 탈퇴
               </button>
@@ -304,10 +311,9 @@ export function SettingsPage() {
           {/* 1:1 문의 CTA */}
           <div
             className="relative overflow-hidden rounded-[24px] px-6 py-6 sm:px-8 sm:py-7 flex flex-wrap items-center gap-5 justify-between"
-            style={{ background: 'linear-gradient(120deg, #1F4A36 0%, #143025 100%)' }}
+            style={{ background: 'linear-gradient(120deg, var(--ink) 0%, var(--ink-deep) 100%)' }}
           >
             <div className="relative z-[1] min-w-0">
-              <div className="text-[11.5px] font-bold text-sage tracking-wide16 mb-1.5">SUPPORT</div>
               <div className="text-[19px] font-bold text-white mb-1">
                 궁금한 점이나 불편한 점이 있나요?
               </div>
@@ -318,8 +324,8 @@ export function SettingsPage() {
             <div className="relative z-[1] flex items-center gap-3">
               <SparkleFull
                 size={44}
-                color="rgba(157,182,160,0.35)"
-                className="pointer-events-none hidden sm:block"
+                color="var(--sage)"
+                className="opacity-[0.35] pointer-events-none hidden sm:block"
               />
               <Link
                 href={toRoute('/me/inquiries/new')}

@@ -93,7 +93,6 @@ export function FeeAnomalyList({
       {report.anomalies.length === 0 ? (
         <ConsoleCard>
           <EmptyState
-            icon="✅"
             title="기간 내 탐지된 이상징후가 없습니다"
             body="탐지 규칙을 모두 평가했지만 걸린 항목이 없어요."
           />
@@ -154,7 +153,7 @@ export function FeeAnomalyList({
                           href={auditLogHref(clubId, searchParams.toString(), auditGroup)}
                           className="mt-2 inline-block text-[12px] font-semibold text-ink underline underline-offset-2"
                         >
-                          관련 감사 로그 보기 →
+                          관련 감사 로그 보기
                         </Link>
                       )}
                     </details>

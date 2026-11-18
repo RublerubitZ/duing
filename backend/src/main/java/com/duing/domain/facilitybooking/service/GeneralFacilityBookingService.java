@@ -68,7 +68,7 @@ public class GeneralFacilityBookingService implements FacilityBookingService {
         if (facility.isArchived()) {
             throw new FacilityBookingException.ArchivedFacilityException();
         }
-        // 신청 비즈니스 정책 4종(시설 오픈 창→마감→중앙→역할) — 단일 진입점. 첫 실패만 반환한다.
+        // 신청 비즈니스 정책 3종(시설 오픈 창→중앙→역할) — 단일 진입점. 첫 실패만 반환한다.
         bookingApplicationPolicy.validateApplication(facility, club, applicant, command.date());
 
         bookingPolicyValidator.validateSlotRange(command.date(), command.startTime(), command.endTime());

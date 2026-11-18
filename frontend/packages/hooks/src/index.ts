@@ -149,6 +149,7 @@ export {
   useAdminPendingTrendQuery,
   useAdminJobStatusesQuery,
   ADMIN_JOB_STATUSES_REFETCH_INTERVAL_MS,
+  useAdminClubSignalsQuery,
   useAdminClubMembersQuery,
   useAdminClubsQuery,
   useAdminClubDetailQuery,
@@ -310,7 +311,7 @@ export {
   formatRelativeTime,
   kstDateTimeFormatter,
 } from './datetime';
-export { CLOSING_SOON_DAYS, STALE_WAITING_DAYS, countAwaitingReview, countUndecided } from './dashboardSelectors';
+export { CLOSING_SOON_DAYS, STALE_WAITING_DAYS, countAwaitingReview, countUndecided, isEmptyInProgressRound } from './dashboardSelectors';
 export {
   DASHBOARD_QUERY_OPTIONS,
   useActiveRecruitments,
@@ -318,10 +319,12 @@ export {
   useClubActionItems,
   useClubOperationItems,
   useDashboardTaskQueue,
+  useRecruitmentActionItems,
   useTodaySchedule,
   useClubFeedCounts,
 } from './dashboard';
 export { useAdminTriageQueue } from './adminTriage';
+export { useAdminClosingRecruitmentsQuery, useAdminWeeklyBriefingQuery, useAdminWeeklyFacilityHeatmapQuery } from './adminWeeklyBriefing';
 export { buildPendingTrendBars, pendingTrendComparison, recordedDayCount } from './adminPendingTrend';
 export type { PendingTrendBar, PendingTrendComparison } from './adminPendingTrend';
 export {

@@ -45,7 +45,7 @@ export function ApplicantSlotItem({ slot, selected, onToggle, disabled = false }
         'inline-flex items-center justify-center rounded-full border px-3 py-1.5 text-xs font-medium transition-colors',
         selected
           ? 'border-ink bg-ink text-cream shadow-sm'
-          : 'border-slate-300 bg-white text-slate-700 hover:border-slate-400',
+          : 'border-line bg-white text-charcoal hover:border-charcoal-3',
         disabled ? 'cursor-not-allowed opacity-50' : '',
       ].join(' ')}
     >

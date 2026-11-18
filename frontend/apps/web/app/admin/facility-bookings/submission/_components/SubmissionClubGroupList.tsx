@@ -8,6 +8,7 @@ import { SUBMISSION_STATUS_LABELS, submissionBlockVisual } from '../_lib/submiss
 import { buildClubSections } from '../_lib/submissionSections';
 import { bookingTimeLabel, slotTimeLabel } from '@/app/_lib/bookingDisplay';
 import { toRoute } from '@/app/_lib/route';
+import { ChevronDown, ChevronRight } from 'lucide-react';
 
 const WEEKDAY_LABELS = ['일', '월', '화', '수', '목', '금', '토'];
 
@@ -71,7 +72,7 @@ export function SubmissionClubGroupList({ bookings, selection, onToggleSelect, o
                 onClick={() => toggleCollapsed(section.clubId)}
                 className="flex flex-1 items-center gap-2 text-left"
               >
-                <span aria-hidden className="text-xs text-charcoal-3">{expanded ? '▼' : '▶'}</span>
+                {expanded ? <ChevronDown size={14} aria-hidden className="shrink-0 text-charcoal-3" /> : <ChevronRight size={14} aria-hidden className="shrink-0 text-charcoal-3" />}
                 <span className="font-medium text-ink-deep">{clubLabel}</span>
                 <span className="text-xs text-charcoal-3">
                   시설 {section.facilityGroups.length}곳 · {clubBookings.length}건

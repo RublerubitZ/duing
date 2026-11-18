@@ -1,4 +1,5 @@
 import { render, screen, within } from '@testing-library/react';
+import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { AdminPendingTrend } from '@duing/types';
 
@@ -8,6 +9,11 @@ vi.mock('@duing/hooks', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@duing/hooks')>()),
   useAdminPendingTrendQuery: () => mockTrend(),
   useAdminPendingCountsQuery: () => mockCounts(),
+}));
+vi.mock('next/link', () => ({
+  default: ({ href, children, className }: { href: string; children: ReactNode; className?: string }) => (
+    <a href={href} className={className}>{children}</a>
+  ),
 }));
 
 import { AdminPendingTrendCard } from '@/app/admin/_components/home/AdminPendingTrendCard';
@@ -173,5 +179,14 @@ describe('AdminPendingTrendCard', () => {
     const figure = screen.getByRole('img');
     expect(within(figure).getByText('10/17')).toBeInTheDocument();
     expect(within(figure).getByText('오늘')).toBeInTheDocument();
+  });
+
+  it('푸터에 주간 브리핑 보기 링크를 두고, 추이를 불러오지 못해도 링크는 남는다', () => {
+    render(<AdminPendingTrendCard />);
+    expect(screen.getByRole('link', { name: '주간 브리핑 보기' })).toHaveAttribute('href', '/admin/weekly-briefing');
+
+    mockTrend.mockReturnValue(failed());
+    render(<AdminPendingTrendCard />);
+    expect(screen.getAllByRole('link', { name: '주간 브리핑 보기' })).toHaveLength(2);
   });
 });

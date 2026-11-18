@@ -3,6 +3,7 @@ package com.duing.domain.club.repository;
 import com.duing.domain.club.service.dto.query.AdminClubSearchCondition;
 import com.duing.domain.club.service.dto.query.AdminClubSummaryQuery;
 import com.duing.domain.club.service.dto.query.ClubSearchCondition;
+import com.duing.domain.club.service.dto.query.ClubSignalSummaryQuery;
 import com.duing.domain.club.service.dto.query.ClubStatsQuery;
 import com.duing.domain.club.service.dto.query.ClubSummaryQuery;
 import org.springframework.data.domain.Page;
@@ -23,4 +24,10 @@ public interface ClubRepositoryCustom {
      * 목록 필터(needsPendingCleanup=true)의 totalElements 와 같은 식을 쓴다(스펙 §3-1).
      */
     long countInactiveClubsWithPendingItems();
+
+    /**
+     * 총동연 홈 동아리 현황 — 운영 중 수 + 신호 넷(동아리 신호 스펙 §6-2). 목록 신호 필터와 같은 행 술어·같은 기준 식을 쓴다.
+     * 운영 중 1 + 기록 없음 1 + 운영진 미접속 1 + 결과 대기 모집 행 1 + 가입 대기 GROUP BY 1 = 5쿼리.
+     */
+    ClubSignalSummaryQuery summarizeSignals();
 }

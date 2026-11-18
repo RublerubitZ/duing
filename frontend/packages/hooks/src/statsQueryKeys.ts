@@ -1,5 +1,6 @@
 export const statsQueryKeys = {
-  byRecruitment: (recruitmentId: number) => ['stats', recruitmentId] as const,
+  all: ['stats'] as const,
+  byRecruitment: (recruitmentId: number) => [...statsQueryKeys.all, recruitmentId] as const,
   summary: (recruitmentId: number) =>
     [...statsQueryKeys.byRecruitment(recruitmentId), 'summary'] as const,
   daily: (recruitmentId: number) =>

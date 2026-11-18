@@ -18,7 +18,7 @@ export function ClubFeedLinkCard({ clubId }: { clubId: number }) {
       isEmpty={isError && isEmpty}
       footer={
         <Link href={toRoute(`/clubs/${clubId}`)} className="inline-flex min-h-11 items-center text-xs font-medium text-ink hover:underline">
-          동아리 페이지 바로가기 →
+          동아리 페이지 바로가기
         </Link>
       }
     >

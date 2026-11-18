@@ -65,9 +65,11 @@ duing/
   - 세 생태계 모두 메이저는 제외하고, 새 릴리스는 7일 뒤에 받는다
   - 보안 업데이트 PR(저장소 설정으로 켬)은 이 제약 없이 알림이 생길 때마다 온다. BOM 이 관리하는 전이 의존성은 PR 없이 알림만 온다 — 오버라이드로 대응
   - QueryDSL 보안 PR 이 7.x 를 제안하면 머지하지 않고 닫는다 — 7.x 는 Hibernate 7(Boot 4) 전용이다. 알림은 dismiss 하지 않고 노출 경로를 평가해, 필요하면 Boot 4 전환을 앞당긴다
+  - 프론트 `@opentelemetry/api` 는 `frontend/package.json` 의 `pnpm.overrides` 로 `>=1.9.1 <1.10.0` 에 묶는다(#1616) — `@sentry/nextjs` 10.76.x 는 1.10.0 까지 열어 두지만 같은 트리의 OpenTelemetry SDK 2.x 는 `<1.10.0` 만 받는다. `@sentry/nextjs` 를 10.77.1 이상으로 올리면(그 버전이 같은 범위를 직접 건다) 이 override 를 지운다
   - 프론트 Radix(`@radix-ui/*`)는 버전 업데이트를 받지 않는다(ignore) — 터치 드롭다운 클릭 관통 회귀(#1331)가 해결되면 ignore 를 지운다. Radix 보안 PR 은 #1331 의 터치 QA(390 폭, 메뉴 4곳)를 거친 뒤 머지한다
   - 프론트 `next-view-transitions` 는 `frontend/patches` 로 패치해 쓰므로 버전 업데이트를 받지 않는다(ignore) — 올릴 때는 새 버전에 `pnpm patch` 를 다시 만들고 `test/lib/view-transitions-popstate-patch.test.tsx` 로 확인한다. 보안 PR 은 패치 미적용으로 설치가 실패하므로 같은 절차로 직접 올린다
   - 프론트 `next` 를 올리는 PR 은 머지 전에 `frontend/apps/web/e2e/clubs-native-back*.spec.ts` 두 파일 전체를 회원 계정 환경변수(`E2E_MEMBER_*`)와 함께 돌린다 — 동아리 목록 유지(P1)의 슬롯 판별은 라우트 그룹 세그먼트 노출에, 인터셉트 상세의 탭 제목 유지(로그아웃 포함)는 Next 의 head `<title>` 커밋 방식(16.4 는 `<title>` 이 빠지는 틈이 생길 수 있다)에 맞춘 제목 연속성 가드(`ClubsRouteAnnouncer`)에 기대고, CI 에는 E2E 가 없다(세그먼트 표기만 단위 가드 `test/clubs/clubs-modal-segment-path.test.ts` 가 CI 에서 본다)
+    - 같은 PR 에서 총동연 주간 브리핑의 주소 정리도 브라우저로 본다 — `/admin/weekly-briefing` 에 `?week=` 없이 들어와 주소가 `?week=…` 로 정리된 뒤, 사이드바 '주간 브리핑'을 다시 눌러도 `?week=` 가 남아야 한다. 정리 effect 는 같은 주소로 이동해도 Next 가 새로 만드는 `useParams()` 객체에 기대고(Next 동기화를 건너뛰는 `history.replaceState` 라 `useSearchParams` 는 바뀌지 않는다), 단위 테스트는 이 Next 동작을 목으로 흉내 낼 뿐이다. 같은 신호로 새 주를 넘긴 탭의 '보던 주 고정'도 풀린다 — 지난주를 보던 탭의 시계를 다음 월요일로 옮기고 다른 브라우저 탭으로 갔다 돌아온 뒤 인쇄에 보던 주와 새 주 안내가 남는지, 화살표를 누르면 주가 바뀌는지도 본다
 - **릴리스 게이트(develop 을 main 으로 내보내기 직전의 GO/NO-GO 점검)에서 직전 릴리스 뒤의 spring.io 권고를 직접 대조한다**(#1318) — 프론트 단독 릴리스도 돌린다(기준점이 직전 릴리스라 건너뛰면 그 사이 권고가 빈다)
   - 왜: spring.io 권고는 GitHub 에 대개 패키지 범위 없이(unreviewed) 올라 Dependabot·OSV 로 잡히지 않고, 리뷰돼 알림이 와도 몇 주 늦다(8/20 권고 → 10/7·10/12 알림 #5·#11). Spring 3.5 줄(Boot 3.5·Framework 6.2·Security 6.5·Data JPA/Commons 3.5·Micrometer 1.15·Retry 2.0)은 OSS 지원도 끝나(2026-06-30) 수정판이 Enterprise 전용이다
   - 목록(직전 릴리스 7일 전부터). 첫 줄 = `since <창 기준일>`, 행 = 날짜·심각도·프로젝트·slug·영향 범위(`도입~마지막 영향`)·`fix=<버전>/<oss|enterprise>,…` — fix 열은 영향 범위 열과 같은 순서로 범위마다 공백으로 나뉘고, 수정판이 없는 범위는 `-` 다:

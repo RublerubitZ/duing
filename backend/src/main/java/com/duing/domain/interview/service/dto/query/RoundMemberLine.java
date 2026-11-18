@@ -1,5 +1,6 @@
 package com.duing.domain.interview.service.dto.query;
 
+import com.duing.domain.application.entity.ApplicationStatus;
 import com.duing.domain.interview.entity.RoundMemberStatus;
 
 /**
@@ -11,5 +12,6 @@ public record RoundMemberLine(
         String userName,
         String studentId,
         RoundMemberStatus status,
-        String alternativeAvailabilityText
+        String alternativeAvailabilityText,
+        ApplicationStatus applicationStatus
 ) {}

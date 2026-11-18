@@ -27,9 +27,6 @@ export function Problem() {
     <section className="py-20 md:py-28">
       <div className="mx-auto max-w-layout px-4 sm:px-6 md:px-10">
         <FadeIn>
-          <p className="mb-4 tabular-nums text-[11.5px] font-semibold uppercase tracking-[0.22em] text-ink">
-            FOR STUDENTS · 동아리를 찾고 있나요?
-          </p>
           <h2 className="mb-12 max-w-[760px]" style={{ fontSize: 'clamp(30px, 4vw, 44px)' }}>
             관심 가는 동아리,
             <br />

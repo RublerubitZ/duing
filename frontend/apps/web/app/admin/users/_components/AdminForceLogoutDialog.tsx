@@ -11,6 +11,7 @@ import {
   DialogDescription,
   DialogFooter,
 } from '@/components/ui/dialog';
+import { Lock } from 'lucide-react';
 
 type Props = {
   user: AdminUserSearchResult;
@@ -31,8 +32,8 @@ export function AdminForceLogoutDialog({ user, isPending, onConfirm, onCancel }:
         busy={isPending}
       >
         {/* 정지 다이얼로그와 같은 자리·같은 크기의 아이콘 뱃지 — 계정 상태는 유지되므로 파괴적 배색을 쓰지 않는다. */}
-        <div aria-hidden className="grid h-11 w-11 place-items-center rounded-[13px] bg-sage/15 text-[20px]">
-          🔒
+        <div aria-hidden className="grid h-11 w-11 place-items-center rounded-[13px] bg-sage/15 text-ink-deep">
+          <Lock size={20} />
         </div>
         <DialogHeader>
           <DialogTitle>강제 로그아웃</DialogTitle>

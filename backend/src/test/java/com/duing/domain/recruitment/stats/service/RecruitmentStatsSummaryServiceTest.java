@@ -15,9 +15,11 @@ import com.duing.domain.application.repository.ApplicationRepository;
 import com.duing.domain.application.repository.PendingApplicationStatsRow;
 import com.duing.domain.club.entity.Club;
 import com.duing.domain.clubmember.service.ClubAuthService;
+import com.duing.domain.joincode.repository.ClubJoinRequestRepository;
 import com.duing.domain.recruitment.entity.Recruitment;
 import com.duing.domain.recruitment.exception.RecruitmentException;
 import com.duing.domain.recruitment.repository.RecruitmentRepository;
+import com.duing.domain.recruitment.service.RecruitmentAutoCloseService;
 import com.duing.domain.recruitment.stats.repository.RecruitmentStatsRepositoryCustom;
 import com.duing.domain.recruitment.stats.service.dto.query.StatsSummaryQuery;
 import java.time.Clock;
@@ -37,6 +39,7 @@ class RecruitmentStatsSummaryServiceTest {
     private RecruitmentStatsRepositoryCustom recruitmentStatsRepository;
     private ClubAuthService clubAuthService;
     private ApplicationRepository applicationRepository;
+    private RecruitmentAutoCloseService recruitmentAutoCloseService;
     private GeneralRecruitmentStatsService recruitmentStatsService;
 
     @BeforeEach
@@ -45,11 +48,14 @@ class RecruitmentStatsSummaryServiceTest {
         recruitmentStatsRepository = mock(RecruitmentStatsRepositoryCustom.class);
         clubAuthService = mock(ClubAuthService.class);
         applicationRepository = mock(ApplicationRepository.class);
+        recruitmentAutoCloseService = mock(RecruitmentAutoCloseService.class);
         recruitmentStatsService = new GeneralRecruitmentStatsService(
                 recruitmentRepository,
                 recruitmentStatsRepository,
                 clubAuthService,
                 applicationRepository,
+                mock(ClubJoinRequestRepository.class),
+                recruitmentAutoCloseService,
                 Clock.systemDefaultZone()
         );
     }
@@ -251,7 +257,7 @@ class RecruitmentStatsSummaryServiceTest {
     }
 
     @Test
-    @DisplayName("동아리 운영진이 아니면 미처리 집계를 조회하지 않는다")
+    @DisplayName("동아리 운영진이 아니면 미처리 집계도 자동 마감 전망도 조회하지 않는다")
     void doesNotQueryPendingStatsWhenNotManager() {
         mockRecruitmentWithCapacity(1L, 10L, 10);
         doThrow(new AccessDeniedException("해당 동아리의 운영진(LEADER/OFFICER)만 가능한 작업입니다."))
@@ -260,5 +266,7 @@ class RecruitmentStatsSummaryServiceTest {
         assertThatThrownBy(() -> recruitmentStatsService.getSummary(1L, 999L))
                 .isInstanceOf(AccessDeniedException.class);
         verify(applicationRepository, never()).findPendingStatsByRecruitmentIds(any());
+        // 화면용 전망 메서드는 권한을 보지 않는다 — 호출자가 권한 확인 뒤에 불러야 한다(#1572).
+        verify(recruitmentAutoCloseService, never()).findOutlook(any());
     }
 }

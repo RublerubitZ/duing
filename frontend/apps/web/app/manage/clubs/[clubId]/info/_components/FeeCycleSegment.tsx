@@ -14,7 +14,7 @@ type Props = { value: FeeCycle; onChange: (next: FeeCycle) => void; disabled: bo
 
 export function FeeCycleSegment({ value, onChange, disabled }: Props) {
   return (
-    <div role="radiogroup" aria-label="납부 주기" className="inline-flex flex-wrap gap-[3px] rounded-[11px] bg-[#f0ede3] p-[3px]">
+    <div role="radiogroup" aria-label="납부 주기" className="inline-flex flex-wrap gap-[3px] rounded-[11px] bg-graysoft p-[3px]">
       {CYCLE_OPTIONS.map((option) => {
         const selected = value === option.value;
         return (
@@ -26,7 +26,7 @@ export function FeeCycleSegment({ value, onChange, disabled }: Props) {
             disabled={disabled}
             onClick={() => onChange(option.value)}
             className={`rounded-[9px] px-3.5 py-2 text-[13px] font-bold transition-colors disabled:cursor-default ${
-              selected ? 'bg-white text-[#2a2f27] shadow-sm' : 'bg-transparent text-[#8a8f83] hover:text-[#4a5247]'
+              selected ? 'bg-white text-ink-deep shadow-sm' : 'bg-transparent text-charcoal-3 hover:text-charcoal-2'
             }`}
           >
             {option.label}

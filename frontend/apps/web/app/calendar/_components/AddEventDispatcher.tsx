@@ -144,7 +144,7 @@ function ClubSelect({
     <select
       value={value ?? ''}
       onChange={(changeEvent) => onChange(Number(changeEvent.target.value))}
-      className="px-3 py-2 rounded-md border border-line bg-paper text-[13px]"
+      className="px-3 py-2 rounded-md border border-field bg-paper text-[13px]"
     >
       {clubs.map((club) => (
         <option key={club.clubId} value={club.clubId}>

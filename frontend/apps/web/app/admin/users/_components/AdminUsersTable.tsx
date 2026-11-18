@@ -36,7 +36,6 @@ export function AdminUsersTable({ items, onOpenDetail }: Props) {
   if (items.length === 0) {
     return (
       <EmptyState
-        icon="🔎"
         title="조회 결과가 없습니다"
         body={
           '검색어를 줄이거나 상태 필터를 바꿔보세요.\n학번은 앞자리부터, 이름은 일부만 입력해도 찾을 수 있어요.'

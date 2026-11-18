@@ -168,8 +168,8 @@ describe('ApplicationStepper — 운영 중단으로 끝난 지원', () => {
     expect(screen.getByRole('listitem', { current: 'step' })).toHaveTextContent('선발 종료');
     expect(screen.queryByText('최종 불합격')).toBeNull();
     expect(screen.getByRole('status')).toHaveTextContent('동아리 운영 중단으로 선발이 끝났어요');
-    // 불합격 경고색(#D9523A)·진행 초록(#2E6149)이 아니라 결과 없이 종료와 같은 회색(#8A8F98)
-    expect(activeDot()?.style.background).toContain('rgb(138, 143, 152)');
+    // 불합격 경고색(danger)·진행 초록(ink-soft)이 아니라 결과 없이 종료와 같은 회색(neutral-mid)
+    expect(activeDot()?.style.background).toContain('var(--neutral-mid)');
   });
 
   it('면접 phase 캐시가 남아 있어도 활성 마디는 마지막(선발 종료)이다', () => {
@@ -191,6 +191,6 @@ describe('ApplicationStepper — 운영 중단으로 끝난 지원', () => {
     );
     expect(screen.getByRole('listitem', { current: 'step' })).toHaveTextContent('최종 불합격');
     expect(screen.queryByText('동아리 운영 중단으로 선발이 끝났어요')).toBeNull();
-    expect(activeDot()?.style.background).toContain('rgb(217, 82, 58)');
+    expect(activeDot()?.style.background).toContain('var(--danger)');
   });
 });

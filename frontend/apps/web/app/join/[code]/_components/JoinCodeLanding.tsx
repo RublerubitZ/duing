@@ -104,7 +104,7 @@ export function JoinCodeLanding({ code }: { code: string }) {
     return (
       <LandingShell>
         <ClubHeading clubName={joinCode.clubName} generation={joinCode.generation} />
-        <p className="mt-4 text-sm font-semibold text-ink">🎉 가입이 완료되었습니다.</p>
+        <p className="mt-4 text-sm font-semibold text-ink">가입이 완료되었습니다.</p>
         <p className="mt-2 text-sm text-charcoal-2">
           이제 {joinCode.clubName} 동아리 회원이에요.
         </p>
@@ -135,7 +135,7 @@ export function JoinCodeLanding({ code }: { code: string }) {
       <LandingShell>
         <ClubHeading clubName={joinCode.clubName} generation={joinCode.generation} />
         {/* 승인 게이트가 남아 있으므로 "등록되었습니다" 같은 즉시 등록 표현을 쓰지 않는다(스펙 §6). */}
-        <p className="mt-4 text-sm font-semibold text-ink">🎉 가입 신청이 완료되었습니다.</p>
+        <p className="mt-4 text-sm font-semibold text-ink">가입 신청이 완료되었습니다.</p>
         <p className="mt-2 text-sm text-charcoal-2">
           운영진 확인 후 {joinCode.clubName} 동아리 회원으로 등록됩니다.
         </p>
@@ -167,7 +167,7 @@ export function JoinCodeLanding({ code }: { code: string }) {
             ? '가입 신청을 완료하면 바로 회원으로 등록됩니다.'
             : '가입 신청을 완료하면 운영진 확인 후 정식 회원으로 등록됩니다.'
         }`
-      : `🎉 축하합니다! ${joinCode.clubName} 최종 합격을 축하드립니다. 가입은 약 30초 정도 소요됩니다. 가입 신청을 완료하면 운영진 확인 후 정식 회원으로 등록됩니다.`;
+      : `축하합니다! ${joinCode.clubName} 최종 합격을 축하드립니다. 가입은 약 30초 정도 소요됩니다. 가입 신청을 완료하면 운영진 확인 후 정식 회원으로 등록됩니다.`;
 
   return (
     <LandingShell>

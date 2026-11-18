@@ -28,6 +28,7 @@ import com.duing.domain.clubmember.service.ClubAuthService;
 import com.duing.domain.clubmember.service.ClubMemberEnrollmentService;
 import com.duing.domain.draft.service.ApplicationDraftService;
 import com.duing.domain.interview.service.InterviewAssignmentQueryService;
+import com.duing.domain.interview.service.InterviewAssignmentService;
 import com.duing.domain.recruitment.entity.ApplicationMode;
 import com.duing.domain.recruitment.entity.QuestionChoice;
 import com.duing.domain.recruitment.entity.QuestionType;
@@ -94,7 +95,8 @@ class ApplicationAnswerValidationTest {
             clock,
             mock(ClubAuditEventRepository.class),
             new PhoneRevealRateLimiter(),
-            mock(ApplicationEventPublisher.class));
+            mock(ApplicationEventPublisher.class),
+            mock(InterviewAssignmentService.class));
 
     // ── payload 분기 ─────────────────────────────────────────────────────────
 

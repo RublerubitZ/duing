@@ -17,7 +17,10 @@ public interface FacilityReservationRepository extends JpaRepository<FacilityRes
     /** 특정 시설의 특정 월 예약(디버깅·테스트). */
     List<FacilityReservation> findByFacilityIdAndYearMonth(Long facilityId, YearMonth yearMonth);
 
-    /** 어드민 크롤 현황 — 시설 무필터 월 전체 로드(직전 월·당월·익월 한정, 실측 월당 수백 행이라 메모리 그룹핑 허용). */
+    /**
+     * 시설 무필터 월 전체 로드 — 어드민 크롤 현황(직전 월·당월·익월)·주간 시설 히트맵(주가 걸친 1~2개월, 52주 전 달까지).
+     * 실측 월당 수백 행이라 메모리 그룹핑 허용.
+     */
     List<FacilityReservation> findByYearMonth(YearMonth yearMonth);
 
     /** 차등 반영의 비교 기준 — 한 시설의 대상 월 저장 행 전체를 영속 상태로 로드한다. */

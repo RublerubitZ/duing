@@ -17,8 +17,9 @@ export function DashboardCard({ title, badge, isLoading, isError, isEmpty, empty
   // 조회 실패로 비었으면 "없어요"·건수 배지가 사실처럼 보이지 않게 오류 안내로 바꾸고, 데이터와 무관한 푸터(바로가기)는 남긴다
   const isFailedEmpty = !isLoading && isError && isEmpty;
 
+  // flex-col + 푸터 mt-auto — 나란한 카드와 높이를 맞춰 늘어나도 바로가기는 바닥에 붙는다.
   return (
-    <section className="card p-4 transition hover:shadow-2">
+    <section className="card flex flex-col p-4 transition hover:shadow-2">
       <header className="mb-3 flex items-center justify-between">
         <h2 className="text-sm font-semibold text-charcoal">{title}</h2>
         {isFailedEmpty ? null : badge}
@@ -39,7 +40,7 @@ export function DashboardCard({ title, badge, isLoading, isError, isEmpty, empty
           {isError ? <p className="mt-2 text-xs text-charcoal-3">일부 정보를 불러오지 못했어요.</p> : null}
         </>
       )}
-      {!isLoading && (!isEmpty || isFailedEmpty) && footer ? <div className="mt-3">{footer}</div> : null}
+      {!isLoading && (!isEmpty || isFailedEmpty) && footer ? <div className="mt-auto pt-3">{footer}</div> : null}
     </section>
   );
 }

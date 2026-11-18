@@ -64,7 +64,8 @@ export function PastRecruitmentsTable({ clubId, recruitments: unsortedRecruitmen
   return (
     <div className="card overflow-hidden">
       {/* 데스크탑: 표 */}
-      <div className="hidden overflow-x-auto md:block">
+      {/* 표는 lg 부터 — md(768~1023)는 사이드바가 붙어 본문이 415px 쯤이라 열이 눌려 글자가 세로로 쌓였다. 그 구간은 카드 목록을 쓴다. */}
+      <div className="hidden overflow-x-auto lg:block">
         <table className="w-full text-sm">
           <thead className="bg-cream text-left">
             <tr>
@@ -146,7 +147,7 @@ export function PastRecruitmentsTable({ clubId, recruitments: unsortedRecruitmen
       </div>
 
       {/* 모바일: 카드 리스트 */}
-      <div className="divide-y divide-line md:hidden">
+      <div className="divide-y divide-line lg:hidden">
         {recruitments.map((recruitment) => {
           const statusChip = recruitmentStatusChip(recruitment);
           return (

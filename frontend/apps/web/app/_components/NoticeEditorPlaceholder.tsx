@@ -8,7 +8,7 @@ import { TextLinesSkeleton } from '@/components/loading/Skeleton';
 // + 보더 2) — 지연 로드 동안 아래 폼 필드가 밀렸다 당겨지는 레이아웃 점프를 막는다.
 export function NoticeEditorPlaceholder() {
   return (
-    <div className="min-h-[394px] rounded-xl border border-line bg-paper px-3.5 py-2.5">
+    <div className="min-h-[394px] rounded-xl border border-field bg-paper px-3.5 py-2.5">
       <TextLinesSkeleton lines={3} label="에디터 불러오는 중" />
     </div>
   );

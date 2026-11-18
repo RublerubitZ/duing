@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { Pin } from 'lucide-react';
 import { formatDateKst } from '@duing/hooks/datetime';
 import type { NoticeCardItem } from '@duing/types';
 import { ImageWithFallback } from '../../_components/ImageWithFallback';
@@ -24,15 +25,16 @@ export function NoticeCard({ notice }: Props) {
         {notice.pinned && (
           <span
             aria-label="고정"
-            className="absolute top-2 right-2 grid place-items-center w-7 h-7 rounded-full bg-paper/90 text-[13px]"
-          >📌</span>
+            className="absolute top-2 right-2 grid place-items-center w-7 h-7 rounded-full bg-paper/90 text-ink"
+          >
+            <Pin size={14} aria-hidden />
+          </span>
         )}
       </div>
       <div className="p-4">
         <div className="flex flex-wrap items-center gap-2 mb-2">
           {notice.owningClubId != null ? (
             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-sage-mist text-ink text-[11px] font-semibold max-w-[180px]">
-              <span aria-hidden>🏛</span>
               <span className="truncate">{notice.clubName ?? '동아리 공지'}</span>
             </span>
           ) : (

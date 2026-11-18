@@ -100,7 +100,7 @@ export function SuccessionRequestModal({ clubId, clubName, latestRequest, onClos
               {...register('reason')}
               className={cn(
                 'w-full resize-none rounded-md border px-4 py-3 text-sm outline-none transition-colors',
-                'border-line placeholder:text-charcoal-3',
+                'border-field placeholder:text-charcoal-3',
                 'focus-visible:border-ink focus-visible:ring-1 focus-visible:ring-ink',
                 errors.reason && 'border-coral focus-visible:border-coral focus-visible:ring-coral',
               )}

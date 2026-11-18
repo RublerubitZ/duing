@@ -93,6 +93,32 @@ class LeaderInterviewRoundDashboardControllerTest extends InterviewControllerTes
     }
 
     @Test
+    @DisplayName("라운드 목록의 인원 수는 인원 목록과 같은 사람을 센다 — 철회한 지원서와 탈퇴한 지원자는 빠진다")
+    void roundListCountsSamePeopleAsMemberList() {
+        InterviewRound round = saveRound(RoundStatus.COLLECTING, LocalDateTime.now().plusDays(3));
+        saveMember(round, saveInterviewPendingApplication(recruitment, "남음"), RoundMemberStatus.RESPONDED, null);
+        Application withdrawnApplicant = saveInterviewPendingApplication(recruitment, "탈퇴");
+        saveMember(round, withdrawnApplicant, RoundMemberStatus.RESPONDED, null);
+        // 탈퇴의 면접 정리(#1637)를 타지 않고 지운 표시만 남긴다 — 정리 전에 남은 행·라운드 생성과 엇갈려 남은 행은 이 집계의 지원자 조인만 거른다.
+        userRepository.delete(withdrawnApplicant.getUser());
+        Application cancelledApplication = saveInterviewPendingApplication(recruitment, "철회");
+        saveMember(round, cancelledApplication, RoundMemberStatus.INVITED, null);
+        applicationRepository.delete(cancelledApplication);
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
+                .when().get(DETAIL_PATH, round.getId())
+                .then().statusCode(HttpStatus.OK.value())
+                .body("data.members", hasSize(1));
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
+                .when().get(LIST_PATH, recruitment.getId())
+                .then().statusCode(HttpStatus.OK.value())
+                .body("data[0].totalMemberCount", equalTo(1))
+                .body("data[0].respondedMemberCount", equalTo(1));
+    }
+
+    @Test
     @DisplayName("라운드가 없는 모집의 목록은 빈 배열을 반환한다")
     void emptyRoundListReturnsEmptyArray() {
         RestAssured.given()

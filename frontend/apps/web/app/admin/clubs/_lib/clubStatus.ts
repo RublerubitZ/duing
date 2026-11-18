@@ -9,10 +9,10 @@ export const STATUS_LABEL: Record<ClubStatus, string> = {
 };
 
 export const STATUS_BADGE_CLASS: Record<ClubStatus, string> = {
-  PENDING_APPROVAL: 'bg-amber-100 text-amber-800',
-  ACTIVE: 'bg-emerald-100 text-emerald-800',
-  INACTIVE: 'bg-slate-200 text-slate-700',
-  REJECTED: 'bg-rose-100 text-rose-800',
+  PENDING_APPROVAL: 'bg-warm/10 text-warm-deep',
+  ACTIVE: 'bg-sage/10 text-sage-deep',
+  INACTIVE: 'bg-line text-charcoal',
+  REJECTED: 'bg-coral/10 text-coral-deep',
 };
 
 /** 운영 중단 동아리의 결과 미정 지원서·대기 가입 신청을 한 번에 끝내는 동작 이름 — 표 버튼과 상태 변경 안내가 같이 쓴다. */

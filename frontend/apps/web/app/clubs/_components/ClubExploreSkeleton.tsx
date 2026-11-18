@@ -88,10 +88,9 @@ export function ClubExploreSkeleton() {
       <div className="md:hidden">
         {/* 본문(ClubExplorePage)이 제목 블록과 sticky 검색 바를 분리해 두었다.
             구조뿐 아니라 높이도 본문 실측에 맞춰야 로딩이 끝나는 순간 검색창이 튀지 않는다 —
-            제목 섹션 내부 50.2px(아이브로우 16.5 + mt-1 4 + h1 29.7), 검색 폼 46px. */}
+            제목 섹션 내부 29.7px(h1 한 줄), 검색 폼 46px. */}
         <section className="bg-cream px-4 pt-page-top pb-4 sm:px-6">
-          <SkeletonBar className="h-4 w-16" />
-          <SkeletonBar className="mt-1.5 h-7 w-32" />
+          <SkeletonBar className="h-[30px] w-32" />
         </section>
         <div className="sticky top-0 z-40 border-b border-line bg-cream/95 px-4 py-2.5 backdrop-blur sm:px-6">
           <div className="h-[46px] w-full rounded-[14px] bg-graysoft" />

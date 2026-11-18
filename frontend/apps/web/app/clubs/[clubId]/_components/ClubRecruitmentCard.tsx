@@ -71,7 +71,7 @@ export function ClubRecruitmentCard({ recruitment, clubId, membership, detailChe
       {/* 찜 버튼은 전 모집 상태 공통으로 카드 우상단에 플로팅한다(aside 가 positioning context). */}
       <FavoriteToggleButton clubId={clubId} size="md" className="absolute right-5 top-5" />
       <div className="rounded-[24px] border border-line bg-paper p-7 shadow-2">
-        <div className="mb-3 text-xs font-bold tracking-wide06 text-ink">
+        <div className="mb-3 text-xs font-bold text-ink">
           {header}
         </div>
         <h3 className="mb-5 whitespace-pre-line font-body text-2xl font-bold text-ink-deep">
@@ -92,12 +92,15 @@ export function ClubRecruitmentCard({ recruitment, clubId, membership, detailChe
               label="모집 대상"
               value={recruitment.targetRole === 'OFFICER' ? '운영진' : '부원'}
             />
-            {recruitment.interviewStartDate && recruitment.interviewEndDate && (
-              <Row
-                label="면접 일정"
-                value={`${recruitment.interviewStartDate} ~ ${recruitment.interviewEndDate}`}
-              />
-            )}
+            {/* 면접을 끄면 서버가 면접 기간을 그대로 둔다(부분 갱신) — 인원의 '(서류)' 와 같은 기준으로 가린다. */}
+            {recruitment.useInterview &&
+              recruitment.interviewStartDate &&
+              recruitment.interviewEndDate && (
+                <Row
+                  label="면접 일정"
+                  value={`${recruitment.interviewStartDate} ~ ${recruitment.interviewEndDate}`}
+                />
+              )}
             {recruitment.applicantCount !== null && (
               <Row
                 label="지원자"
@@ -109,8 +112,8 @@ export function ClubRecruitmentCard({ recruitment, clubId, membership, detailChe
         )}
 
         {recruitment?.targetRole === 'OFFICER' && (
-          <p className="mb-5 rounded-md bg-amber-50 p-3 text-xs text-amber-800">
-            ⚠ 이 모집은 운영진 모집입니다. 이 동아리의 기존 부원만 지원할 수 있습니다.
+          <p className="mb-5 rounded-md bg-warm/10 p-3 text-xs text-warm-deep">
+            이 모집은 운영진 모집입니다. 이 동아리의 기존 부원만 지원할 수 있습니다.
           </p>
         )}
 

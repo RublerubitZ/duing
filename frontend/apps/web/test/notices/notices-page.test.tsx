@@ -257,6 +257,15 @@ describe('NoticesPage', () => {
       expect(mockUseNoticeListQuery).toHaveBeenLastCalledWith(expect.objectContaining({ page: 1 }));
       expect(scrollTo).toHaveBeenCalledWith({ top: 0 });
     });
+
+    it('이전·다음 버튼은 아이콘뿐이라 이름을 따로 갖는다 — 첫 페이지에서는 이전이 꺼져 있다', () => {
+      const items = Array.from({ length: 13 }, (_, index) => makeNoticeItem({ id: index + 1, title: `공지 ${index + 1}` }));
+      mockUseNoticeListQuery.mockReturnValue(makeListResponse(items));
+      render(<NoticesPage />);
+
+      expect(screen.getByRole('button', { name: '이전 페이지' })).toBeDisabled();
+      expect(screen.getByRole('button', { name: '다음 페이지' })).toBeEnabled();
+    });
   });
 });
 

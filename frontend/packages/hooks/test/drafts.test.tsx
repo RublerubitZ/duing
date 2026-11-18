@@ -229,3 +229,37 @@ describe('임시저장 훅 — 저장 후 재조회 없음', () => {
     });
   });
 });
+
+describe('임시저장 훅 — 화면을 떠난 뒤 끝난 저장', () => {
+  it('저장 응답이 화면을 떠난 뒤 오면 저장본 캐시를 새로 만들지 않는다', async () => {
+    let releaseSave: () => void = () => {};
+    const saveGate = new Promise<void>((resolve) => {
+      releaseSave = resolve;
+    });
+    server.use(
+      http.put(`*/recruitments/${RECRUITMENT_ID}/draft`, async () => {
+        await saveGate;
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+    const queryClient = newQueryClient();
+    const { result, unmount } = renderHook(() => useDraftScreen(RECRUITMENT_ID), {
+      wrapper: makeWrapper(queryClient),
+    });
+    await waitFor(() => expect(result.current.draft.isSuccess).toBe(true));
+
+    let savePromise: Promise<void> | undefined;
+    act(() => {
+      savePromise = result.current.save.mutateAsync({ answers: answersOf('나간 뒤 끝난 저장') });
+    });
+    unmount();
+    await act(() => new Promise((resolve) => setTimeout(resolve, 0)));
+    // 응답을 풀기 전에 GC 가 돌았다 — 순서가 바뀌면 가드가 없어도 마지막 단언이 통과한다.
+    expect(queryClient.getQueryState(draftQueryKeys.byRecruitment(RECRUITMENT_ID))).toBeUndefined();
+
+    releaseSave();
+    await act(() => savePromise);
+    // 여기서 쿼리가 새로 생기면 기본 gcTime 5분으로 남아, 다시 들어올 때 이 답으로 폼이 열린다.
+    expect(queryClient.getQueryData(draftQueryKeys.byRecruitment(RECRUITMENT_ID))).toBeUndefined();
+  });
+});

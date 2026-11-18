@@ -52,7 +52,7 @@ export function ApplicantsFilterSheet({ open, onOpenChange, filters, onApply }: 
                   college: isCollege(event.target.value) ? event.target.value : undefined,
                 })
               }
-              className="mt-1.5 w-full rounded-md border border-line bg-paper px-3 py-2 text-sm text-charcoal"
+              className="mt-1.5 w-full rounded-md border border-field bg-paper px-3 py-2 text-sm text-charcoal"
             >
               <option value="">전체</option>
               {COLLEGE_OPTIONS.map((college) => (
@@ -73,7 +73,7 @@ export function ApplicantsFilterSheet({ open, onOpenChange, filters, onApply }: 
                 onChange={(event) =>
                   setDraft({ ...draft, submittedFrom: event.target.value || undefined })
                 }
-                className="min-w-0 flex-1 rounded-md border border-line bg-paper px-3 py-2 text-sm text-charcoal"
+                className="min-w-0 flex-1 rounded-md border border-field bg-paper px-3 py-2 text-sm text-charcoal"
               />
               <span aria-hidden className="text-charcoal-3">
                 ~
@@ -85,7 +85,7 @@ export function ApplicantsFilterSheet({ open, onOpenChange, filters, onApply }: 
                 onChange={(event) =>
                   setDraft({ ...draft, submittedTo: event.target.value || undefined })
                 }
-                className="min-w-0 flex-1 rounded-md border border-line bg-paper px-3 py-2 text-sm text-charcoal"
+                className="min-w-0 flex-1 rounded-md border border-field bg-paper px-3 py-2 text-sm text-charcoal"
               />
             </div>
           </fieldset>

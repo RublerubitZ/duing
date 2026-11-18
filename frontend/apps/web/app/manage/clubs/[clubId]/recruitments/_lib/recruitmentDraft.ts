@@ -72,7 +72,22 @@ export function loadRecruitmentDraft(owner: DraftOwner): RecruitmentDraft | null
   }
 }
 
+// 임시저장을 지우거나 대기 중인 자동 저장을 무효화할 때마다 오르는 세대(문서·탭마다 하나).
+// 그 전에 걸린 자동 저장 타이머가 뒤늦게 돌아 임시저장을 다시 쓰지 않게 한다.
+let clearGeneration = 0;
+
+/** 자동 저장 타이머를 걸 때 잡아 두고, 돌 때 다시 읽어 견주는 값. */
+export function recruitmentDraftClearGeneration(): number {
+  return clearGeneration;
+}
+
+/** 이 시점 전에 걸린 자동 저장을 무효로 한다(저장소는 건드리지 않는다). */
+export function invalidatePendingRecruitmentDraftSaves(): void {
+  clearGeneration += 1;
+}
+
 export function clearRecruitmentDraft(owner: DraftOwner): void {
+  invalidatePendingRecruitmentDraftSaves();
   if (typeof window === 'undefined') return;
   try {
     window.localStorage.removeItem(key(owner));

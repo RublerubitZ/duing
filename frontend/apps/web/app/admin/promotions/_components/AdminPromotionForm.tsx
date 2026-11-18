@@ -15,6 +15,8 @@ import { ButtonSpinner } from '@/components/loading/Spinner';
 import { PALETTE_OPTIONS, PROMOTION_PALETTE } from '../../../_lib/promotionPalette';
 import { ClubSelector } from './ClubSelector';
 import { NoticeSelector } from './NoticeSelector';
+import { Check } from 'lucide-react';
+import { ArrowRight } from '@/components/duing/Icon';
 
 type CreateMode = {
   mode: 'create';
@@ -326,7 +328,7 @@ export function AdminPromotionForm(props: Props) {
           value={state.title}
           onChange={(event) => update('title', event.target.value)}
           required
-          className="w-full px-3.5 py-2 rounded-md border border-line bg-paper text-[14px]"
+          className="w-full px-3.5 py-2 rounded-md border border-field bg-paper text-[14px]"
         />
         {state.renderMode === 'FULL_BLEED_IMAGE' && (
           <p className="mt-1 text-[12px] text-charcoal-3">
@@ -344,7 +346,7 @@ export function AdminPromotionForm(props: Props) {
               value={state.tag}
               onChange={(event) => update('tag', event.target.value)}
               placeholder="EVENT · 9.25 — 9.27"
-              className="w-full px-3.5 py-2 rounded-md border border-line bg-paper text-[14px]"
+              className="w-full px-3.5 py-2 rounded-md border border-field bg-paper text-[14px]"
             />
           </Field>
 
@@ -355,7 +357,7 @@ export function AdminPromotionForm(props: Props) {
               value={state.subtitle}
               onChange={(event) => update('subtitle', event.target.value)}
               placeholder="67개 동아리 · 80개 부스 · 중앙광장"
-              className="w-full px-3.5 py-2 rounded-md border border-line bg-paper text-[14px]"
+              className="w-full px-3.5 py-2 rounded-md border border-field bg-paper text-[14px]"
             />
           </Field>
 
@@ -367,7 +369,7 @@ export function AdminPromotionForm(props: Props) {
                 value={state.ctaLabel}
                 onChange={(event) => update('ctaLabel', event.target.value)}
                 placeholder="박람회 자세히 보기"
-                className="w-full px-3.5 py-2 rounded-md border border-line bg-paper text-[14px]"
+                className="w-full px-3.5 py-2 rounded-md border border-field bg-paper text-[14px]"
               />
             </Field>
             <Field label="이모지 (선택, 1자 권장)">
@@ -377,7 +379,7 @@ export function AdminPromotionForm(props: Props) {
                 value={state.emoji}
                 onChange={(event) => update('emoji', event.target.value)}
                 placeholder="🍂"
-                className="w-full px-3.5 py-2 rounded-md border border-line bg-paper text-[14px]"
+                className="w-full px-3.5 py-2 rounded-md border border-field bg-paper text-[14px]"
               />
             </Field>
           </div>
@@ -399,7 +401,7 @@ export function AdminPromotionForm(props: Props) {
             : '이미지 없이 텍스트+팔레트만으로도 배너 등록이 가능합니다.'}
         </p>
         {imageSizeWarning && (
-          <p className="mt-1 text-[12px] text-amber-600">
+          <p className="mt-1 text-[12px] text-warm-deep">
             {imageSizeWarning}
           </p>
         )}
@@ -413,7 +415,7 @@ export function AdminPromotionForm(props: Props) {
           value={state.imageAltText}
           onChange={(event) => update('imageAltText', event.target.value)}
           placeholder="2026 AI 학과 해커톤 참가자 모집"
-          className="w-full px-3.5 py-2 rounded-md border border-line bg-paper text-[14px]"
+          className="w-full px-3.5 py-2 rounded-md border border-field bg-paper text-[14px]"
         />
         <p className="mt-1 text-[12px] text-charcoal-3">
           이미지가 보이지 않을 때 대신 보여주거나 읽어주는 설명입니다.
@@ -431,13 +433,14 @@ export function AdminPromotionForm(props: Props) {
                 <button
                   key={option.value}
                   type="button"
+                  aria-pressed={selected}
                   onClick={() => update('palette', option.value)}
                   className={`relative h-14 rounded-md border-2 px-3 text-left text-[12px] font-semibold transition-colors ${selected ? 'border-ink' : 'border-line hover:border-charcoal-3'}`}
                   style={{ background: style.bg, color: style.fg }}
                 >
                   {option.label}
                   {selected && (
-                    <span className="absolute top-1 right-1.5 text-[10px] font-bold">✓</span>
+                    <Check size={11} strokeWidth={3} aria-hidden className="absolute right-1.5 top-1.5" />
                   )}
                 </button>
               );
@@ -478,7 +481,7 @@ export function AdminPromotionForm(props: Props) {
             value={state.linkUrl}
             onChange={(event) => update('linkUrl', event.target.value)}
             placeholder="https://..."
-            className="w-full px-3.5 py-2 rounded-md border border-line bg-paper text-[14px]"
+            className="w-full px-3.5 py-2 rounded-md border border-field bg-paper text-[14px]"
           />
         </Field>
       )}
@@ -497,7 +500,7 @@ export function AdminPromotionForm(props: Props) {
             && state.noticeId !== null
             && props.initialValues.notice?.id === state.noticeId
             && props.initialValues.notice?.isAccessible === false && (
-              <p className="mt-1 text-[12px] text-amber-600">
+              <p className="mt-1 text-[12px] text-warm-deep">
                 연결된 공지가 비공개/삭제 상태입니다. 다시 선택하거나 다른 연결을 골라주세요.
               </p>
           )}
@@ -557,7 +560,7 @@ export function AdminPromotionForm(props: Props) {
                 type="datetime-local"
                 value={state.startAt}
                 onChange={(event) => update('startAt', event.target.value)}
-                className="w-full px-3 py-2 rounded-md border border-line bg-paper text-[13.5px]"
+                className="w-full px-3 py-2 rounded-md border border-field bg-paper text-[13.5px]"
               />
             </label>
             <label className="block">
@@ -566,7 +569,7 @@ export function AdminPromotionForm(props: Props) {
                 type="datetime-local"
                 value={state.endAt}
                 onChange={(event) => update('endAt', event.target.value)}
-                className="w-full px-3 py-2 rounded-md border border-line bg-paper text-[13.5px]"
+                className="w-full px-3 py-2 rounded-md border border-field bg-paper text-[13.5px]"
               />
             </label>
             <p className="col-span-1 text-[12px] text-charcoal-3 sm:col-span-2">
@@ -583,7 +586,7 @@ export function AdminPromotionForm(props: Props) {
           value={state.displayOrder}
           onChange={(event) => update('displayOrder', event.target.value)}
           required
-          className="w-32 px-3.5 py-2 rounded-md border border-line bg-paper text-[14px]"
+          className="w-32 px-3.5 py-2 rounded-md border border-field bg-paper text-[14px]"
         />
       </Field>
 
@@ -608,8 +611,8 @@ export function AdminPromotionForm(props: Props) {
               </div>
             )}
             {state.bannerImageUrl && state.imageAltText.trim() === '' && (
-              <span className="absolute right-2 top-2 rounded bg-coral/90 px-2 py-1 text-[11px] font-bold text-paper">
-                ⚠ Alt 미입력
+              <span className="absolute right-2 top-2 rounded bg-danger px-2 py-1 text-[11px] font-bold text-paper">
+                Alt 미입력
               </span>
             )}
           </div>
@@ -618,7 +621,7 @@ export function AdminPromotionForm(props: Props) {
             className="relative flex h-[200px] flex-col justify-between overflow-hidden rounded-xl px-8 py-7"
             style={{
               background: previewStyle.bg,
-              color: hasBannerImage ? '#fff' : previewStyle.fg,
+              color: hasBannerImage ? 'var(--paper)' : previewStyle.fg,
             }}
           >
             {hasBannerImage && (
@@ -658,7 +661,7 @@ export function AdminPromotionForm(props: Props) {
                 className="relative inline-flex items-center gap-2 self-start rounded-full px-3 py-[5px] text-[11.5px] font-extrabold"
                 style={{
                   background: hasBannerImage ? 'rgba(255,255,255,0.95)' : 'rgba(255,255,255,0.14)',
-                  color: hasBannerImage ? '#143025' : previewStyle.accent,
+                  color: hasBannerImage ? 'var(--ink-deep)' : previewStyle.accent,
                 }}
               >
                 {state.tag}
@@ -671,13 +674,14 @@ export function AdminPromotionForm(props: Props) {
               )}
               {state.ctaLabel && (
                 <div
-                  className="mt-3 inline-block rounded-md px-3 py-1.5 text-[12px] font-bold"
+                  className="mt-3 inline-flex items-center gap-1 rounded-md px-3 py-1.5 text-[12px] font-bold"
                   style={{
-                    background: hasBannerImage ? '#9DB6A0' : previewStyle.accent,
-                    color: hasBannerImage ? '#143025' : '#fff',
+                    background: hasBannerImage ? 'var(--sage)' : previewStyle.accent,
+                    color: hasBannerImage ? 'var(--ink-deep)' : 'var(--paper)',
                   }}
                 >
-                  {state.ctaLabel} →
+                  {state.ctaLabel}
+                  <ArrowRight size={12} aria-hidden />
                 </div>
               )}
             </div>

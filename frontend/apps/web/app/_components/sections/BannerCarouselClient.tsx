@@ -11,7 +11,7 @@ import {
 import { cn } from '@/app/_lib/cn';
 import type { CarouselSlide } from '@/app/_lib/promotion';
 // 시안의 배너 화살표는 꼬리 없는 캐럿(‹ ›)이다 — 두잉 Icon 셋엔 꼬리 달린 화살표뿐이라 lucide 것을 쓴다.
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Pause, Play } from 'lucide-react';
 import { SystemComposedSlide } from './banner/SystemComposedSlide';
 import { FullBleedSlide } from './banner/FullBleedSlide';
 
@@ -421,9 +421,7 @@ export function BannerCarouselClient({ slides }: Props) {
               onClick={() => setIsPlaying((prev) => !prev)}
               className="btn btn-ghost btn-sm gap-1.5"
             >
-              <span aria-hidden className="text-sm leading-none">
-                {isPlaying ? '⏸' : '▶'}
-              </span>
+              {isPlaying ? <Pause size={12} aria-hidden /> : <Play size={12} aria-hidden />}
               <span className="text-xs">{isPlaying ? '자동재생 중' : '정지됨'}</span>
             </button>
           </div>

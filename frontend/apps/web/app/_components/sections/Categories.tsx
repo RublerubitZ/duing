@@ -4,6 +4,8 @@ import type { ClubCategory } from '@duing/types';
 import { fetchClubStats } from '@/app/_lib/club-stats';
 import { HOME_CATEGORIES, type HomeCategoryMeta } from '@/app/_lib/homeCategories';
 
+import { CategoryRail } from './CategoryRail';
+
 type CategoryCounts = Partial<Record<ClubCategory, number>>;
 
 export async function Categories() {
@@ -15,7 +17,15 @@ export async function Categories() {
   return (
     <section id="categories" className="scroll-mt-16 pb-12 pt-5 sm:pb-8 sm:pt-14">
       <div className="max-w-layout mx-auto px-4 sm:px-6 md:px-10">
-        <h2 className="mb-6 text-[20px] md:mb-10 md:text-[36px]">내게 맞는 카테고리</h2>
+        <CategoryRail heading={<h2 className="text-[20px] md:text-[36px]">내게 맞는 카테고리</h2>}>
+          {HOME_CATEGORIES.map((category) => (
+            <CategoryCard
+              key={category.value}
+              category={category}
+              count={categoryCounts[category.value]}
+            />
+          ))}
+        </CategoryRail>
 
         {/* 모바일: 4×2 타일 */}
         <div className="grid grid-cols-4 gap-2.5 md:hidden">
@@ -26,19 +36,6 @@ export async function Categories() {
               count={categoryCounts[category.value]}
             />
           ))}
-        </div>
-
-        {/* 데스크탑: 가로 스크롤. 카테고리가 8종이라 한 화면에 4~5개만 보이고 나머지는 밀어서 본다. */}
-        <div className="hidden overflow-x-auto pb-3 md:block">
-          <div className="flex w-max gap-6">
-            {HOME_CATEGORIES.map((category) => (
-              <CategoryCard
-                key={category.value}
-                category={category}
-                count={categoryCounts[category.value]}
-              />
-            ))}
-          </div>
         </div>
       </div>
     </section>
@@ -64,6 +61,7 @@ function CategoryCard({
       href={`/clubs?category=${category.value}`}
       aria-label={categoryLinkLabel(category, count)}
       // 네이티브 앵커 드래그가 가로 스크롤 제스처를 끊지 않도록 막는다.
+      // 폭 264 를 바꾸면 CategoryRail 의 CARD_STEP_PX(264 + 간격 24)도 함께 바꾼다 — 버튼의 이동량이 여기에 맞춰져 있다.
       draggable={false}
       className="group relative flex h-[194px] w-[264px] shrink-0 flex-col justify-between overflow-hidden rounded-[18px] bg-paper p-[22px] forced-colors:border text-inherit no-underline transition duration-250 ease-duing hover:-translate-y-1 hover:shadow-3 motion-reduce:transition-none"
     >

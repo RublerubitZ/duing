@@ -113,6 +113,23 @@ public class ClubAuditEventRepositoryImpl implements ClubAuditEventRepositoryCus
                 row -> row.get(clubAuditEvent.count())));
     }
 
+    @Override
+    public long countDistinctClubsBetween(Collection<ClubAuditEventType> types, LocalDateTime createdFrom,
+                                          LocalDateTime createdTo) {
+        // 대상 종류가 하나도 없으면 셀 것도 없다 — 빈 IN 절 쿼리를 DB 로 내보내지 않는다.
+        if (types == null || types.isEmpty()) {
+            return 0L;
+        }
+        Long clubCount = queryFactory
+                .select(clubAuditEvent.clubId.countDistinct())
+                .from(clubAuditEvent)
+                .where(clubAuditEvent.eventType.in(types),
+                        clubAuditEvent.createdAt.goe(createdFrom),
+                        clubAuditEvent.createdAt.lt(createdTo))
+                .fetchOne();
+        return clubCount == null ? 0L : clubCount;
+    }
+
     private static boolean isEmptyScope(Long clubId, Collection<ClubAuditEventType> types) {
         Objects.requireNonNull(clubId, "clubId must not be null");
         // 대상 종류가 하나도 없으면 셀 것도 없다 — 빈 IN 절 쿼리를 DB 로 내보내지 않는다.

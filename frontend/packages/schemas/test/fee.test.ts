@@ -1,10 +1,36 @@
 import { describe, it, expect } from 'vitest';
 import {
+  createFeePolicySchema,
   feeAccountSchema,
   generateBillsSchema,
   recordPaymentSchema,
   toGenerateBillsPayload,
 } from '../src/index';
+
+describe('createFeePolicySchema — 안내 문구', () => {
+  const validPolicy = {
+    name: '정기 회비',
+    amount: '10000',
+    billingType: 'MONTHLY',
+    targetType: 'ALL_MEMBERS',
+    autoIssue: false,
+  } as const;
+
+  it('유효한 정책은 통과한다', () => {
+    expect(createFeePolicySchema.safeParse(validPolicy).success).toBe(true);
+  });
+
+  it.each([
+    { field: 'amount', invalidValue: 'abc', message: '금액은 숫자여야 합니다.' },
+    { field: 'billingType', invalidValue: '', message: '회비 유형을 선택해주세요.' },
+    { field: 'targetType', invalidValue: '', message: '청구 대상을 선택해주세요.' },
+    { field: 'issueDay', invalidValue: 'abc', message: '발행일은 숫자여야 합니다.' },
+    { field: 'dueDay', invalidValue: 'abc', message: '마감일은 숫자여야 합니다.' },
+  ])('$field 가 잘못되면 $message 로 안내한다', ({ field, invalidValue, message }) => {
+    const parsed = createFeePolicySchema.safeParse({ ...validPolicy, [field]: invalidValue });
+    expect(parsed.error?.issues).toEqual([expect.objectContaining({ path: [field], message })]);
+  });
+});
 
 describe('generateBillsSchema (discriminatedUnion)', () => {
   it('MONTHLY 는 회차만 필수다', () => {
@@ -148,6 +174,19 @@ describe('recordPaymentSchema', () => {
       recordPaymentSchema.safeParse({ amount: 1000, method: 'CASH', paidAt: '' }).success,
     ).toBe(false);
   });
+
+  it.each([
+    { field: 'amount', invalidValue: 'abc', message: '납부 금액을 입력해 주세요.' },
+    { field: 'method', invalidValue: '', message: '납부 수단을 선택해 주세요.' },
+  ])('$field 가 잘못되면 $message 로 안내한다', ({ field, invalidValue, message }) => {
+    const parsed = recordPaymentSchema.safeParse({
+      amount: 1000,
+      method: 'CASH',
+      paidAt: '2026-06-17',
+      [field]: invalidValue,
+    });
+    expect(parsed.error?.issues).toEqual([expect.objectContaining({ path: [field], message })]);
+  });
 });
 
 describe('feeAccountSchema', () => {
@@ -169,6 +208,13 @@ describe('feeAccountSchema', () => {
         accountHolder: '홍길동',
       }).success,
     ).toBe(false);
+  });
+
+  it('은행을 고르지 않으면(빈 값) "은행을 선택해주세요." 로 안내한다', () => {
+    const parsed = feeAccountSchema.safeParse({ bank: '', accountNumber: '12345', accountHolder: '홍길동' });
+    expect(parsed.error?.issues).toEqual([
+      expect.objectContaining({ path: ['bank'], message: '은행을 선택해주세요.' }),
+    ]);
   });
 
   it('계좌번호에 숫자·하이픈 외 문자가 있으면 거부한다', () => {

@@ -5,6 +5,7 @@ import { useParams } from 'next/navigation';
 import { formatDateTimeKst, useClubNoticeDetailQuery } from '@duing/hooks';
 import { toRoute } from '@/app/_lib/route';
 import { TextLinesSkeleton } from '@/components/loading/Skeleton';
+import { ArrowLeft } from '@/components/duing/Icon';
 import { ImageWithFallback } from '@/app/_components/ImageWithFallback';
 import { NoticeContent } from '@/app/notices/_components/NoticeContent';
 
@@ -35,9 +36,10 @@ function MemberNoticeDetail({ clubId, noticeId }: Props) {
         <p className="text-sm text-coral-deep">공지를 불러오지 못했습니다.</p>
         <Link
           href={toRoute(`/clubs/${clubId}/member/notices`)}
-          className="mt-4 inline-block text-sm text-ink"
+          className="mt-4 inline-flex items-center gap-1 text-sm text-ink"
         >
-          ← 목록으로
+          <ArrowLeft size={14} aria-hidden />
+          목록으로
         </Link>
       </div>
     );
@@ -47,9 +49,10 @@ function MemberNoticeDetail({ clubId, noticeId }: Props) {
     <article className="mx-auto max-w-3xl px-6 py-10">
       <Link
         href={toRoute(`/clubs/${clubId}/member/notices`)}
-        className="mb-4 inline-block text-sm text-charcoal-2 hover:text-ink"
+        className="mb-4 inline-flex items-center gap-1 text-sm text-charcoal-2 hover:text-ink"
       >
-        ← 목록으로
+        <ArrowLeft size={14} aria-hidden />
+        목록으로
       </Link>
       <h1 className="text-xl font-bold text-ink">{notice.title}</h1>
       <p className="mt-2 text-xs text-charcoal-3">

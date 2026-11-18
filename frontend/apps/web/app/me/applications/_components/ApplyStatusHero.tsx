@@ -8,14 +8,6 @@ export function ApplyStatusHero() {
     <section style={{ padding: `26px ${PAGE_PAD} 0` }}>
       <div style={{ maxWidth: PAGE_MAX, margin: '0 auto' }}>
         <div style={{
-          fontSize: 11.5, fontWeight: 600,
-          color: 'var(--charcoal-3)',
-          marginBottom: 14,
-          letterSpacing: '0.02em',
-        }}>
-          MY · 지원현황
-        </div>
-        <div style={{
           display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 24,
         }}>
           <div>
@@ -29,7 +21,7 @@ export function ApplyStatusHero() {
               whiteSpace: 'nowrap',
             }}>
               지원현황
-              <SparkleFull size={20} color="#9DB6A0" style={{ display: 'inline-block', transform: 'translateY(2px)' }} />
+              <SparkleFull size={20} color="var(--sage)" style={{ display: 'inline-block', transform: 'translateY(2px)' }} />
             </h1>
             <p style={{
               fontSize: 13, color: 'var(--charcoal-2)',

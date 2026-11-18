@@ -10,7 +10,7 @@ import {
 
 const OTHER_WARN_THRESHOLD = 0.15;
 const NORMAL_BAR_COLOR = 'var(--sage)';
-const WARN_BAR_COLOR = '#D97757';
+const WARN_BAR_COLOR = 'var(--coral)';
 
 export function AdminGlobalEventCategoryStats() {
   const statsQuery = useGlobalEventCategoryStatsQuery();
@@ -77,7 +77,7 @@ export function AdminGlobalEventCategoryStats() {
       </ul>
       {otherIsAbove && (
         <p className="mt-3 text-[12px] text-coral-deep">
-          ⚠️ OTHER 비율이 {Math.round(otherRatio * 100)}% 입니다 — 적합한 카테고리 추가 검토가 필요합니다.
+          OTHER 비율이 {Math.round(otherRatio * 100)}% 입니다 — 적합한 카테고리 추가 검토가 필요합니다.
         </p>
       )}
     </div>

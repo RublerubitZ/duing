@@ -47,7 +47,7 @@ public class FacilityBookingException extends ApplicationException {
         }
     }
 
-    /** 당일 신청 중 첫 1시간이 완전히 지난 슬롯(기술 검증). create 경로에서는 마감 정책이 선행해 도달하지 않는다. */
+    /** 당일 신청 중 이미 시작한 시간대(시작 ≤ 지금)를 고른 경우(기술 검증 — BookingPolicyValidator). */
     public static class PastSlotException extends FacilityBookingException {
         public PastSlotException() {
             super("이미 지난 시간대는 신청할 수 없어요.", HttpStatus.BAD_REQUEST);
@@ -99,15 +99,6 @@ public class FacilityBookingException extends ApplicationException {
     public static class ArchivedFacilityConflictException extends FacilityBookingException {
         public ArchivedFacilityConflictException() {
             super("이용이 중단된 시설이라 승인·확정할 수 없습니다.", HttpStatus.CONFLICT);
-        }
-    }
-
-    /** 신청 마감(설계 spec 2026-07-18 §1) — 사용일 전날 12:01(KST)부터 거부. */
-    public static class DeadlinePassedException extends FacilityBookingException {
-        public static final String CODE = "FACILITY_BOOKING_DEADLINE_PASSED";
-
-        public DeadlinePassedException() {
-            super("시설 사용일 전날 12:00까지만 신청할 수 있어요.", HttpStatus.BAD_REQUEST, CODE);
         }
     }
 

@@ -58,7 +58,7 @@ describe('RecruitmentPreview', () => {
     );
     expect(screen.getByText('외부 폼으로 지원해요')).toBeInTheDocument();
     expect(screen.getByText('forms.gle/abc')).toBeInTheDocument();
-    expect(screen.getByText('지원 폼 열기 →')).toBeInTheDocument();
+    expect(screen.getByText('지원 폼 열기')).toBeInTheDocument();
     expect(screen.queryByText('지원 동기를 알려주세요')).not.toBeInTheDocument();
   });
 

@@ -47,7 +47,7 @@ function SectionHeader({ title, moreHref }: { title: string; moreHref: `/${strin
     <div className="mb-4 flex items-center justify-between">
       <h3 className="text-base font-bold text-ink-deep">{title}</h3>
       <Link href={toRoute(moreHref)} className="text-[13px] font-semibold text-charcoal-2 hover:text-ink">
-        전체 보기 →
+        전체 보기
       </Link>
     </div>
   );

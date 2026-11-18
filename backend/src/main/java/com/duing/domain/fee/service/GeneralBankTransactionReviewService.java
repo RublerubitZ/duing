@@ -25,6 +25,7 @@ import java.time.Clock;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -166,15 +167,22 @@ public class GeneralBankTransactionReviewService implements BankTransactionRevie
         }
 
         // 연결된 활성 납부를 정정(VOID)하고 청구 상태를 재산출한다(Sprint 2 정정 경로와 동일: 청구 잠금·void·재계산).
-        // 1차 조회는 잠글 청구를 알아내기 위함이다.
-        Payment lookup = paymentRepository.findByBankTransactionIdAndStatus(txId, PaymentStatus.ACTIVE)
-                .orElseThrow(BankMatchingException.MatchedPaymentNotFoundException::new);
-        FeeBill bill = feeBillRepository.findByIdAndClubIdForUpdate(lookup.getFeeBillId(), clubId)
+        // 1차 조회는 잠글 청구를 알아내기 위함이다. 청구의 납부 내역에서 먼저 정정했다면 여기서 비어 있다.
+        Optional<Payment> lookup = paymentRepository.findByBankTransactionIdAndStatus(txId, PaymentStatus.ACTIVE);
+        if (lookup.isEmpty()) {
+            releaseVoidedMatch(clubId, actorId, transaction);
+            return;
+        }
+        FeeBill bill = feeBillRepository.findByIdAndClubIdForUpdate(lookup.get().getFeeBillId(), clubId)
                 .orElseThrow(FeeBillException.FeeBillNotFoundException::new);
-        // 청구 잠금 획득 후 활성 납부를 재조회한다. 동시 수동 정정이 먼저 커밋됐다면 여기서 VOIDED 로 보여
-        // 매칭취소가 멱등 no-op 처리되어 기존 정정 메타데이터(voidedBy/voidedAt/reason)를 덮어쓰지 않는다.
-        Payment payment = paymentRepository.findByBankTransactionIdAndStatus(txId, PaymentStatus.ACTIVE)
-                .orElseThrow(BankMatchingException.MatchedPaymentNotFoundException::new);
+        // 청구 잠금 획득 후 활성 납부를 재조회한다. 동시 수동 정정이 먼저 커밋됐다면 여기서 비어 있으므로
+        // 기존 정정 메타데이터(voidedBy/voidedAt/reason)를 덮어쓰지 않고 거래만 되돌린다.
+        Optional<Payment> activePayment = paymentRepository.findByBankTransactionIdAndStatus(txId, PaymentStatus.ACTIVE);
+        if (activePayment.isEmpty()) {
+            releaseVoidedMatch(clubId, actorId, transaction);
+            return;
+        }
+        Payment payment = activePayment.get();
 
         payment.voidPayment(actorId, UNMATCH_REASON, Instant.now(clock));
         long activePaid = paymentRepository.sumActiveByFeeBillId(bill.getId());
@@ -182,8 +190,8 @@ public class GeneralBankTransactionReviewService implements BankTransactionRevie
         transaction.resetToPending();
 
         // 매칭취소는 납부 정정을 엔티티에서 직접 호출해 GeneralPaymentService 계측을 타지 않으므로,
-        // 거래 매칭취소와 납부 정정 두 건을 여기서 함께 남긴다(스펙 §4). 동시 정정으로 이미 VOIDED 인
-        // 경우는 위 재조회에서 예외로 빠지므로 이 지점에는 실제 전이가 일어난 호출만 도달한다.
+        // 거래 매칭취소와 납부 정정 두 건을 여기서 함께 남긴다(스펙 §4). 이미 정정된 납부는 위에서
+        // releaseVoidedMatch 로 빠지므로 이 지점에는 실제 전이가 일어난 호출만 도달한다.
         clubAuditEventRepository.save(ClubAuditEvent.feeTransaction(
                 ClubAuditEventType.FEE_TX_UNMATCHED, clubId, txId, bill.getId(), actorId));
         clubAuditEventRepository.save(ClubAuditEvent.feePayment(
@@ -192,5 +200,19 @@ public class GeneralBankTransactionReviewService implements BankTransactionRevie
 
         log.info("bank transaction unmatched: actorId={}, clubId={}, txId={}, billId={}, paymentId={}, newStatus={}",
                 actorId, clubId, txId, bill.getId(), payment.getId(), newStatus);
+    }
+
+    /**
+     * 연결 납부가 이미 정정된 매칭을 푼다 — 청구의 납부 내역에서 먼저 취소했거나 동시 정정이 먼저 커밋된 경우다.
+     * 납부 정정 감사와 청구 상태 재산출은 그 정정(voidPayment)이 이미 했으니 거래만 PENDING 으로 되돌리고
+     * 매칭취소 감사만 남긴다. 정정 쪽에서 거래를 되돌리지 않는 이유: 청구→거래 잠금이 되어 매칭·매칭취소(거래→청구)와 교착한다.
+     */
+    private void releaseVoidedMatch(Long clubId, Long actorId, BankTransaction transaction) {
+        Long matchedFeeBillId = transaction.getMatchedFeeBillId(); // resetToPending 이 비우므로 먼저 읽는다
+        transaction.resetToPending();
+        clubAuditEventRepository.save(ClubAuditEvent.feeTransaction(
+                ClubAuditEventType.FEE_TX_UNMATCHED, clubId, transaction.getId(), matchedFeeBillId, actorId));
+        log.info("bank transaction unmatched (payment already voided): actorId={}, clubId={}, txId={}, billId={}",
+                actorId, clubId, transaction.getId(), matchedFeeBillId);
     }
 }

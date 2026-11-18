@@ -10,6 +10,7 @@ import {
 import { extractErrorMessage } from '@/app/_lib/extractErrorMessage';
 import { LoadingGate } from '@/components/loading/LoadingGate';
 import { FaqCategoryDeleteDialog } from './FaqCategoryDeleteDialog';
+import { ChevronDown, ChevronUp } from 'lucide-react';
 
 // 카테고리 관리 카드 — 목록 상단 접이식. 이름 인라인 수정 + 순서 위/아래(인접 sortOrder 교환,
 // update 2회 순차 호출) + 신규 생성 + 삭제(빈 카테고리는 즉시, FAQ 보유 시 이관 대상 선택).
@@ -136,7 +137,7 @@ export function FaqCategoryManager() {
                   value={editingName}
                   maxLength={50}
                   onChange={(event) => setEditingName(event.target.value)}
-                  className="flex-1 rounded-md border border-line bg-paper px-2.5 py-1.5 text-[13px]"
+                  className="flex-1 rounded-md border border-field bg-paper px-2.5 py-1.5 text-[13px]"
                 />
               ) : (
                 <span className="flex-1 text-[13px] text-charcoal">{category.name}</span>
@@ -149,14 +150,18 @@ export function FaqCategoryManager() {
                   disabled={index === 0 || updateMutation.isPending}
                   aria-label="카테고리 위로 이동"
                   className="grid h-7 w-7 place-items-center rounded text-charcoal-2 hover:bg-graysoft disabled:opacity-30"
-                >▲</button>
+                >
+                  <ChevronUp size={14} aria-hidden />
+                </button>
                 <button
                   type="button"
                   onClick={() => moveCategory(index, 'down')}
                   disabled={index === categories.length - 1 || updateMutation.isPending}
                   aria-label="카테고리 아래로 이동"
                   className="grid h-7 w-7 place-items-center rounded text-charcoal-2 hover:bg-graysoft disabled:opacity-30"
-                >▼</button>
+                >
+                  <ChevronDown size={14} aria-hidden />
+                </button>
                 <button
                   type="button"
                   onClick={() => {
@@ -194,7 +199,7 @@ export function FaqCategoryManager() {
               maxLength={50}
               onChange={(event) => setNewName(event.target.value)}
               placeholder="새 카테고리 이름"
-              className="flex-1 rounded-md border border-line bg-paper px-2.5 py-1.5 text-[13px]"
+              className="flex-1 rounded-md border border-field bg-paper px-2.5 py-1.5 text-[13px]"
             />
             <button
               type="button"

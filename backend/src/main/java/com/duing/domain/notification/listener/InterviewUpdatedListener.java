@@ -1,6 +1,7 @@
 package com.duing.domain.notification.listener;
 
 import com.duing.domain.application.entity.Application;
+import com.duing.domain.application.entity.ApplicationStatus;
 import com.duing.domain.application.repository.ApplicationRepository;
 import com.duing.domain.interview.entity.InterviewSlot;
 import com.duing.domain.interview.event.InterviewUpdatedEvent;
@@ -48,6 +49,12 @@ public class InterviewUpdatedListener {
                         event.applicationId());
                 return;
             }
+            // 결과가 정해진 지원자에게는 면접 단계가 없다 — 지원자 화면(ApplicantInterviewPhase)·하루 전 리마인더와 같은 기준.
+            if (application.getStatus() != ApplicationStatus.INTERVIEW_PENDING) {
+                log.debug("INTERVIEW_UPDATED 알림 생략 — 결과가 정해진 지원: applicationId={}, status={}",
+                        event.applicationId(), application.getStatus());
+                return;
+            }
 
             InterviewSlot slot = interviewSlotRepository.findById(event.slotId())
                     .orElse(null);
@@ -60,7 +67,10 @@ public class InterviewUpdatedListener {
             String clubName = application.getRecruitment().getClub().getName();
             String slotStartTime = slot.getStartTime().format(SLOT_TIME_FORMATTER);
 
-            String dedupKey = "INTERVIEW_UPDATED:a=" + event.applicationId() + ":s=" + event.slotId();
+            // 일정 행 id 를 넣는다 — 옮길 때마다 새 행이라 왕복(A→B→A→B)의 마지막 B 도 새 키이고, 같은 이벤트를 다시 받으면 같은 키다.
+            // 한 행이 가리키는 시각은 바뀌지 않는다 — 배정이 있는 슬롯은 시간 변경이 막혀 있다(GeneralInterviewSlotService#updateSlot).
+            String dedupKey = "INTERVIEW_UPDATED:a=" + event.applicationId() + ":s=" + event.slotId()
+                    + ":sch=" + event.scheduleId();
             String title = clubName + " 면접 일정이 변경되었어요";
             String body = slotStartTime + "으로 일정이 변경되었습니다";
             String linkUrl = "/me/applications/" + event.applicationId();

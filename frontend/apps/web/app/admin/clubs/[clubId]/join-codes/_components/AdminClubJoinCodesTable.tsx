@@ -100,7 +100,6 @@ export function AdminClubJoinCodesTable({ clubId, highlightJoinCodeId = null }: 
     return (
       <ConsoleCard>
         <EmptyState
-          icon="🔗"
           title="발급된 가입 링크가 없어요"
           body={'이 동아리가 만든 모집 가입 링크·부원 초대 링크가 아직 없습니다.'}
         />
@@ -238,7 +237,7 @@ export function AdminClubJoinCodesTable({ clubId, highlightJoinCodeId = null }: 
             disabled={forceRevoke.isPending}
             rows={4}
             placeholder="예) 유출 신고가 접수돼 링크를 차단"
-            className="min-h-[72px] w-full rounded-md border border-line bg-paper px-3 py-2 text-sm text-charcoal placeholder:text-charcoal-3 focus-visible:border-ink focus-visible:outline-none"
+            className="min-h-[72px] w-full rounded-md border border-field bg-paper px-3 py-2 text-sm text-charcoal placeholder:text-charcoal-3 focus-visible:border-ink focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ink/15"
           />
           <div
             id="join-code-revoke-reason-hint"

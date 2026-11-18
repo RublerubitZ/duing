@@ -8,6 +8,10 @@ describe('shouldRetryQuery', () => {
     expect(shouldRetryQuery(0, new ApiError(403, '권한 없음'))).toBe(false);
   });
 
+  it('429(요청 한도)는 재시도하지 않는다 — 서버의 창이 그대로라 다시 429 가 되고 거절 건수만 늘어난다', () => {
+    expect(shouldRetryQuery(0, new ApiError(429, '요청이 너무 많습니다.'))).toBe(false);
+  });
+
   it('TIMEOUT 은 재시도하지 않는다 — 이미 분류별 타임아웃만큼 대기했으므로 재시도는 체감 대기를 배가시킨다', () => {
     expect(shouldRetryQuery(0, new ApiError(0, TIMEOUT_ERROR_MESSAGE, undefined, 'TIMEOUT'))).toBe(false);
   });
@@ -47,10 +51,11 @@ describe('retryUnlessStatuses', () => {
     expect(retryUnlessNotFound(1, networkError)).toBe(false);
   });
 
-  it('전역 비재시도(401·403·TIMEOUT)가 우선한다 — status 를 넘기지 않아도 재시도하지 않는다', () => {
+  it('전역 비재시도(401·403·429·TIMEOUT)가 우선한다 — status 를 넘기지 않아도 재시도하지 않는다', () => {
     const retryUnlessNotFound = retryUnlessStatuses(404);
     expect(retryUnlessNotFound(0, new ApiError(401, '인증 필요'))).toBe(false);
     expect(retryUnlessNotFound(0, new ApiError(403, '권한 없음'))).toBe(false);
+    expect(retryUnlessNotFound(0, new ApiError(429, '요청 과다'))).toBe(false);
     expect(
       retryUnlessNotFound(0, new ApiError(0, TIMEOUT_ERROR_MESSAGE, undefined, 'TIMEOUT')),
     ).toBe(false);
@@ -65,9 +70,10 @@ describe('retryUnlessStatuses', () => {
 });
 
 describe('isNonRetryableError', () => {
-  it('401·403·TIMEOUT 만 true', () => {
+  it('401·403·429·TIMEOUT 만 true', () => {
     expect(isNonRetryableError(new ApiError(401, 'x'))).toBe(true);
     expect(isNonRetryableError(new ApiError(403, 'x'))).toBe(true);
+    expect(isNonRetryableError(new ApiError(429, 'x'))).toBe(true);
     expect(isNonRetryableError(new ApiError(0, 'x', undefined, 'TIMEOUT'))).toBe(true);
     expect(isNonRetryableError(new ApiError(0, 'x', undefined, 'NETWORK'))).toBe(false);
     expect(isNonRetryableError(new ApiError(404, 'x'))).toBe(false);

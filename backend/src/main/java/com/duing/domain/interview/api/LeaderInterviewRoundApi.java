@@ -7,6 +7,7 @@ import com.duing.domain.interview.controller.dto.response.CreateInterviewRoundRe
 import com.duing.domain.interview.controller.dto.response.RoundCandidateResponse;
 import com.duing.domain.interview.controller.dto.response.RoundDetailResponse;
 import com.duing.domain.interview.controller.dto.response.RoundSummaryResponse;
+import com.duing.domain.interview.entity.RoundStatus;
 import com.duing.global.auth.UserPrincipal;
 import com.duing.global.response.ApiResponse;
 import io.swagger.v3.oas.annotations.Operation;
@@ -64,6 +65,7 @@ public interface LeaderInterviewRoundApi {
     @Operation(
             summary = "면접 라운드 발송 (Availability 요청)",
             description = "준비 중(DRAFT) 라운드를 응답 수집(COLLECTING) 상태로 전환하고 초대된 전원에게 가능 시간 선택 알림을 보낸다 — wizard Step4. "
+                    + "결과가 정해진 지원자는 알림에서 빠지며, 응답의 인원(notifiedMemberCount)은 대상 멤버 수다. "
                     + "가드: 슬롯 1개 이상 + 초대 상태 대상자 1명 이상 + 마감 시각 설정(미래). 충족하지 못하면 409/400. "
                     + "이미 발송됐거나 취소된 라운드는 409."
     )
@@ -76,6 +78,7 @@ public interface LeaderInterviewRoundApi {
     @Operation(
             summary = "면접 라운드 재알림",
             description = "응답 수집 중(COLLECTING) 라운드의 미응답 대상자에게 새 회차로 알림을 재발송한다. "
+                    + "결과가 정해진 지원자는 알림에서 빠지며, 응답의 인원(notifiedMemberCount)은 대상 멤버 수다. "
                     + "마감 경과 여부와 무관하게 가능하다. 미응답 대상자가 없으면 409."
     )
     @PostMapping("/leader/interview-rounds/{roundId}/remind")
@@ -99,7 +102,9 @@ public interface LeaderInterviewRoundApi {
     @Operation(
             summary = "면접 라운드 상세 dashboard",
             description = "상태별 카운트 카드, 멤버 테이블(파생 미응답 — 마감 경과 && 초대 상태, 가능 슬롯 없음 멤버의 대체 가능시간 텍스트, "
-                    + "선택 슬롯 수, 배정 슬롯), 슬롯 목록(시작 시각 오름차순, 슬롯별 선택/배정 수)을 반환한다."
+                    + "선택 슬롯 수, 배정 슬롯), 슬롯 목록(시작 시각 오름차순, 슬롯별 선택/배정 수)을 반환한다. "
+                    + "멤버의 applicationResult — 그 지원서의 현재 결과. 합격·불합격이면 그 값(ACCEPTED·REJECTED), 아니면 null. "
+                    + "멤버 상태나 제외 이유와 상관없이 실린다(운영진이 먼저 뺀 뒤 결과를 정한 멤버도 결과가 실린다)."
     )
     @GetMapping("/leader/interview-rounds/{roundId}")
     ResponseEntity<ApiResponse<RoundDetailResponse>> getRoundDetail(
@@ -123,11 +128,15 @@ public interface LeaderInterviewRoundApi {
             summary = "면접 라운드 취소",
             description = "라운드를 취소한다 (발송 전·응답 수집·배정 검토 단계). draft 배정이 정리되고 멤버 지원서는 "
                     + "면접 대상 상태 그대로 후보 대기열로 복귀한다 — 새 라운드에서 재선정하면 된다. "
-                    + "확정된 라운드는 터미널이라 취소할 수 없다. 취소 알림은 발송되지 않는다."
+                    + "확정된 라운드는 터미널이라 취소할 수 없다. 취소 알림은 발송되지 않는다. "
+                    + "expectedRoundStatus(선택) — 요청자가 화면에서 본 라운드 단계. 있고 실제 단계와 다르면 409(라운드 단계가 바뀜). "
+                    + "없으면 검사하지 않는다. 초안만 취소하려는 화면(예: 라운드 만들기의 작성 중 라운드 폐기)은 DRAFT 를 싣는다."
     )
     @PostMapping("/leader/interview-rounds/{roundId}/cancel")
     ResponseEntity<ApiResponse<Void>> cancelRound(
             @PathVariable Long roundId,
+            @Parameter(description = "요청자가 화면에서 본 라운드 단계 — 실제 단계와 다르면 409. 빈 값은 없는 것과 같다(검사하지 않음)", example = "DRAFT")
+            @RequestParam(required = false) RoundStatus expectedRoundStatus,
             @Parameter(hidden = true) @AuthenticationPrincipal UserPrincipal currentUser
     );
 }

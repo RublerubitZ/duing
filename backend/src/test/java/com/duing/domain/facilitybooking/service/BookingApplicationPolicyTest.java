@@ -21,12 +21,8 @@ import org.junit.jupiter.api.Test;
 class BookingApplicationPolicyTest {
 
     private static final ZoneId SEOUL = ZoneId.of("Asia/Seoul");
-    // KST 2026-01-10 12:30 — 창 상한 = 익월 말일(2/28). 12:01 이후라 익일(1/11) 사용분은 마감 상태.
+    // KST 2026-01-10 12:30 — 창 상한 = 익월 말일(2/28). 옛 신청 마감(사용일 전날 12:00)이 지난 시각이다.
     private static final Clock AFTERNOON = Clock.fixed(Instant.parse("2026-01-10T03:30:00Z"), SEOUL);
-    // KST 2026-01-10 12:00:59 — 마감 경계 직전(익일 사용분 아직 신청 가능)
-    private static final Clock BOUNDARY_ALLOWED = Clock.fixed(Instant.parse("2026-01-10T03:00:59Z"), SEOUL);
-    // KST 2026-01-10 12:01:00 — 마감 경계 도달
-    private static final Clock BOUNDARY_REJECTED = Clock.fixed(Instant.parse("2026-01-10T03:01:00Z"), SEOUL);
 
     private static final LocalDate TODAY = LocalDate.of(2026, 1, 10);
     private static final LocalDate NEXT_MONTH_END = LocalDate.of(2026, 2, 28);
@@ -36,7 +32,7 @@ class BookingApplicationPolicyTest {
         return new BookingApplicationPolicy(clock);
     }
 
-    /** 오픈일이 과거인 시설 — 창 판정이 오늘로 clamp 되어 창 외 정책(마감·자격·역할)만 남는다. */
+    /** 오픈일이 과거인 시설 — 창 판정이 오늘로 clamp 되어 창 외 정책(자격·역할)만 남는다. */
     private static Facility openedFacility() {
         return facilityWithOpenDate(LocalDate.of(2020, 1, 1));
     }
@@ -60,8 +56,8 @@ class BookingApplicationPolicyTest {
     }
 
     @Test
-    @DisplayName("중앙동아리 회장·운영진은 마감 전 창 내부 날짜를 신청할 수 있다")
-    void centralManagerWithinWindowBeforeDeadlinePasses() {
+    @DisplayName("중앙동아리 회장·운영진은 창 내부 날짜를 신청할 수 있다")
+    void centralManagerWithinWindowPasses() {
         BookingApplicationPolicy policy = policyAt(AFTERNOON);
         Facility facility = openedFacility();
         Club club = centralClub();
@@ -137,29 +133,16 @@ class BookingApplicationPolicyTest {
     }
 
     @Test
-    @DisplayName("당일과 마감 지난 익일 사용분은 DEADLINE_PASSED 로 거부된다")
-    void sameDayAndPastDeadlineTomorrowAreRejected() {
+    @DisplayName("사용일 전날 12:00 이 지나도 익일·당일 사용분을 신청할 수 있다 — 신청 마감이 없다")
+    void tomorrowAndTodayAreAllowedAfterNoon() {
         BookingApplicationPolicy policy = policyAt(AFTERNOON); // 12:30
         Facility facility = openedFacility();
         Club club = centralClub();
         ClubMember leader = memberOf(club, ClubMemberRole.LEADER);
-        assertThatThrownBy(() -> policy.validateApplication(facility, club, leader, TODAY))
-                .isInstanceOf(FacilityBookingException.DeadlinePassedException.class);
-        assertThatThrownBy(() -> policy.validateApplication(facility, club, leader, TODAY.plusDays(1)))
-                .isInstanceOf(FacilityBookingException.DeadlinePassedException.class);
-    }
-
-    @Test
-    @DisplayName("마감 경계 — 전날 12:00:59에는 신청되고 12:01:00에는 거부된다")
-    void deadlineBoundaryIsMinutePrecise() {
-        Facility facility = openedFacility();
-        Club club = centralClub();
-        ClubMember leader = memberOf(club, ClubMemberRole.LEADER);
-        LocalDate tomorrow = TODAY.plusDays(1);
-        assertThatCode(() -> policyAt(BOUNDARY_ALLOWED).validateApplication(facility, club, leader, tomorrow))
+        assertThatCode(() -> policy.validateApplication(facility, club, leader, TODAY.plusDays(1)))
                 .doesNotThrowAnyException();
-        assertThatThrownBy(() -> policyAt(BOUNDARY_REJECTED).validateApplication(facility, club, leader, tomorrow))
-                .isInstanceOf(FacilityBookingException.DeadlinePassedException.class);
+        assertThatCode(() -> policy.validateApplication(facility, club, leader, TODAY))
+                .doesNotThrowAnyException();
     }
 
     @Test
@@ -173,13 +156,13 @@ class BookingApplicationPolicyTest {
     }
 
     @Test
-    @DisplayName("오류 우선순위 — 마감된 날짜면 자격·권한 문제보다 마감 오류가 먼저다")
-    void deadlineErrorPrecedesPermissionErrors() {
+    @DisplayName("오류 우선순위 — 당일 날짜는 창 안이라 일반동아리 일반회원에게 자격 오류가 먼저 난다")
+    void sameDayFallsThroughToEligibilityError() {
         BookingApplicationPolicy policy = policyAt(AFTERNOON);
         Club general = generalClub();
         assertThatThrownBy(() -> policy.validateApplication(openedFacility(), general,
                 memberOf(general, ClubMemberRole.MEMBER), TODAY))
-                .isInstanceOf(FacilityBookingException.DeadlinePassedException.class);
+                .isInstanceOf(FacilityBookingException.CentralClubOnlyException.class);
     }
 
     @Test

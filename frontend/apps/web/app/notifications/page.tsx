@@ -112,7 +112,7 @@ export default function NotificationsPage() {
             type="button"
             onClick={() => readAllMutation.mutate()}
             disabled={readAllMutation.isPending}
-            className="text-sm text-slate-500 hover:text-slate-900 disabled:opacity-50"
+            className="text-sm text-charcoal-3 hover:text-ink-deep disabled:opacity-50"
           >
             모두 읽음
           </button>
@@ -121,14 +121,14 @@ export default function NotificationsPage() {
           <button
             type="button"
             onClick={() => setUnreadOnly(false)}
-            className={`rounded-full px-3 py-1 text-xs ${!unreadOnly ? 'bg-slate-900 text-white' : 'bg-graysoft text-charcoal-2'}`}
+            className={`rounded-full px-3 py-1 text-xs ${!unreadOnly ? 'bg-ink text-paper' : 'bg-graysoft text-charcoal-2'}`}
           >
             전체
           </button>
           <button
             type="button"
             onClick={() => setUnreadOnly(true)}
-            className={`rounded-full px-3 py-1 text-xs ${unreadOnly ? 'bg-slate-900 text-white' : 'bg-graysoft text-charcoal-2'}`}
+            className={`rounded-full px-3 py-1 text-xs ${unreadOnly ? 'bg-ink text-paper' : 'bg-graysoft text-charcoal-2'}`}
           >
             안 읽음
           </button>
@@ -136,7 +136,7 @@ export default function NotificationsPage() {
         {listQuery.isLoading ? (
           <ListRowsSkeleton rows={6} rowClassName="h-[76px] rounded-xl" label="알림 목록 불러오는 중" />
         ) : allNotifications.length === 0 ? (
-          <p className="py-12 text-center text-sm text-slate-500">알림이 없어요</p>
+          <p className="py-12 text-center text-sm text-charcoal-3">알림이 없어요</p>
         ) : (
           <div className="space-y-6">
             {bucketed.today.length > 0 && (
@@ -171,7 +171,7 @@ function NotificationGroup({ title, items, onClick }: GroupProps) {
   return (
     <section>
       {/* .duing 스코프가 h2 색·자간을 덮으므로(특이도) 그룹 라벨 스타일은 ! 로 지킨다 — MyPageHeader 전례. */}
-      <h2 className="mb-2 px-1 text-xs font-bold !tracking-[0.04em] !text-charcoal-3">{title}</h2>
+      <h2 className="mb-2 px-1 text-xs font-bold !tracking-normal !text-charcoal-3">{title}</h2>
       <ul className="space-y-1.5">
         {items.map((notification) => (
           <li key={notification.id}>

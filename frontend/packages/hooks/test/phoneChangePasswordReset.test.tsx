@@ -1,6 +1,6 @@
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import type { ReactNode } from 'react';
-import { renderHook, act } from '@testing-library/react';
+import { renderHook, act, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { setupServer } from 'msw/node';
 import { http, HttpResponse } from 'msw';
@@ -99,7 +99,8 @@ describe('번호 변경·비밀번호 재설정 훅', () => {
       await result.current.mutateAsync({ payload: { studentId: '20240001' }, includeQr: false });
     });
 
-    expect(result.current.data?.maskedPhone).toBe('010-****-5678');
+    // TanStack 은 뮤테이션 상태를 setTimeout(0) 으로 React 에 알린다 — act 가 그보다 먼저 끝날 수 있어 렌더를 기다린다.
+    await waitFor(() => expect(result.current.data?.maskedPhone).toBe('010-****-5678'));
   });
 
   it('재설정 완료는 토큰과 새 비밀번호를 전송한다', async () => {

@@ -9,7 +9,11 @@ import { ApiClientProvider, shouldRetryQuery } from '@duing/hooks';
 import { setStorage } from '@duing/storage';
 import { webStorage } from '@duing/storage/web';
 import { resolveApiBaseUrl } from './_lib/apiBaseUrl';
-import { seedAuthFromLocalHistory, startBootSessionRestore } from './_lib/authBoot';
+import {
+  seedAuthFromLocalHistory,
+  startBootSessionRestore,
+  webConnectivityAdapter,
+} from './_lib/authBoot';
 import { installBackDismiss } from './_lib/backDismiss';
 import {
   BackNavigationMarkerReset,
@@ -24,8 +28,8 @@ import { AuthSessionBootstrap } from './_components/AuthSessionBootstrap';
 
 setStorage(webStorage);
 clearLegacyWebAuthArtifacts();
-// navigator.onLine 이 명시적으로 false 일 때만 오프라인 — SSR(navigator 부재)은 온라인 취급.
-registerConnectivityAdapter(() => (typeof navigator === 'undefined' ? true : navigator.onLine));
+// 연결 판정은 webConnectivityAdapter — 오프라인이거나 다른 탭이 사용자를 바꿨으면 요청을 보내지 않는다.
+registerConnectivityAdapter(webConnectivityAdapter);
 // 크로스탭 refresh 직렬화 — navigator.locks 지원 브라우저만 주입, 미지원은 미등록(탭 내 in-flight 폴백).
 if (typeof navigator !== 'undefined' && 'locks' in navigator) {
   registerRefreshLockAdapter(
@@ -61,9 +65,11 @@ export function Providers({ children }: { children: ReactNode }) {
             // 보이고 fail-fast 에 도달조차 못 한다 (2026-07-12 리뷰 실험으로 확인).
             networkMode: 'always',
             // 재시도 정책은 @duing/hooks 의 shouldRetryQuery 로 일원화 —
-            // 401/403(반복 무의미)·TIMEOUT(대기 배가)은 재시도하지 않고, 빠른 실패만 1회 재시도.
+            // 401/403(반복 무의미)·429(창이 대개 그대로라 다시 거절)·TIMEOUT(대기 배가)은 재시도하지 않고, 빠른 실패만 1회 재시도.
             retry: shouldRetryQuery,
             refetchOnWindowFocus: false,
+            // networkMode 'always' 의 기본값과 같지만 일부러 정한 것 — 재연결 순간 일제 재조회 실패가 화면 게이트를 치고 요청만 늘어, 필요한 화면만 쿼리 단위로 켠다.
+            refetchOnReconnect: false,
           },
           mutations: {
             // 재시도는 기본값 0 유지(비멱등 이중 실행 차단) — networkMode 만 fail-fast 를 위해 변경.

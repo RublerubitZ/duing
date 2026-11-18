@@ -47,7 +47,7 @@ export function ExtendDeadlineModal({
           <DialogTitle>마감 연장</DialogTitle>
         </DialogHeader>
 
-        <p className="rounded-md border border-warm/40 bg-warm/10 px-3 py-2 text-sm text-[#8e6620]">
+        <p className="rounded-md border border-warm/40 bg-warm/10 px-3 py-2 text-sm text-warm-deep">
           마감 일시는 현재보다 연장만 가능합니다.
         </p>
         <div>
@@ -59,7 +59,7 @@ export function ExtendDeadlineModal({
             type="datetime-local"
             value={newDeadline}
             onChange={(event) => setNewDeadline(event.target.value)}
-            className="mt-1 w-full rounded-md border border-line bg-paper px-3 py-1.5 text-sm text-charcoal transition-colors focus-visible:border-ink focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            className="mt-1 w-full rounded-md border border-field bg-paper px-3 py-1.5 text-sm text-charcoal transition-colors focus-visible:border-ink focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
           />
         </div>
         {errorMessage && (

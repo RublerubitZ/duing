@@ -12,9 +12,11 @@ import static org.mockito.Mockito.when;
 import com.duing.domain.application.repository.ApplicationRepository;
 import com.duing.domain.club.entity.Club;
 import com.duing.domain.clubmember.service.ClubAuthService;
+import com.duing.domain.joincode.repository.ClubJoinRequestRepository;
 import com.duing.domain.recruitment.entity.Recruitment;
 import com.duing.domain.recruitment.exception.RecruitmentException;
 import com.duing.domain.recruitment.repository.RecruitmentRepository;
+import com.duing.domain.recruitment.service.RecruitmentAutoCloseService;
 import com.duing.domain.recruitment.stats.repository.RecruitmentStatsRepositoryCustom;
 import com.duing.domain.recruitment.stats.service.dto.query.StatsDailyPointQuery;
 import java.time.Clock;
@@ -51,6 +53,8 @@ class RecruitmentStatsDailyServiceTest {
                 recruitmentStatsRepository,
                 clubAuthService,
                 mock(ApplicationRepository.class),
+                mock(ClubJoinRequestRepository.class),
+                mock(RecruitmentAutoCloseService.class),
                 FIXED_SEOUL_CLOCK
         );
     }

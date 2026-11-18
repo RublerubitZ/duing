@@ -111,7 +111,7 @@ export function AdminClubCreateForm() {
           onChange={(event) => setName(event.target.value)}
           maxLength={100}
           placeholder="예: 두잉 코딩 동아리"
-          className="border-line bg-paper w-full rounded-md border px-3 py-2 text-sm"
+          className="border-field bg-paper w-full rounded-md border px-3 py-2 text-sm"
         />
       </Field>
 
@@ -119,7 +119,7 @@ export function AdminClubCreateForm() {
         <select
           value={category}
           onChange={(event) => setCategory(event.target.value as ClubCategory)}
-          className="border-line bg-paper w-full rounded-md border px-3 py-2 text-sm"
+          className="border-field bg-paper w-full rounded-md border px-3 py-2 text-sm"
         >
           {CATEGORIES.map((option) => (
             <option key={option} value={option}>
@@ -130,7 +130,7 @@ export function AdminClubCreateForm() {
       </Field>
 
       <Field label="중앙동아리 여부">
-        <label className="inline-flex items-center gap-2 text-sm text-slate-700">
+        <label className="inline-flex items-center gap-2 text-sm text-charcoal">
           <input
             type="checkbox"
             checked={centralClub}
@@ -140,9 +140,9 @@ export function AdminClubCreateForm() {
               setCollege('');
               setDepartment('');
             }}
-            className="h-4 w-4 rounded border-slate-300"
+            className="h-4 w-4 rounded border-line"
           />
-          중앙동아리로 지정 (공개 화면에 🏛️ 배지 노출)
+          중앙동아리로 지정 (공개 화면에 중앙동아리 배지 노출)
         </label>
       </Field>
 
@@ -151,7 +151,7 @@ export function AdminClubCreateForm() {
           <select
             value={division}
             onChange={(event) => setDivision(event.target.value)}
-            className="border-line bg-paper w-full rounded-md border px-3 py-2 text-sm"
+            className="border-field bg-paper w-full rounded-md border px-3 py-2 text-sm"
           >
             <option value="">분과 선택</option>
             {DIVISIONS.map((option) => (
@@ -165,7 +165,7 @@ export function AdminClubCreateForm() {
             <select
               value={college}
               onChange={(event) => setCollege(event.target.value as College | '')}
-              className="border-line bg-paper w-full rounded-md border px-3 py-2 text-sm"
+              className="border-field bg-paper w-full rounded-md border px-3 py-2 text-sm"
             >
               <option value="">단과대학 선택</option>
               {COLLEGE_OPTIONS.map((option) => (
@@ -182,7 +182,7 @@ export function AdminClubCreateForm() {
               onChange={(event) => setDepartment(event.target.value)}
               maxLength={50}
               placeholder="예: 회계학과 (선택)"
-              className="border-line bg-paper w-full rounded-md border px-3 py-2 text-sm"
+              className="border-field bg-paper w-full rounded-md border px-3 py-2 text-sm"
             />
           </Field>
         </>
@@ -194,7 +194,7 @@ export function AdminClubCreateForm() {
           onChange={(event) => setDescription(event.target.value)}
           rows={4}
           placeholder="동아리 소개 (선택)"
-          className="border-line bg-paper w-full rounded-md border px-3 py-2 text-sm"
+          className="border-field bg-paper w-full rounded-md border px-3 py-2 text-sm"
         />
       </Field>
 
@@ -217,13 +217,13 @@ export function AdminClubCreateForm() {
       </Field>
 
       {formError && (
-        <p className="rounded-md bg-rose-50 px-3 py-2 text-sm text-rose-700">{formError}</p>
+        <p className="rounded-md bg-coral/10 px-3 py-2 text-sm text-coral-deep">{formError}</p>
       )}
 
       <div className="flex items-center justify-end gap-2 pt-2">
         <Link
           href={toRoute('/admin/clubs')}
-          className="text-charcoal-2 rounded-md px-3 py-2 text-sm hover:bg-slate-100"
+          className="text-charcoal-2 rounded-md px-3 py-2 text-sm hover:bg-graysoft"
         >
           취소
         </Link>

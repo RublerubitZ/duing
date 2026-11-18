@@ -26,3 +26,9 @@ logging:
   level:
     org.hibernate.SQL: debug
     org.hibernate.orm.jdbc.bind: trace
+
+duing:
+  rate-limit:
+    # 로컬은 조회 요청 제한을 끈다 — E2E(Playwright)와 개발 중 새로고침이 전부 127.0.0.1 한 IP 에서 나가 한 창을 쓴다.
+    # 로컬에서 동작을 보려면 DUING_RATE_LIMIT_API_READ_PER_MINUTE 를 준다.
+    api-read-per-minute: ${DUING_RATE_LIMIT_API_READ_PER_MINUTE:0}

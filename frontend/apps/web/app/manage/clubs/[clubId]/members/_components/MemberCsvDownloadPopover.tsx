@@ -64,13 +64,13 @@ export function MemberCsvDownloadPopover({
           />
           <span>
             전화번호 포함
-            <span className="mt-0.5 block text-xs text-slate-400">
+            <span className="mt-0.5 block text-xs text-charcoal-3">
               전화번호를 포함하면 개인정보가 포함됩니다.
             </span>
           </span>
         </label>
 
-        {error && <p className="text-xs text-rose-600">{error}</p>}
+        {error && <p className="text-xs text-coral-deep">{error}</p>}
 
         <button
           type="button"

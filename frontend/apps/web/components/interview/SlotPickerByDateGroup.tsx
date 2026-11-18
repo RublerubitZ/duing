@@ -83,7 +83,7 @@ export function SlotPickerByDateGroup({
 
   if (slots.length === 0) {
     return (
-      <p className="rounded-md bg-slate-50 px-3 py-4 text-sm text-slate-500">
+      <p className="rounded-md bg-cream px-3 py-4 text-sm text-charcoal-3">
         선택 가능한 면접 슬롯이 없습니다.
       </p>
     );
@@ -96,7 +96,7 @@ export function SlotPickerByDateGroup({
         role="status"
         aria-live="polite"
       >
-        <span className={meetsMin ? 'text-slate-600' : 'text-rose-600'}>
+        <span className={meetsMin ? 'text-charcoal-2' : 'text-coral-deep'}>
           {meetsMin
             ? `${selectedCount}개 선택됨`
             : `최소 ${minSelected}개 이상 선택해주세요 (현재 ${selectedCount}개)`}
@@ -105,8 +105,8 @@ export function SlotPickerByDateGroup({
 
       <ul className="space-y-3">
         {groups.map((group) => (
-          <li key={group.dateKey} className="rounded-lg border border-slate-200 bg-white p-3">
-            <p className="mb-2 text-sm font-semibold text-slate-800">{group.label}</p>
+          <li key={group.dateKey} className="rounded-lg border border-line bg-white p-3">
+            <p className="mb-2 text-sm font-semibold text-charcoal">{group.label}</p>
             <div className="flex flex-wrap gap-2" role="group" aria-label={`${group.label} 슬롯`}>
               {group.slots.map((slot) => {
                 const slotId = slot.slotId;

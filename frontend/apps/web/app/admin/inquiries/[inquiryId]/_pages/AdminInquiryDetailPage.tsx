@@ -24,6 +24,7 @@ import {
   INQUIRY_STATUS_LABEL,
 } from '@/app/_lib/federationInquiryLabels';
 import { AdminInquiryCloseDialog } from '../../_components/AdminInquiryCloseDialog';
+import { ArrowLeft } from '@/components/duing/Icon';
 
 const ANSWER_MAX_LENGTH = 4000;
 // 답변 작성 시작(RECEIVED → IN_PROGRESS)과 접수로 되돌리기(IN_PROGRESS → RECEIVED) 모두
@@ -265,9 +266,10 @@ export function AdminInquiryDetailPage({ inquiryId }: Props) {
         <p className="text-center">
           <Link
             href={toRoute('/admin/inquiries')}
-            className="text-[13px] font-semibold text-ink hover:underline"
+            className="inline-flex items-center gap-1 text-[13px] font-semibold text-ink hover:underline"
           >
-            ← 목록으로
+            <ArrowLeft size={14} aria-hidden />
+            목록으로
           </Link>
         </p>
       </main>
@@ -281,8 +283,9 @@ export function AdminInquiryDetailPage({ inquiryId }: Props) {
   return (
     <main className="max-w-layout mx-auto px-4 sm:px-6 md:px-10 py-10">
       <header className="mb-6 flex items-center gap-3">
-        <Link href={toRoute('/admin/inquiries')} className="text-[13px] text-charcoal-2 hover:text-ink">
-          ← 목록으로
+        <Link href={toRoute('/admin/inquiries')} className="inline-flex items-center gap-1 text-[13px] text-charcoal-2 hover:text-ink">
+          <ArrowLeft size={14} aria-hidden />
+          목록으로
         </Link>
         <h1 className="text-[22px] font-bold text-ink">1:1 문의 상세</h1>
       </header>
@@ -367,7 +370,7 @@ export function AdminInquiryDetailPage({ inquiryId }: Props) {
               maxLength={ANSWER_MAX_LENGTH}
               required
               rows={8}
-              className="w-full resize-none rounded-lg border border-line px-3 py-2 text-sm text-ink-deep focus:border-sage focus:outline-none"
+              className="w-full resize-none rounded-lg border border-field px-3 py-2 text-sm text-ink-deep focus:border-ink focus:outline-none focus:ring-[3px] focus:ring-ink/15"
             />
           </label>
           {editAnswerError && (
@@ -425,7 +428,7 @@ export function AdminInquiryDetailPage({ inquiryId }: Props) {
               required
               rows={8}
               placeholder="학생에게 전달할 답변을 입력하세요"
-              className="w-full resize-none rounded-lg border border-line px-3 py-2 text-sm text-ink-deep focus:border-sage focus:outline-none"
+              className="w-full resize-none rounded-lg border border-field px-3 py-2 text-sm text-ink-deep focus:border-ink focus:outline-none focus:ring-[3px] focus:ring-ink/15"
             />
           </label>
           {answerError && (

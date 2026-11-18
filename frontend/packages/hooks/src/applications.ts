@@ -12,6 +12,7 @@ import type { DuingApiClient } from '@duing/api';
 import { selectIsAuthenticated, useAuthStore } from '@duing/stores';
 import { useApiClient } from './api-context';
 import { applicationQueryKeys } from './applicationQueryKeys';
+import { interviewRoundKeys } from './interviewRoundQueryKeys';
 import { statsQueryKeys } from './statsQueryKeys';
 
 export function useSubmitApplicationMutation(recruitmentId: number) {
@@ -74,8 +75,10 @@ export function useApplicationEligibilityQuery(recruitmentId: number, enabled: b
     // 루트 QueryClient 는 SPA 네비게이션 내내 살아 있어, 캐시가 남으면 재진입 시 status 가
     // 'success'|'error' 라 isLoading=false 가 되고 로딩 게이트가 재확인을 기다리지 않고 통과한다.
     // 그러면 그 사이 마감된 모집에도 지원 폼이 먼저 그려져 사용자가 입력을 시작해 버린다.
-    // 이 화면이 스스로 만든 판정은 언마운트 즉시 버린다(gcTime:0). 클릭이 넘겨준 판정은
-    // fetchQuery 가 세운 gcTime(=핸드오프 창)을 따르므로 그 창보다 오래 살아남지 못한다.
+    // 이 화면이 처음 만든 판정 쿼리는 언마운트 즉시 버린다(gcTime:0). 다만 쿼리의 gcTime 은 그 쿼리에 한 번이라도 걸린
+    // 값 가운데 가장 긴 값이고(클릭 fetchQuery 의 핸드오프 창 10초 포함 — 줄지 않는다, query-core updateGcTime)
+    // 마지막 관찰자가 떠난 때부터 센다 — 클릭이 남긴 판정은 화면을 떠난 뒤 10초 안에 돌아오면 남아 있고
+    // (낡았으면 마운트에서 다시 받는다), 그보다 늦으면 사라진다.
     gcTime: 0,
   });
 }
@@ -186,7 +189,7 @@ export function useUpdateApplicationStatusMutation(recruitmentId: number) {
       queryClient.invalidateQueries({
         queryKey: applicationQueryKeys.applicants(recruitmentId),
       });
-      // 모달이 읽는 detail 캐시를 무효화하지 않으면 닫았다 다시 열 때 stale status 로
+      // 상세 화면이 읽는 detail 캐시를 무효화하지 않으면 상세를 다시 열 때 stale status 로
       // 전이 버튼이 재계산돼 BE 의 실제 상태와 불일치한 PATCH 가 나가 400 이 발생한다.
       queryClient.invalidateQueries({
         queryKey: applicationQueryKeys.applicantDetail(variables.applicationId),
@@ -198,6 +201,19 @@ export function useUpdateApplicationStatusMutation(recruitmentId: number) {
       queryClient.invalidateQueries({
         queryKey: applicationQueryKeys.applicantNeighborsAll(),
       });
+      // 면접 대상으로 바꾸거나(지원 완료·보류 →) 면접 대상의 결과를 확정하면(→ 합격·불합격) 면접 대기열이 바뀐다 — 인자 하나짜리 접두로 토글 두 엔트리를 함께 덮는다.
+      queryClient.invalidateQueries({
+        queryKey: interviewRoundKeys.candidates(recruitmentId),
+      });
+      // 결과를 정할 때만(→ 합격·불합격) 그 멤버가 진행 중 라운드에서 빠져 인원·응답 수가 바뀐다 — 어느 라운드인지 몰라 상세는 접두로 건다.
+      if (variables.payload.status === 'ACCEPTED' || variables.payload.status === 'REJECTED') {
+        queryClient.invalidateQueries({
+          queryKey: interviewRoundKeys.list(recruitmentId),
+        });
+        queryClient.invalidateQueries({
+          queryKey: interviewRoundKeys.detailAll(),
+        });
+      }
     },
   });
 }
@@ -207,12 +223,16 @@ export function useBulkUpdateApplicationStatusMutation(recruitmentId: number) {
   const queryClient = useQueryClient();
   return useMutation<BulkUpdateApplicationStatusResult, Error, BulkUpdateApplicationStatusPayload>({
     mutationFn: (payload) => client.applications.bulkUpdateStatus(payload),
-    onSuccess: () => {
-      // 일괄 변경은 어떤 applicationId 가 영향받았는지 individual detail 캐시까지 알 수 없으므로
-      // 안전하게 목록·통계만 무효화한다. 사용자가 모달을 다시 열면 detail 은 fresh 로드된다.
+    onSuccess: (_bulkResult, variables) => {
       queryClient.invalidateQueries({
         queryKey: applicationQueryKeys.applicants(recruitmentId),
       });
+      // 단건과 같은 이유 — 바꾼 지원서의 상세를 다시 열면 낡은 캐시로 옛 상태의 전이 버튼이 계산돼 400 PATCH 가 난다.
+      for (const applicationId of variables.applicationIds) {
+        queryClient.invalidateQueries({
+          queryKey: applicationQueryKeys.applicantDetail(applicationId),
+        });
+      }
       queryClient.invalidateQueries({
         queryKey: statsQueryKeys.byRecruitment(recruitmentId),
       });
@@ -220,6 +240,19 @@ export function useBulkUpdateApplicationStatusMutation(recruitmentId: number) {
       queryClient.invalidateQueries({
         queryKey: applicationQueryKeys.applicantNeighborsAll(),
       });
+      // 일괄 "면접 대상으로 선정"(지원 완료·보류 → 면접 대상)과 일괄 합격·불합격은 면접 대기열을 바꾼다.
+      queryClient.invalidateQueries({
+        queryKey: interviewRoundKeys.candidates(recruitmentId),
+      });
+      // 결과를 정할 때만(→ 합격·불합격) 그 멤버가 진행 중 라운드에서 빠져 인원·응답 수가 바뀐다 — 어느 라운드인지 몰라 상세는 접두로 건다.
+      if (variables.status === 'ACCEPTED' || variables.status === 'REJECTED') {
+        queryClient.invalidateQueries({
+          queryKey: interviewRoundKeys.list(recruitmentId),
+        });
+        queryClient.invalidateQueries({
+          queryKey: interviewRoundKeys.detailAll(),
+        });
+      }
     },
   });
 }

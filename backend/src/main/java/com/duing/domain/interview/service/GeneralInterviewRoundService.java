@@ -139,6 +139,11 @@ public class GeneralInterviewRoundService implements InterviewRoundService {
                 throw new InterviewException.CandidateNotEligible();
             }
         }
+        // 후보 목록은 탈퇴한 지원자를 빼지만 오래된 화면이나 직접 호출로 넘어올 수 있다. 탈퇴자는 운영진 인원 목록에 없어
+        // 라운드에 넣으면 아무도 치울 수 없다(#1637). 이 확인과 동시에 커밋되는 탈퇴는 남을 수 있다 — 확정 강행·라운드 취소로 치운다.
+        if (!interviewRoundMemberRepository.findApplicationIdsOfWithdrawnApplicants(applicationIds).isEmpty()) {
+            throw new InterviewException.CandidateNotEligible();
+        }
 
         // placement-active 멤버십 최대 1개 불변식 (스펙 §5.4·§16) 의 생성 측 강제.
         List<Long> alreadyPlacedIds = interviewRoundMemberRepository
@@ -258,7 +263,7 @@ public class GeneralInterviewRoundService implements InterviewRoundService {
 
     @Override
     @Transactional
-    public void cancelRound(Long roundId, Long currentUserId) {
+    public void cancelRound(Long roundId, RoundStatus expectedRoundStatus, Long currentUserId) {
         // 취소는 새 활동이 아니라 정리 행위라 마감된 모집에서도 허용한다. 막으면 자동 마감으로 남겨진
         // 라운드를 아무도 치울 수 없어, 이 정책이 지원서에서 없앤 교착을 라운드 계층에 그대로 재생산한다.
         // 특히 자동 마감으로 COLLECTING 라운드가 남으면 학생 화면에는 눌러도 409 만 나는 "가능 시간 응답"
@@ -268,6 +273,10 @@ public class GeneralInterviewRoundService implements InterviewRoundService {
         interviewRoundAccessor.requireManagerByRoundId(roundId, currentUserId);
         InterviewRound round = interviewRoundRepository.findByIdForUpdate(roundId)
                 .orElseThrow(InterviewException.RoundNotFound::new);
+        // 잠금 조회로 읽은 단계와 비교한다(앞에서 라운드 엔티티를 읽지 않는다) — 창을 연 뒤 발송된 초안을 마법사의 '폐기'가 취소하지 않게.
+        if (expectedRoundStatus != null && expectedRoundStatus != round.getStatus()) {
+            throw new InterviewException.RoundStatusChanged();
+        }
 
         round.cancel();
         // §16-2 — 누락 시 취소된 라운드의 draft 배정이 새 라운드 배정과 병존해

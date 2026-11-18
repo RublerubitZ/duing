@@ -4,6 +4,7 @@ import com.duing.domain.adminconsole.entity.AdminPendingSnapshot;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
@@ -12,6 +13,9 @@ import org.springframework.data.repository.query.Param;
 public interface AdminPendingSnapshotRepository extends JpaRepository<AdminPendingSnapshot, LocalDate> {
 
     List<AdminPendingSnapshot> findBySnapshotDateBetweenOrderBySnapshotDateAsc(LocalDate from, LocalDate to);
+
+    /** 주간 브리핑 — 처리 대기 기록이 처음 시작된 날(가장 이른 기록). 기록이 없으면 비어 있다. */
+    Optional<AdminPendingSnapshot> findFirstByOrderBySnapshotDateAsc();
 
     /**
      * 하루치 기록 삽입. 같은 날짜가 이미 있으면 조용히 버린다 — 첫 기록(자정 직후 값)이 그날의 값이다.

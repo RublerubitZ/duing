@@ -53,11 +53,15 @@ describe('AdminTriageTiles', () => {
     const { rerender } = render(<AdminTriageTiles />);
     const reportLink = screen.getByRole('link', { name: /신고 미처리/ });
     expect(reportLink.closest('li')).not.toHaveClass('col-span-2');
-    expect(reportLink).toHaveClass('border-coral/40');
+    expect(reportLink.querySelector(':scope > span:nth-child(1)')).toHaveClass('text-coral-deep');
+    expect(reportLink.querySelector(':scope > span:nth-child(2)')).toHaveClass('text-coral-deep');
 
     mockCounts.mockReturnValue({ data: { ...PENDING_COUNTS, reportUnresolved: 0 }, isError: false });
     rerender(<AdminTriageTiles />);
-    expect(screen.getByRole('link', { name: /신고 미처리/ })).not.toHaveClass('border-coral/40');
+    const quietReportLink = screen.getByRole('link', { name: /신고 미처리/ });
+    expect(quietReportLink.querySelector(':scope > span:nth-child(1)')).not.toHaveClass('text-coral-deep');
+    // 0건은 숫자를 흐리게 — 남은 일이 있는 칸만 눈에 걸린다.
+    expect(quietReportLink.querySelector(':scope > span:nth-child(2)')).toHaveClass('text-charcoal-3');
   });
 
   it('집계를 받았는데 운영 중단 미결 필드가 없으면(옛 백엔드) 그 칸을 그리지 않는다 — 7칸', () => {
@@ -83,9 +87,9 @@ describe('AdminTriageTiles', () => {
     expect(screen.getByRole('link', { name: /운영 중단 미결/ })).toHaveTextContent('운영 중단 미결2건오늘 운영 중단');
   });
 
-  it('320px 에서도 두 칸씩 놓이고 넓으면 네 칸이다', () => {
+  it('320px 에서도 두 칸씩 놓이고 넓으면 네 칸, 더 넓으면 한 줄 여덟 칸인 한 장의 띠다', () => {
     render(<AdminTriageTiles />);
-    expect(screen.getByRole('list')).toHaveClass('grid-cols-2', 'lg:grid-cols-4', 'gap-3');
+    expect(screen.getByRole('list')).toHaveClass('grid-cols-2', 'lg:grid-cols-4', 'xl:grid-cols-8', 'gap-px', 'bg-paper');
   });
 
   it('건수를 받기 전·받지 못했으면 칸에 건수를 그리지 않는다', () => {

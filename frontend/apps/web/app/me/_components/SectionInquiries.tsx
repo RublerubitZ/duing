@@ -37,7 +37,7 @@ export function SectionInquiries({ inquiries, totalCount, isPending = false }: P
               href={toRoute('/me/inquiries')}
               className="text-[13px] font-semibold text-ink hover:underline"
             >
-              전체 보기 →
+              전체 보기
             </Link>
           }
         />
@@ -51,7 +51,7 @@ export function SectionInquiries({ inquiries, totalCount, isPending = false }: P
               href={toRoute('/me/inquiries/new')}
               className="text-ink font-semibold hover:underline"
             >
-              새 문의 작성하기 →
+              새 문의 작성하기
             </Link>
           </div>
         ) : (

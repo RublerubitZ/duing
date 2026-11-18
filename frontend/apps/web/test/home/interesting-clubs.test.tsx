@@ -211,12 +211,15 @@ describe('InterestingClubs — 로고 폴백', () => {
     const { container } = render(await InterestingClubs());
 
     // CSS 만으로 이뤄진 수정이라 클래스 불변식으로 잡는다 — md 에서 4열로 되돌리면 배지가 카드 밖으로
-    // 튀고(768 실측 36px), cqw 루트를 빼면 1024 에서 카드가 세로로 길어진다(비율 0.76).
+    // 튀고(768 실측 36px), cqw 루트를 빼면 1024 에서도 안쪽 치수가 1280 크기 그대로 남는다.
     const grid = container.querySelector('.md\\:grid-cols-2');
     expect(grid).toHaveClass('lg:grid-cols-4');
     const wrapper = grid?.firstElementChild;
     expect(wrapper).toHaveClass('lg:[container-type:inline-size]');
     const card = wrapper?.firstElementChild;
-    expect(card).toHaveClass('text-[16px]', 'lg:text-[5.614cqw]', 'lg:min-h-[101.75cqw]', 'h-full');
+    expect(card).toHaveClass('text-[16px]', 'lg:text-[5.614cqw]', 'h-full');
+    // 최소 높이는 두지 않는다 — "이번 주에 N명" 줄이 없는 날 카드 아래가 비어 보였다. 높이는 격자가 맞춘다.
+    expect(card?.className).not.toMatch(/min-h-/);
+    expect(grid).toHaveClass('md:auto-rows-fr');
   });
 });

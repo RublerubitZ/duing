@@ -16,7 +16,7 @@ export function HomeNavAdminLink({ className }: { className?: string }) {
   if (!hydrated || meQuery.data?.role !== 'ADMIN') return null;
 
   return (
-    <Link href={toRoute('/admin/clubs')} className={className} title="총동아리연합회 콘솔">
+    <Link href={toRoute('/admin')} className={className} title="총동아리연합회 콘솔">
       총동연
     </Link>
   );

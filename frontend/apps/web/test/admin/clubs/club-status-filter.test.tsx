@@ -1,3 +1,4 @@
+import { createRef } from 'react';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -32,6 +33,19 @@ describe('동아리 상태 필터 탭', () => {
     expect(tablist).toHaveClass('inline-flex', 'w-max');
     expect(tablist).not.toHaveClass('flex-wrap');
     expect(tablist.parentElement).toHaveClass('max-w-full', 'overflow-x-auto');
+  });
+
+  it('이미 선택된 탭을 다시 눌러도 onChange 를 부른다 — 신호 화면에서 같은 탭 재클릭은 조건 해제다', async () => {
+    const onChange = vi.fn();
+    render(<AdminClubStatusFilter value="ACTIVE" onChange={onChange} />);
+    await userEvent.click(screen.getByRole('tab', { name: '운영 중' }));
+    expect(onChange).toHaveBeenCalledWith('ACTIVE');
+  });
+
+  it('selectedTabRef 로 선택된 탭 버튼을 넘긴다 — 목록이 조건 해제 뒤 포커스를 옮길 곳', () => {
+    const selectedTabRef = createRef<HTMLButtonElement>();
+    render(<AdminClubStatusFilter value="ACTIVE" onChange={vi.fn()} selectedTabRef={selectedTabRef} />);
+    expect(selectedTabRef.current).toBe(screen.getByRole('tab', { name: '운영 중' }));
   });
 
   describe('주소로 도착한 선택 탭 가로 스크롤', () => {

@@ -76,12 +76,12 @@ export function ClubSwitcher({ managedClubs, currentClubId, onNavigate }: ClubSw
           <span className="min-w-0 flex-1">
             <span className="block truncate text-[15px] font-extrabold text-white">{currentClub.clubName}</span>
             <span className="mt-0.5 flex items-center gap-1.5">
-              <span className="shrink-0 rounded-full bg-sage px-1.5 py-px text-[9.5px] font-extrabold text-ink-deep">
+              <span className="shrink-0 rounded-full bg-sage px-1.5 py-px text-[11px] font-extrabold text-ink-deep">
                 {clubMemberRoleLabel(currentClub.myRole)}
               </span>
               {/* 표시 상태가 아니라 실제로 열린 모집 수(activeRecruitmentCount = 백엔드 effectivelyOpen) 기준이라 상태 라벨 테이블을 쓰지 않는다. */}
               {recruiting && (
-                <span className="shrink-0 rounded-full bg-sage/20 px-1.5 py-px text-[9.5px] font-bold text-sage-soft">
+                <span className="shrink-0 rounded-full bg-sage/20 px-1.5 py-px text-[11px] font-bold text-sage-mist">
                   모집중
                 </span>
               )}
@@ -99,9 +99,9 @@ export function ClubSwitcher({ managedClubs, currentClubId, onNavigate }: ClubSw
         sideOffset={6}
         // 운영 동아리가 많으면 뷰포트 아래로 잘린다 — Radix 가 계산한 가용 높이 안에서 스크롤한다.
         // 공용 dropdown-menu 의 overflow-hidden 과 공존해도 overflow-y 가 y 축을 이긴다.
-        className="max-h-[var(--radix-dropdown-menu-content-available-height)] w-[248px] overflow-y-auto border-white/10 bg-[#2A382F] p-1.5 text-white shadow-4"
+        className="max-h-[var(--radix-dropdown-menu-content-available-height)] w-[248px] overflow-y-auto border-white/10 bg-console-deep p-1.5 text-white shadow-4"
       >
-        <DropdownMenuLabel className="px-2.5 pb-1 pt-1.5 text-[10px] font-bold uppercase tracking-[0.08em] text-white/40">
+        <DropdownMenuLabel className="px-2.5 pb-1 pt-1.5 text-xs font-semibold text-white/60">
           내 동아리 {managedClubs.length}
         </DropdownMenuLabel>
         {managedClubs.map((club) => {
@@ -120,13 +120,13 @@ export function ClubSwitcher({ managedClubs, currentClubId, onNavigate }: ClubSw
               <ClubAvatar club={club} className="h-[30px] w-[30px] rounded-[9px]" textClassName="text-[13px]" />
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-[13px] font-bold text-white">{club.clubName}</span>
-                <span className="block text-[11px] text-white/50">
+                <span className="block text-xs text-white/65">
                   {clubMemberRoleLabel(club.myRole)}
                   {/* 표시 상태가 아니라 실제로 열린 모집 수(activeRecruitmentCount = 백엔드 effectivelyOpen) 기준이라 상태 라벨 테이블을 쓰지 않는다. */}
                   {club.activeRecruitmentCount > 0 && (
                     <>
                       {' · '}
-                      <span className="text-sage-soft">모집중</span>
+                      <span className="text-sage-mist">모집중</span>
                     </>
                   )}
                 </span>

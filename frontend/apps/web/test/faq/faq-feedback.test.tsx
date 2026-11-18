@@ -37,7 +37,7 @@ describe('FaqFeedback', () => {
     mockMutateAsync.mockResolvedValue(undefined);
 
     render(<FaqFeedback faqId={7} />);
-    fireEvent.click(screen.getByRole('button', { name: '👍 도움됐어요' }));
+    fireEvent.click(screen.getByRole('button', { name: '도움됐어요' }));
 
     await waitFor(() => expect(mockMutateAsync).toHaveBeenCalledTimes(1));
     // 컴포넌트가 생성해 localStorage 에 저장한 세션 키와 동일한 값이 페이로드에 실렸는지 확인한다.
@@ -51,7 +51,7 @@ describe('FaqFeedback', () => {
     await waitFor(() =>
       expect(screen.getByText('의견이 반영되었어요')).toBeInTheDocument(),
     );
-    expect(screen.getByRole('button', { name: '👍 도움됐어요' })).toHaveAttribute(
+    expect(screen.getByRole('button', { name: '도움됐어요' })).toHaveAttribute(
       'aria-pressed',
       'true',
     );
@@ -63,11 +63,11 @@ describe('FaqFeedback', () => {
     render(<FaqFeedback faqId={9} />);
 
     expect(screen.getByText('의견이 반영되었어요')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: '👎 아쉬워요' })).toHaveAttribute(
+    expect(screen.getByRole('button', { name: '아쉬워요' })).toHaveAttribute(
       'aria-pressed',
       'true',
     );
-    expect(screen.getByRole('button', { name: '👍 도움됐어요' })).toHaveAttribute(
+    expect(screen.getByRole('button', { name: '도움됐어요' })).toHaveAttribute(
       'aria-pressed',
       'false',
     );
@@ -80,12 +80,12 @@ describe('FaqFeedback', () => {
     mockMutateAsync.mockResolvedValue(undefined);
 
     render(<FaqFeedback faqId={3} />);
-    expect(screen.getByRole('button', { name: '👍 도움됐어요' })).toHaveAttribute(
+    expect(screen.getByRole('button', { name: '도움됐어요' })).toHaveAttribute(
       'aria-pressed',
       'true',
     );
 
-    fireEvent.click(screen.getByRole('button', { name: '👎 아쉬워요' }));
+    fireEvent.click(screen.getByRole('button', { name: '아쉬워요' }));
 
     await waitFor(() =>
       expect(mockMutateAsync).toHaveBeenCalledWith(
@@ -96,12 +96,12 @@ describe('FaqFeedback', () => {
       ),
     );
     await waitFor(() =>
-      expect(screen.getByRole('button', { name: '👎 아쉬워요' })).toHaveAttribute(
+      expect(screen.getByRole('button', { name: '아쉬워요' })).toHaveAttribute(
         'aria-pressed',
         'true',
       ),
     );
-    expect(screen.getByRole('button', { name: '👍 도움됐어요' })).toHaveAttribute(
+    expect(screen.getByRole('button', { name: '도움됐어요' })).toHaveAttribute(
       'aria-pressed',
       'false',
     );
@@ -113,13 +113,13 @@ describe('FaqFeedback', () => {
     mockMutateAsync.mockRejectedValue({ message: '서버 오류입니다' });
 
     render(<FaqFeedback faqId={11} />);
-    fireEvent.click(screen.getByRole('button', { name: '👍 도움됐어요' }));
+    fireEvent.click(screen.getByRole('button', { name: '도움됐어요' }));
 
     await waitFor(() =>
       expect(mockAddToast).toHaveBeenCalledWith('서버 오류입니다', { variant: 'error' }),
     );
     expect(screen.queryByText('의견이 반영되었어요')).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: '👍 도움됐어요' })).toHaveAttribute(
+    expect(screen.getByRole('button', { name: '도움됐어요' })).toHaveAttribute(
       'aria-pressed',
       'false',
     );
@@ -138,8 +138,8 @@ describe('FaqFeedback', () => {
     );
 
     render(<FaqFeedback faqId={13} />);
-    fireEvent.click(screen.getByRole('button', { name: '👍 도움됐어요' }));
-    fireEvent.click(screen.getByRole('button', { name: '👎 아쉬워요' }));
+    fireEvent.click(screen.getByRole('button', { name: '도움됐어요' }));
+    fireEvent.click(screen.getByRole('button', { name: '아쉬워요' }));
 
     expect(mockMutateAsync).toHaveBeenCalledTimes(1);
 

@@ -1,5 +1,6 @@
 'use client';
 
+import { useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 
@@ -32,7 +33,7 @@ const INCOME_CODES: CashbookCategory[] = ['FEE', 'SPONSOR', 'SUBSIDY', 'OTHER'];
 const EXPENSE_CODES: CashbookCategory[] = ['MT', 'DINING', 'SNACK', 'SUPPLY', 'MARKETING', 'OTHER'];
 
 const inputCls =
-  'w-full rounded-md border border-line px-4 py-3 text-sm outline-none transition-colors placeholder:text-charcoal-3 focus-visible:border-ink focus-visible:ring-1 focus-visible:ring-ink';
+  'w-full rounded-md border border-field px-4 py-3 text-sm outline-none transition-colors placeholder:text-charcoal-3 focus-visible:border-ink focus-visible:ring-1 focus-visible:ring-ink';
 const errorInputCls = 'border-coral focus-visible:border-coral focus-visible:ring-coral';
 
 type CashbookEntryDialogProps = {
@@ -58,7 +59,7 @@ export function CashbookEntryDialog({ clubId, entryType, entry, onClose }: Cashb
     handleSubmit,
     watch,
     formState: { errors, isSubmitting },
-  } = useForm<CreateCashbookEntryInput>({
+  } = useForm({
     resolver: zodResolver(createCashbookEntrySchema),
     defaultValues: entry
       ? {
@@ -83,7 +84,15 @@ export function CashbookEntryDialog({ clubId, entryType, entry, onClose }: Cashb
 
   const watchedCategory = watch('categoryCode');
 
+  // 제출 동기 가드 — isSubmitting·isPending 은 렌더 값이라 같은 순간 들어온 두 번째 제출(버튼을 거치지 않는 submit)을 못 막는다(#1608).
+  const isSubmittingRef = useRef(false);
+  const releaseSubmit = () => {
+    isSubmittingRef.current = false;
+  };
+
   const onSubmit = (formData: CreateCashbookEntryInput) => {
+    if (isSubmittingRef.current) return;
+    isSubmittingRef.current = true;
     const customCategory =
       formData.categoryCode === 'OTHER' && formData.customCategory
         ? formData.customCategory
@@ -96,7 +105,7 @@ export function CashbookEntryDialog({ clubId, entryType, entry, onClose }: Cashb
         payload.transactionDate = formData.transactionDate;
       }
       payload.memo = formData.memo?.trim() || undefined;
-      updateEntry.mutate({ entryId: entry.id, payload }, { onSuccess: onClose });
+      updateEntry.mutate({ entryId: entry.id, payload }, { onSuccess: onClose, onSettled: releaseSubmit });
       return;
     }
     const payload: CreateCashbookEntryPayload = {
@@ -108,7 +117,7 @@ export function CashbookEntryDialog({ clubId, entryType, entry, onClose }: Cashb
       transactionDate: formData.transactionDate,
       memo: formData.memo?.trim() || undefined,
     };
-    createEntry.mutate(payload, { onSuccess: onClose });
+    createEntry.mutate(payload, { onSuccess: onClose, onSettled: releaseSubmit });
   };
 
   const submitError = activeMutation.error;

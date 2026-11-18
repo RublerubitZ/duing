@@ -20,10 +20,7 @@ export function Flow() {
     <section className="bg-ink-deep py-20 md:py-28">
       <div className="mx-auto max-w-layout px-4 sm:px-6 md:px-10">
         <FadeIn>
-          <p className="mb-4 tabular-nums text-[11.5px] font-semibold uppercase tracking-[0.22em] text-cream/70">
-            FLOW · 사용 흐름
-          </p>
-          <h2 className="mb-3 max-w-[760px]" style={{ fontSize: 'clamp(28px, 3.8vw, 44px)', color: '#F6F3EC' }}>
+          <h2 className="mb-3 max-w-[760px]" style={{ fontSize: 'clamp(28px, 3.8vw, 44px)', color: 'var(--cream)' }}>
             발견부터 활동 기록까지,
             <br />
             끊김 없이 이어져요
@@ -46,7 +43,7 @@ export function Flow() {
                 <span className="relative z-10 grid h-10 w-10 place-items-center rounded-full border border-sage/40 bg-ink-deep tabular-nums text-[12px] font-bold text-cream">
                   {step.idx}
                 </span>
-                <div className="mt-4 text-[15px] font-bold" style={{ color: '#F6F3EC' }}>
+                <div className="mt-4 text-[15px] font-bold" style={{ color: 'var(--cream)' }}>
                   {step.label}
                 </div>
                 <div className="mt-1 tabular-nums text-[11px] text-cream/55">{step.sub}</div>
@@ -66,7 +63,7 @@ export function Flow() {
                 {step.idx}
               </span>
               <div className="pt-1.5">
-                <div className="text-[15px] font-bold" style={{ color: '#F6F3EC' }}>
+                <div className="text-[15px] font-bold" style={{ color: 'var(--cream)' }}>
                   {step.label}
                 </div>
                 <div className="mt-0.5 tabular-nums text-[11px] text-cream/55">{step.sub}</div>
@@ -77,7 +74,7 @@ export function Flow() {
 
         <FadeIn delay={0.1}>
           <div className="mt-14 flex items-center justify-center gap-2 text-[14px] text-cream/70">
-            <SparkleFull size={18} color="#9DB6A0" aria-hidden />
+            <SparkleFull size={18} color="var(--sage)" aria-hidden />
             흩어진 도구 없이, 두잉 하나로 이어지는 경험
           </div>
         </FadeIn>

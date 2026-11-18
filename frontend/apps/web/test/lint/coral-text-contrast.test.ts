@@ -28,8 +28,6 @@ type AllowedMatch = { file: string; count: number; reason: string };
 
 const ICON_ONLY = '아이콘만';
 const DARK_SURFACE = '어두운 바탕';
-// 흰 글자를 얹은 솔리드 코랄 배지(span) — 배지 색 결정이 따로 필요하다.
-const BADGE = '배지(범위 밖)';
 const DOT_OR_BAR = '점·막대(글자 없음)';
 const CLOSING_SOON_TICKER = '마감 임박 티커(범위 밖)';
 
@@ -46,20 +44,12 @@ const ALLOWED_SOLID_CORAL: ReadonlyArray<AllowedMatch> = [
   { file: 'app/_components/NotificationItem.tsx', count: 1, reason: DOT_OR_BAR },
   { file: 'app/_components/toast/ToastProvider.tsx', count: 1, reason: DOT_OR_BAR },
   { file: 'app/_lib/closingSoon.ts', count: 1, reason: CLOSING_SOON_TICKER },
-  { file: 'app/admin/_components/AdminNavContent.tsx', count: 1, reason: BADGE },
-  { file: 'app/admin/_components/AdminNavContent.tsx', count: 1, reason: DOT_OR_BAR },
   { file: 'app/admin/facility-bookings/_components/AdminBookingDetailModal.tsx', count: 1, reason: DOT_OR_BAR },
-  { file: 'app/admin/facility-bookings/_components/AdminSlotStrip.tsx', count: 1, reason: BADGE },
   { file: 'app/admin/facility-bookings/_components/CrawlFreshnessChip.tsx', count: 1, reason: DOT_OR_BAR },
   { file: 'app/admin/facility-bookings/_pages/AdminFacilityBookingsPage.tsx', count: 1, reason: DOT_OR_BAR },
-  { file: 'app/admin/inquiries/_pages/AdminInquiriesListPage.tsx', count: 1, reason: BADGE },
-  { file: 'app/admin/promotions/_components/AdminPromotionForm.tsx', count: 1, reason: BADGE },
   { file: 'app/facilities/_components/booking/BookingCalendar.tsx', count: 1, reason: DOT_OR_BAR },
   { file: 'app/facilities/_lib/bookingCalendar.ts', count: 1, reason: DOT_OR_BAR },
   { file: 'app/manage/clubs/[clubId]/members/_components/MemberDetailPanel.tsx', count: 1, reason: DOT_OR_BAR },
-  { file: 'app/manage/clubs/[clubId]/members/page.tsx', count: 1, reason: BADGE },
-  { file: 'app/manage/clubs/[clubId]/recruitments/_components/ExternalRecruitmentActions.tsx', count: 1, reason: BADGE },
-  { file: 'app/manage/clubs/[clubId]/recruitments/_components/MemberEnrollmentSection.tsx', count: 1, reason: BADGE },
   { file: 'app/me/_components/MyPageTabs.tsx', count: 1, reason: DOT_OR_BAR },
 ];
 

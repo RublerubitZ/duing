@@ -45,7 +45,6 @@ export function FeePoliciesTable({
     return (
       <ConsoleCard>
         <EmptyState
-          icon="📄"
           title="회비 정책이 없습니다"
           body={'선택한 기간에 조회되는 정책이 없어요.\n기간을 넓혀보세요.'}
         />
@@ -83,7 +82,7 @@ export function FeePoliciesTable({
                 <Td>
                   <span
                     className={`inline-flex whitespace-nowrap rounded-full px-2 py-0.5 text-[11.5px] font-semibold ${
-                      policy.active ? 'bg-sage-mist text-ink' : 'bg-graysoft text-charcoal-2'
+                      policy.active ? 'bg-sage/10 text-sage-deep' : 'bg-graysoft text-charcoal-2'
                     }`}
                   >
                     {policy.active ? '활성' : '비활성'}

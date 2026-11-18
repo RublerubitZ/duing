@@ -125,7 +125,7 @@ export function ClubDetailHero({ club, recruitmentDisplayStatus }: Props) {
 
               <div className="flex-1 pt-2">
                 <div className="mb-3.5 flex flex-wrap items-center gap-2">
-                  {club.centralClub && <span className="pill pill-solid">🏛️ 중앙동아리</span>}
+                  {club.centralClub && <span className="pill pill-solid">중앙동아리</span>}
                   <span className="pill">
                     {categoryLabel}
                     {affiliation ? ` · ${affiliation}` : ''}

@@ -13,6 +13,7 @@ import type { MySession, SessionPlatform } from '@duing/types';
 
 import { ConfirmDialog } from '@/app/_components/ConfirmDialog';
 import { useToast } from '@/app/_components/toast/ToastProvider';
+import { LOGOUT_BLOCKED_MESSAGE, sessionChangeMessageOf } from '@/app/_lib/authBoot';
 import { skipNextOverlayReclaim } from '@/app/_lib/backDismiss';
 import { clearOperatorLocalState } from '@/app/_lib/operatorLocalState';
 import { ListRowsSkeleton } from '@/components/loading/Skeleton';
@@ -25,7 +26,16 @@ import { ListRowsSkeleton } from '@/components/loading/Skeleton';
  * 아닌 실패(네트워크 끊김 등)에만 기본 안내로 떨어진다. 레포 다수 화면이 쓰는 형태와 같다.
  */
 function sessionErrorMessage(error: unknown, fallback: string): string {
+  // 다른 탭 때문에 막힌 요청은 서버에 닿지 않았다 — 막힌 문서에 고정된 첫 문구('로그아웃되었어요' 포함) 대신 못 했다고 알린다.
+  if (sessionChangeMessageOf(error) !== null) return LOGOUT_BLOCKED_MESSAGE;
   return error instanceof ApiError ? error.message : `${fallback} 잠시 후 다시 시도해 주세요.`;
+}
+
+// 막힌 폐기는 닫을 때까지 남긴다(로그아웃 네 곳과 같다 — 공용 기기에서 '못 했다' 가 5초 뒤 사라지지 않게).
+function sessionErrorToastOptions(error: unknown) {
+  return sessionChangeMessageOf(error) !== null
+    ? { variant: 'error' as const, durationMs: 0 }
+    : { variant: 'error' as const };
 }
 
 const PLATFORM_LABEL: Record<SessionPlatform, string> = {
@@ -93,9 +103,10 @@ export function SessionListCard() {
     revokeMutation.mutate(sessionId, {
       onSuccess: () => addToast('해당 기기에서 로그아웃했어요.'),
       onError: (revokeError) =>
-        addToast(sessionErrorMessage(revokeError, '기기를 로그아웃하지 못했어요.'), {
-          variant: 'error',
-        }),
+        addToast(
+          sessionErrorMessage(revokeError, '기기를 로그아웃하지 못했어요.'),
+          sessionErrorToastOptions(revokeError),
+        ),
     });
   };
 
@@ -112,7 +123,10 @@ export function SessionListCard() {
         window.location.replace('/');
       },
       onError: (logoutError) =>
-        addToast(sessionErrorMessage(logoutError, '로그아웃하지 못했어요.'), { variant: 'error' }),
+        addToast(
+          sessionErrorMessage(logoutError, '로그아웃하지 못했어요.'),
+          sessionErrorToastOptions(logoutError),
+        ),
     });
   };
 

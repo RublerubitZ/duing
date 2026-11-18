@@ -19,15 +19,15 @@ export function WizardStepper({ currentStep }: Props) {
         const isActive = step === currentStep;
         const isPast = step < currentStep;
         const tone = isActive
-          ? 'bg-sky-100 text-sky-800 font-semibold'
+          ? 'border-sky/40 bg-sky/10 text-sky-deep font-semibold'
           : isPast
-            ? 'bg-slate-100 text-slate-600'
-            : 'bg-white text-slate-400';
+            ? 'border-line bg-graysoft text-charcoal-2'
+            : 'border-line bg-white text-charcoal-3';
         return (
           <li
             key={step}
             aria-current={isActive ? 'step' : undefined}
-            className={`flex items-center gap-2 rounded-full border border-slate-200 px-3 py-1 text-sm ${tone}`}
+            className={`flex items-center gap-2 rounded-full border px-3 py-1 text-sm ${tone}`}
           >
             <span className="text-xs">{step}</span>
             <span>{label}</span>

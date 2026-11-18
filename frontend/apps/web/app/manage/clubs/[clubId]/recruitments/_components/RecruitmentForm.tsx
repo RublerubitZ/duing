@@ -24,6 +24,7 @@ import { recruitmentStageLabels } from '@/app/manage/clubs/[clubId]/recruitments
 import {
   clearRecruitmentDraft,
   loadRecruitmentDraft,
+  recruitmentDraftClearGeneration,
   saveRecruitmentDraft,
 } from '@/app/manage/clubs/[clubId]/recruitments/_lib/recruitmentDraft';
 import type {
@@ -31,12 +32,13 @@ import type {
   RecruitmentDraftValues,
 } from '@/app/manage/clubs/[clubId]/recruitments/_lib/recruitmentDraft';
 import { useUnsavedChangesGuard } from '@/app/_lib/useUnsavedChangesGuard';
+import { preventEnterSubmit } from '@/app/_lib/preventEnterSubmit';
 
 /** Task 8 의 페이지 헤더 제출 버튼이 `form` 속성으로 이 폼을 원격 제출한다. */
 export const RECRUITMENT_FORM_ID = 'recruitment-form';
 
 /**
- * zod issue 의 최상위 경로 → 해당 입력의 DOM id. 여기에 없는 경로는 폼 하단 일반 오류로 떨어진다.
+ * zod issue 의 최상위 경로 → 해당 입력의 DOM id. 여기에 없는 경로는 일반 오류(폼 맨 위 카드·하단 줄)로 떨어진다.
  * 오류 요약 카드의 "누르면 그 필드로 이동" 도 이 id 로만 동작한다.
  */
 const FIELD_IDS: Record<string, string> = {
@@ -180,7 +182,7 @@ type RecruitmentFormProps = CreateMode | EditMode;
 
 const fieldLabelClass = 'block text-[12.5px] font-bold text-charcoal-2';
 const fieldInputClass =
-  'mt-1 w-full rounded-[10px] border border-line bg-paper px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sage';
+  'mt-1 w-full rounded-[10px] border border-field bg-paper px-3 py-2 text-sm focus:border-ink focus:outline-none focus:ring-[3px] focus:ring-ink/15';
 
 export function RecruitmentForm(props: RecruitmentFormProps) {
   const isEditMode = props.mode === 'edit';
@@ -252,9 +254,11 @@ export function RecruitmentForm(props: RecruitmentFormProps) {
   });
   // 필드 경로별 첫 오류 메시지(zod 문구 그대로) — 입력 아래·요약 카드가 같은 값을 읽는다.
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
-  // 특정 입력에 붙일 수 없는 오류(교차 검증 등)만 폼 하단에 남긴다.
+  // 특정 입력에 붙일 수 없는 오류(교차 검증 등)만 일반 오류(폼 맨 위 카드·하단 줄)로 남긴다.
   const [formError, setFormError] = useState<string | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  // 이번 제출의 일반 오류를 폼 맨 위 카드로도 보일지 — 제출하는 순간에 정한다(handleSubmit).
+  const [showsTopCardForSubmit, setShowsTopCardForSubmit] = useState(true);
   const [isExternalConfirmOpen, setIsExternalConfirmOpen] = useState(false);
   // 검증까지 끝났지만 "기존 모집 마감" 확인을 기다리는 create payload. null 이면 확인 대기 없음.
   const [pendingCreateValues, setPendingCreateValues] = useState<CreateFormValues | null>(null);
@@ -304,7 +308,7 @@ export function RecruitmentForm(props: RecruitmentFormProps) {
 
   /**
    * zod issue 를 필드별 오류로 펼친다 — 한 필드에 여러 issue 가 있으면 첫 문구만 남긴다(문구는 스키마 것 그대로).
-   * 붙일 입력이 없는 issue 는 폼 하단 일반 오류로, 그마저도 없으면 기존 폴백 문구로 떨어진다.
+   * 붙일 입력이 없는 issue 는 일반 오류로, 그마저도 없으면 기존 폴백 문구로 떨어진다.
    */
   function applyIssues(issues: { path: PropertyKey[]; message: string }[]) {
     const next: Record<string, string> = {};
@@ -342,8 +346,14 @@ export function RecruitmentForm(props: RecruitmentFormProps) {
     });
   }
 
-  async function handleSubmit(event: FormEvent) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    const form = event.currentTarget;
+    const submitter = (event.nativeEvent as SubmitEvent).submitter;
+    // 카드는 그 자리(폼 맨 위)가 화면에 보일 때만 넣는다 — 이 화면은 윈도우가 스크롤하고, top 이 음수면 폼 맨 위가 화면 위로 지나갔다.
+    // 폼 안의 버튼(하단 버튼)으로 낸 제출에도 넣지 않는다 — 누른 사용자는 하단 줄을 보고 있고, 짧은 폼에서는 카드가 그 줄을 화면 밖으로 밀어낸다.
+    // 입력의 Enter 는 폼의 onKeyDown 이 막는다. 그래도 Enter 로 제출이 오면(key 가 'Enter' 로 오지 않는 IME 조합 등 — 확인한 조합은 없다) submitter 는 폼의 첫 제출 버튼 — 두 페이지에서는 폼 밖의 위쪽 버튼 — 이다.
+    setShowsTopCardForSubmit(form.getBoundingClientRect().top >= 0 && !(submitter && form.contains(submitter)));
     setFieldErrors({});
     setFormError(null);
     setSubmitError(null);
@@ -435,15 +445,22 @@ export function RecruitmentForm(props: RecruitmentFormProps) {
     setIsPublishConfirmOpen(true);
   }
 
-  /** create 제출 본체 — 확인 다이얼로그를 거치든 아니든 이 한 곳으로 모인다. */
-  async function submitCreateValues(values: CreateFormValues) {
-    if (createSubmit === null) return;
+  /**
+   * create 제출 본체 — 두 확인 창(공개 확인·기존 모집 마감 확인)이 모두 이 함수로 제출한다.
+   * 성공하면 true. 실패하면 문구를 submitError 에 담고 false 를 돌려준다.
+   */
+  async function submitCreateValues(values: CreateFormValues): Promise<boolean> {
+    if (createSubmit === null) return false;
+    // 확인 창에서 다시 시도할 때 앞선 실패 문구를 지운다(같은 문구로 다시 실패해도 새로 알린다).
+    setSubmitError(null);
     try {
       await createSubmit(values);
       // 여기까지 왔으면 서버가 받았다 — 남은 임시저장은 다음 작성에 끼어들 뿐이라 지운다.
       if (draftOwner !== undefined) clearRecruitmentDraft(draftOwner);
+      return true;
     } catch (err) {
       setSubmitError(err instanceof Error ? err.message : '저장에 실패했습니다.');
+      return false;
     }
   }
 
@@ -499,7 +516,10 @@ export function RecruitmentForm(props: RecruitmentFormProps) {
       if (hasSavedDraftRef.current) clearRecruitmentDraft(draftOwner);
       return;
     }
+    // 건 뒤에 지움·무효화(저장 성공·취소·로그아웃)가 있었으면 쓰지 않는다 — 떠나는 폼이 임시저장을 다시 쓰지 않게.
+    const generationAtSchedule = recruitmentDraftClearGeneration();
     const timer = setTimeout(() => {
+      if (recruitmentDraftClearGeneration() !== generationAtSchedule) return;
       saveRecruitmentDraft(draftOwner, values);
       hasSavedDraftRef.current = true;
     }, DRAFT_SAVE_DEBOUNCE_MS);
@@ -555,9 +575,8 @@ export function RecruitmentForm(props: RecruitmentFormProps) {
 
   async function confirmCloseAndCreate() {
     if (pendingCreateValues === null) return;
-    await submitCreateValues(pendingCreateValues);
-    // 성공하면 페이지가 이동하고, 실패하면 폼의 에러 배너를 가리지 않도록 닫는다.
-    setPendingCreateValues(null);
+    // 실패하면 창을 닫지 않고 창 안에서 알린다(DESIGN.md 확인 모달 실패 정책).
+    if (await submitCreateValues(pendingCreateValues)) setPendingCreateValues(null);
   }
 
   const previewData: RecruitmentPreviewData = {
@@ -575,11 +594,26 @@ export function RecruitmentForm(props: RecruitmentFormProps) {
     questions: isSelfForm ? questionItems : [],
   };
   const stageLabels = recruitmentStageLabels(useInterview);
+  // 마감 확인 창은 기존 모집이 있을 때만 그려진다 — 창을 그리는 조건과 폼 쪽 문구를 가리는 조건이 같은 값을 읽는다.
+  const isCloseConfirmOpen = pendingCreateValues !== null && closingRecruitmentTitle !== undefined;
+  const isCreateConfirmOpen = isPublishConfirmOpen || isCloseConfirmOpen;
+  // 서버 거절·필드 없는 검증 오류 — 폼 맨 위와 하단 줄이 같은 문구를 그린다.
+  // 확인 창이 열린 동안의 실패는 창 안에서 알린다 — 폼 쪽에도 그리면 알림이 둘이 되고 스크림 뒤에서 폼이 밀린다.
+  const generalError = isCreateConfirmOpen ? null : (formError ?? submitError);
+  // 화면 밖 위쪽에 카드를 넣으면 보이지도 않고, 스크롤 보정이 없는 브라우저에서는 보던 화면이 카드 높이만큼 밀린다(판정은 handleSubmit).
+  const showsErrorAtTop = Boolean(generalError) && showsTopCardForSubmit;
 
   return (
     <div className="xl:grid xl:grid-cols-[minmax(0,1fr)_380px] xl:items-start xl:gap-6">
       {/* noValidate — 검증은 zod 한 곳에서만 판정하고, 브라우저 기본 말풍선이 요약 카드와 겹치지 않게 한다. */}
-      <form id={RECRUITMENT_FORM_ID} noValidate className="min-w-0" onSubmit={handleSubmit}>
+      <form
+        id={RECRUITMENT_FORM_ID}
+        noValidate
+        className="min-w-0"
+        onSubmit={handleSubmit}
+        // 날짜 입력의 달력 아이콘에서 누른 Enter 도 target 이 그 <input> 이라 같이 막힌다(Chromium·Firefox — Space·마우스로는 열린다).
+        onKeyDown={preventEnterSubmit}
+      >
         {draft !== null && draftOwner !== undefined && (
           <div
             role="status"
@@ -620,6 +654,15 @@ export function RecruitmentForm(props: RecruitmentFormProps) {
             message,
           }))}
         />
+        {/* 위쪽 버튼으로 저장하면 하단 문구는 화면 밖이다 — 폼 맨 위가 보이는 상태에서 폼 밖 버튼으로 낸 제출이면 같은 문구를 여기에도 알린다. 알림 영역은 늘 한 곳이다. */}
+        {showsErrorAtTop && (
+          <p
+            role="alert"
+            className="mb-4 rounded-[13px] border border-danger/40 bg-danger/5 px-4 py-3 text-sm text-danger"
+          >
+            {generalError}
+          </p>
+        )}
 
         {/* 우측 프리뷰는 xl 이상에서만 붙는다 — 그 아래 폭에서는 시트로 같은 화면을 연다. */}
         <div className="mb-3 flex justify-end xl:hidden">
@@ -1028,10 +1071,12 @@ export function RecruitmentForm(props: RecruitmentFormProps) {
           </SectionCard>
         )}
 
-        {/* 오류 + 하단 제출 */}
-        <div className="mt-2 flex items-center justify-end gap-3">
-          {(formError ?? submitError) && (
-            <p className="text-sm text-danger">{formError ?? submitError}</p>
+        {/* 오류 + 하단 제출 — 한 줄에 안 들어가면 버튼이 다음 줄로 내려간다(버튼이 줄어들지 않게) */}
+        <div className="mt-2 flex flex-wrap items-center justify-end gap-3">
+          {generalError && (
+            <p role={showsErrorAtTop ? undefined : 'alert'} className="text-sm text-danger">
+              {generalError}
+            </p>
           )}
           <button type="submit" disabled={props.isPending} className="btn btn-primary disabled:opacity-50">
             {props.isPending && <ButtonSpinner />}
@@ -1047,13 +1092,15 @@ export function RecruitmentForm(props: RecruitmentFormProps) {
           confirmVariant="primary"
           isPending={props.isPending}
           busyLabel="모집 공개 중"
+          errorMessage={submitError}
           onCancel={() => {
             setIsPublishConfirmOpen(false);
             setPendingPublishValues(null);
           }}
           onConfirm={() => {
             if (pendingPublishValues === null) return;
-            void submitCreateValues(pendingPublishValues).finally(() => {
+            void submitCreateValues(pendingPublishValues).then((succeeded) => {
+              if (!succeeded) return;
               setIsPublishConfirmOpen(false);
               setPendingPublishValues(null);
             });
@@ -1085,10 +1132,11 @@ export function RecruitmentForm(props: RecruitmentFormProps) {
         onConfirm={confirmExternalMode}
       />
 
-      {pendingCreateValues !== null && closingRecruitmentTitle !== undefined && (
+      {isCloseConfirmOpen && (
         <RecruitmentCloseConfirmDialog
           recruitmentTitle={closingRecruitmentTitle}
           isPending={props.isPending}
+          errorMessage={submitError}
           onConfirm={() => {
             void confirmCloseAndCreate();
           }}

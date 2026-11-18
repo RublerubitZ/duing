@@ -2,7 +2,9 @@ package com.duing.domain.fee;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.nullValue;
 
+import com.duing.common.FixedClockConfig;
 import com.duing.common.IntegrationTestBase;
 import com.duing.common.TestcontainersConfiguration;
 import com.duing.common.fixture.ClubFixture;
@@ -27,7 +29,9 @@ import com.duing.global.crypto.FeeAccountCipher;
 import io.restassured.RestAssured;
 import io.restassured.http.ContentType;
 import io.restassured.response.Response;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
@@ -44,7 +48,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.JdbcTemplate;
 
-@Import({TestcontainersConfiguration.class, BankTransactionSyncTest.StubBankApiConfig.class})
+@Import({TestcontainersConfiguration.class, FixedClockConfig.class, BankTransactionSyncTest.StubBankApiConfig.class})
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 class BankTransactionSyncTest extends IntegrationTestBase {
 
@@ -171,6 +175,19 @@ class BankTransactionSyncTest extends IntegrationTestBase {
                 .contentType(ContentType.JSON)
                 .body(Map.of("accountPassword", ACCOUNT_PASSWORD, "residentNumber", RESIDENT_NUMBER))
                 .when().post("/api/v1/leader/clubs/" + clubId + "/bank-transactions/sync");
+    }
+
+    /** 이전 동기화가 남긴 거래 1건을 그 날짜 10:00(KST)으로 적재한다 — 마지막 거래일 기준점. bankCode 로 옛 계좌 거래를 흉내 낸다. */
+    private void insertStoredTransaction(Long clubId, String bankCode, LocalDate kstDate) {
+        jdbcTemplate.update("""
+                INSERT INTO bank_transaction
+                    (club_id, bank_code, transaction_at, amount, balance, counterparty,
+                     transaction_type, match_status, matched_fee_bill_id, transaction_hash,
+                     raw_payload, created_at, updated_at)
+                VALUES (?, ?, ?::timestamptz, 10000, 50000, NULL, 'DEPOSIT', 'IGNORED', NULL, ?, '{}'::jsonb, now(), now())
+                """,
+                clubId, bankCode, kstDate.atTime(10, 0).atZone(ZoneId.of("Asia/Seoul")).toInstant().toString(),
+                "seed-" + clubId + "-" + kstDate);
     }
 
     @Test
@@ -337,5 +354,58 @@ class BankTransactionSyncTest extends IntegrationTestBase {
 
         assertThat(errorBody).doesNotContain(ACCOUNT_PASSWORD);
         assertThat(errorBody).doesNotContain(RESIDENT_NUMBER);
+    }
+
+    @Test
+    @DisplayName("마지막 거래가 30일 전이면 그날부터(오늘 포함 31일) 조회해 쉰 기간을 다시 받고 빠진 기간은 없다")
+    void syncRefetchesIdleGapWithinCap() {
+        Club club = saveEnabledClub("쉰기간동아리");
+        Long clubId = club.getId();
+        User leader = joinAs(club, ClubMemberRole.LEADER);
+        insertStoredTransaction(clubId, "NH", FixedClockConfig.TODAY.minusDays(30)); // 05-16
+
+        syncAs(tokenOf(leader), clubId)
+                .then().statusCode(HttpStatus.OK.value())
+                .body("data.missedFrom", nullValue())
+                .body("data.missedTo", nullValue());
+
+        // 수정 전 시작일: max(05-15, 06-01) = 06-01
+        assertThat(stubBankApiClient.capturedLookup.startDate()).isEqualTo(LocalDate.of(2026, 5, 16));
+        assertThat(stubBankApiClient.capturedLookup.endDate()).isEqualTo(FixedClockConfig.TODAY);
+    }
+
+    @Test
+    @DisplayName("계좌를 바꾼 뒤 옛 계좌의 마지막 거래가 2일 전이어도 14일 전부터 조회해 새 계좌의 앞선 입금을 적재한다")
+    void syncAfterAccountChangeRefetchesLookback() {
+        Club club = saveEnabledClub("계좌교체동아리"); // 현재 계좌 NH
+        Long clubId = club.getId();
+        User leader = joinAs(club, ClubMemberRole.LEADER);
+        insertStoredTransaction(clubId, "KB", FixedClockConfig.TODAY.minusDays(2)); // 옛 계좌의 마지막 거래 06-13
+        stubBankApiClient.transactionsToReturn = List.of(
+                deposit(FixedClockConfig.TODAY.minusDays(10).atTime(9, 0), 30000L, "홍길동")); // 새 계좌 06-05 입금
+
+        syncAs(tokenOf(leader), clubId)
+                .then().statusCode(HttpStatus.OK.value())
+                .body("data.newlyStored", equalTo(1));
+
+        // 수정 전 시작일: max(06-12, 06-01) = 06-12 — 06-05 입금은 조회 기간 밖이었다
+        assertThat(stubBankApiClient.capturedLookup.startDate()).isEqualTo(LocalDate.of(2026, 6, 1));
+    }
+
+    @Test
+    @DisplayName("마지막 거래일이 조회 상한보다 앞이면 최근 31일만 조회하고 못 불러온 기간(마지막 거래일~조회 시작 전날)을 응답에 담는다")
+    void syncBeyondCapReportsMissedRange() {
+        Club club = saveEnabledClub("상한초과동아리");
+        Long clubId = club.getId();
+        User leader = joinAs(club, ClubMemberRole.LEADER);
+        insertStoredTransaction(clubId, "NH", FixedClockConfig.TODAY.minusDays(45)); // 05-01
+
+        syncAs(tokenOf(leader), clubId)
+                .then().statusCode(HttpStatus.OK.value())
+                .body("data.missedFrom", equalTo("2026-05-01"))  // 수정 전 필드 없음
+                .body("data.missedTo", equalTo("2026-05-15"));
+
+        // 수정 전 시작일: 06-01
+        assertThat(stubBankApiClient.capturedLookup.startDate()).isEqualTo(LocalDate.of(2026, 5, 16));
     }
 }

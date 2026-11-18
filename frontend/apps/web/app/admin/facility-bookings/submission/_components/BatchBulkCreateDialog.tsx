@@ -63,7 +63,7 @@ export function BatchBulkCreateDialog({ groups, isPending, onClose, onConfirm }:
                 onChange={(event) =>
                   setMemoByClubId((previous) => new Map(previous).set(group.clubId, event.target.value))
                 }
-                className="mt-1.5 w-full rounded-md border border-line bg-paper px-2 py-1.5 text-sm"
+                className="mt-1.5 w-full rounded-md border border-field bg-paper px-2 py-1.5 text-sm"
               />
             </li>
           ))}

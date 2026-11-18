@@ -116,7 +116,7 @@ describe('ClubDetailNews (소식 탭 — 공지+일정 통합)', () => {
     expect(within(noticesSection).getAllByText('2026.06.01').length).toBeGreaterThan(0);
 
     expect(
-      within(noticesSection).getByRole('link', { name: '전체 보기 →' }),
+      within(noticesSection).getByRole('link', { name: '전체 보기' }),
     ).toHaveAttribute('href', '/clubs/7/member/notices');
     // 상세 링크
     const firstNotice = within(noticesSection).getByText('공지 1').closest('a');
@@ -141,7 +141,7 @@ describe('ClubDetailNews (소식 탭 — 공지+일정 통합)', () => {
     expect(within(eventsSection).getAllByText('19:00').length).toBeGreaterThan(0);
 
     expect(
-      within(eventsSection).getByRole('link', { name: '전체 보기 →' }),
+      within(eventsSection).getByRole('link', { name: '전체 보기' }),
     ).toHaveAttribute('href', '/clubs/7/member/events');
     const firstEvent = within(eventsSection).getByText('일정 1').closest('a');
     expect(firstEvent).toHaveAttribute('href', '/clubs/7/member/events/1');

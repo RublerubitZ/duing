@@ -43,11 +43,15 @@ export type BankTransaction = {
 };
 
 // SyncResultResponse 미러. 거래 동기화 결과(적재 건수). 인증정보는 어떤 필드에도 포함되지 않는다.
+// missedFrom~missedTo(YYYY-MM-DD)는 조회 상한에 잘려 이번 동기화에서 확인하지 못한 기간이다 — 없으면 둘 다 null.
+// 롤백된 옛 백엔드는 두 필드를 보내지 않는다(undefined) — 호출부는 둘 다 있을 때만 안내한다.
 export type SyncResult = {
   fetched: number;
   newlyStored: number;
   autoMatched: number;
   pendingReview: number;
+  missedFrom: string | null;
+  missedTo: string | null;
 };
 
 // SyncBankTransactionsRequest 미러. 계좌 비밀번호·주민등록번호 앞 6자리.

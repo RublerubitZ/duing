@@ -12,7 +12,9 @@ const mockBookingsQuery = vi.hoisted(() => ({
   },
 }));
 
+const mockManagedClubs = vi.hoisted(() => ({ current: { data: undefined as unknown } }));
 vi.mock('@duing/hooks', () => ({
+  useManagedClubsQuery: () => mockManagedClubs.current,
   useClubFacilityBookingsQuery: () => mockBookingsQuery.current,
   useFacilityBookingDetailQuery: () => ({ data: undefined, isLoading: false, isError: false }),
   useCancelFacilityBookingMutation: () => ({ mutate: vi.fn(), isPending: false }),
@@ -47,6 +49,7 @@ function makeBooking(overrides: Partial<FacilityBookingSummary>): FacilityBookin
 }
 
 beforeEach(() => {
+  mockManagedClubs.current = { data: undefined };
   mockBookingsQuery.current = {
     data: undefined,
     isLoading: false,
@@ -155,5 +158,34 @@ describe('FacilityBookingsView 처음 탭', () => {
     mockBookingsQuery.current = { ...mockBookingsQuery.current, data: [] };
     render(<FacilityBookingsView clubId={1} />);
     expect(screen.getByRole('tab', { name: /진행중/ })).toHaveAttribute('aria-selected', 'true');
+  });
+});
+
+describe('FacilityBookingsView — 중앙동아리가 아닌 동아리', () => {
+  const nonCentral = { data: [{ clubId: 7, clubName: '동아리', logoUrl: null, myRole: 'LEADER', centralClub: false, activeRecruitmentCount: 0 }] };
+
+  it('예약이 없으면 신청할 수 없다는 안내만 두고 예약 홈 CTA 는 두지 않는다 — 눌러도 신청할 수 없는 막다른 길이다', () => {
+    mockManagedClubs.current = nonCentral;
+    mockBookingsQuery.current = { ...mockBookingsQuery.current, data: [] };
+    render(<FacilityBookingsView clubId={7} />);
+    expect(screen.getByText(/시설 예약은 중앙동아리만 신청할 수 있어요/)).toBeInTheDocument();
+    expect(screen.queryByText(/이전에 신청한 예약/)).toBeNull();
+    expect(screen.queryByRole('link', { name: '예약하러 가기' })).toBeNull();
+  });
+
+  it('예약 기록이 있으면 신청 불가 안내와 함께 기존 예약을 계속 볼 수 있다고 알리고 목록을 그대로 보여준다', () => {
+    mockManagedClubs.current = nonCentral;
+    mockBookingsQuery.current = { ...mockBookingsQuery.current, data: [makeBooking({ bookingId: 31, status: 'PENDING' })] };
+    render(<FacilityBookingsView clubId={7} />);
+    expect(screen.getByText(/중앙동아리만 신청할 수 있어요.*이전에 신청한 예약은 여기서 계속 확인할 수 있어요/)).toBeInTheDocument();
+    expect(screen.getAllByRole('listitem').length).toBeGreaterThan(0);
+  });
+
+  it('중앙동아리면 안내가 없고 예약 홈 CTA 가 그대로 있다', () => {
+    mockManagedClubs.current = { data: [{ ...nonCentral.data[0], centralClub: true }] };
+    mockBookingsQuery.current = { ...mockBookingsQuery.current, data: [] };
+    render(<FacilityBookingsView clubId={7} />);
+    expect(screen.queryByText(/중앙동아리만 신청할 수 있어요/)).toBeNull();
+    expect(screen.getByRole('link', { name: '예약하러 가기' })).toHaveAttribute('href', '/facilities');
   });
 });

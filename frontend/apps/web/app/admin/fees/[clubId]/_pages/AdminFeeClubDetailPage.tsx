@@ -27,6 +27,7 @@ import {
   writePeriodParams,
   type FeePeriodValue,
 } from '../../_lib/feePeriod';
+import { ArrowLeft } from '@/components/duing/Icon';
 
 const TABS = [
   { key: 'overview', label: '개요' },
@@ -91,9 +92,10 @@ export function AdminFeeClubDetailPage({ clubId }: { clubId: number }) {
         <div className="min-w-0">
           <Link
             href={toRoute('/admin/fees')}
-            className="text-[13px] text-charcoal-2 hover:text-ink"
+            className="inline-flex items-center gap-1 text-[13px] text-charcoal-2 hover:text-ink"
           >
-            ← 목록으로
+            <ArrowLeft size={14} aria-hidden />
+            목록으로
           </Link>
           <div className="mt-1 flex flex-wrap items-center gap-2">
             <h1 className="text-[22px] font-bold text-ink">

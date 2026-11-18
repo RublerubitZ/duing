@@ -185,7 +185,7 @@ class ClubRepositoryImplPendingItemsTest extends IntegrationTestBase {
     }
 
     private AdminClubSearchCondition condition(ClubStatus status, boolean needsPendingCleanup) {
-        return new AdminClubSearchCondition(status, null, null, null, needsPendingCleanup);
+        return new AdminClubSearchCondition(status, null, null, null, needsPendingCleanup, null);
     }
 
     private Club saveClub(ClubStatus status) {
