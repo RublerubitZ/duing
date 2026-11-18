@@ -1,6 +1,6 @@
 import { act, render as rtlRender, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import type { ReactElement } from 'react';
+import type { ReactElement, ReactNode } from 'react';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { setupServer } from 'msw/node';
@@ -23,6 +23,24 @@ const mockUsePathname = vi.fn(() => '/admin');
 vi.mock('next/navigation', () => ({
   usePathname: () => mockUsePathname(),
   useRouter: () => ({ replace: vi.fn(), push: vi.fn() }),
+}));
+// replace 는 DOM 에 남지 않으므로 data 속성으로 드러낸다(값이 없으면 Next 기본값처럼 false).
+vi.mock('next/link', () => ({
+  default: ({
+    href,
+    replace,
+    children,
+    ...rest
+  }: {
+    href: string;
+    replace?: boolean;
+    children: ReactNode;
+    [key: string]: unknown;
+  }) => (
+    <a href={href} data-replace={String(replace === true)} {...rest}>
+      {children}
+    </a>
+  ),
 }));
 
 // 로그아웃 훅만 바꿔 끼운다 — 실제 훅은 세션 저장소 정리까지 해서 이 테스트 환경에서는 끝나지 않는다(저장소 미구성).
@@ -144,5 +162,22 @@ describe('AdminMobileBar', () => {
     // 막혔으면 닫을 때까지 남고(공용 기기에서 '못 했다' 가 사라지지 않게), 막히지 않은 실패는 기본 시간 뒤 닫힌다.
     act(() => vi.advanceTimersByTime(6_000));
     expect(screen.queryAllByText(expectedToast)).toHaveLength(expectedToast === OFFLINE_LOGOUT_TEXT ? 0 : 1);
+  });
+
+  // 드로어도 같은 내비 본문(AdminNavContent)을 그린다 — 사이드바 테스트와 같은 표로 배선을 고정한다.
+  it.each<[string, string | RegExp, 'true' | 'false']>([
+    ['/admin/weekly-briefing', '주간 브리핑', 'true'],
+    ['/admin', '주간 브리핑', 'false'],
+    ['/admin/weekly-briefing/print', '주간 브리핑', 'false'],
+    ['/admin', '대시보드', 'true'],
+    ['/admin/clubs', /동아리 관리/, 'false'],
+  ])('드로어 — %s 에서 %s 메뉴의 replace 는 %s 다', async (pathname, linkName, expectedReplace) => {
+    mockUsePathname.mockReturnValue(pathname);
+    const user = userEvent.setup();
+    render(<AdminMobileBar />);
+
+    await user.click(screen.getByRole('button', { name: '관리 메뉴 열기' }));
+    const drawer = within(await screen.findByRole('dialog', { name: '관리 메뉴' }));
+    expect(drawer.getByRole('link', { name: linkName })).toHaveAttribute('data-replace', expectedReplace);
   });
 });
