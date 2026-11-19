@@ -7,6 +7,13 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneId;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.CyclicBarrier;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -249,6 +256,110 @@ class ApiReadRateLimitFilterTest {
                     assertThat(context).hasNotFailed();
                     assertThat(context.getBean(ApiReadRateLimitFilter.class).limitPerMinute()).isEqualTo(1_000);
                 });
+    }
+
+    @Test
+    @DisplayName("한 IP 분당 최대 조회 — 여러 IP 중 한 분 창에서 가장 많이 보낸 건수를 돌려주고(뒤에 온 작은 건수가 덮지 않는다), 가져가면 0 으로 돌아간다")
+    void drainReturnsHighestWindowCountAcrossIps() throws Exception {
+        ReflectionTestUtils.setField(filter, "limitPerMinute", 10);
+        // 큰 쪽을 먼저 보낸다 — 비교 없이 마지막 창 건수를 쓰는 구현이면 3 이 남는다.
+        sendReads("198.51.100.9", 5);
+        sendReads(CLIENT_IP, 3);
+
+        assertThat(filter.drainPeakPerIpCount()).isEqualTo(5);
+        assertThat(filter.drainPeakPerIpCount()).isZero();
+    }
+
+    @Test
+    @DisplayName("최대 조회는 가져간 뒤의 증가분이 아니라 창 누적 건수다 — 3건 뒤 가져가고 같은 창에서 2건 더 오면 5")
+    void drainReportsCumulativeWindowCount() throws Exception {
+        ReflectionTestUtils.setField(filter, "limitPerMinute", 10);
+        sendReads(CLIENT_IP, 3);
+        assertThat(filter.drainPeakPerIpCount()).isEqualTo(3);
+
+        sendReads(CLIENT_IP, 2);
+
+        assertThat(filter.drainPeakPerIpCount()).isEqualTo(5);
+    }
+
+    @Test
+    @DisplayName("분 창이 바뀌면 최대 조회는 새 창의 건수부터 센다")
+    void drainStartsFromNewWindowCount() throws Exception {
+        ReflectionTestUtils.setField(filter, "limitPerMinute", 10);
+        sendReads(CLIENT_IP, 4);
+        assertThat(filter.drainPeakPerIpCount()).isEqualTo(4);
+
+        clock.advance(Duration.ofSeconds(40));
+        sendReads(CLIENT_IP, 2);
+
+        assertThat(filter.drainPeakPerIpCount()).isEqualTo(2);
+    }
+
+    @Test
+    @DisplayName("한도를 넘기면 최대 조회는 한도 + 1 에서 멈춘다 — 한도 2 에서 5건이면 3")
+    void peakStopsAtLimitPlusOne() throws Exception {
+        ReflectionTestUtils.setField(filter, "limitPerMinute", 2);
+        sendReads(CLIENT_IP, 5);
+
+        assertThat(filter.drainPeakPerIpCount()).isEqualTo(3);
+    }
+
+    @Test
+    @DisplayName("한도가 꺼져 있으면 세지 않으므로 최대 조회는 0 이다")
+    void peakIsZeroWhenDisabled() throws Exception {
+        ReflectionTestUtils.setField(filter, "limitPerMinute", 0);
+        sendReads(CLIENT_IP, 5);
+
+        assertThat(filter.drainPeakPerIpCount()).isZero();
+    }
+
+    @Test
+    @DisplayName("여러 IP 가 동시에 조회해도 최대 조회가 더 작은 값으로 덮이지 않는다 — 라운드마다 8개 IP 가 함께 1건씩 보내도 가장 많이 쌓인 IP 의 창 건수가 남는다")
+    void concurrentReadsKeepHighestPeak() throws Exception {
+        // 확률적 가드 — 올바른 구현(CAS 비교 갱신)에서는 항상 통과하고, 비교 없는 set·get 뒤 set 은 높은 확률로 어느 라운드에서 실패한다.
+        // 시계를 밀지 않으므로 모든 요청이 한 분 창 안이다(분 경계에서 20초 지난 시각에 고정). 한도는 쌓는 건수보다 넉넉히 크게 둔다.
+        ReflectionTestUtils.setField(filter, "limitPerMinute", 10_000);
+        int ipCount = 8;
+        int rounds = 200;
+        List<String> clientIps = new ArrayList<>();
+        for (int ipIndex = 0; ipIndex < ipCount; ipIndex++) {
+            String clientIp = "198.51.100." + (ipIndex + 1);
+            clientIps.add(clientIp);
+            // IP 마다 다른 건수(10·20·…·80)를 미리 쌓는다 — 가장 많이 쌓인 IP 는 마지막 IP(80건)다.
+            sendReads(clientIp, (ipIndex + 1) * 10);
+        }
+        int highestWindowCount = ipCount * 10;
+        assertThat(filter.drainPeakPerIpCount()).isEqualTo(highestWindowCount);
+
+        ExecutorService executor = Executors.newFixedThreadPool(ipCount);
+        CyclicBarrier startTogether = new CyclicBarrier(ipCount);
+        try {
+            for (int round = 1; round <= rounds; round++) {
+                List<Future<?>> sends = new ArrayList<>();
+                for (String clientIp : clientIps) {
+                    sends.add(executor.submit(() -> {
+                        startTogether.await(5, TimeUnit.SECONDS);
+                        send("GET", CLUBS_PATH, clientIp);
+                        return null;
+                    }));
+                }
+                for (Future<?> send : sends) {
+                    send.get(10, TimeUnit.SECONDS);
+                }
+                highestWindowCount++;
+
+                assertThat(filter.drainPeakPerIpCount()).as("라운드 %d", round).isEqualTo(highestWindowCount);
+            }
+        } finally {
+            executor.shutdownNow();
+            executor.awaitTermination(5, TimeUnit.SECONDS);
+        }
+    }
+
+    private void sendReads(String clientIp, int count) throws Exception {
+        for (int requestIndex = 0; requestIndex < count; requestIndex++) {
+            send("GET", CLUBS_PATH, clientIp);
+        }
     }
 
     private MockHttpServletResponse send(String method, String path, String clientIp) throws Exception {

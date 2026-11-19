@@ -14,6 +14,7 @@ import java.util.Locale;
 import java.util.Objects;
 import java.util.OptionalInt;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.atomic.AtomicInteger;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -54,6 +55,9 @@ import org.springframework.web.filter.OncePerRequestFilter;
  *
  * <p>보안 체인의 {@code CorsFilter} 뒤, 인증 필터 앞에 둔다({@code SecurityConfig}) — 429 응답에 CORS 헤더가 붙어
  * 브라우저가 안내를 읽을 수 있고, 거절되는 요청은 토큰 검증까지 가지 않는다.
+ *
+ * <p>매분 {@code TrafficSurgeMonitor} 가 {@link #drainPeakPerIpCount} 로 어느 IP 든 한 분 창에서 도달한 최대 건수를
+ * 가져가 매시·일간 요약에 한도와 나란히 싣는다 — 한도가 실제 사용과 얼마나 떨어져 있는지 보는 근거다. IP 는 넘기지 않는다.
  */
 @Slf4j
 @Component
@@ -86,6 +90,9 @@ public class ApiReadRateLimitFilter extends OncePerRequestFilter {
     private String unreadableLimitValue;
 
     private final ConcurrentMap<String, MinuteCount> countsByIp = RateLimitMaps.expiringMap(WINDOW);
+
+    // 어느 IP 든 한 분 창에서 도달한 최대 건수 — TrafficSurgeMonitor 가 매분 drainPeakPerIpCount 로 가져간다. IP 는 담지 않는다.
+    private final AtomicInteger peakPerIpCount = new AtomicInteger();
 
     private record MinuteCount(long minute, int count) {
     }
@@ -157,6 +164,9 @@ public class ApiReadRateLimitFilter extends OncePerRequestFilter {
             return new MinuteCount(currentMinute, nextCount);
         });
 
+        // 콜백 밖에서 돌려받은 창 건수로 갱신한다 — 새 창·증가·한도 초과 유지 세 분기를 한 번에 덮는다.
+        recordPeak(minuteCount.count());
+
         if (minuteCount.count() > limitPerMinute) {
             long secondsUntilNextWindow = Math.max(1, (WINDOW.toMillis() - nowMillis % WINDOW.toMillis() + 999) / 1000);
             response.setStatus(HttpStatus.TOO_MANY_REQUESTS.value());
@@ -167,6 +177,22 @@ public class ApiReadRateLimitFilter extends OncePerRequestFilter {
             return;
         }
         filterChain.doFilter(request, response);
+    }
+
+    /**
+     * 직전 호출 뒤로 어느 IP 든 한 분 창에서 도달한 최대 건수를 돌려주고 0 으로 되돌린다. 가져간 뒤의 증가분이 아니라 창 누적
+     * 건수다(같은 창에서 더 오면 다음에 누적값). 한도를 넘기면 한도 + 1 에서 멈춘다(창 카운터가 그렇다). 한도가 꺼져 있으면 0.
+     */
+    public int drainPeakPerIpCount() {
+        return peakPerIpCount.getAndSet(0);
+    }
+
+    // 지금 최대보다 클 때만 쓴다 — 조회마다 공유 카운터에 쓰지 않게 한다. 실패하면 다른 요청이 그새 올린 값과 다시 비교한다.
+    private void recordPeak(int windowCount) {
+        int currentPeak = peakPerIpCount.get();
+        while (windowCount > currentPeak && !peakPerIpCount.compareAndSet(currentPeak, windowCount)) {
+            currentPeak = peakPerIpCount.get();
+        }
     }
 
     /**
