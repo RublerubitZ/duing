@@ -73,7 +73,7 @@ cd /home/ubuntu/duing
 cp Caddyfile Caddyfile.before-emergency
 CF_RANGES="$( { curl -fsS https://www.cloudflare.com/ips-v4; echo; curl -fsS https://www.cloudflare.com/ips-v6; } | tr -s '[:space:]' ' ' | sed 's/^ //;s/ $//')"
 echo "$CF_RANGES" | wc -w    # 20 이상이어야 한다(2026-10 기준 22)
-awk -v ranges="$CF_RANGES" '{ print } $0 == "\tservers {" && !done { print "\t\ttrusted_proxies static " ranges; print "\t\tclient_ip_headers Cf-Connecting-Ip"; done = 1 }' Caddyfile > /tmp/Caddyfile.emergency
+awk -v ranges="$CF_RANGES" '{ print } ($0 == "\tservers {" || $0 == "\tservers :443 {") && !done { print "\t\ttrusted_proxies static " ranges; print "\t\tclient_ip_headers Cf-Connecting-Ip"; done = 1 }' Caddyfile > /tmp/Caddyfile.emergency
 grep -cE '^[[:space:]]+client_ip_headers Cf-Connecting-Ip$' /tmp/Caddyfile.emergency    # 1 이어야 한다
 docker compose exec -T caddy caddy validate --config - --adapter caddyfile < /tmp/Caddyfile.emergency
 cp /tmp/Caddyfile.emergency Caddyfile
@@ -81,20 +81,21 @@ docker compose exec -T caddy caddy reload --config /etc/caddy/Caddyfile --adapte
 docker compose exec -T caddy curl -s localhost:2019/config/apps/http/servers | grep -o '"client_ip_headers":\[[^]]*\]'
 ```
 
+- awk 는 전역 블록의 `servers :443 {` 줄(Caddy 2.11.9 전환 뒤 형태)이나 `servers {` 줄(그 전 형태) 가운데 먼저 나오는 줄 바로 아래에 두 줄을 넣는다. 이 문서는 develop 기준이라 서버 파일이 다음 릴리스 배포 전까지 옛 형태일 수 있어 둘 다 받는다. `servers :80 {` 블록에는 넣지 않는다 — :80 은 리다이렉트만 한다.
 - 마지막 줄에 `"client_ip_headers":["Cf-Connecting-Ip"]` 가 나와야 반영된 것이다. reload 성공 메시지만으로는 반영의 증거가 아니다.
   - 안 나오면 컨테이너가 옛 파일(inode)을 보고 있는 것이다(2026-08-30 사례). `docker compose up -d --force-recreate caddy` 뒤 다시 되읽는다.
     인증서는 `caddy_data` 볼륨에 있어 재발급되지 않고, 끊김은 수 초다.
 - **`cp` 로 덮어쓴다.** Caddyfile 은 단일 파일 bind mount 라 inode 가 바뀌면 컨테이너가 옛 파일을 계속 본다. `mv` 나 편집기로 직접 저장하지 않는다.
-- 검증은 **지금 돌고 있는 Caddy** 로 한다. 따로 받아 둔 이미지는 운영과 버전이 다를 수 있다(2026-10 기준 운영 2.11.4 — 버전마다 받는 옵션이 다르다).
+- 검증은 **지금 돌고 있는 Caddy** 로 한다. 따로 받아 둔 이미지는 운영과 버전이 다를 수 있다(운영 버전은 서버 docker-compose.yml 의 caddy 서비스 이미지 태그다 — 버전마다 받는 옵션이 다르다).
   caddy 컨테이너가 죽어 있으면 `docker run --rm -i <docker-compose.yml 의 caddy 이미지> caddy validate --config - --adapter caddyfile < …` 로 대신한다.
 - `wc -w` 가 20 미만이면(Cloudflare 목록을 못 받음) [부록 A](#부록-a-cloudflare-대역-2026-10-07) 의 IPv4·IPv6 22개를 공백으로 이어 `CF_RANGES` 에 직접 넣는다.
 - `grep -c` 가 1 이 아니면 자동 삽입이 안 된 것이다. `cp Caddyfile /tmp/Caddyfile.emergency` 로 사본을 다시 만들어 편집기로 고친 뒤, 위 명령의 `docker run … validate` 줄부터 이어서 실행한다.
-  - 전역 블록의 `servers {` 바로 아래에 두 줄을 넣는다.
-  - 전역 블록 자체가 없으면 머리 주석 다음, `api.duings.com {` 앞에 아래 블록을 새로 만든다.
+  - 전역 블록의 `servers :443 {` 줄 바로 아래에 두 줄을 넣는다. 서버 파일이 아직 옛 형태라 전역 블록에 `servers {` 한 줄만 있으면 그 아래에 넣는다. `servers :80 {` 블록에는 넣지 않는다.
+  - 전역 블록 자체가 없으면 머리 주석 다음, `api.duings.com {` 앞에 아래 블록을 새로 만든다(옛 형태 파일이면 `servers :443 {` 대신 `servers {` 로 적어도 된다 — 그때는 :80 에도 붙는다).
 
     ```
     {
-    	servers {
+    	servers :443 {
     		trusted_proxies static <부록 A 의 22개 대역을 공백으로 이어서>
     		client_ip_headers Cf-Connecting-Ip
     	}
@@ -178,9 +179,10 @@ docker compose exec -T caddy curl -s localhost:2019/config/apps/http/servers | g
 
 1-1 은 서버 파일만 바꿨다. Deploy Backend 가 한 번이라도 돌면 저장소 파일로 덮어써 신뢰 블록이 사라지고 #1112 회귀가 난다. 저장소에도 같은 상태를 넣는다.
 
-- 저장소에 넣을 것은 두 가지다. ① `deploy/Caddyfile` 전역 `servers {` 블록에 1-1 과 같은 두 줄(최신 Cloudflare 대역)
+- 저장소에 넣을 것은 두 가지다. ① `deploy/Caddyfile` 의 `servers :443 {` 블록에 1-1 과 같은 두 줄(최신 Cloudflare 대역 — :80 블록에는 넣지 않는다)
   ② `.github/workflows/deploy-config-ci.yml` 첫 단언을 #1112(`1d960e0d4`)의 존재 단언으로 되돌리기. 이 두 파일만 바꾼다 — 신뢰 블록을 지운
   #1395 의 squash 커밋을 통째로 `git revert` 하지 않는다(그 커밋에는 이 런북의 1-5·2-6 안내도 들어 있어, 되돌리면 이 절차 안내까지 함께 되돌아간다).
+  - #1112 의 존재 단언은 어댑트 결과의 `srv0` 을 본다. servers 를 주소별로 나눈 뒤에도 `srv0` 은 :443 서버라(2026-11-19 확인) 단언을 그대로 되살리면 된다.
 - **develop 에 아직 릴리스하지 않은 변경이 없으면**: 위 두 변경을 develop PR 로 머지한 뒤 main 으로 승격한다.
 - **미릴리스 변경이 있으면**: 공격 중에 그것까지 내보내지 않도록, main 에서 분기한 핫픽스 PR(→ main)로 위 두 변경만 올린다. 같은 변경을 develop 에도 PR 로 반영한다.
 - 핫픽스 배포(Deploy Backend)는 백엔드 컨테이너도 다시 만들어 수십 초 끊긴다. 공격이 잦아든 틈에 한다.

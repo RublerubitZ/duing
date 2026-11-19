@@ -98,15 +98,94 @@
 
 1. **재현 확인**: `curl -s https://api.duings.com/actuator/health` — 로컬에서도 실패하면 진짜 장애, 성공하면 모니터측 일시 문제(회복 알림 대기).
 2. **1차 분류**:
-   - 1·2번 동시 다운 → VM/Caddy/네트워크: Lightsail 콘솔에서 인스턴스 상태 확인 → SSH → `docker compose -f deploy/docker-compose.yml ps` / `docker compose logs --tail 100 caddy backend`.
+   - 1·2번 동시 다운 → VM/Caddy/네트워크: Lightsail 콘솔에서 인스턴스 상태 확인 → SSH → `docker compose -f deploy/docker-compose.yml ps` / `docker compose logs --tail 100 caddy backend`. 배포 잡이 `Caddy 설정 반영 실패` 로 끝났거나 caddy 가 Up 이 아니거나 HTTP/2 만 문제면 아래 [Caddy 롤백 (증상별)](#caddy-롤백-증상별).
    - 2번만 다운(1번 UP) → 앱/DB 쿼리 경로: backend 로그와 Sentry(backend 프로젝트) 확인, Supabase 대시보드 상태 확인.
    - 서버 부하·연결 수가 치솟거나 여러 IP 의 429 가 쏟아진다 → 공격·트래픽 폭증 의심: [`EDGE-EMERGENCY.md`](./EDGE-EMERGENCY.md) 로 Cloudflare 비상 모드 전환.
    - 3번만 다운 → Vercel 상태(https://www.vercel-status.com) 및 배포 히스토리 확인, 필요 시 Vercel 대시보드에서 직전 배포로 Instant Rollback. 2026-11-04 릴리스 뒤 직전 운영 배포는 10/21 빌드(next 16.3.8)다 — 사이트 전체가 다운됐을 때만 쓰고, 복구한 뒤에는 되돌림 PR 로 다시 앞으로 낸다. 화면 문제는 `deploy/README.md` 의 운영 중단 미결 정리 절처럼 되돌림 PR 로 고친다.
 3. **복구 시도(백엔드)**: `docker compose restart backend` → 헬스 재확인. 컨테이너 자체가 기동 불가면 직전 이미지로 롤백 — `deploy/README.md` 의 롤백 절차(서버 `.env` 의 `BACKEND_IMAGE` 를 직전 태그로 되돌리고 `docker compose up -d`) 또는 GitHub Actions Deploy Backend 워크플로의 직전 성공 실행 re-run → 헬스 재확인.
    - 단, **비상 모드(Cloudflare 프록시 ON) 중에는 re-run 으로 롤백하지 않는다** — re-run 은 그 커밋의 Caddyfile 을 다시 올려 서버에 복원한 신뢰 블록을 지울 수 있다. 서버 `.env` 의 `BACKEND_IMAGE` 만 되돌린다([`EDGE-EMERGENCY.md`](./EDGE-EMERGENCY.md) 1-1) → 헬스 재확인.
-   - **#1563(Caddy HTTP/2 끄기) 이전 커밋의 실행도 re-run 하지 않는다** — 그 커밋의 Caddyfile(`protocols h1 h2`, :80 사이트 없음)로 서버를 덮어, 배포는 성공으로 끝나도 :443 HTTP/2 와 :80 평문 HTTP/2 가 경보 없이 돌아온다. 서버 `.env` 의 `BACKEND_IMAGE` 만 되돌린다 → 헬스 재확인. 11/4 릴리스 직후에는 직전 성공 실행(1e5f9c939, 10/21)이 여기에 든다 — 이 릴리스를 되돌릴 때 re-run 은 쓰지 않는다.
+   - **re-run 은 그 실행 커밋의 `docker-compose.yml`·`Caddyfile` 로 서버를 덮는다(Caddy 버전·프로토콜도 그 커밋으로 돌아간다).** 누르기 전에 실행의 커밋을 세 경우로 가른다(로컬 저장소에서, `git fetch origin` 뒤):
+
+     ```bash
+     SHA="$(gh run view <실행 ID> --json headSha -q .headSha)"
+     git show "$SHA:deploy/Caddyfile" | grep -cxF $'\tservers :443 {'    # 1 → ①
+     git show "$SHA:deploy/Caddyfile" | grep -cxF $'\t\tprotocols h1'     # 위가 0 일 때: 1 → ②, 0 → ③
+     ```
+
+     - ① **Caddy 2.11.9 전환 이후 커밋**: re-run 해도 2.11.9 + 지금 Caddyfile 그대로다.
+     - ② **#1563 ~ 2.11.9 전환 사이 커밋**(2.11.9 전환 릴리스 직후의 '직전 성공 실행'이 여기 든다): re-run 하면 서버가 2.11.4 + `protocols h1` 로 돌아간다. 취약한 조합은 아니지만 Go 보안 수정과 HTTP/2 를 경보 없이 잃고 caddy 가 다시 만들어진다(수 초 끊김). 백엔드만 되돌리려면 위 `BACKEND_IMAGE` 절차를 먼저 쓴다. re-run 했다면 `docker compose exec -T caddy caddy version` 과 바깥에서 `curl -sS -o /dev/null -w '%{http_version}\n' --http2 https://api.duings.com/actuator/health`(`1.1` 이면 HTTP/2 를 잃은 상태)로 다시 확인한다.
+     - ③ **#1563 이전 커밋**: re-run 하지 않는다 — 그 커밋의 Caddyfile(`protocols h1 h2`, :80 사이트 없음)이 2.11.4 에서 :443 HTTP/2 와 :80 평문 HTTP/2 를 경보 없이 되살린다(#1397 이전 커밋은 떠다니는 태그다). 서버 `.env` 의 `BACKEND_IMAGE` 만 되돌린다 → 헬스 재확인.
 4. **DB 의심 시**: Supabase 대시보드 → Database health. 복구 불가 수준이면 [`DB-RESTORE.md`](./DB-RESTORE.md) 백업/복원 런북(R2 일일 백업, 04:15 KST) 절차로 이관.
 5. **사후**: Sentry 이슈 링크와 함께 타임라인 기록(감지→분류→복구), 원인이 배포였다면 해당 커밋 명시.
+
+## Caddy 롤백 (증상별)
+
+배포 워크플로의 자동 롤백은 backend 가 unhealthy 일 때만 돈다 — caddy 가 뜨지 못하는 경우는 덮지 않는다. Caddy 이미지 태그가 바뀐 배포에서 새 caddy 가 뜨지 못하면, 배포 잡의 `caddy reload` 가 실패하고(멈춘 컨테이너에는 `docker compose exec` 가 닿지 않는다) 잡은 `Caddyfile.bak` 만 되돌린 뒤 두 번째 reload 도 실패해 `이미지 배포는 성공, Caddy 설정 반영 실패` 로 끝난다. 그때 서버는 **새 compose(2.11.9) + 옛 Caddyfile** 이고, `.bak` 두 개는 배포 전 파일이다. caddy 는 `restart: unless-stopped` 라 그 조합으로 혼자 다시 떠 있을 수도, 계속 죽어 있을 수도 있다(평소의 '실패한 reload 는 돌던 설정을 유지한다'는 컨테이너가 살아 있을 때 이야기다). **그 잡을 re-run 하지 않는다** — re-run 은 지금 파일을 먼저 `.bak` 으로 복사하므로 `docker-compose.yml.bak` 이 2.11.9 로 덮여 되돌릴 사본이 사라진다. 아래는 모두 서버 배포 디렉터리(`/home/ubuntu/duing`)에서 하고, 파일은 `cp` 로 덮는다(Caddyfile 은 단일 파일 bind mount — `mv`·편집기 저장 금지).
+
+- **배포 잡이 `Caddy 설정 반영 실패` 로 끝났다** — 먼저 지금 상태를 본다.
+
+  ```bash
+  cd /home/ubuntu/duing
+  docker compose ps caddy                                   # Up 인가(Restarting·Exited 면 죽어 있다)
+  docker compose exec -T caddy caddy version                # 떠 있으면 버전
+  docker compose exec -T caddy curl -s localhost:2019/config/apps/http/servers | grep -o '"protocols":\[[^]]*\]'
+  grep -E '^ *image: caddy' docker-compose.yml docker-compose.yml.bak
+  grep -cxF $'\tservers :443 {' Caddyfile Caddyfile.bak     # 0 = 옛 형태(전역 servers · protocols h1)
+  ```
+
+  - caddy 가 Up 이고 `v2.11.9`, 되읽기가 `"protocols":["h1"]` 두 줄이면 2.11.9 + 옛 Caddyfile(HTTP/1.1 전용)로 돌고 있다. 안전한 조합이고 API 는 산다. 급히 바꾸지 않는다 — `docker compose logs --tail 100 caddy` 로 새 Caddyfile 이 왜 뜨지 못했는지 보고, 저장소에서 고치거나 2.11.9 전환 PR 을 되돌리는 PR 로 맞춘다.
+  - caddy 가 Up 이 아니면 아래 'caddy 가 뜨지 않는다' 로 간다.
+  - Up 인데 되읽기에 `["h1","h2"]` 가 있으면 컨테이너는 새 설정으로 떠 있고 파일만 옛 것이다. `docker compose exec -T caddy caddy reload --config /etc/caddy/Caddyfile --adapter caddyfile` 로 파일(옛 설정)과 맞춘 뒤 첫 경우로 본다.
+- **caddy 가 뜨지 않는다(API 전체 불통)** — `docker compose ps caddy` 가 Up 이 아니거나 `docker compose logs --tail 50 caddy` 에 기동 오류가 있다.
+  배포 워크플로가 파일을 바꾸기 직전에 만든 `docker-compose.yml.bak`·`Caddyfile.bak` 을 **둘 다** 되돌린다 — compose 만 되돌리면 옛 버전 + 새 Caddyfile(:443 HTTP/2)이 될 수 있다.
+  먼저 두 `.bak` 이 옛 파일(2.11.4·옛 형태)인지 본다. `.bak` 이 이미 새 파일이면(실패한 잡을 re-run 했거나 그 뒤 배포가 또 돌았다) 되돌릴 사본이 없으니 아래 '손으로 내릴 때' 로 간다.
+
+  ```bash
+  cd /home/ubuntu/duing
+  grep -E '^ *image: caddy' docker-compose.yml.bak     # 2.11.4-alpine 이어야 한다
+  grep -cxF $'\tservers :443 {' Caddyfile.bak          # 0 이어야 한다(옛 형태)
+  cp docker-compose.yml.bak docker-compose.yml
+  cp Caddyfile.bak Caddyfile
+  docker compose up -d caddy
+  docker compose exec -T caddy caddy version            # v2.11.4
+  curl -sS -o /dev/null -w '%{http_code} %{http_version}\n' https://api.duings.com/actuator/health    # 200 1.1
+  ```
+
+  그 뒤 저장소는 2.11.9 전환 PR 을 되돌리는 PR 로 맞춘다(되돌리면 CI 검사도 HTTP/1.1 전용으로 함께 돌아간다) — 맞추기 전에 Deploy Backend 가 돌면 다시 2.11.9 파일로 덮는다.
+- **HTTP/2 만 문제다**(HTTP/2 로 붙는 요청만 실패하거나 caddy 로그에 panic) — 버전은 두고 :443 을 `protocols h1` 로 내린다(2026-10-24 #1563 과 같은 방식).
+
+  ```bash
+  cd /home/ubuntu/duing
+  cp Caddyfile Caddyfile.before-h1
+  sed $'s/^\t\tprotocols h1 h2$/\t\tprotocols h1/' Caddyfile > /tmp/Caddyfile.h1
+  grep -cxF $'\t\tprotocols h1 h2' /tmp/Caddyfile.h1    # 0 이어야 한다
+  docker compose exec -T caddy caddy validate --config - --adapter caddyfile < /tmp/Caddyfile.h1
+  cp /tmp/Caddyfile.h1 Caddyfile
+  docker compose exec -T caddy caddy reload --config /etc/caddy/Caddyfile --adapter caddyfile
+  docker compose exec -T caddy curl -s localhost:2019/config/apps/http/servers | grep -o '"protocols":\[[^]]*\]'    # 둘 다 ["h1"]
+  ```
+
+  바깥에서 `curl -sS -o /dev/null -w '%{http_version}\n' --http2 https://api.duings.com/actuator/health` → `1.1`. 저장소는 :443 을 `protocols h1` 로 바꾸는 후속 PR 로 맞추는데, **같은 PR 에서 `.github/workflows/deploy-config-ci.yml` 의 :443 프로토콜 검사(① — 지금 기대값 `["h1","h2"]`)도 `["h1"]` 로** 바꿔야 Gate 를 통과한다(버전 하한 검사 ④ 는 :443 에 h2 가 없으면 저절로 건너뛴다). 그 PR 이 들어가기 전에 Deploy Backend 가 돌면 서버가 저장소의 `h1 h2` 로 돌아간다.
+- **손으로 내릴 때**(되돌릴 `.bak` 이 없을 때) — 태그만 2.11.4 로 내리지 않는다. 2.11.8 미만 빌드는 Go HTTP/2 서버 DoS 수정이 없으니 :443 을 `protocols h1` 로 함께 바꾼다. 주소별 `servers` 문법은 2.11.4 도 받는다(2026-11-18 확인).
+
+  ```bash
+  cd /home/ubuntu/duing
+  cp docker-compose.yml docker-compose.yml.before-down
+  cp Caddyfile Caddyfile.before-down
+  sed $'s/^\t\tprotocols h1 h2$/\t\tprotocols h1/' Caddyfile > /tmp/Caddyfile.down      # 옛 형태 파일이면 바뀌는 것이 없다
+  sed 's/2\.11\.9-alpine/2.11.4-alpine/' docker-compose.yml > /tmp/docker-compose.yml.down
+  grep -E '^ *image: caddy' /tmp/docker-compose.yml.down                               # 2.11.4-alpine 이어야 한다
+  grep -cxF $'\t\tprotocols h1 h2' /tmp/Caddyfile.down                                  # 0 이어야 한다
+  docker run --rm -i "$(grep -E '^ *image: caddy' /tmp/docker-compose.yml.down | awk '{print $2}')" caddy validate --config - --adapter caddyfile < /tmp/Caddyfile.down
+  cp /tmp/Caddyfile.down Caddyfile
+  cp /tmp/docker-compose.yml.down docker-compose.yml
+  docker compose up -d caddy
+  docker compose exec -T caddy caddy version                                             # v2.11.4
+  docker compose exec -T caddy curl -s localhost:2019/config/apps/http/servers | grep -o '"protocols":\[[^]]*\]'    # 모두 ["h1"]
+  ```
+
+  저장소는 2.11.9 전환 PR 을 되돌리는 PR 로 맞춘다.
+- **일반 경로**: 2.11.9 전환 PR 을 통째로 되돌리는 PR 을 develop 에 머지하고 main 으로 내보낸다(배포가 두 파일을 함께 되돌리고, CI 검사도 함께 돌아간다).
 
 ## 미커버 (후속)
 
