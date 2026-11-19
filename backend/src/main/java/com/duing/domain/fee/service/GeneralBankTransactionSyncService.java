@@ -16,6 +16,7 @@ import com.duing.domain.fee.support.TransactionHasher;
 import com.duing.global.bank.BankApiClient;
 import com.duing.global.bank.dto.BankTransactionData;
 import com.duing.global.bank.dto.TransactionLookupCommand;
+import com.duing.global.bank.dto.TransactionLookupResult;
 import com.duing.global.crypto.FeeAccountCipher;
 import java.time.Clock;
 import java.time.Instant;
@@ -103,6 +104,9 @@ public class GeneralBankTransactionSyncService implements BankTransactionSyncSer
      * 고정 크기 커넥션 풀의 슬롯을 점유해 무관한 요청까지 막는 일을 방지할 수 있다. 적재(native insert)는
      * 활성 트랜잭션을 요구하므로, 외부 조회 결과를 받은 뒤에만 {@link TransactionTemplate} 로
      * 짧은 트랜잭션을 열어 처리한다.
+     *
+     * <p>은행 응답을 끝까지 읽었으면({@link TransactionLookupResult#fullyRead()}) 은행 호출 전에 잡은 시각을 같은 적재
+     * 트랜잭션에서 마지막 동기화 시각으로 기록한다. 다음 동기화는 그 날짜까지를 이미 조회한 기간으로 본다({@link #resolveWindow}).
      */
     @Override
     public SyncResult sync(SyncTransactionsCommand command) {
@@ -120,7 +124,9 @@ public class GeneralBankTransactionSyncService implements BankTransactionSyncSer
             throw new BankMatchingException.AccountDecryptFailedException();
         }
 
-        LocalDate today = LocalDate.now(clock);
+        // 은행 호출 전의 한 순간에서 '오늘'과 기록할 동기화 시각을 함께 뽑는다.
+        Instant syncStartedAt = clock.instant();
+        LocalDate today = syncStartedAt.atZone(SEOUL).toLocalDate();
         Instant latestStoredAt = bankTransactionRepository.findLatestTransactionAt(command.clubId()).orElse(null);
         // BANK API 조회일은 KST 날짜라 마지막 거래와 마지막 동기화도 KST 달력으로 환산한다.
         LocalDate latestTransactionDate = latestStoredAt == null ? null : latestStoredAt.atZone(SEOUL).toLocalDate();
@@ -133,15 +139,22 @@ public class GeneralBankTransactionSyncService implements BankTransactionSyncSer
         // 민감 인증정보(계좌 비번·주민번호 앞 6자리)는 오직 이 BANK API 호출에만 전달한다.
         // 이후 어떤 변수에도 보관하지 않으며, 적재·로깅·예외에 절대 싣지 않는다.
         // DB 커넥션을 잡지 않은 상태에서 호출해, 느린 BANK API 가 풀 슬롯을 점유하지 않게 한다.
-        List<BankTransactionData> fetchedTransactions = bankApiClient.getTransactions(
+        TransactionLookupResult lookupResult = bankApiClient.getTransactions(
                 new TransactionLookupCommand(
                         bankCode, accountNumber,
                         command.accountPassword(), command.residentNumber(),
-                        window.startDate(), today)).transactions();
+                        window.startDate(), today));
+        List<BankTransactionData> fetchedTransactions = lookupResult.transactions();
 
         // 외부 조회가 끝난 뒤에만 짧은 쓰기 트랜잭션을 열어 적재한다(native insert 는 활성 트랜잭션 필요).
-        PersistResult persistResult = transactionTemplate.execute(
-                status -> persist(command.clubId(), bankCode, fetchedTransactions));
+        PersistResult persistResult = transactionTemplate.execute(status -> {
+            if (lookupResult.fullyRead()) {
+                // 끝까지 읽은 응답만 '조회한 기간'으로 기억한다. 적재와 같은 트랜잭션이라 적재가 롤백되면 기억도 남지 않는다.
+                // 적재보다 먼저 쓴다 — 영속성 컨텍스트가 빈 시점이라 뒤따르는 적재의 flush·clear 와 신규 입금 조회에 영향이 없다.
+                bankMatchingSettingRepository.recordLastSyncedAt(command.clubId(), syncStartedAt);
+            }
+            return persist(command.clubId(), bankCode, fetchedTransactions);
+        });
         // execute 는 rollback-only 등에서 null 을 반환할 수 있다(@Nullable). 적재 결과가 없으면 매칭 없이 조회 건수만 보고한다.
         if (persistResult == null) {
             return new SyncResult(fetchedTransactions.size(), 0, 0, 0, window.missedFrom(), window.missedTo());
