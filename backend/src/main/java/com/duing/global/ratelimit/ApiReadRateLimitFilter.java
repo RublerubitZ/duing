@@ -113,7 +113,7 @@ public class ApiReadRateLimitFilter extends OncePerRequestFilter {
     @EventListener(ApplicationReadyEvent.class)
     public void logStatus() {
         if (limitPerMinute <= 0) {
-            log.info("[조회 요청 제한] 비활성 — 한도 0 이하(로컬·CI 기본)");
+            log.info("[조회 요청 제한] 비활성 — 한도 0 이하(로컬·CI 는 기본이 0)");
             return;
         }
         String limitText = String.format(Locale.ROOT, "%,d", limitPerMinute);

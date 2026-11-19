@@ -21,6 +21,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.NullSource;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 import org.springframework.boot.test.system.CapturedOutput;
 import org.springframework.boot.test.system.OutputCaptureExtension;
@@ -203,7 +205,7 @@ class ApiReadRateLimitFilterTest {
 
         filter.logStatus();
 
-        assertThat(output).containsPattern("INFO.*\\[조회 요청 제한\\] 비활성 — 한도 0 이하\\(로컬·CI 기본\\)")
+        assertThat(output).containsPattern("INFO.*\\[조회 요청 제한\\] 비활성 — 한도 0 이하\\(로컬·CI 는 기본이 0\\)")
                 .doesNotContain("[조회 요청 제한] 활성");
     }
 
@@ -243,8 +245,8 @@ class ApiReadRateLimitFilterTest {
     }
 
     @Test
-    @DisplayName("한도 환경변수가 빈 값이어도 필터 빈이 만들어지고 기본값 1000 으로 켜진다 — application.yml 과 같은 중첩 자리표시가 빈 문자열로 풀려도 기동이 실패하지 않는다")
-    void emptyLimitPropertyStillCreatesFilterBean() {
+    @DisplayName("한도 환경변수가 빈 값이어도 필터 빈이 만들어지고 기본값 1000 으로 켜진다 — application.yml 과 같은 중첩 자리표시가 빈 문자열로 풀려도 기동이 실패하지 않고, 기동 완료 시 기본값 INFO 와 받은 빈 값을 담은 ERROR 가 남는다")
+    void emptyLimitPropertyStillCreatesFilterBean(CapturedOutput output) {
         new ApplicationContextRunner()
                 .withUserConfiguration(ApiReadRateLimitFilter.class)
                 .withBean(ObjectMapper.class, ObjectMapper::new)
@@ -255,6 +257,14 @@ class ApiReadRateLimitFilterTest {
                 .run(context -> {
                     assertThat(context).hasNotFailed();
                     assertThat(context.getBean(ApiReadRateLimitFilter.class).limitPerMinute()).isEqualTo(1_000);
+
+                    // 리스너를 직접 부르지 않고 기동 완료 이벤트를 발행한다 — @EventListener 배선까지 고정한다.
+                    context.publishEvent(new ApplicationReadyEvent(new SpringApplication(), new String[0], context,
+                            Duration.ZERO));
+
+                    assertThat(output)
+                            .containsPattern("INFO.*\\[조회 요청 제한\\] 활성 — 한 IP 분당 1,000건\\(설정값을 읽지 못해 기본값\\)")
+                            .containsPattern("ERROR.*받은 값 ''\\(0자\\)");
                 });
     }
 
@@ -316,7 +326,8 @@ class ApiReadRateLimitFilterTest {
     @Test
     @DisplayName("여러 IP 가 동시에 조회해도 최대 조회가 더 작은 값으로 덮이지 않는다 — 라운드마다 8개 IP 가 함께 1건씩 보내도 가장 많이 쌓인 IP 의 창 건수가 남는다")
     void concurrentReadsKeepHighestPeak() throws Exception {
-        // 확률적 가드 — 올바른 구현(CAS 비교 갱신)에서는 항상 통과하고, 비교 없는 set·get 뒤 set 은 높은 확률로 어느 라운드에서 실패한다.
+        // 확률적 가드 — 비교 없는 set 은 순차 테스트(drainReturnsHighestWindowCountAcrossIps)가 결정적으로 잡고, 이 테스트는
+        // 'get 뒤 set(CAS 없음)' 을 절반쯤(로컬 5회 중 3회) 잡는다. 올바른 구현(CAS 비교 갱신)에서는 항상 통과한다.
         // 시계를 밀지 않으므로 모든 요청이 한 분 창 안이다(분 경계에서 20초 지난 시각에 고정). 한도는 쌓는 건수보다 넉넉히 크게 둔다.
         ReflectionTestUtils.setField(filter, "limitPerMinute", 10_000);
         int ipCount = 8;
