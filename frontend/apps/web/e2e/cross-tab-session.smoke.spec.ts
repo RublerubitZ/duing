@@ -38,6 +38,8 @@ const FOREIGN_SESSION_USER = 'e2e-other-tab-user';
 const SESSION_USER_KEY = 'duing:auth:session-user';
 // 새로고침 판별 표지 — 앱의 data-had-session 과 겹치지 않는 이름.
 const RELOAD_MARKER = 'data-e2e-cross-tab-marker';
+// 문서의 첫 pageshow 가 지났다는 표지 — 앱은 pageshow 에서도 공유 표지를 다시 읽는다(AuthSessionBootstrap).
+const PAGESHOW_MARKER = 'data-e2e-pageshow-done';
 // 앱의 막힌 로그아웃 문구(app/_lib/authBoot.ts) — 리터럴로 적는다.
 const LOGOUT_BLOCKED_TEXT = '로그아웃하지 못했어요. 다른 탭에서 로그인 상태가 바뀌었어요 — 새로고침한 뒤 다시 로그아웃해주세요.';
 const ENDED_TEXT = '로그아웃되었어요. 이 화면에서는 저장되지 않아요.';
@@ -63,6 +65,10 @@ test.afterEach(() => {
 // 모든 페이지에 읽기 전용 가드를 건다 — 컨텍스트의 새 페이지도 빠짐없이.
 async function openGuardedPage(context: BrowserContext): Promise<Page> {
   const page = await context.newPage();
+  // 문서가 바뀔 때마다 다시 돈다 — 그 문서의 첫 pageshow 에 표지를 단다.
+  await page.addInitScript((attribute) => {
+    window.addEventListener('pageshow', () => document.documentElement.setAttribute(attribute, ''), { once: true });
+  }, PAGESHOW_MARKER);
   guardViolations.push(await installReadOnlyGuard(page));
   return page;
 }
@@ -123,8 +129,12 @@ async function meIdOf(response: Response): Promise<number> {
 }
 
 // 같은 문서의 쓰기는 storage 이벤트를 만들지 않는다 — 다른 탭이 썼는데 이 문서가 아직 이벤트를 처리하지 않은 순간이 된다.
+// 이 문서의 첫 pageshow 뒤에 쓴다 — 그 전에 바꾸면 앱이 pageshow 에서 바뀐 표지를 읽고 새로고침해, 뒤따르는 입력이 지워진다.
+// 진행 중인 이동이 없는 문서에서만 부른다(이동 중이면 옛 문서의 표지로 지나가 새 문서의 pageshow 전에 쓸 수 있다).
 async function writeSharedSessionUser(page: Page, value: string | null): Promise<void> {
-  await page.waitForLoadState('domcontentloaded');
+  await expect(page.locator(`html[${PAGESHOW_MARKER}]`), '문서의 첫 pageshow 대기').toHaveCount(1, {
+    timeout: ROUTE_TIMEOUT_MS,
+  });
   await page.evaluate(
     ({ key, nextValue }) => {
       if (nextValue === null) window.localStorage.removeItem(key);
