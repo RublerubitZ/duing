@@ -2,9 +2,11 @@ package com.duing.domain.fee.service;
 
 import com.duing.domain.cashbook.service.CashbookService;
 import com.duing.domain.clubmember.service.ClubAuthService;
+import com.duing.domain.fee.entity.BankMatchingSetting;
 import com.duing.domain.fee.entity.BankTransaction;
 import com.duing.domain.fee.entity.FeeAccount;
 import com.duing.domain.fee.exception.BankMatchingException;
+import com.duing.domain.fee.repository.BankMatchingSettingRepository;
 import com.duing.domain.fee.repository.BankTransactionRepository;
 import com.duing.domain.fee.repository.FeeAccountRepository;
 import com.duing.domain.fee.service.dto.command.SyncTransactionsCommand;
@@ -55,6 +57,8 @@ public class GeneralBankTransactionSyncService implements BankTransactionSyncSer
     private final BankApiClient bankApiClient;
     private final TransactionHasher transactionHasher;
     private final BankTransactionRepository bankTransactionRepository;
+    /** 마지막 동기화 시각을 읽어 조회 기간을 정하고, 끝까지 읽은 동기화를 적재 트랜잭션에서 기록한다. */
+    private final BankMatchingSettingRepository bankMatchingSettingRepository;
     private final TransactionMatcher transactionMatcher;
     private final Clock clock;
     /** 외부 BANK 호출은 트랜잭션 밖에서 끝내고, 적재 단계만 이 템플릿으로 짧게 트랜잭션을 연다. */
@@ -71,6 +75,7 @@ public class GeneralBankTransactionSyncService implements BankTransactionSyncSer
             BankApiClient bankApiClient,
             TransactionHasher transactionHasher,
             BankTransactionRepository bankTransactionRepository,
+            BankMatchingSettingRepository bankMatchingSettingRepository,
             TransactionMatcher transactionMatcher,
             Clock clock,
             PlatformTransactionManager platformTransactionManager,
@@ -83,6 +88,7 @@ public class GeneralBankTransactionSyncService implements BankTransactionSyncSer
         this.bankApiClient = bankApiClient;
         this.transactionHasher = transactionHasher;
         this.bankTransactionRepository = bankTransactionRepository;
+        this.bankMatchingSettingRepository = bankMatchingSettingRepository;
         this.transactionMatcher = transactionMatcher;
         this.clock = clock;
         this.transactionTemplate = new TransactionTemplate(platformTransactionManager);
@@ -116,9 +122,13 @@ public class GeneralBankTransactionSyncService implements BankTransactionSyncSer
 
         LocalDate today = LocalDate.now(clock);
         Instant latestStoredAt = bankTransactionRepository.findLatestTransactionAt(command.clubId()).orElse(null);
-        // BANK API 조회일은 KST 날짜라 마지막 거래도 KST 달력으로 환산한다.
+        // BANK API 조회일은 KST 날짜라 마지막 거래와 마지막 동기화도 KST 달력으로 환산한다.
         LocalDate latestTransactionDate = latestStoredAt == null ? null : latestStoredAt.atZone(SEOUL).toLocalDate();
-        SyncWindow window = resolveWindow(today, latestTransactionDate);
+        LocalDate lastSyncedDate = bankMatchingSettingRepository.findByClubId(command.clubId())
+                .map(BankMatchingSetting::getLastSyncedAt)
+                .map(lastSyncedAt -> lastSyncedAt.atZone(SEOUL).toLocalDate())
+                .orElse(null);
+        SyncWindow window = resolveWindow(today, latestTransactionDate, lastSyncedDate);
 
         // 민감 인증정보(계좌 비번·주민번호 앞 6자리)는 오직 이 BANK API 호출에만 전달한다.
         // 이후 어떤 변수에도 보관하지 않으며, 적재·로깅·예외에 절대 싣지 않는다.
@@ -205,21 +215,27 @@ public class GeneralBankTransactionSyncService implements BankTransactionSyncSer
     record SyncWindow(LocalDate startDate, LocalDate missedFrom, LocalDate missedTo) {}
 
     /**
-     * 조회 기간을 정한다. 마지막 적재 거래 전날(경계 거래 누락 방지)과 오늘 − {@code LOOKBACK_DAYS} 가운데 이른 날부터 조회하되
-     * 오늘 − {@code MAX_LOOKBACK_DAYS} 보다 앞으로는 가지 않는다. 마지막 거래일까지 잘리면 그날부터 조회 시작 전날까지를 함께 돌려준다.
+     * 조회 기간을 정한다. 이미 조회한 마지막 날 — 마지막 적재 거래일과 마지막 동기화일(은행 응답을 끝까지 읽고 적재까지 커밋한
+     * 동기화가 시작된 KST 날짜) 가운데 늦은 날 — 의 전날(경계 거래 누락 방지)과 오늘 − {@code LOOKBACK_DAYS} 가운데 이른 날부터
+     * 조회하되 오늘 − {@code MAX_LOOKBACK_DAYS} 보다 앞으로는 가지 않는다. 그날까지 잘리면 그날부터 조회 시작 전날까지를 함께 돌려준다.
+     * 다음 동기화는 이번 동기화를 기억하므로, 상한 밖으로 밀려난 기간은 그 기간이 생긴 동기화에서 한 번만 알린다.
      * 경계용 전날 하루만 잘리는 것은 알리지 않는다 — 이전 동기화가 이미 본 날이라, 알리면 월 1회 같은 날 동기화마다 거짓 경고가 뜬다.
      */
-    static SyncWindow resolveWindow(LocalDate today, LocalDate latestTransactionDate) {
+    static SyncWindow resolveWindow(LocalDate today, LocalDate latestTransactionDate, LocalDate lastSyncedDate) {
+        LocalDate coveredThrough = latestTransactionDate;
+        if (lastSyncedDate != null && (coveredThrough == null || lastSyncedDate.isAfter(coveredThrough))) {
+            coveredThrough = lastSyncedDate;
+        }
         LocalDate lowerBound = today.minusDays(LOOKBACK_DAYS);
-        if (latestTransactionDate == null) {
+        if (coveredThrough == null) {
             return new SyncWindow(lowerBound, null, null);
         }
         LocalDate oldestAllowed = today.minusDays(MAX_LOOKBACK_DAYS);
-        if (latestTransactionDate.isBefore(oldestAllowed)) {
-            return new SyncWindow(oldestAllowed, latestTransactionDate, oldestAllowed.minusDays(1));
+        if (coveredThrough.isBefore(oldestAllowed)) {
+            return new SyncWindow(oldestAllowed, coveredThrough, oldestAllowed.minusDays(1));
         }
-        LocalDate fromLatest = latestTransactionDate.minusDays(1);
-        LocalDate wanted = fromLatest.isBefore(lowerBound) ? fromLatest : lowerBound;
+        LocalDate fromCovered = coveredThrough.minusDays(1);
+        LocalDate wanted = fromCovered.isBefore(lowerBound) ? fromCovered : lowerBound;
         return new SyncWindow(wanted.isBefore(oldestAllowed) ? oldestAllowed : wanted, null, null);
     }
 }

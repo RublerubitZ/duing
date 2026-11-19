@@ -30,6 +30,7 @@ import com.duing.global.crypto.FeeAccountCipher;
 import io.restassured.RestAssured;
 import io.restassured.http.ContentType;
 import io.restassured.response.Response;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
@@ -189,6 +190,12 @@ class BankTransactionSyncTest extends IntegrationTestBase {
                 """,
                 clubId, bankCode, kstDate.atTime(10, 0).atZone(ZoneId.of("Asia/Seoul")).toInstant().toString(),
                 "seed-" + clubId + "-" + kstDate);
+    }
+
+    /** 이전 동기화가 남긴 마지막 동기화 시각을 심는다. */
+    private void seedLastSyncedAt(Long clubId, Instant lastSyncedAt) {
+        jdbcTemplate.update("UPDATE bank_matching_setting SET last_synced_at = ?::timestamptz WHERE club_id = ?",
+                lastSyncedAt.toString(), clubId);
     }
 
     @Test
@@ -408,5 +415,24 @@ class BankTransactionSyncTest extends IntegrationTestBase {
 
         // 수정 전 시작일: 06-01
         assertThat(stubBankApiClient.capturedLookup.startDate()).isEqualTo(LocalDate.of(2026, 5, 16));
+    }
+
+    @Test
+    @DisplayName("마지막 동기화 시각은 KST 날짜로 읽는다 — KST 새벽(UTC 로는 전날)에 동기화했으면 그 KST 날짜의 전날부터 조회한다")
+    void lastSyncedAtIsReadAsKstDate() {
+        Club club = saveEnabledClub("동기화기억동아리");
+        Long clubId = club.getId();
+        User leader = joinAs(club, ClubMemberRole.LEADER);
+        // 05-26 03:00 KST = 05-25T18:00Z
+        seedLastSyncedAt(clubId,
+                FixedClockConfig.TODAY.minusDays(20).atTime(3, 0).atZone(ZoneId.of("Asia/Seoul")).toInstant());
+
+        syncAs(tokenOf(leader), clubId)
+                .then().statusCode(HttpStatus.OK.value())
+                .body("data.missedFrom", nullValue())
+                .body("data.missedTo", nullValue());
+
+        // 수정 전 시작일 06-01(기억을 읽지 않음). UTC 날짜(05-25)로 읽으면 05-24.
+        assertThat(stubBankApiClient.capturedLookup.startDate()).isEqualTo(LocalDate.of(2026, 5, 25));
     }
 }
