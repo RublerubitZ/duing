@@ -204,7 +204,7 @@ jobs:
               docker image prune -f || true
               if [ "$caddy_reflected" != "true" ]; then
                 # 이미지 배포·헬스는 성공했으나 Caddy 설정 반영 실패 — 프록시가 수동 개입 필요 상태.
-                # 잡을 녹색(exit 0)으로 두면 이 신호를 놓치므로 exit 1 로 알린다(잡 재실행은 멱등이라 무해).
+                # 잡을 녹색(exit 0)으로 두면 이 신호를 놓치므로 exit 1 로 알린다(이 잡은 re-run 하지 않는다 — re-run 은 .bak 을 지금 파일로 덮어 되돌릴 사본이 사라진다. deploy/UPTIME.md 의 Caddy 롤백 (증상별)).
                 echo "::error::이미지 배포는 성공, Caddy 설정 반영 실패 — 수동 확인 필요: ${DEPLOY_IMAGE}"
                 exit 1
               fi
