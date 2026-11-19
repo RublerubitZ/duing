@@ -229,7 +229,7 @@ class ApiReadRateLimitFilterTest {
 
         filter.logStatus();
 
-        assertThat(output).contains("받은 값 '1000NEXT_KEY=abc'(25자), 끄려면 0")
+        assertThat(output).contains("받은 값 '1000************'(25자), 끄려면 0")
                 .doesNotContain("defghijkl");
     }
 
@@ -240,8 +240,24 @@ class ApiReadRateLimitFilterTest {
 
         filter.logStatus();
 
-        assertThat(output).contains("받은 값 '1000??NEXT=ab'(13자), 끄려면 0")
-                .containsPattern("ERROR.*받은 값 '1000\\?\\?NEXT=ab'\\(13자\\), 끄려면 0");
+        assertThat(output).contains("받은 값 '1000??*******'(13자), 끄려면 0")
+                .containsPattern("ERROR.*받은 값 '1000\\?\\?\\*{7}'\\(13자\\), 끄려면 0");
+    }
+
+    @Test
+    @DisplayName("ERROR 줄의 받은 값은 숫자 표기(0-9 , . + - 공백)만 남기고 나머지 글자는 * 로 가린다 — 값 자리에 잘못 붙인 비밀값이 로그·Sentry 에 한 글자도 남지 않는다")
+    void unreadableLimitLogMasksNonNumericCharacters(CapturedOutput output) {
+        // 영문·한글·=·_ 와 원래 값에 든 ? 까지 섞는다 — ? 는 제어 문자 표시로만 쓴다.
+        filter.setLimitPerMinute("+1,0.5 -xQ키_=?");
+        filter.logStatus();
+        filter.setLimitPerMinute("abcSECRET");
+        filter.logStatus();
+
+        assertThat(output).contains("받은 값 '+1,0.5 -******'(14자), 끄려면 0")
+                .contains("받은 값 '*********'(9자), 끄려면 0")
+                .doesNotContain("xQ")
+                .doesNotContain("키_")
+                .doesNotContain("SECRET");
     }
 
     @Test

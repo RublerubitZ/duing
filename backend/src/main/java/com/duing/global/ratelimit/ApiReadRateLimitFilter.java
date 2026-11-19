@@ -75,7 +75,8 @@ public class ApiReadRateLimitFilter extends OncePerRequestFilter {
     private static final String UNKNOWN_CLIENT_IP = "unknown";
 
     // ERROR 줄에 싣는 받은 값의 최대 글자 수 — .env 가 깨져 다음 줄의 값이 붙어 올 수 있고, ERROR 는 Sentry 로 나간다.
-    // 자른 뒤 제어 문자는 ? 로 바꾼다 — 줄바꿈이 로그 줄을 쪼개지 않게.
+    // 자른 뒤 제어 문자는 ? 로 바꾼다 — 줄바꿈이 로그 줄을 쪼개지 않게. 숫자 표기(0-9 , . + - 공백)가 아닌 나머지 글자는
+    // * 로 가린다 — 값 자리에 잘못 붙인 비밀값이 남지 않게(원래 값의 ? 도 * 다).
     private static final int LOGGED_VALUE_MAX_LENGTH = 16;
 
     private final ObjectMapper objectMapper;
@@ -123,7 +124,8 @@ public class ApiReadRateLimitFilter extends OncePerRequestFilter {
         }
         log.info("[조회 요청 제한] 활성 — 한 IP 분당 {}건(설정값을 읽지 못해 기본값)", limitText);
         String loggedValue = unreadableLimitValue.substring(0,
-                Math.min(unreadableLimitValue.length(), LOGGED_VALUE_MAX_LENGTH)).replaceAll("\\p{Cntrl}", "?");
+                Math.min(unreadableLimitValue.length(), LOGGED_VALUE_MAX_LENGTH))
+                .replaceAll("[^0-9,.+\\- \\p{Cntrl}]", "*").replaceAll("\\p{Cntrl}", "?");
         log.error("[조회 요청 제한] 한도 설정값을 정수로 읽지 못해 기본값 {}건으로 기동함 — 받은 값 '{}'({}자), 끄려면 0",
                 limitText, loggedValue, String.format(Locale.ROOT, "%,d", unreadableLimitValue.length()));
     }
