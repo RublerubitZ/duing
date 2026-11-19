@@ -131,7 +131,8 @@ class BankTransactionSyncTest extends IntegrationTestBase {
     ClubMemberRepository clubMemberRepository;
     @Autowired
     FeeAccountRepository feeAccountRepository;
-    @Autowired
+    // 기억 기록 실패를 주입할 때만 스텁한다. 스텁하지 않으면 실제 저장소에 위임한다.
+    @MockitoSpyBean
     BankMatchingSettingRepository bankMatchingSettingRepository;
     @Autowired
     JwtTokenProvider jwtTokenProvider;
@@ -457,26 +458,28 @@ class BankTransactionSyncTest extends IntegrationTestBase {
     }
 
     @Test
-    @DisplayName("마지막 동기화 시각은 KST 날짜로 읽는다 — KST 새벽(UTC 로는 전날)에 동기화했으면 그 KST 날짜의 전날부터 조회한다")
+    @DisplayName("마지막 동기화 시각은 KST 날짜로 읽는다 — KST 새벽(UTC 로는 전날)에 동기화했으면 못 본 기간이 그 KST 날짜부터다")
     void lastSyncedAtIsReadAsKstDate() {
         Club club = saveEnabledClub("동기화기억동아리");
         Long clubId = club.getId();
         User leader = joinAs(club, ClubMemberRole.LEADER);
-        // 05-26 03:00 KST = 05-25T18:00Z
+        insertStoredTransaction(clubId, "NH", FixedClockConfig.TODAY.minusDays(60)); // 04-16
+        // 05-06 03:00 KST = 05-05T18:00Z
         seedLastSyncedAt(clubId,
-                FixedClockConfig.TODAY.minusDays(20).atTime(3, 0).atZone(ZoneId.of("Asia/Seoul")).toInstant());
+                FixedClockConfig.TODAY.minusDays(40).atTime(3, 0).atZone(ZoneId.of("Asia/Seoul")).toInstant());
 
+        // 기억을 읽지 않으면 2026-04-16, UTC 날짜로 읽으면 2026-05-05.
         syncAs(tokenOf(leader), clubId)
                 .then().statusCode(HttpStatus.OK.value())
-                .body("data.missedFrom", nullValue())
-                .body("data.missedTo", nullValue());
+                .body("data.missedFrom", equalTo("2026-05-06"))
+                .body("data.missedTo", equalTo("2026-05-15"));
 
-        // 수정 전 시작일 06-01(기억을 읽지 않음). UTC 날짜(05-25)로 읽으면 05-24.
-        assertThat(stubBankApiClient.capturedLookup.startDate()).isEqualTo(LocalDate.of(2026, 5, 25));
+        // 조회 시작은 기억과 상관없이 마지막 거래 기준의 상한(오늘 − 30일)이다.
+        assertThat(stubBankApiClient.capturedLookup.startDate()).isEqualTo(LocalDate.of(2026, 5, 16));
     }
 
     @Test
-    @DisplayName("마지막 거래가 30일보다 오래된 동아리가 연달아 동기화하면 못 본 기간은 첫 번째에만 돌려주고 두 번째는 14일 전부터 조회한다")
+    @DisplayName("마지막 거래가 30일보다 오래된 동아리가 연달아 동기화하면 못 본 기간은 첫 번째에만 돌려주고 두 번째도 같은 기간(오늘 포함 31일)을 조회한다")
     void missedRangeIsReportedOnlyOnce() {
         Club club = saveEnabledClub("한번경고동아리");
         Long clubId = club.getId();
@@ -493,8 +496,30 @@ class BankTransactionSyncTest extends IntegrationTestBase {
                 .then().statusCode(HttpStatus.OK.value())
                 .body("data.missedFrom", nullValue())   // 수정 전 2026-05-01(매번 같은 경고)
                 .body("data.missedTo", nullValue());
-        // 수정 전 05-16(매번 상한까지 조회). 기억이 오늘이어도 최소 14일은 다시 본다.
-        assertThat(stubBankApiClient.capturedLookup.startDate()).isEqualTo(FixedClockConfig.TODAY.minusDays(14));
+        // 기억은 경고에만 쓴다 — 조회는 첫 번째와 같이 마지막 거래 기준의 상한(오늘 − 30일)부터다.
+        assertThat(stubBankApiClient.capturedLookup.startDate()).isEqualTo(FixedClockConfig.TODAY.minusDays(30));
+    }
+
+    @Test
+    @DisplayName("거래 0건으로 성공해 마지막 동기화 시각이 남은 뒤에도 다음 조회는 저장된 마지막 거래의 전날부터다")
+    void lookupStartIgnoresMemoryAfterEmptySync() {
+        Club club = saveEnabledClub("빈응답뒤조회동아리");
+        Long clubId = club.getId();
+        User leader = joinAs(club, ClubMemberRole.LEADER);
+        insertStoredTransaction(clubId, "NH", FixedClockConfig.TODAY.minusDays(22)); // 05-24
+        // 9일 전 거래 0건 성공 동기화의 기억 — 은행이 성공이라며 빈 목록을 줬을 수 있다.
+        seedLastSyncedAt(clubId, FixedClockConfig.TODAY.minusDays(9).atStartOfDay(ZoneId.of("Asia/Seoul")).toInstant());
+
+        syncAs(tokenOf(leader), clubId)
+                .then().statusCode(HttpStatus.OK.value())
+                .body("data.fetched", equalTo(0));
+        // 기억으로 당기면 06-01(14일 전)부터라 05-23~05-31 거래를 다시 받지 못한다.
+        assertThat(stubBankApiClient.capturedLookup.startDate()).isEqualTo(FixedClockConfig.TODAY.minusDays(23));
+        assertThat(lastSyncedAtOf(clubId)).isEqualTo(SYNC_STARTED_AT);
+
+        // 오늘 거래 0건으로 다시 기억이 남은 뒤에도 같다.
+        syncAs(tokenOf(leader), clubId).then().statusCode(HttpStatus.OK.value());
+        assertThat(stubBankApiClient.capturedLookup.startDate()).isEqualTo(FixedClockConfig.TODAY.minusDays(23));
     }
 
     @Test
@@ -669,5 +694,28 @@ class BankTransactionSyncTest extends IntegrationTestBase {
         // 수정 전 로그 없음. 줄 끝까지 고정해 거래·계좌·인증정보가 함께 실리지 않았음을 본다.
         assertThat(output.getOut()).containsPattern(
                 "(?m)못 본 기간: clubId=" + clubId + ", missedFrom=2026-05-01, missedTo=2026-05-15$");
+    }
+
+    @Test
+    @DisplayName("마지막 동기화 시각 기록이 실패해도 이미 커밋된 적재 결과와 못 본 기간을 그대로 돌려주고 경고 로그를 남긴다")
+    void recordFailureDoesNotFailSync(CapturedOutput output) {
+        Club club = saveEnabledClub("기억실패동아리");
+        Long clubId = club.getId();
+        User leader = joinAs(club, ClubMemberRole.LEADER);
+        insertStoredTransaction(clubId, "NH", FixedClockConfig.TODAY.minusDays(45)); // 05-01
+        stubBankApiClient.transactionsToReturn = List.of(
+                deposit(FixedClockConfig.TODAY.minusDays(1).atTime(9, 0), 30000L, "홍길동"));
+        doThrow(new IllegalStateException("주입된 기억 기록 실패"))
+                .when(bankMatchingSettingRepository).recordLastSyncedAt(anyLong(), any());
+
+        // 수정 전 500 — 다시 누르면 제공사의 같은 계좌 5분 1회 제한에 걸린다.
+        syncAs(tokenOf(leader), clubId)
+                .then().statusCode(HttpStatus.OK.value())
+                .body("data.newlyStored", equalTo(1))
+                .body("data.missedFrom", equalTo("2026-05-01"))
+                .body("data.missedTo", equalTo("2026-05-15"));
+
+        assertThat(lastSyncedAtOf(clubId)).isNull();
+        assertThat(output.getOut()).containsPattern("(?m)마지막 동기화 시각 기록 실패.*: clubId=" + clubId + "$");
     }
 }

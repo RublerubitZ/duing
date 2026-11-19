@@ -60,7 +60,7 @@ public class GeneralBankTransactionSyncService implements BankTransactionSyncSer
     private final BankApiClient bankApiClient;
     private final TransactionHasher transactionHasher;
     private final BankTransactionRepository bankTransactionRepository;
-    /** 마지막 동기화 시각을 읽어 조회 기간을 정하고, 끝까지 읽은 동기화를 자동매칭까지 끝난 뒤 짧은 트랜잭션으로 기록한다. */
+    /** 마지막 동기화 시각을 읽어 못 본 기간을 정하고, 끝까지 읽은 동기화를 자동매칭까지 끝난 뒤 짧은 트랜잭션으로 기록한다. */
     private final BankMatchingSettingRepository bankMatchingSettingRepository;
     private final TransactionMatcher transactionMatcher;
     private final Clock clock;
@@ -108,8 +108,9 @@ public class GeneralBankTransactionSyncService implements BankTransactionSyncSer
      * 짧은 트랜잭션을 열어 처리한다.
      *
      * <p>은행 응답을 끝까지 읽었으면({@link TransactionLookupResult#fullyRead()}) 적재·자동매칭까지 끝나 응답을 만들 수 있게 된 뒤,
-     * 은행 호출 전에 잡은 시각을 별도의 짧은 트랜잭션에서 마지막 동기화 시각으로 기록한다. 그 전에 예외로 끝난 동기화는 기록하지 않는다.
-     * 다음 동기화는 그 날짜까지를 이미 조회한 기간으로 본다({@link #resolveWindow}).
+     * 은행 호출 전에 잡은 시각을 별도의 짧은 트랜잭션에서 마지막 동기화 시각으로 기록한다. 그 전에 예외로 끝난 동기화는 기록하지 않고,
+     * 기록만 실패하면 경고 로그를 남기고 응답은 그대로 돌려준다. 다음 동기화는 그 날짜까지를 확인한 기간으로 보고 못 본 기간을 다시
+     * 알리지 않을 뿐, 조회 시작일은 저장된 마지막 거래로 정한다({@link #resolveWindow}).
      */
     @Override
     public SyncResult sync(SyncTransactionsCommand command) {
@@ -179,9 +180,15 @@ public class GeneralBankTransactionSyncService implements BankTransactionSyncSer
             }
         }
         if (lookupResult.fullyRead()) {
-            // 끝까지 읽고 적재·자동매칭까지 마쳐 응답을 만들 수 있게 된 동기화만 '조회한 기간'으로 기억한다.
-            transactionTemplate.executeWithoutResult(
-                    status -> bankMatchingSettingRepository.recordLastSyncedAt(command.clubId(), syncStartedAt));
+            // 끝까지 읽고 적재·자동매칭까지 마쳐 응답을 만들 수 있게 된 동기화만 '확인한 기간'으로 기억한다(못 본 기간 안내에만 쓴다).
+            // 적재·자동매칭은 이미 커밋됐으니 기록 실패로 응답을 막지 않는다 — 500 이면 다시 눌러 제공사의 같은 계좌 5분 1회 제한에 걸린다.
+            try {
+                transactionTemplate.executeWithoutResult(
+                        status -> bankMatchingSettingRepository.recordLastSyncedAt(command.clubId(), syncStartedAt));
+            } catch (RuntimeException recordFailure) {
+                log.warn("은행 거래 동기화 — 마지막 동기화 시각 기록 실패, 다음 동기화에서 못 본 기간 안내가 한 번 더 나올 수 있다: clubId={}",
+                        command.clubId(), recordFailure);
+            }
         }
         return new SyncResult(
                 fetchedTransactions.size(), persistResult.newlyStored(),
@@ -235,28 +242,28 @@ public class GeneralBankTransactionSyncService implements BankTransactionSyncSer
     record SyncWindow(LocalDate startDate, LocalDate missedFrom, LocalDate missedTo) {}
 
     /**
-     * 조회 기간을 정한다. 이미 조회한 마지막 날 — 마지막 적재 거래일과 마지막 동기화일(은행 응답을 끝까지 읽고 적재·자동매칭까지 마친
-     * 동기화가 시작된 KST 날짜) 가운데 늦은 날 — 의 전날(경계 거래 누락 방지)과 오늘 − {@code LOOKBACK_DAYS} 가운데 이른 날부터
-     * 조회하되 오늘 − {@code MAX_LOOKBACK_DAYS} 보다 앞으로는 가지 않는다. 이미 조회한 마지막 날이 그보다 앞이면 그날부터 조회 시작
-     * 전날까지를 함께 돌려준다. 그 동기화가 거래를 적재했거나 마지막 동기화로 기억되면 다음 동기화는 같은 기간을 다시 돌려주지 않고,
-     * 적재한 거래가 없고 기억도 남지 않았으면(적재 롤백, 응답을 끝까지 읽지 못함, 그 뒤 자동매칭을 껐다 켬) 다시 돌려준다.
+     * 조회 기간을 정한다. 마지막 적재 거래 전날(경계 거래 누락 방지)과 오늘 − {@code LOOKBACK_DAYS} 가운데 이른 날부터 조회하되
+     * 오늘 − {@code MAX_LOOKBACK_DAYS} 보다 앞으로는 가지 않는다. 마지막 거래일까지 잘리면, 마지막 거래일과 마지막 동기화일(은행 응답을
+     * 끝까지 읽고 적재·자동매칭까지 마친 동기화가 시작된 KST 날짜) 가운데 늦은 날이 아직 조회 시작보다 앞일 때만 그날부터 조회 시작
+     * 전날까지를 함께 돌려준다 — 앞선 동기화가 이미 알린 기간을 되풀이해 알리지 않는다.
+     * 마지막 동기화일은 조회 시작에 쓰지 않는다 — 은행이 성공이라며 비었거나 잘린 목록을 줬어도 다음 동기화가 저장된 마지막 거래부터 다시 받는다.
      * 경계용 전날 하루만 잘리는 것은 알리지 않는다 — 이전 동기화가 이미 본 날이라, 알리면 월 1회 같은 날 동기화마다 거짓 경고가 뜬다.
      */
     static SyncWindow resolveWindow(LocalDate today, LocalDate latestTransactionDate, LocalDate lastSyncedDate) {
-        LocalDate coveredThrough = latestTransactionDate;
-        if (lastSyncedDate != null && (coveredThrough == null || lastSyncedDate.isAfter(coveredThrough))) {
-            coveredThrough = lastSyncedDate;
-        }
         LocalDate lowerBound = today.minusDays(LOOKBACK_DAYS);
-        if (coveredThrough == null) {
+        if (latestTransactionDate == null) {
             return new SyncWindow(lowerBound, null, null);
         }
         LocalDate oldestAllowed = today.minusDays(MAX_LOOKBACK_DAYS);
-        if (coveredThrough.isBefore(oldestAllowed)) {
-            return new SyncWindow(oldestAllowed, coveredThrough, oldestAllowed.minusDays(1));
+        if (latestTransactionDate.isBefore(oldestAllowed)) {
+            LocalDate coveredThrough = lastSyncedDate != null && lastSyncedDate.isAfter(latestTransactionDate)
+                    ? lastSyncedDate : latestTransactionDate;
+            return coveredThrough.isBefore(oldestAllowed)
+                    ? new SyncWindow(oldestAllowed, coveredThrough, oldestAllowed.minusDays(1))
+                    : new SyncWindow(oldestAllowed, null, null);
         }
-        LocalDate fromCovered = coveredThrough.minusDays(1);
-        LocalDate wanted = fromCovered.isBefore(lowerBound) ? fromCovered : lowerBound;
+        LocalDate fromLatest = latestTransactionDate.minusDays(1);
+        LocalDate wanted = fromLatest.isBefore(lowerBound) ? fromLatest : lowerBound;
         return new SyncWindow(wanted.isBefore(oldestAllowed) ? oldestAllowed : wanted, null, null);
     }
 }
