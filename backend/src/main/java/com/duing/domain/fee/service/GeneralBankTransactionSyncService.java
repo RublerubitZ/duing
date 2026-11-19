@@ -24,6 +24,7 @@ import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -35,6 +36,7 @@ import org.springframework.transaction.support.TransactionTemplate;
  * {@code residentNumber} 는 BANK API 거래 조회 호출에만 사용하고, DB·캐시·로그·이벤트·raw_payload
  * 어디에도 저장하거나 출력하지 않는다. 호출 직후 별도 참조 없이 메서드 스코프 종료로 폐기된다.
  */
+@Slf4j
 @Service
 public class GeneralBankTransactionSyncService implements BankTransactionSyncService {
 
@@ -58,7 +60,7 @@ public class GeneralBankTransactionSyncService implements BankTransactionSyncSer
     private final BankApiClient bankApiClient;
     private final TransactionHasher transactionHasher;
     private final BankTransactionRepository bankTransactionRepository;
-    /** 마지막 동기화 시각을 읽어 조회 기간을 정하고, 끝까지 읽은 동기화를 적재 트랜잭션에서 기록한다. */
+    /** 마지막 동기화 시각을 읽어 조회 기간을 정하고, 끝까지 읽은 동기화를 자동매칭까지 끝난 뒤 짧은 트랜잭션으로 기록한다. */
     private final BankMatchingSettingRepository bankMatchingSettingRepository;
     private final TransactionMatcher transactionMatcher;
     private final Clock clock;
@@ -105,8 +107,9 @@ public class GeneralBankTransactionSyncService implements BankTransactionSyncSer
      * 활성 트랜잭션을 요구하므로, 외부 조회 결과를 받은 뒤에만 {@link TransactionTemplate} 로
      * 짧은 트랜잭션을 열어 처리한다.
      *
-     * <p>은행 응답을 끝까지 읽었으면({@link TransactionLookupResult#fullyRead()}) 은행 호출 전에 잡은 시각을 같은 적재
-     * 트랜잭션에서 마지막 동기화 시각으로 기록한다. 다음 동기화는 그 날짜까지를 이미 조회한 기간으로 본다({@link #resolveWindow}).
+     * <p>은행 응답을 끝까지 읽었으면({@link TransactionLookupResult#fullyRead()}) 적재·자동매칭까지 끝나 응답을 만들 수 있게 된 뒤,
+     * 은행 호출 전에 잡은 시각을 별도의 짧은 트랜잭션에서 마지막 동기화 시각으로 기록한다. 그 전에 예외로 끝난 동기화는 기록하지 않는다.
+     * 다음 동기화는 그 날짜까지를 이미 조회한 기간으로 본다({@link #resolveWindow}).
      */
     @Override
     public SyncResult sync(SyncTransactionsCommand command) {
@@ -147,14 +150,13 @@ public class GeneralBankTransactionSyncService implements BankTransactionSyncSer
         List<BankTransactionData> fetchedTransactions = lookupResult.transactions();
 
         // 외부 조회가 끝난 뒤에만 짧은 쓰기 트랜잭션을 열어 적재한다(native insert 는 활성 트랜잭션 필요).
-        PersistResult persistResult = transactionTemplate.execute(status -> {
-            if (lookupResult.fullyRead()) {
-                // 끝까지 읽은 응답만 '조회한 기간'으로 기억한다. 적재와 같은 트랜잭션이라 적재가 롤백되면 기억도 남지 않는다.
-                // 적재보다 먼저 쓴다 — 영속성 컨텍스트가 빈 시점이라 뒤따르는 적재의 flush·clear 와 신규 입금 조회에 영향이 없다.
-                bankMatchingSettingRepository.recordLastSyncedAt(command.clubId(), syncStartedAt);
-            }
-            return persist(command.clubId(), bankCode, fetchedTransactions);
-        });
+        PersistResult persistResult = transactionTemplate.execute(
+                status -> persist(command.clubId(), bankCode, fetchedTransactions));
+        if (window.missedFrom() != null) {
+            // 못 본 기간은 이 응답으로만 전달된다 — 적재가 커밋된 뒤 자동매칭 실패 등으로 응답이 닿지 못해도 서버에 흔적을 남긴다. 날짜만 싣는다.
+            log.info("은행 거래 동기화 — 조회 상한 밖 못 본 기간: clubId={}, missedFrom={}, missedTo={}",
+                    command.clubId(), window.missedFrom(), window.missedTo());
+        }
         // execute 는 rollback-only 등에서 null 을 반환할 수 있다(@Nullable). 적재 결과가 없으면 매칭 없이 조회 건수만 보고한다.
         if (persistResult == null) {
             return new SyncResult(fetchedTransactions.size(), 0, 0, 0, window.missedFrom(), window.missedTo());
@@ -175,6 +177,11 @@ public class GeneralBankTransactionSyncService implements BankTransactionSyncSer
                     && transactionMatcher.tryAutoMatch(deposit, command.actorId())) {
                 autoMatched++;
             }
+        }
+        if (lookupResult.fullyRead()) {
+            // 끝까지 읽고 적재·자동매칭까지 마쳐 응답을 만들 수 있게 된 동기화만 '조회한 기간'으로 기억한다.
+            transactionTemplate.executeWithoutResult(
+                    status -> bankMatchingSettingRepository.recordLastSyncedAt(command.clubId(), syncStartedAt));
         }
         return new SyncResult(
                 fetchedTransactions.size(), persistResult.newlyStored(),
@@ -228,10 +235,11 @@ public class GeneralBankTransactionSyncService implements BankTransactionSyncSer
     record SyncWindow(LocalDate startDate, LocalDate missedFrom, LocalDate missedTo) {}
 
     /**
-     * 조회 기간을 정한다. 이미 조회한 마지막 날 — 마지막 적재 거래일과 마지막 동기화일(은행 응답을 끝까지 읽고 적재까지 커밋한
+     * 조회 기간을 정한다. 이미 조회한 마지막 날 — 마지막 적재 거래일과 마지막 동기화일(은행 응답을 끝까지 읽고 적재·자동매칭까지 마친
      * 동기화가 시작된 KST 날짜) 가운데 늦은 날 — 의 전날(경계 거래 누락 방지)과 오늘 − {@code LOOKBACK_DAYS} 가운데 이른 날부터
-     * 조회하되 오늘 − {@code MAX_LOOKBACK_DAYS} 보다 앞으로는 가지 않는다. 그날까지 잘리면 그날부터 조회 시작 전날까지를 함께 돌려준다.
-     * 다음 동기화는 이번 동기화를 기억하므로, 상한 밖으로 밀려난 기간은 그 기간이 생긴 동기화에서 한 번만 알린다.
+     * 조회하되 오늘 − {@code MAX_LOOKBACK_DAYS} 보다 앞으로는 가지 않는다. 이미 조회한 마지막 날이 그보다 앞이면 그날부터 조회 시작
+     * 전날까지를 함께 돌려준다. 그 동기화가 거래를 적재했거나 마지막 동기화로 기억되면 다음 동기화는 같은 기간을 다시 돌려주지 않고,
+     * 적재한 거래가 없고 기억도 남지 않았으면(적재 롤백, 응답을 끝까지 읽지 못함, 그 뒤 자동매칭을 껐다 켬) 다시 돌려준다.
      * 경계용 전날 하루만 잘리는 것은 알리지 않는다 — 이전 동기화가 이미 본 날이라, 알리면 월 1회 같은 날 동기화마다 거짓 경고가 뜬다.
      */
     static SyncWindow resolveWindow(LocalDate today, LocalDate latestTransactionDate, LocalDate lastSyncedDate) {

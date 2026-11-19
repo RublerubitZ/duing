@@ -34,7 +34,7 @@ public class BankMatchingSetting extends BaseEntity {
     private boolean apiRegistered;
 
     /**
-     * 은행 응답을 끝까지 읽고 적재까지 커밋한 마지막 동기화가 시작된 시각. 기록은
+     * 은행 응답을 끝까지 읽고 적재·자동매칭까지 마친 마지막 동기화가 시작된 시각. 기록은
      * {@code BankMatchingSettingRepository#recordLastSyncedAt} 조건부 UPDATE 로만 하고, 자동매칭을 끄면 비운다.
      */
     @Column(name = "last_synced_at")

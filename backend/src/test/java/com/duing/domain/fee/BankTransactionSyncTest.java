@@ -3,6 +3,9 @@ package com.duing.domain.fee;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.nullValue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.Mockito.doThrow;
 
 import com.duing.common.FixedClockConfig;
 import com.duing.common.IntegrationTestBase;
@@ -20,6 +23,7 @@ import com.duing.domain.fee.entity.FeeAccount;
 import com.duing.domain.fee.repository.BankMatchingSettingRepository;
 import com.duing.domain.fee.repository.FeeAccountRepository;
 import com.duing.domain.fee.service.BankMatchingAdminService;
+import com.duing.domain.fee.service.TransactionMatcher;
 import com.duing.domain.user.entity.User;
 import com.duing.domain.user.repository.UserRepository;
 import com.duing.global.auth.JwtTokenProvider;
@@ -41,9 +45,12 @@ import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.boot.test.system.CapturedOutput;
+import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
@@ -51,9 +58,11 @@ import org.springframework.context.annotation.Primary;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 
 @Import({TestcontainersConfiguration.class, FixedClockConfig.class, BankTransactionSyncTest.StubBankApiConfig.class})
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@ExtendWith(OutputCaptureExtension.class)
 class BankTransactionSyncTest extends IntegrationTestBase {
 
     // 동기화 호출에 쓰는 민감 인증정보 — 적재·응답·로그·예외 어디에도 나타나면 안 된다(보안 회귀 단언 기준값).
@@ -134,6 +143,9 @@ class BankTransactionSyncTest extends IntegrationTestBase {
     JdbcTemplate jdbcTemplate;
     @Autowired
     BankMatchingAdminService bankMatchingAdminService;
+    // 자동매칭 실패를 주입할 때만 스텁한다. 스텁하지 않으면 실제 매칭을 그대로 돌고, 스텁은 테스트마다 초기화된다.
+    @MockitoSpyBean
+    TransactionMatcher transactionMatcher;
 
     @BeforeEach
     void setUp() {
@@ -620,5 +632,42 @@ class BankTransactionSyncTest extends IntegrationTestBase {
         BankMatchingSetting setting = bankMatchingSettingRepository.findByClubId(clubId).orElseThrow();
         assertThat(setting.isActive()).isFalse();
         assertThat(setting.getLastSyncedAt()).isNull();
+    }
+
+    @Test
+    @DisplayName("적재 뒤 자동매칭에서 잡지 않는 예외가 나 응답이 오류면 마지막 동기화 시각을 남기지 않는다")
+    void doesNotRecordWhenAutoMatchFails() {
+        Club club = saveEnabledClub("매칭실패동아리");
+        Long clubId = club.getId();
+        User leader = joinAs(club, ClubMemberRole.LEADER);
+        stubBankApiClient.transactionsToReturn = List.of(
+                deposit(FixedClockConfig.TODAY.minusDays(1).atTime(9, 0), 30000L, "홍길동"));
+        // 매칭이 잡는 도메인 예외 3종 밖(일시적 DB 오류·잠금 실패 등)을 흉내 낸다 — 적재는 이미 커밋된 뒤다.
+        doThrow(new IllegalStateException("주입된 자동매칭 실패")).when(transactionMatcher).tryAutoMatch(any(), anyLong());
+
+        syncAs(tokenOf(leader), clubId)
+                .then().statusCode(HttpStatus.INTERNAL_SERVER_ERROR.value());
+
+        // 수정 전 2026-06-14T15:00:00Z(적재 트랜잭션에서 이미 기록)
+        assertThat(lastSyncedAtOf(clubId)).isNull();
+    }
+
+    @Test
+    @DisplayName("못 본 기간이 생기면 응답이 오류로 끝나도 clubId 와 두 날짜만 서버 로그에 한 줄 남긴다")
+    void logsMissedRangeEvenWhenResponseFails(CapturedOutput output) {
+        Club club = saveEnabledClub("경고로그동아리");
+        Long clubId = club.getId();
+        User leader = joinAs(club, ClubMemberRole.LEADER);
+        insertStoredTransaction(clubId, "NH", FixedClockConfig.TODAY.minusDays(45)); // 05-01
+        stubBankApiClient.transactionsToReturn = List.of(
+                deposit(FixedClockConfig.TODAY.minusDays(1).atTime(9, 0), 30000L, "홍길동"));
+        doThrow(new IllegalStateException("주입된 자동매칭 실패")).when(transactionMatcher).tryAutoMatch(any(), anyLong());
+
+        syncAs(tokenOf(leader), clubId)
+                .then().statusCode(HttpStatus.INTERNAL_SERVER_ERROR.value());
+
+        // 수정 전 로그 없음. 줄 끝까지 고정해 거래·계좌·인증정보가 함께 실리지 않았음을 본다.
+        assertThat(output.getOut()).containsPattern(
+                "(?m)못 본 기간: clubId=" + clubId + ", missedFrom=2026-05-01, missedTo=2026-05-15$");
     }
 }
