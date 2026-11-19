@@ -78,12 +78,12 @@ grep -cE '^[[:space:]]+client_ip_headers Cf-Connecting-Ip$' /tmp/Caddyfile.emerg
 docker compose exec -T caddy caddy validate --config - --adapter caddyfile < /tmp/Caddyfile.emergency
 cp /tmp/Caddyfile.emergency Caddyfile
 docker compose exec -T caddy caddy reload --config /etc/caddy/Caddyfile --adapter caddyfile
-docker compose exec -T caddy curl -s localhost:2019/config/apps/http/servers | grep -o '"client_ip_headers":\[[^]]*\]'
+docker compose exec -T caddy curl -s localhost:2019/config/apps/http/servers | grep -oE '"(client_ip_headers|protocols)":\[[^]]*\]'    # 옛 형태: client_ip_headers 두 줄 + "protocols":["h1"] 두 줄 · 새 형태: client_ip_headers 한 줄 + ["h1","h2"] 한 줄 + ["h1"] 한 줄
 ```
 
 - awk 는 전역 블록의 `servers :443 {` 줄(Caddy 2.11.9 전환 뒤 형태)이나 `servers {` 줄(그 전 형태) 가운데 먼저 나오는 줄 바로 아래에 두 줄을 넣는다. 이 문서는 develop 기준이라 서버 파일이 다음 릴리스 배포 전까지 옛 형태일 수 있어 둘 다 받는다. `servers :80 {` 블록에는 넣지 않는다 — :80 은 리다이렉트만 한다.
-- 마지막 줄에 `"client_ip_headers":["Cf-Connecting-Ip"]` 가 나와야 반영된 것이다. reload 성공 메시지만으로는 반영의 증거가 아니다.
-  - 안 나오면 컨테이너가 옛 파일(inode)을 보고 있거나(2026-08-30 사례), 손으로 넣었다면 두 줄이 잘못된 자리(새로 만든 `servers` 블록 등 — 아래 '`grep -c` 가 1 이 아니면' 의 자리 규칙)에 있는 것이다. 자리가 맞으면 `docker compose up -d --force-recreate caddy` 뒤 다시 되읽는다.
+- 마지막 명령의 출력에 `"client_ip_headers":["Cf-Connecting-Ip"]` 가 나와야 반영된 것이다. reload 성공 메시지만으로는 반영의 증거가 아니다. `"protocols"` 줄도 두 줄(서버마다 하나)이어야 한다 — 한 줄뿐이면 손으로 만든 블록이 :443 의 `protocols`·시간 상한을 지운 것이다(2.11.4 기본값 h1 h2 h3 로 뜬다). 아래 '`grep -c` 가 1 이 아니면' 의 자리 규칙대로 고쳐 다시 reload 한다.
+  - 안 나오면 컨테이너가 옛 파일(inode)을 보고 있거나(2026-08-30 사례), 손으로 넣었다면 두 줄이 잘못된 자리(새로 만든 `servers` 블록 등 — 아래 '`grep -c` 가 1 이 아니면' 의 자리 규칙)에 있는 것이다. 자리가 맞으면 `docker compose up -d --no-deps --force-recreate caddy` 뒤 다시 되읽는다.
     인증서는 `caddy_data` 볼륨에 있어 재발급되지 않고, 끊김은 수 초다.
 - **`cp` 로 덮어쓴다.** Caddyfile 은 단일 파일 bind mount 라 inode 가 바뀌면 컨테이너가 옛 파일을 계속 본다. `mv` 나 편집기로 직접 저장하지 않는다.
 - 검증은 **지금 돌고 있는 Caddy** 로 한다. 따로 받아 둔 이미지는 운영과 버전이 다를 수 있다(운영 버전은 서버 docker-compose.yml 의 caddy 서비스 이미지 태그다 — 버전마다 받는 옵션이 다르다).
@@ -243,7 +243,7 @@ docker compose exec -T caddy curl -s localhost:2019/config/apps/http/servers | g
    echo "$servers_json" | grep -c '"client_ip_headers"'    # 0 이어야 한다
    ```
 
-   - `0` 이 아니면 아직 반영되지 않은 것이다. 1-1 처럼 `docker compose up -d --force-recreate caddy` 뒤 다시 되읽는다.
+   - `0` 이 아니면 아직 반영되지 않은 것이다. 1-1 처럼 `docker compose up -d --no-deps --force-recreate caddy` 뒤 다시 되읽는다.
    - "조회 실패" 가 찍히면 관리 API 를 못 읽은 것이다(`0` 이 함께 나와도 믿지 않는다). `docker compose ps caddy` 부터 본다.
 6. **저장소**
    - 1-5 핫픽스를 했다면 그 PR 을 되돌리는 PR(`git revert` — 두 파일만 바뀐다: 신뢰 블록 제거 + 부재 단언)을 머지하고 main 으로 승격한다.
