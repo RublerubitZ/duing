@@ -126,9 +126,12 @@
 
 Caddy 이미지 태그가 바뀐 배포에서 새 caddy 가 시작된 뒤 죽으면, 배포 잡의 `caddy reload` 가 실패하고(멈춘 컨테이너에는 `docker compose exec` 가 닿지 않는다) 잡은 `Caddyfile.bak` 만 되돌린 뒤 두 번째 reload 도 실패해 `이미지 배포는 성공, Caddy 설정 반영 실패` 로 끝난다. 그때 서버는 **새 compose(2.11.9) + 옛 Caddyfile** 이고, `.bak` 두 개는 배포 전 파일이다. caddy 는 `restart: unless-stopped` 라 그 조합으로 혼자 다시 떠 있을 수도, 계속 죽어 있을 수도 있다(평소의 '실패한 reload 는 돌던 설정을 유지한다'는 컨테이너가 살아 있을 때 이야기다). `docker compose up -d` 자체가 실패하면 잡은 거기서 멈춘다(`set -euo pipefail`) — 그 문구도 `.bak` 복원도 없고, 서버는 새 compose + 새 Caddyfile 이다. 잡이 이렇게 다른 오류로 끝났고 caddy 가 떠 있지 않으면 아래 'caddy 가 뜨지 않는다' 로 간다.
 
-파일을 바꾸기 전에 끝난 잡은 다르다 — 오류 문구가 `incoming/ 에 docker-compose.yml·Caddyfile 이 없습니다 — 스테이징 실패`, `새 docker-compose.yml 검증 실패 — 기존 설정 유지·배포 중단`, `새 Caddyfile 검증 실패(검증 이미지 pull 실패일 수도 있음) — 기존 설정 유지·배포 중단` 가운데 하나면 `.bak` 도 파일도 건드리지 않았으므로 서버는 그대로다. 이 경우는 re-run 이 맞는 대응이다(같은 검증이 또 실패하면 저장소를 고친다).
+실패한 잡이 파일을 바꿨는지는 잡 로그에 `배포 설정 검증 통과 — compose·Caddyfile 반영 완료` 가 찍혔는지로 가른다(워크플로가 `.bak` 복사와 새 파일 `cp` 를 마친 직후에 찍는 줄이다).
 
-**새 파일이 서버에 남은 채 끝난 배포 잡(`Caddy 설정 반영 실패`·`up -d` 실패 등)을 re-run 하지 않는다.** re-run 은 지금 파일을 먼저 `.bak` 으로 복사하므로 되돌릴 사본(배포 전 파일)이 사라진다 — `Caddy 설정 반영 실패` 뒤라면 `docker-compose.yml.bak` 이 2.11.9 로 덮인다.
+- **그 줄이 없다** — 파일을 바꾸기 전에 멈췄다. 빌드·scp·GHCR 로그인 실패, 또는 `incoming/ 에 docker-compose.yml·Caddyfile 이 없습니다 — 스테이징 실패`·`새 docker-compose.yml 검증 실패 — 기존 설정 유지·배포 중단`·`새 Caddyfile 검증 실패(검증 이미지 pull 실패일 수도 있음) — 기존 설정 유지·배포 중단` 오류다. `.bak` 도 파일도 건드리지 않았으므로 서버는 그대로이고, re-run 이 맞는 대응이다(같은 검증이 또 실패하면 저장소를 고친다).
+- **그 줄이 있다** — 새 파일이 서버에 남아 있다(위 헬스 게이트 자동 롤백이 두 `.bak` 을 되돌린 경우만 빼고). `docker compose pull backend`·`up -d`·`Caddy 설정 반영 실패` 어디서 끝났든 re-run 하지 않고 이 절을 따른다.
+
+**새 파일이 서버에 남은 채 끝난 배포 잡을 re-run 하지 않는다.** re-run 은 지금 파일을 먼저 `.bak` 으로 복사하므로 되돌릴 사본(배포 전 파일)이 사라진다 — `Caddy 설정 반영 실패` 뒤라면 `docker-compose.yml.bak` 이 2.11.9 로 덮인다.
 
 아래는 모두 서버 배포 디렉터리(`/home/ubuntu/duing`)에서 하고, 파일은 `cp` 로 덮는다(Caddyfile 은 단일 파일 bind mount — `mv`·편집기 저장 금지).
 
@@ -147,12 +150,12 @@ Caddy 이미지 태그가 바뀐 배포에서 새 caddy 가 시작된 뒤 죽으
   - caddy 가 Up 이 아니면 아래 'caddy 가 뜨지 않는다' 로 간다.
   - Up 인데 되읽기에 `["h1","h2"]` 가 있으면 컨테이너는 새 설정으로 떠 있고 파일만 옛 것이다. `docker compose exec -T caddy caddy reload --config /etc/caddy/Caddyfile --adapter caddyfile` 로 파일(옛 설정)과 맞춘 뒤 첫 경우로 본다.
 - **caddy 가 뜨지 않는다(API 전체 불통)** — `docker compose ps caddy` 가 Up 이 아니거나 `docker compose logs --tail 50 caddy` 에 기동 오류가 있다.
-  되돌리기 전에 원인을 가른다 — **로그의 기동 오류가 설정·버전 탓일 때만 되돌린다.** 배포와 무관하게 내려갔으면(OOM 등 — 로그에 설정 오류가 없다) 되돌리지 않는다. 아래 `diff` 두 개가 아무것도 찍지 않으면 `.bak` 과 지금 파일이 같아(마지막 배포가 두 파일을 바꾸지 않았다) 되돌릴 것이 없다. 두 경우 모두 `docker compose up -d caddy` 로 다시 띄우고 로그부터 본다.
+  되돌리기 전에 원인을 가른다 — **로그나 `up -d` 출력(배포 잡 로그, 또는 손으로 다시 친 `docker compose up -d caddy` 의 출력)이 설정·버전 탓인 기동 오류를 가리킬 때만 되돌린다.** 배포와 무관하게 내려갔으면(OOM 등 — 설정 오류가 없다) 되돌리지 않고 `docker compose up -d caddy` 로 다시 띄운 뒤 로그를 본다 — 다시 띄워도 로그나 `up -d` 출력이 설정·버전을 가리키며 뜨지 않으면 아래 복원으로 이어 간다. 설정·버전 탓인데 아래 `diff` 두 개가 아무것도 찍지 않으면 `.bak` 이 지금 파일과 같아 되돌릴 사본이 없다(실패한 전환 잡을 re-run 해 `.bak` 이 지금 파일과 같아진 경우 등) — 아래 '손으로 내릴 때' 로 간다.
 
   ```bash
   cd /home/ubuntu/duing
   docker compose logs --tail 50 caddy                                     # 설정·버전 탓인 기동 오류인가
-  diff docker-compose.yml.bak docker-compose.yml; diff Caddyfile.bak Caddyfile    # 아무것도 안 찍히면 되돌릴 것이 없다
+  diff docker-compose.yml.bak docker-compose.yml; diff Caddyfile.bak Caddyfile    # 아무것도 안 찍히면 되돌릴 사본이 없다
   ```
 
   설정·버전 탓이면 배포 워크플로가 파일을 바꾸기 직전에 만든 `docker-compose.yml.bak`·`Caddyfile.bak` 을 **둘 다** 되돌린다 — 하나만 되돌리면 버전과 Caddyfile 이 어긋날 수 있다(예: 옛 버전 + 새 Caddyfile(:443 HTTP/2)).
@@ -180,11 +183,11 @@ Caddy 이미지 태그가 바뀐 배포에서 새 caddy 가 시작된 뒤 죽으
   cd /home/ubuntu/duing
   cp Caddyfile Caddyfile.before-h1
   sed $'s/^\t\tprotocols h1 h2$/\t\tprotocols h1/' Caddyfile > /tmp/Caddyfile.h1
-  grep -cE '^[[:space:]]*protocols[[:space:]].*h2' /tmp/Caddyfile.h1    # 0 이어야 한다
   docker compose exec -T caddy caddy validate --config - --adapter caddyfile < /tmp/Caddyfile.h1
+  grep -cE '^[[:space:]]*protocols[[:space:]].*h2' /tmp/Caddyfile.h1    # 0 이어야 한다
   ```
 
-  검사가 0 이고 validate 가 통과했을 때만 아래를 실행한다. `grep -cE` 가 0 이 아니면 서버의 protocols 줄이 저장소 글자와 달라(끝 공백·공백 들여쓰기·줄 끝 주석·`h2 h1` 순서 등) sed 가 바꾸지 못한 것이다 — 거기서 멈추고, `/tmp/Caddyfile.h1` 에서 그 줄(`-c` 를 `-n` 으로 바꾸면 보인다)을 손으로 `protocols h1` 로 고친 뒤 `grep -cE` 부터 다시 한다.
+  validate 가 통과했고 마지막 줄(검사)이 0 일 때만 아래를 실행한다. 검사가 0 이 아니면 서버의 protocols 줄이 저장소 글자와 달라(끝 공백·공백 들여쓰기·줄 끝 주석·`h2 h1` 순서 등) sed 가 바꾸지 못한 것이다 — 거기서 멈추고, `/tmp/Caddyfile.h1` 에서 그 줄(`-c` 를 `-n` 으로 바꾸면 보인다)을 손으로 `protocols h1` 로 고친 뒤 위 블록의 마지막 두 줄(validate·검사)만 다시 돌린다(sed 줄을 다시 돌리면 고친 사본이 덮인다).
 
   ```bash
   cd /home/ubuntu/duing
@@ -194,7 +197,7 @@ Caddy 이미지 태그가 바뀐 배포에서 새 caddy 가 시작된 뒤 죽으
   ```
 
   바깥에서 `curl -sS -o /dev/null -w '%{http_version}\n' --http2 https://api.duings.com/actuator/health` → `1.1`. 저장소는 :443 을 `protocols h1` 로 바꾸는 후속 PR 로 맞추는데, **같은 PR 에서 `.github/workflows/deploy-config-ci.yml` 의 :443 프로토콜 검사(① — 지금 기대값 `["h1","h2"]`)도 `["h1"]` 로** 바꿔야 Gate 를 통과한다(버전 하한 검사 ④ 는 :443 에 h2 가 없으면 저절로 건너뛴다). 그 PR 이 들어가기 전에 Deploy Backend 가 돌면 서버가 저장소의 `h1 h2` 로 돌아간다.
-- **손으로 내릴 때**(2.11.9 자체가 원인일 때만 — 위 'caddy 가 뜨지 않는다' 에서 `.bak` 짝이 깨졌거나, 짝 맞는 2.11.9 `.bak` 으로 되돌려도 2.11.9 가 뜨지 않을 때) — 태그만 2.11.4 로 내리지 않는다. 2.11.8 미만 빌드는 Go HTTP/2 서버 DoS 수정이 없으니 :443 을 `protocols h1` 로 함께 바꾼다. 주소별 `servers` 문법은 2.11.4 도 받는다(2026-11-18 확인).
+- **손으로 내릴 때**(2.11.9 자체가 원인일 때만 — 위 'caddy 가 뜨지 않는다' 에서 되돌릴 사본이 없거나(`diff` 가 비었다·`.bak` 짝이 깨졌다), 짝 맞는 2.11.9 `.bak` 으로 되돌려도 2.11.9 가 뜨지 않을 때) — 태그만 2.11.4 로 내리지 않는다. 2.11.8 미만 빌드는 Go HTTP/2 서버 DoS 수정이 없으니 :443 을 `protocols h1` 로 함께 바꾼다. 주소별 `servers` 문법은 2.11.4 도 받는다(2026-11-18 확인).
 
   ```bash
   cd /home/ubuntu/duing
@@ -203,11 +206,11 @@ Caddy 이미지 태그가 바뀐 배포에서 새 caddy 가 시작된 뒤 죽으
   sed $'s/^\t\tprotocols h1 h2$/\t\tprotocols h1/' Caddyfile > /tmp/Caddyfile.down      # 옛 형태 파일이면 바뀌는 것이 없다
   sed 's/2\.11\.9-alpine/2.11.4-alpine/' docker-compose.yml > /tmp/docker-compose.yml.down
   grep -E '^ *image: caddy' /tmp/docker-compose.yml.down                               # 2.11.4-alpine 이어야 한다
-  grep -cE '^[[:space:]]*protocols[[:space:]].*h2' /tmp/Caddyfile.down                  # 0 이어야 한다
   docker run --rm -i "$(grep -E '^ *image: caddy' /tmp/docker-compose.yml.down | awk '{print $2}')" caddy validate --config - --adapter caddyfile < /tmp/Caddyfile.down
+  grep -cE '^[[:space:]]*protocols[[:space:]].*h2' /tmp/Caddyfile.down                  # 0 이어야 한다
   ```
 
-  검사가 0 이고 validate 가 통과했을 때만 아래를 실행한다. 검사가 0 이 아니면 위 'HTTP/2 만 문제다' 의 안내대로 `/tmp/Caddyfile.down` 에서 그 줄을 손으로 `protocols h1` 로 고치고 검사부터 다시 한다.
+  `image:` 줄이 `2.11.4-alpine` 이고 validate 가 통과했고 마지막 줄(검사)이 0 일 때만 아래를 실행한다. 검사가 0 이 아니면 위 'HTTP/2 만 문제다' 의 안내대로 `/tmp/Caddyfile.down` 에서 그 줄을 손으로 `protocols h1` 로 고치고, 위 블록의 마지막 두 줄(validate·검사)만 다시 돌린다.
 
   ```bash
   cd /home/ubuntu/duing
@@ -218,7 +221,7 @@ Caddy 이미지 태그가 바뀐 배포에서 새 caddy 가 시작된 뒤 죽으
   docker compose exec -T caddy curl -s localhost:2019/config/apps/http/servers | grep -o '"protocols":\[[^]]*\]'    # 두 줄 모두 ["h1"] — 한 줄뿐이면 :443 에 protocols 줄이 없다(2.11.4 기본값은 h1 h2 h3 라 HTTP/2 가 켜진다)
   ```
 
-  이미 한 번 적용한 뒤 Caddyfile 만 다시 고쳐 적용할 때는(예: 되읽기가 한 줄뿐이라 :443 에 `protocols h1` 을 넣었다) 태그가 같아 `docker compose up -d caddy` 가 컨테이너를 다시 만들지 않는다 — `cp` 로 덮은 뒤 `docker compose exec -T caddy caddy reload --config /etc/caddy/Caddyfile --adapter caddyfile` 로 반영한다.
+  이미 한 번 적용한 뒤 Caddyfile 만 다시 고쳐 적용할 때는(예: 되읽기가 한 줄뿐이다) 앞 블록을 처음부터 다시 돌리지 않는다 — 사본 만들기 줄이 `.before-down` 을 이미 내린 파일로 덮는다. `/tmp/Caddyfile.down` 의 `servers :443 {` 블록 안에 `protocols h1` 줄을 넣고(들여쓰기는 같은 블록의 다른 줄과 같게), 앞 블록의 마지막 두 줄(validate·검사)로 확인한 뒤 `cp /tmp/Caddyfile.down Caddyfile` 한다. 태그가 같아 `docker compose up -d caddy` 가 컨테이너를 다시 만들지 않으니 `docker compose exec -T caddy caddy reload --config /etc/caddy/Caddyfile --adapter caddyfile` 로 반영하고, 위 블록의 되읽기 줄로 두 줄 모두 `["h1"]` 인지 다시 본다.
 
   저장소는 2.11.9 전환 PR 을 되돌리는 PR 로 맞춘다. 그 PR 이 들어가기 전에 Deploy Backend 가 돌면(main push·re-run·수동 실행) 서버가 저장소의 2.11.9·:443 `h1 h2` 로 다시 덮인다.
 - **일반 경로**: 2.11.9 전환 PR 을 통째로 되돌리는 PR 을 develop 에 머지하고 main 으로 내보낸다(배포가 두 파일을 함께 되돌리고, CI 검사도 함께 돌아간다).
