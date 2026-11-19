@@ -62,7 +62,7 @@ jobs:
         # caddy 이미지 태그는 deploy/docker-compose.yml 의 caddy 서비스와 같은 고정 태그를 쓴다(위 단계가 어긋남을 막는다).
         run: |
           docker run --rm -v "$PWD/deploy/Caddyfile:/etc/caddy/Caddyfile:ro" \
-            caddy:2.11.4-alpine caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
+            caddy:2.11.9-alpine caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
 
       - name: Assert client IP restoration is configured
         # api.duings.com 은 Cloudflare DNS only(프록시 OFF)로 직결된다. 백엔드가 보는 getRemoteAddr() 은 Caddy 가
@@ -72,7 +72,7 @@ jobs:
         # 문법 검증(caddy validate)은 이 중 어느 것도 잡지 못한다 — 전부 어긋나도 문법은 정상이다. 그래서 어댑트된
         # JSON 을 직접 단언한다. (deploy/Caddyfile 주석 참조)
         run: |
-          docker run --rm -i caddy:2.11.4-alpine caddy adapt --config - --adapter caddyfile \
+          docker run --rm -i caddy:2.11.9-alpine caddy adapt --config - --adapter caddyfile \
             < deploy/Caddyfile > /tmp/caddy-adapted.json
           # 신뢰 프록시가 없어야 한다. 직결에서 Cloudflare 대역을 믿으면 다른 CF 존을 이 오리진으로 겨눠 Cf-Connecting-Ip 를
           # 임의로 정할 수 있다(#1329). 비상 모드(프록시 ON)로 돌아가며 Caddyfile 의 신뢰 블록을 복원할 때는 이 단언도
@@ -103,7 +103,7 @@ jobs:
         # 없어 보이지 않는다 — 그래서 :80 을 듣는 서버가 설정에 있는지도 단언한다(없으면 :80 이 평문 HTTP/2 를 받는다).
         # 되돌릴 때는 :443 서버만 ["h1","h2"] 로 바꾸고 :80 은 ["h1"] 단언을 남긴다.
         run: |
-          docker run --rm -i caddy:2.11.4-alpine caddy adapt --config - --adapter caddyfile \
+          docker run --rm -i caddy:2.11.9-alpine caddy adapt --config - --adapter caddyfile \
             < deploy/Caddyfile > /tmp/caddy-adapted-protocols.json
           jq -e '[.apps.http.servers[] | .protocols] | length > 0 and all(. == ["h1"])' \
             /tmp/caddy-adapted-protocols.json > /dev/null \
