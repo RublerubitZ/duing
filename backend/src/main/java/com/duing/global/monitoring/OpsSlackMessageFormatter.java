@@ -199,9 +199,25 @@ public class OpsSlackMessageFormatter {
                                 summary.totalRequests(), summary.totalRejections())),
                         field("최대 분당 요청", peakRequests),
                         field("최대 분당 429", String.format(Locale.ROOT, "%,d", summary.peakRejectionsPerMinute())),
+                        field("한 IP 분당 최대 조회",
+                                peakPerIpReadsLabel(summary.peakPerIpReads(), summary.readLimitPerMinute())),
                         field("이상 감지", summary.surgeAlerts() + "회"),
                         field("기준", String.format(Locale.ROOT, "분당 요청 %,d · 분당 429 %,d",
                                 summary.requestThreshold(), summary.rejectionThreshold()))));
+    }
+
+    /**
+     * 한 IP 분당 최대 조회 표시 문구 — 일간 요약과 매시 요약 로그({@code TrafficSurgeMonitor})가 함께 쓴다. 최대치는 한도 + 1 에서
+     * 멈추므로 한도를 넘었으면 건수 대신 '한도 초과'로 적는다(실제 건수를 알려 주지 않는다).
+     */
+    public static String peakPerIpReadsLabel(int peakPerIpReads, int readLimitPerMinute) {
+        if (readLimitPerMinute <= 0) {
+            return "제한 비활성";
+        }
+        if (peakPerIpReads > readLimitPerMinute) {
+            return String.format(Locale.ROOT, "한도 초과(%,d건 넘음)", readLimitPerMinute);
+        }
+        return String.format(Locale.ROOT, "%,d건(한도 %,d건)", peakPerIpReads, readLimitPerMinute);
     }
 
     private String compose(String header, String eventType, List<String> domainLines) {

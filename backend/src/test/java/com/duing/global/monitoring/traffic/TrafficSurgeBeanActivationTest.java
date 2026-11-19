@@ -5,6 +5,7 @@ import static org.mockito.Mockito.mock;
 
 import com.duing.global.monitoring.OpsSlackMessageFormatter;
 import com.duing.global.monitoring.SlackNotifier;
+import com.duing.global.ratelimit.ApiReadRateLimitFilter;
 import java.time.Clock;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -15,6 +16,7 @@ class TrafficSurgeBeanActivationTest {
 
     private final ApplicationContextRunner runner = new ApplicationContextRunner()
             .withUserConfiguration(TrafficSurgeJobConfig.class, TrafficCountingFilter.class, TrafficSurgeMonitor.class)
+            .withBean(ApiReadRateLimitFilter.class, () -> mock(ApiReadRateLimitFilter.class))
             .withBean(OpsSlackMessageFormatter.class, () -> mock(OpsSlackMessageFormatter.class))
             .withBean(SlackNotifier.class, () -> mock(SlackNotifier.class))
             .withBean(Clock.class, Clock::systemUTC);

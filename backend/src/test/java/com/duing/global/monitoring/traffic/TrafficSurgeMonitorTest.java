@@ -2,6 +2,7 @@ package com.duing.global.monitoring.traffic;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
+import static org.assertj.core.api.Assertions.tuple;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
@@ -17,6 +18,8 @@ import static org.mockito.Mockito.when;
 import com.duing.global.monitoring.OpsSlackMessageFormatter;
 import com.duing.global.monitoring.SlackNotifier;
 import com.duing.global.monitoring.TrafficDailySummary;
+import com.duing.global.ratelimit.ApiReadRateLimitFilter;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.http.HttpServletResponse;
 import java.time.Clock;
 import java.time.Duration;
@@ -30,8 +33,10 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.springframework.boot.test.system.CapturedOutput;
 import org.springframework.boot.test.system.OutputCaptureExtension;
+import org.springframework.mock.web.MockFilterChain;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
+import org.springframework.test.util.ReflectionTestUtils;
 
 @ExtendWith(OutputCaptureExtension.class)
 class TrafficSurgeMonitorTest {
@@ -41,12 +46,14 @@ class TrafficSurgeMonitorTest {
     private static final Instant START = LocalDateTime.of(2026, 10, 7, 14, 57).atZone(SEOUL).toInstant();
     private static final long REQUEST_THRESHOLD = 3_000;
     private static final long REJECTION_THRESHOLD = 300;
+    private static final int READ_LIMIT = 1_000;
     private static final String DETECTED_MESSAGE = "formatted-detected";
     private static final String RECOVERED_MESSAGE = "formatted-recovered";
     private static final String DAILY_MESSAGE = "formatted-daily";
 
     private final Clock clock = Clock.fixed(START, SEOUL);
     private final TrafficCountingFilter trafficCountingFilter = new TrafficCountingFilter();
+    private final ApiReadRateLimitFilter apiReadRateLimitFilter = new ApiReadRateLimitFilter(new ObjectMapper(), clock);
     private final OpsSlackMessageFormatter formatter = mock(OpsSlackMessageFormatter.class);
     private final SlackNotifier slackNotifier = mock(SlackNotifier.class);
     private TrafficSurgeMonitor monitor;
@@ -58,6 +65,7 @@ class TrafficSurgeMonitorTest {
                 .thenReturn(DETECTED_MESSAGE);
         when(formatter.trafficSurgeRecovered(anyLong(), anyLong(), anyInt())).thenReturn(RECOVERED_MESSAGE);
         when(formatter.trafficDailySummary(any())).thenReturn(DAILY_MESSAGE);
+        ReflectionTestUtils.setField(apiReadRateLimitFilter, "limitPerMinute", READ_LIMIT);
         monitor = monitorWithThresholds(REQUEST_THRESHOLD, REJECTION_THRESHOLD);
     }
 
@@ -244,7 +252,8 @@ class TrafficSurgeMonitorTest {
 
         minute(800, 0);
 
-        assertThat(output).contains("트래픽 시간 요약 — 2026-10-07 14시, 최대 분당 요청 1200, 최대 분당 429 9, 총 요청 1900");
+        assertThat(output).contains("트래픽 시간 요약 — 2026-10-07 14시, 최대 분당 요청 1200, 최대 분당 429 9, 총 요청 1900, "
+                + "한 IP 분당 최대 조회 0건(한도 1,000건)");
     }
 
     @Test
@@ -280,7 +289,8 @@ class TrafficSurgeMonitorTest {
 
         verify(formatter).trafficDailySummary(new TrafficDailySummary(
                 LocalDateTime.of(2026, 10, 7, 14, 57), LocalDateTime.of(2026, 10, 8, 9, 0), true,
-                541_000, 2_164, 500, LocalDateTime.of(2026, 10, 8, 8, 59), 2, 0, REQUEST_THRESHOLD, REJECTION_THRESHOLD));
+                541_000, 2_164, 500, LocalDateTime.of(2026, 10, 8, 8, 59), 2, 0, REQUEST_THRESHOLD, REJECTION_THRESHOLD,
+                0, READ_LIMIT));
         verify(slackNotifier).send(DAILY_MESSAGE);
         assertThat(output).contains("트래픽 일간 요약 — 기간 시작 2026-10-07 14:57, 총 요청 541000, 최대 분당 요청 500");
     }
@@ -296,7 +306,8 @@ class TrafficSurgeMonitorTest {
 
         verify(formatter).trafficDailySummary(new TrafficDailySummary(
                 LocalDateTime.of(2026, 10, 8, 9, 0), LocalDateTime.of(2026, 10, 9, 9, 0), false,
-                14_690, 1, 300, LocalDateTime.of(2026, 10, 8, 9, 0), 1, 0, REQUEST_THRESHOLD, REJECTION_THRESHOLD));
+                14_690, 1, 300, LocalDateTime.of(2026, 10, 8, 9, 0), 1, 0, REQUEST_THRESHOLD, REJECTION_THRESHOLD,
+                0, READ_LIMIT));
     }
 
     @Test
@@ -331,7 +342,8 @@ class TrafficSurgeMonitorTest {
         verify(formatter, times(2)).trafficDailySummary(any());
         verify(formatter).trafficDailySummary(new TrafficDailySummary(
                 LocalDateTime.of(2026, 10, 8, 9, 0), LocalDateTime.of(2026, 10, 9, 9, 0), false,
-                600, 1, 300, LocalDateTime.of(2026, 10, 8, 9, 0), 1, 0, REQUEST_THRESHOLD, REJECTION_THRESHOLD));
+                600, 1, 300, LocalDateTime.of(2026, 10, 8, 9, 0), 1, 0, REQUEST_THRESHOLD, REJECTION_THRESHOLD,
+                0, READ_LIMIT));
     }
 
     @Test
@@ -350,8 +362,78 @@ class TrafficSurgeMonitorTest {
                 .doesNotContain("summary exploded");
     }
 
+    @Test
+    @DisplayName("매시 요약 줄 끝에 그 시의 한 IP 분당 최대 조회를 한도와 함께 붙이고, 시가 바뀌면 0 에서 다시 센다 — 경계 집계는 새 시 몫이다")
+    void hourlySummaryCarriesPeakPerIpReads(CapturedOutput output) {
+        // 직전 시보다 낮은 시(16시 40)를 넣는다 — 경계에서 0 으로 되돌리지 않으면 16시 줄이 612 로 남는다.
+        // 경계 집계의 값을 직전 시에 넣으면 14시 줄이 612 가 된다.
+        run(Duration.ofMinutes(1), 100, 0, 300);   // 14:58 — 14시
+        run(Duration.ofMinutes(2), 0, 0, 612);     // 15:00 경계 — 14시 줄을 남기고 612 는 15시 몫
+        run(Duration.ofMinutes(60), 0, 0, 40);     // 16:00 경계 — 15시 줄을 남기고 40 은 16시 몫
+        run(Duration.ofMinutes(60), 0, 0, 0);      // 17:00 경계 — 16시 줄을 남긴다
+
+        assertThat(output)
+                .contains("트래픽 시간 요약 — 2026-10-07 14시, 최대 분당 요청 100, 최대 분당 429 0, 총 요청 100, "
+                        + "한 IP 분당 최대 조회 300건(한도 1,000건)")
+                .contains("트래픽 시간 요약 — 2026-10-07 15시, 최대 분당 요청 0, 최대 분당 429 0, 총 요청 0, "
+                        + "한 IP 분당 최대 조회 612건(한도 1,000건)")
+                .contains("트래픽 시간 요약 — 2026-10-07 16시, 최대 분당 요청 0, 최대 분당 429 0, 총 요청 0, "
+                        + "한 IP 분당 최대 조회 40건(한도 1,000건)");
+    }
+
+    @Test
+    @DisplayName("그 시에 한 IP 가 한도를 넘겼으면 매시 요약 줄 끝은 건수 대신 '한도 초과'다")
+    void hourlySummaryMarksReadLimitExceeded(CapturedOutput output) {
+        run(Duration.ofMinutes(1), 100, 0, 1_001);
+        run(Duration.ofMinutes(2), 0, 0, 0);
+
+        assertThat(output).contains("총 요청 100, 한 IP 분당 최대 조회 한도 초과(1,000건 넘음)");
+    }
+
+    @Test
+    @DisplayName("조회 요청 제한이 꺼져 있으면 매시 요약 줄 끝에 비활성을 적는다")
+    void hourlySummaryMarksReadLimitDisabled(CapturedOutput output) {
+        ReflectionTestUtils.setField(apiReadRateLimitFilter, "limitPerMinute", 0);
+
+        run(Duration.ofMinutes(1), 100, 0, 0);
+        run(Duration.ofMinutes(2), 0, 0, 0);
+
+        assertThat(output).contains("총 요청 100, 한 IP 분당 최대 조회 제한 비활성");
+    }
+
+    @Test
+    @DisplayName("매분 실행은 조회 요청 제한 필터의 한 IP 최대 조회도 비워 그 시 요약에 넣는다")
+    void runDrainsReadPeakFromRateLimitFilter(CapturedOutput output) throws Exception {
+        // 큰 쪽을 먼저 보낸다 — 뒤에 온 작은 건수(3)가 최대를 덮으면 3건으로 남는다.
+        passReads("198.51.100.9", 5);
+        passReads("203.0.113.7", 3);
+
+        // 고정 시계라 이 실행은 14:57 집계다 — 다음 집계(15:00)에서 14시 요약이 남는다.
+        monitor.run();
+
+        assertThat(apiReadRateLimitFilter.drainPeakPerIpCount()).isZero();
+        run(Duration.ofMinutes(3), 0, 0);
+        assertThat(output).contains("한 IP 분당 최대 조회 5건(한도 1,000건)");
+    }
+
+    @Test
+    @DisplayName("일간 요약은 그 기간의 한 IP 분당 최대 조회와 한도를 싣는다 — 09:00 경계 집계의 값은 새 기간 몫이다")
+    void dailySummaryCarriesPeakPerIpReadsPerPeriod() {
+        run(Duration.ofHours(18).plusMinutes(2), 541_000, 2_164, 612);
+        run(Duration.ofMinutes(1), 300, 1, 40);
+        run(Duration.ofHours(24).minusMinutes(1), 14_390, 0, 7);
+        run(Duration.ofMinutes(1), 10, 0, 900);
+
+        // 10-08 요약은 10-07 기간의 612, 10-09 요약은 10-08 09:00 경계의 40 과 그 뒤 7 중 최대 — 10-09 경계의 900 은 다음 기간 몫이다.
+        ArgumentCaptor<TrafficDailySummary> summaryCaptor = ArgumentCaptor.forClass(TrafficDailySummary.class);
+        verify(formatter, times(2)).trafficDailySummary(summaryCaptor.capture());
+        assertThat(summaryCaptor.getAllValues())
+                .extracting(TrafficDailySummary::peakPerIpReads, TrafficDailySummary::readLimitPerMinute)
+                .containsExactly(tuple(612, READ_LIMIT), tuple(40, READ_LIMIT));
+    }
+
     private TrafficSurgeMonitor monitorWithThresholds(long requestThreshold, long rejectionThreshold) {
-        return new TrafficSurgeMonitor(trafficCountingFilter, formatter, slackNotifier, clock,
+        return new TrafficSurgeMonitor(trafficCountingFilter, apiReadRateLimitFilter, formatter, slackNotifier, clock,
                 requestThreshold, rejectionThreshold);
     }
 
@@ -366,14 +448,26 @@ class TrafficSurgeMonitorTest {
     }
 
     private void run(Duration elapsed, long requests, long rejections) {
+        run(elapsed, requests, rejections, 0);
+    }
+
+    private void run(Duration elapsed, long requests, long rejections, int peakPerIpReads) {
         now = now.plus(elapsed);
-        monitor.evaluate(requests, rejections, now);
+        monitor.evaluate(requests, rejections, peakPerIpReads, now);
     }
 
     private void passRequests(int count) throws Exception {
         for (int request = 0; request < count; request++) {
             trafficCountingFilter.doFilter(new MockHttpServletRequest(), new MockHttpServletResponse(),
                     (servletRequest, servletResponse) -> ((HttpServletResponse) servletResponse).setStatus(200));
+        }
+    }
+
+    private void passReads(String clientIp, int count) throws Exception {
+        for (int request = 0; request < count; request++) {
+            MockHttpServletRequest read = new MockHttpServletRequest("GET", "/api/v1/clubs");
+            read.setRemoteAddr(clientIp);
+            apiReadRateLimitFilter.doFilter(read, new MockHttpServletResponse(), new MockFilterChain());
         }
     }
 }
