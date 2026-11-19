@@ -97,21 +97,44 @@ jobs:
             || { echo "::error::application-prod.yml 에 forward-headers-strategy: native 가 없습니다 — 톰캣이 X-Forwarded-For 를 무시합니다"; exit 1; }
           echo "클라이언트 IP 복원 설정 확인 완료"
 
-      - name: Assert Caddy speaks HTTP/1.1 only on every server (:80 included)
-        # HTTP/2 는 고정한 caddy 2.11.4 빌드의 Go HTTP/2 서버 DoS 때문에 임시로 끈다(deploy/Caddyfile 전역 servers 주석).
-        # 전역 옵션은 어댑트된 서버에만 붙고, Caddy 가 런타임에 따로 만드는 자동 리다이렉트 서버(:80)는 caddy adapt 결과에
-        # 없어 보이지 않는다 — 그래서 :80 을 듣는 서버가 설정에 있는지도 단언한다(없으면 :80 이 평문 HTTP/2 를 받는다).
-        # 되돌릴 때는 :443 서버만 ["h1","h2"] 로 바꾸고 :80 은 ["h1"] 단언을 남긴다.
+      - name: Assert Caddy protocols per server, timeouts and HTTP/2 version floor
+        # :443 은 HTTP/1.1·2(h1 h2), :80 은 HTTP/1.1(h1)만 받는다 — :80 은 리다이렉트만 해 평문 HTTP/2 를 쓸 곳이 없다. HTTP/3 은
+        # UDP 443 을 게시하지 않아 두 서버 모두 끈다(deploy/Caddyfile 의 servers 주석). 서버마다 servers 블록 하나만 적용되므로
+        # 시간 상한이 두 서버에 같은 값으로 있는지도 본다(어댑트 JSON 은 나노초 정수 — 10s = 10000000000, 2m = 120000000000).
+        # servers 옵션은 어댑트된 서버에만 붙고, Caddy 가 런타임에 따로 만드는 자동 리다이렉트 서버(:80)는 caddy adapt 결과에
+        # 없어 보이지 않는다 — 그래서 :80 을 듣는 서버가 설정에 있는지 먼저 단언한다(없으면 :80 이 평문 HTTP/2 를 받는다).
+        # 버전 하한: 2.11.8 미만 빌드는 Go HTTP/2 서버 DoS 수정이 없다. :443 에 h2 가 켜진 채 docker-compose.yml 의 버전만 내리면 막는다.
+        # 저장소에서 :443 의 HTTP/2 를 일부러 내릴 때는 Caddyfile 과 같은 PR 에서 ① 의 기대값을 ["h1"] 로 고친다(④ 는 그때 저절로 건너뛴다).
         run: |
           docker run --rm -i caddy:2.11.9-alpine caddy adapt --config - --adapter caddyfile \
             < deploy/Caddyfile > /tmp/caddy-adapted-protocols.json
-          jq -e '[.apps.http.servers[] | .protocols] | length > 0 and all(. == ["h1"])' \
-            /tmp/caddy-adapted-protocols.json > /dev/null \
-            || { echo "::error::Caddy 서버 중 protocols 가 [\"h1\"] 이 아닌 것이 있습니다 — HTTP/2 를 임시로 끈 상태입니다(deploy/Caddyfile 전역 servers 주석)"; exit 1; }
+          # ⓪ :80 을 듣는 서버가 설정에 있다
           jq -e '[.apps.http.servers[] | .listen[]?] | index(":80") != null' \
             /tmp/caddy-adapted-protocols.json > /dev/null \
-            || { echo "::error::설정에 :80 을 듣는 서버가 없습니다 — Caddy 가 런타임에 만드는 자동 리다이렉트 서버에는 전역 옵션이 붙지 않아 평문 HTTP/2 를 받습니다(deploy/Caddyfile 의 http://api.duings.com 사이트)"; exit 1; }
-          echo "Caddy HTTP/1.1 전용 확인 완료"
+            || { echo "::error::설정에 :80 을 듣는 서버가 없습니다 — Caddy 가 런타임에 만드는 자동 리다이렉트 서버에는 servers 옵션이 붙지 않아 평문 HTTP/2 를 받습니다(deploy/Caddyfile 의 http://api.duings.com 사이트)"; exit 1; }
+          # ① :443 서버가 정확히 하나이고 protocols 가 ["h1","h2"]
+          jq -e '[.apps.http.servers[] | select((.listen // []) | index(":443"))] | length == 1 and .[0].protocols == ["h1","h2"]' \
+            /tmp/caddy-adapted-protocols.json > /dev/null \
+            || { echo "::error::Caddy 의 :443 서버가 하나가 아니거나 protocols 가 [\"h1\",\"h2\"] 가 아닙니다 — deploy/Caddyfile 의 servers :443 블록에 protocols h1 h2 를 이 순서로 적습니다. HTTP/2 를 일부러 내리는 것이라면 이 검사의 기대값도 같은 PR 에서 [\"h1\"] 로 고칩니다"; exit 1; }
+          # ② :80 서버가 정확히 하나이고 protocols 가 ["h1"]
+          jq -e '[.apps.http.servers[] | select((.listen // []) | index(":80"))] | length == 1 and .[0].protocols == ["h1"]' \
+            /tmp/caddy-adapted-protocols.json > /dev/null \
+            || { echo "::error::Caddy 의 :80 서버가 하나가 아니거나 protocols 가 [\"h1\"] 이 아닙니다 — :80 은 리다이렉트만 해 평문 HTTP/2 를 받지 않습니다(deploy/Caddyfile 의 servers :80 블록)"; exit 1; }
+          # ③ 모든 서버의 시간 상한
+          jq -e '[.apps.http.servers[] | .read_header_timeout == 10000000000 and .read_timeout == 120000000000] | length > 0 and all' \
+            /tmp/caddy-adapted-protocols.json > /dev/null \
+            || { echo "::error::시간 상한이 read_header 10s·read_body 2m 가 아닌 서버가 있습니다 — deploy/Caddyfile 의 servers :443·:80 두 블록 모두에 timeouts 를 같은 값으로 적습니다"; exit 1; }
+          # ④ 버전 하한 — :443 의 protocols 를 어댑트 결과에서 읽는다. ① 이 ["h1","h2"] 를 요구하는 지금은 늘 하한을 보고,
+          #    ① 을 ["h1"] 로 고친 PR(HTTP/2 를 일부러 내릴 때)에서는 h2 가 없어 저절로 건너뛴다.
+          if jq -e '[.apps.http.servers[] | select((.listen // []) | index(":443")) | .protocols | index("h2") != null] | any' \
+               /tmp/caddy-adapted-protocols.json > /dev/null; then
+            minimum_version=2.11.8
+            compose_version=$(grep -oE 'image: caddy:[0-9]+\.[0-9]+\.[0-9]+-alpine' deploy/docker-compose.yml | sed -E 's/^image: caddy:([0-9.]+)-alpine$/\1/')
+            lowest_version=$(printf '%s\n' "$minimum_version" "$compose_version" | sort -V | head -n 1)
+            [ -n "$compose_version" ] && [ "$lowest_version" = "$minimum_version" ] \
+              || { echo "::error::docker-compose.yml 의 Caddy 버전(${compose_version:-읽지 못함})이 ${minimum_version} 미만인데 :443 에 HTTP/2 가 켜져 있습니다 — 그 아래 빌드는 Go HTTP/2 서버 DoS 수정이 없습니다. 버전을 올리거나, deploy/Caddyfile 의 :443 을 protocols h1 로 내리면서 같은 PR 에서 이 단계의 :443 프로토콜 검사(①) 기대값도 [\"h1\"] 로 고칩니다"; exit 1; }
+          fi
+          echo "Caddy 프로토콜·시간 상한·버전 하한 확인 완료"
 
       - name: Assert DB workflows grant no token permissions and pin the CLI hash
         # backup 은 운영 DB·백업 R2 자격을, restore-rehearsal 은 백업 R2 자격을 쥐고 GITHUB_TOKEN 을 쓰지 않는다 — 최상위 permissions: {} 가
