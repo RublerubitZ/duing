@@ -68,7 +68,7 @@ grep -E '^ *image: caddy' docker-compose.yml              # 디스크의 caddy �
 docker compose exec -T caddy curl -s localhost:2019/config/apps/http/servers | grep -o '"client_ip_headers":\[[^]]*\]' || echo "신뢰 블록 없음(또는 조회 실패)"
 ```
 
-떠 있는 버전이 `v2.11.4` 로 시작하는데 디스크의 태그가 `2.11.9-alpine` 이면 배포가 파일만 바꾸고 끝난 상태다 — **reload 하지 않는다**(아래 블록의 reload 가 2.11.4 에 새 Caddyfile 의 :443 HTTP/2 를 올린다). [`UPTIME.md`](./UPTIME.md#caddy-롤백-증상별) 의 '파일만 바뀌고 caddy 는 옛 것이다' 를 먼저 처리하고 이 블록부터 다시 본다.
+떠 있는 버전(`caddy version` 의 `v2.11.x`)과 디스크의 태그(`caddy:2.11.x-alpine`)가 **다르면** 디스크와 떠 있는 caddy 가 다른 벌이다(배포가 끝나지 않았다) — **reload 하지 않는다**(아래 둘째 블록의 reload 는 떠 있는 버전에 디스크의 Caddyfile 을 올린다 — 2.11.8 미만에 새 형태 Caddyfile 이면 :443 HTTP/2 가 켜진다). [`UPTIME.md`](./UPTIME.md#caddy-롤백-증상별) 의 '상태를 모를 때' 를 먼저 처리하고 이 블록부터 다시 본다. caddy 가 Up 이 아니면 버전을 읽지 못한다 — 그때는 [`UPTIME.md`](./UPTIME.md#caddy-롤백-증상별) 의 'caddy 가 뜨지 않는다' 가 먼저다.
 
 `"client_ip_headers":["Cf-Connecting-Ip"]` 가 나오면 이미 있다. 1-2 로 넘어간다. 없으면 아래 두 블록을 차례로 실행한다.
 
@@ -81,9 +81,14 @@ awk -v ranges="$CF_RANGES" '{ print } ($0 == "\tservers {" || $0 == "\tservers :
 grep -cE '^[[:space:]]+client_ip_headers Cf-Connecting-Ip$' /tmp/Caddyfile.emergency    # 1 이어야 한다
 docker compose exec -T caddy caddy validate --config - --adapter caddyfile < /tmp/Caddyfile.emergency
 docker compose exec -T caddy caddy adapt --config - --adapter caddyfile < /tmp/Caddyfile.emergency | grep -o '"protocols":\[[^]]*\]' | wc -l    # 2 이어야 한다(서버마다 하나 — 옛 형태·새 형태 모두)
+docker compose exec -T caddy caddy adapt --config - --adapter caddyfile < /tmp/Caddyfile.emergency | grep -o '"protocols":\[[^]]*\]' | grep -c '"h2"'    # 떠 있는 caddy 가 2.11.8 미만이면 0 이어야 한다
 ```
 
-`wc -w` 가 20 이상, `grep -c` 가 1, validate 가 통과하고 마지막 줄이 2 일 때만 아래를 실행한다. 마지막 줄이 1 이면 손으로 고친 블록이 :443 의 `protocols`·시간 상한을 지운 것이다(그대로 reload 하면 2.11.4 기본값 h1 h2 h3 로 뜬다) — 아래 '`grep -c` 가 1 이 아니면' 의 자리 규칙대로 `/tmp/Caddyfile.emergency` 를 고치고 validate 줄부터 다시 돌린다.
+`wc -w` 가 20 이상, `grep -c` 가 1, validate 가 통과하고, 어댑트 두 줄이 `2` 와 (떠 있는 caddy 가 2.11.8 미만이면) `0` 일 때만 아래를 실행한다.
+
+- 어댑트 줄 수가 1 이면 손으로 고친 블록이 :443 의 `protocols`·시간 상한을 지운 것이다(그대로 reload 하면 2.11.4 기본값 h1 h2 h3 로 뜬다) — 아래 '`grep -c` 가 1 이 아니면' 의 자리 규칙대로 `/tmp/Caddyfile.emergency` 를 고치고 validate 줄부터 다시 돌린다.
+- 어댑트 줄 수가 0 이면 파일에 `protocols` 가 하나도 없다(전역 `servers` 블록이 없던 파일 — 아래 '전역 블록 자체가 없으면' 으로 블록을 새로 만든 경우도 그렇다). 그대로 reload 하면 두 서버가 기본값 h1 h2 h3 로 뜬다. reload 하지 않는다 — 서버의 Caddyfile 이 저장소의 어느 형태와도 다르니 1-5 저장소 핫픽스로 간다.
+- 떠 있는 caddy 가 2.11.8 미만인데 `h2` 줄이 0 이 아니면 디스크의 Caddyfile 이 그 버전에 :443 HTTP/2 를 켠다(첫 상태 확인의 버전과 태그가 같아도 Caddyfile 만 새 형태로 남을 수 있다). reload 하지 않는다. 먼저 [`UPTIME.md`](./UPTIME.md#caddy-롤백-증상별) 의 '상태를 모를 때' 를 처리하고, 그 뒤에도 이 줄이 0 이 아니면 같은 절의 '손으로 내릴 때' 로 디스크를 :443 `protocols h1` 에 맞춘 뒤 이 절을 처음부터 다시 한다.
 
 ```bash
 cd /home/ubuntu/duing
@@ -100,7 +105,7 @@ docker compose exec -T caddy curl -s localhost:2019/config/apps/http/servers | g
 - 검증은 **지금 돌고 있는 Caddy** 로 한다. 따로 받아 둔 이미지는 운영과 버전이 다를 수 있다(운영 버전은 서버 docker-compose.yml 의 caddy 서비스 이미지 태그다 — 버전마다 받는 옵션이 다르다).
   caddy 컨테이너가 죽어 있으면 `docker run --rm -i <docker-compose.yml 의 caddy 이미지> caddy validate --config - --adapter caddyfile < …` 로 대신한다(어댑트 줄도 같은 이미지의 `caddy adapt` 로).
 - `wc -w` 가 20 미만이면(Cloudflare 목록을 못 받음) [부록 A](#부록-a-cloudflare-대역-2026-10-07) 의 IPv4·IPv6 22개를 공백으로 이어 `CF_RANGES` 에 직접 넣는다.
-- `grep -c` 가 1 이 아니면 자동 삽입이 안 된 것이다. `cp Caddyfile /tmp/Caddyfile.emergency` 로 사본을 다시 만들어 편집기로 고친 뒤, 첫 블록의 `caddy validate` 줄부터 이어서 실행한다(어댑트 줄이 2 를 찍을 때만 둘째 블록).
+- `grep -c` 가 1 이 아니면 자동 삽입이 안 된 것이다. `cp Caddyfile /tmp/Caddyfile.emergency` 로 사본을 다시 만들어 편집기로 고친 뒤, 첫 블록의 `caddy validate` 줄부터 이어서 실행한다(어댑트 두 줄이 위 조건을 맞출 때만 둘째 블록).
   - 전역 블록에 `servers` 블록이 이미 있으면 새로 만들지 않는다 — 있는 블록 안에 두 줄만 넣는다. 새 형태에 주소 없는 `servers {` 를 더하면 validate 는 통과하는데 어느 서버에도 붙지 않고, 옛 형태에 `servers :443 {` 블록을 따로 더하면 :443 에서 `protocols h1`·시간 상한이 빠진다(2026-11-19 어댑트로 확인).
   - 전역 블록의 `servers :443 {` 줄 바로 아래에 두 줄을 넣는다. 서버 파일이 아직 옛 형태라 전역 블록에 `servers {` 한 줄만 있으면 그 아래에 넣는다. `servers :80 {` 블록에는 넣지 않는다.
   - 전역 블록 자체가 없으면 머리 주석 다음, `api.duings.com {` 앞에 아래 블록을 새로 만든다.
