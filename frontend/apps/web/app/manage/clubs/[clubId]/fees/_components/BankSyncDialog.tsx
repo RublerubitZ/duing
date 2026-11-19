@@ -84,10 +84,10 @@ export function BankSyncDialog({ clubId, bankLabel, onClose }: BankSyncDialogPro
         addToast(
           `동기화 완료 — ${result.newlyStored}건 적재 · ${result.autoMatched}건 자동매칭 · ${result.pendingReview}건 검토 필요`,
         );
-        // 마지막 거래가 조회 상한보다 앞이면 그 사이는 이번에 확인하지 못한다 — 직전 동기화가 이미 본 구간일 수도 있어 단정하지 않고, 통장과 대조하도록 닫을 때까지 남긴다.
+        // 마지막 거래가 조회 상한보다 앞이면 그 사이는 확인하지 못한다 — 이 기간은 다시 동기화해도 조회되지 않고, 서버도 기억이 남은 동기화 뒤에는 같은 기간을 다시 주지 않게 된다(#1737 부터). 통장과 대조하도록 닫을 때까지 남긴다.
         if (result.missedFrom && result.missedTo) {
           addToast(
-            `${result.missedFrom} ~ ${result.missedTo} 구간은 한 번에 조회할 수 있는 기간을 넘어 이번 동기화에서 확인하지 못했습니다. 그 사이 입금이 있었다면 통장 내역과 대조해 직접 처리해 주세요.`,
+            `${result.missedFrom} ~ ${result.missedTo} 구간은 한 번에 조회할 수 있는 기간을 넘어 확인하지 못했습니다. 다시 동기화해도 이 기간은 조회되지 않고 안내도 다시 나오지 않을 수 있으니, 그 사이 입금이 있었다면 지금 통장 내역과 대조해 직접 처리해 주세요.`,
             { variant: 'error', durationMs: 0 },
           );
         }
