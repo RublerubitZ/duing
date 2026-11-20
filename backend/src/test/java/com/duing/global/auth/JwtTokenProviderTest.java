@@ -2,11 +2,19 @@ package com.duing.global.auth;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import com.auth0.jwt.JWT;
+import com.auth0.jwt.JWTVerifier;
 import com.auth0.jwt.algorithms.Algorithm;
+import com.auth0.jwt.exceptions.JWTDecodeException;
 import com.auth0.jwt.exceptions.JWTVerificationException;
+import com.auth0.jwt.exceptions.SignatureVerificationException;
+import com.auth0.jwt.exceptions.TokenExpiredException;
 import java.nio.charset.StandardCharsets;
+import java.time.Instant;
 import java.util.Base64;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -113,6 +121,44 @@ class JwtTokenProviderTest {
 
         assertThatThrownBy(() -> jwtTokenProvider.parse(forgedToken))
                 .isInstanceOf(JWTVerificationException.class);
+    }
+
+    @Test
+    @DisplayName("검증기가 검증 예외가 아닌 런타임 예외를 던지면 원인을 담은 해석 실패 예외(인증 필터가 잡는 검증 예외)로 바꿔 던진다")
+    void wrapsNonVerificationRuntimeExceptionAsDecodeException() {
+        IllegalStateException verifierFailure = new IllegalStateException("verifier failure");
+        JWTVerifier throwingVerifier = mock(JWTVerifier.class);
+        when(throwingVerifier.verify(anyString())).thenThrow(verifierFailure);
+        ReflectionTestUtils.setField(jwtTokenProvider, "verifier", throwingVerifier);
+
+        assertThatThrownBy(() -> jwtTokenProvider.parse("any-token"))
+                .isInstanceOf(JWTDecodeException.class)
+                .hasCause(verifierFailure);
+    }
+
+    @Test
+    @DisplayName("만료된 토큰은 다른 예외로 감싸지 않고 만료 예외 그대로 거부된다")
+    void keepsExpiredTokenExceptionUnwrapped() {
+        Instant now = Instant.now();
+        String expiredToken = JWT.create()
+                .withSubject("7")
+                .withIssuedAt(now.minusSeconds(120))
+                .withExpiresAt(now.minusSeconds(60))
+                .sign(Algorithm.HMAC256(SECRET));
+
+        assertThatThrownBy(() -> jwtTokenProvider.parse(expiredToken))
+                .isInstanceOf(TokenExpiredException.class);
+    }
+
+    @Test
+    @DisplayName("다른 키로 서명한 토큰은 서명 검증 예외로 거부된다")
+    void rejectsTokenSignedWithAnotherSecret() {
+        String tokenSignedWithAnotherSecret = JWT.create()
+                .withSubject("7")
+                .sign(Algorithm.HMAC256("another-jwt-secret-that-is-at-least-thirty-two-bytes"));
+
+        assertThatThrownBy(() -> jwtTokenProvider.parse(tokenSignedWithAnotherSecret))
+                .isInstanceOf(SignatureVerificationException.class);
     }
 
     private static String base64Url(String json) {
