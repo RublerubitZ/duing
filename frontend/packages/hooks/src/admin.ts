@@ -85,6 +85,40 @@ export function useAdminClubsQuery(params: AdminClubSearchParams = {}) {
   });
 }
 
+// 서버 페이지 상한(PageableConfig.MAX_PAGE_SIZE) — 페이지 번호를 서버와 맞추려고 같은 값을 보낸다.
+const ADMIN_CLUB_PAGE_SIZE = 100;
+
+/**
+ * 운영 중 동아리 전부(이름순) — 공지 '특정 동아리' 선택 목록. 공지가 닿는 곳(뷰어·알림 범위)이 운영 중 동아리뿐이라 그 상태만 받는다.
+ * 0페이지의 totalPages 를 본 뒤 나머지를 함께 받는다. 한 페이지라도 실패하면 전체가 실패한다 — 일부만 보이는 것이 고치려는 결함이다.
+ */
+export function useAdminActiveClubsQuery() {
+  const client = useApiClient();
+  return useQuery({
+    queryKey: adminQueryKeys.clubsActiveAll(),
+    queryFn: async () => {
+      const fetchPage = (page: number) =>
+        client.admin.clubs.list({ status: 'ACTIVE', page, size: ADMIN_CLUB_PAGE_SIZE });
+      const firstPage = await fetchPage(0);
+      const restPages = await Promise.all(
+        Array.from({ length: Math.max(0, firstPage.totalPages - 1) }, (_, index) => fetchPage(index + 1)),
+      );
+      const clubs = [firstPage, ...restPages].flatMap((pageResponse) => pageResponse.content);
+      // offset 이 밀리면 한 곳이 빠지면서 다른 한 곳이 두 번 온다 — 중복을 걸러야 아래 건수 검사가 빠진 곳을 알아챈다.
+      const uniqueClubs = [...new Map(clubs.map((club) => [club.id, club])).values()];
+      // 앞쪽이 빠지거나 이름이 바뀌면 offset 이 밀려 한 곳이 빠진다 — 건수로 알아채 실패로 던진다(전역 정책대로 한 번 다시 받는다).
+      // 빠진 채로 돌려주면 이미 고른 그 동아리가 '목록 밖'으로 세어져 '빼기'에 함께 지워진다.
+      const listChanged =
+        restPages.some((pageResponse) => pageResponse.totalElements !== firstPage.totalElements) ||
+        uniqueClubs.length < firstPage.totalElements;
+      if (listChanged) {
+        throw new Error('운영 중 동아리 목록이 받는 사이에 바뀌었습니다.');
+      }
+      return uniqueClubs;
+    },
+  });
+}
+
 export function useAdminClubDetailQuery(clubId: number | undefined) {
   const client = useApiClient();
   return useQuery({
