@@ -13,8 +13,16 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
+import com.duing.domain.adminconsole.service.AdminJobStatusQueryService;
+import com.duing.domain.adminconsole.service.dto.query.AdminJobStatusQuery;
+import com.duing.domain.adminconsole.service.dto.query.JobHealth;
+import com.duing.domain.adminconsole.service.dto.query.JobStatusQuery;
+import com.duing.global.jobrun.MonitoredJob;
+import com.duing.global.jobrun.entity.ScheduledJobRun;
+import com.duing.global.jobrun.repository.ScheduledJobRunRepository;
 import com.duing.global.monitoring.OpsSlackMessageFormatter;
 import com.duing.global.monitoring.SlackNotifier;
 import com.duing.global.monitoring.TrafficDailySummary;
@@ -26,6 +34,8 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.util.List;
+import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -50,12 +60,18 @@ class TrafficSurgeMonitorTest {
     private static final String DETECTED_MESSAGE = "formatted-detected";
     private static final String RECOVERED_MESSAGE = "formatted-recovered";
     private static final String DAILY_MESSAGE = "formatted-daily";
+    private static final List<JobStatusQuery> JOB_STATUSES =
+            List.of(JobStatusQuery.withoutRun(MonitoredJob.RECRUITMENT_AUTO_CLOSE, JobHealth.NOT_YET));
+    private static final Instant BACKUP_SUCCEEDED_AT = LocalDateTime.of(2026, 10, 8, 7, 30).atZone(SEOUL).toInstant();
 
     private final Clock clock = Clock.fixed(START, SEOUL);
     private final TrafficCountingFilter trafficCountingFilter = new TrafficCountingFilter();
     private final ApiReadRateLimitFilter apiReadRateLimitFilter = new ApiReadRateLimitFilter(new ObjectMapper(), clock);
     private final OpsSlackMessageFormatter formatter = mock(OpsSlackMessageFormatter.class);
     private final SlackNotifier slackNotifier = mock(SlackNotifier.class);
+    private final AdminJobStatusQueryService adminJobStatusQueryService = mock(AdminJobStatusQueryService.class);
+    private final ScheduledJobRunRepository scheduledJobRunRepository = mock(ScheduledJobRunRepository.class);
+    private final ScheduledJobRun backupRun = mock(ScheduledJobRun.class);
     private TrafficSurgeMonitor monitor;
     private Instant now = START;
 
@@ -65,6 +81,11 @@ class TrafficSurgeMonitorTest {
                 .thenReturn(DETECTED_MESSAGE);
         when(formatter.trafficSurgeRecovered(anyLong(), anyLong(), anyInt())).thenReturn(RECOVERED_MESSAGE);
         when(formatter.trafficDailySummary(any())).thenReturn(DAILY_MESSAGE);
+        when(adminJobStatusQueryService.getJobStatuses()).thenReturn(new AdminJobStatusQuery(JOB_STATUSES));
+        // 마지막 종료를 성공 시각과 다르게 둔다 — 칸을 잘못 읽는 구현을 걸러 낸다.
+        when(backupRun.getLastSucceededAt()).thenReturn(BACKUP_SUCCEEDED_AT);
+        when(backupRun.getLastFinishedAt()).thenReturn(BACKUP_SUCCEEDED_AT.plusSeconds(3_600));
+        when(scheduledJobRunRepository.findById("DB_BACKUP")).thenReturn(Optional.of(backupRun));
         ReflectionTestUtils.setField(apiReadRateLimitFilter, "limitPerMinute", READ_LIMIT);
         monitor = monitorWithThresholds(REQUEST_THRESHOLD, REJECTION_THRESHOLD);
     }
@@ -290,7 +311,7 @@ class TrafficSurgeMonitorTest {
         verify(formatter).trafficDailySummary(new TrafficDailySummary(
                 LocalDateTime.of(2026, 10, 7, 14, 57), LocalDateTime.of(2026, 10, 8, 9, 0), true,
                 541_000, 2_164, 500, LocalDateTime.of(2026, 10, 8, 8, 59), 2, 0, REQUEST_THRESHOLD, REJECTION_THRESHOLD,
-                0, READ_LIMIT));
+                0, READ_LIMIT, JOB_STATUSES, BACKUP_SUCCEEDED_AT));
         verify(slackNotifier).send(DAILY_MESSAGE);
         assertThat(output).contains("트래픽 일간 요약 — 기간 시작 2026-10-07 14:57, 총 요청 541000, 최대 분당 요청 500");
     }
@@ -307,7 +328,7 @@ class TrafficSurgeMonitorTest {
         verify(formatter).trafficDailySummary(new TrafficDailySummary(
                 LocalDateTime.of(2026, 10, 8, 9, 0), LocalDateTime.of(2026, 10, 9, 9, 0), false,
                 14_690, 1, 300, LocalDateTime.of(2026, 10, 8, 9, 0), 1, 0, REQUEST_THRESHOLD, REJECTION_THRESHOLD,
-                0, READ_LIMIT));
+                0, READ_LIMIT, JOB_STATUSES, BACKUP_SUCCEEDED_AT));
     }
 
     @Test
@@ -343,7 +364,7 @@ class TrafficSurgeMonitorTest {
         verify(formatter).trafficDailySummary(new TrafficDailySummary(
                 LocalDateTime.of(2026, 10, 8, 9, 0), LocalDateTime.of(2026, 10, 9, 9, 0), false,
                 600, 1, 300, LocalDateTime.of(2026, 10, 8, 9, 0), 1, 0, REQUEST_THRESHOLD, REJECTION_THRESHOLD,
-                0, READ_LIMIT));
+                0, READ_LIMIT, JOB_STATUSES, BACKUP_SUCCEEDED_AT));
     }
 
     @Test
@@ -432,9 +453,79 @@ class TrafficSurgeMonitorTest {
                 .containsExactly(tuple(612, READ_LIMIT), tuple(40, READ_LIMIT));
     }
 
+    @Test
+    @DisplayName("일간 요약은 카드와 같은 판정의 작업 목록과 백업 기록(DB_BACKUP) 줄의 마지막 성공 시각을 싣는다 — 백업 키 하나만 읽는다")
+    void dailySummaryCarriesJobStatusesAndLastBackupSuccess() {
+        run(Duration.ofHours(18).plusMinutes(2), 0, 0);
+        minute(0, 0);
+
+        ArgumentCaptor<TrafficDailySummary> summaryCaptor = ArgumentCaptor.forClass(TrafficDailySummary.class);
+        verify(formatter).trafficDailySummary(summaryCaptor.capture());
+        assertThat(summaryCaptor.getValue().jobStatuses()).isSameAs(JOB_STATUSES);
+        assertThat(summaryCaptor.getValue().lastBackupSucceededAt()).isEqualTo(BACKUP_SUCCEEDED_AT);
+        verify(scheduledJobRunRepository).findById("DB_BACKUP");
+        verifyNoMoreInteractions(scheduledJobRunRepository);
+    }
+
+    @Test
+    @DisplayName("자동 작업·백업 상태는 09:00 경계 집계에서만 조회한다 — 매분 판정은 DB 를 치지 않는다")
+    void opsStatusIsLookedUpOnlyAtDailyBoundary() {
+        run(Duration.ofHours(18).plusMinutes(1), 0, 0);   // 10-08 08:58
+        minute(0, 0);                                      // 08:59
+        verifyNoInteractions(adminJobStatusQueryService, scheduledJobRunRepository);
+
+        minute(0, 0);                                      // 09:00 경계 — 요약
+        minute(0, 0);                                      // 09:01
+
+        verify(adminJobStatusQueryService, times(1)).getJobStatuses();
+        verify(scheduledJobRunRepository, times(1)).findById("DB_BACKUP");
+    }
+
+    @Test
+    @DisplayName("백업 기록 조회가 실패하면 작업 목록도 버리고 요약을 상태 없음으로 한 번 보낸다 — 이어지는 판정은 깨지지 않고 로그에는 예외 클래스명만 남는다")
+    void dailySummaryIsSentWithoutOpsStatusWhenLookupFails(CapturedOutput output) {
+        doThrow(new IllegalStateException("pool exhausted at db-host")).when(scheduledJobRunRepository).findById("DB_BACKUP");
+
+        assertThatCode(() -> {
+            run(Duration.ofHours(18).plusMinutes(2), 0, 0);
+            minute(5_000, 0);
+            minute(5_000, 0);
+        }).doesNotThrowAnyException();
+
+        ArgumentCaptor<TrafficDailySummary> summaryCaptor = ArgumentCaptor.forClass(TrafficDailySummary.class);
+        verify(formatter).trafficDailySummary(summaryCaptor.capture());
+        assertThat(summaryCaptor.getValue().jobStatuses()).isNull();
+        assertThat(summaryCaptor.getValue().lastBackupSucceededAt()).isNull();
+        verify(slackNotifier).send(DAILY_MESSAGE);
+        verify(slackNotifier).send(DETECTED_MESSAGE);
+        assertThat(output).contains("일간 요약 — 자동 작업·백업 상태 조회 실패, reason=IllegalStateException")
+                .doesNotContain("pool exhausted");
+    }
+
+    @Test
+    @DisplayName("작업 상태 조회가 실패해도 요약은 상태 없음으로 한 번 나가고 감지 알림은 이어진다")
+    void dailySummaryIsSentWithoutOpsStatusWhenJobStatusLookupFails(CapturedOutput output) {
+        when(adminJobStatusQueryService.getJobStatuses()).thenThrow(new IllegalStateException("job lookup exploded"));
+
+        assertThatCode(() -> {
+            run(Duration.ofHours(18).plusMinutes(2), 0, 0);
+            minute(5_000, 0);
+            minute(5_000, 0);
+        }).doesNotThrowAnyException();
+
+        ArgumentCaptor<TrafficDailySummary> summaryCaptor = ArgumentCaptor.forClass(TrafficDailySummary.class);
+        verify(formatter).trafficDailySummary(summaryCaptor.capture());
+        assertThat(summaryCaptor.getValue().jobStatuses()).isNull();
+        assertThat(summaryCaptor.getValue().lastBackupSucceededAt()).isNull();
+        verify(slackNotifier).send(DAILY_MESSAGE);
+        verify(slackNotifier).send(DETECTED_MESSAGE);
+        assertThat(output).contains("자동 작업·백업 상태 조회 실패, reason=IllegalStateException")
+                .doesNotContain("job lookup exploded");
+    }
+
     private TrafficSurgeMonitor monitorWithThresholds(long requestThreshold, long rejectionThreshold) {
-        return new TrafficSurgeMonitor(trafficCountingFilter, apiReadRateLimitFilter, formatter, slackNotifier, clock,
-                requestThreshold, rejectionThreshold);
+        return new TrafficSurgeMonitor(trafficCountingFilter, apiReadRateLimitFilter, formatter, slackNotifier,
+                adminJobStatusQueryService, scheduledJobRunRepository, clock, requestThreshold, rejectionThreshold);
     }
 
     private void minute(long requests, long rejections) {

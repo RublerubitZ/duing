@@ -1,5 +1,9 @@
 package com.duing.global.monitoring.traffic;
 
+import com.duing.domain.adminconsole.service.AdminJobStatusQueryService;
+import com.duing.domain.adminconsole.service.dto.query.JobStatusQuery;
+import com.duing.global.jobrun.entity.ScheduledJobRun;
+import com.duing.global.jobrun.repository.ScheduledJobRunRepository;
 import com.duing.global.monitoring.OpsSlackMessageFormatter;
 import com.duing.global.monitoring.SlackNotifier;
 import com.duing.global.monitoring.TrafficDailySummary;
@@ -11,6 +15,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
+import java.util.List;
 import java.util.function.Supplier;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -27,6 +32,9 @@ import org.springframework.stereotype.Component;
  * {@value #CALM_RUNS_TO_RECOVER}회 연속 기준 미만이면 정상화를 한 번 알린다(TRAFFIC_SURGE_RECOVERED).
  * 두 메시지의 수치는 이상 구간(감지 전 연속 이상 집계부터)의 최대치다. 매일 09:00 KST 를 넘는 첫 집계에서는 직전 기간
  * (전날 09:00~) 일간 요약을 한 번 보낸다(TRAFFIC_DAILY_SUMMARY) — 기준 조정 근거이자 이 잡의 생존 신호다.
+ * 일간 요약에는 총동연 홈 '자동 작업' 카드와 같은 판정({@link AdminJobStatusQueryService})의 작업 상태와, 백업 워크플로가 남기는
+ * {@value #BACKUP_JOB_KEY} 실행 기록의 마지막 성공 시각도 싣는다 — 두 감시의 유일한 Slack 경로다(즉시 알림 없음, #1634).
+ * 조회는 09:00 경계에서만 하고, 실패하면 상태 없이 요약만 보낸다.
  * 런북: deploy/MONITORING.md
  *
  * <p>환산: 실행이 늦어져도(스케줄러 풀 공유) 실제로 흐른 시간으로 나눈다. fixedDelay 라 밀린 실행을 몰아서 돌지 않는다.
@@ -46,6 +54,8 @@ public class TrafficSurgeMonitor {
 
     static final int SURGE_RUNS_TO_ALERT = 2;
     static final int CALM_RUNS_TO_RECOVER = 5;
+    /** 백업 워크플로(.github/workflows/backup.yml 의 Record backup success 스텝)가 업로드 성공 뒤 남기는 실행 기록 키 — 두 곳이 같아야 한다. */
+    static final String BACKUP_JOB_KEY = "DB_BACKUP";
     private static final long RUN_INTERVAL_MILLIS = 60_000;
     private static final DateTimeFormatter SUMMARY_HOUR = DateTimeFormatter.ofPattern("yyyy-MM-dd HH'시'");
     private static final DateTimeFormatter SUMMARY_MINUTE = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
@@ -55,6 +65,8 @@ public class TrafficSurgeMonitor {
     private final ApiReadRateLimitFilter apiReadRateLimitFilter;
     private final OpsSlackMessageFormatter opsSlackMessageFormatter;
     private final SlackNotifier slackNotifier;
+    private final AdminJobStatusQueryService adminJobStatusQueryService;
+    private final ScheduledJobRunRepository scheduledJobRunRepository;
     private final Clock clock;
     private final long requestsPerMinuteThreshold;
     private final long rejectionsPerMinuteThreshold;
@@ -85,6 +97,8 @@ public class TrafficSurgeMonitor {
                                ApiReadRateLimitFilter apiReadRateLimitFilter,
                                OpsSlackMessageFormatter opsSlackMessageFormatter,
                                SlackNotifier slackNotifier,
+                               AdminJobStatusQueryService adminJobStatusQueryService,
+                               ScheduledJobRunRepository scheduledJobRunRepository,
                                Clock clock,
                                @Value("${duing.monitoring.traffic-surge.requests-per-minute:3000}")
                                long requestsPerMinuteThreshold,
@@ -94,6 +108,8 @@ public class TrafficSurgeMonitor {
         this.apiReadRateLimitFilter = apiReadRateLimitFilter;
         this.opsSlackMessageFormatter = opsSlackMessageFormatter;
         this.slackNotifier = slackNotifier;
+        this.adminJobStatusQueryService = adminJobStatusQueryService;
+        this.scheduledJobRunRepository = scheduledJobRunRepository;
         this.clock = clock;
         this.requestsPerMinuteThreshold = requestsPerMinuteThreshold;
         this.rejectionsPerMinuteThreshold = rejectionsPerMinuteThreshold;
@@ -221,10 +237,23 @@ public class TrafficSurgeMonitor {
         LocalDateTime periodNominalStart = dailyPeriodDate.atTime(DAILY_SUMMARY_HOUR, 0);
         LocalDateTime periodEnd = periodNominalStart.plusDays(1);
         boolean startedAfterRestart = !dailyPeriodStartedAt.equals(periodNominalStart);
+        List<JobStatusQuery> jobStatuses;
+        Instant lastBackupSucceededAt;
+        try {
+            jobStatuses = adminJobStatusQueryService.getJobStatuses().jobs();
+            lastBackupSucceededAt = scheduledJobRunRepository.findById(BACKUP_JOB_KEY)
+                    .map(ScheduledJobRun::getLastSucceededAt)
+                    .orElse(null);
+        } catch (RuntimeException lookupFailure) {
+            // 하나만 실패해도 둘 다 버린다 — 요약은 '조회 실패' 한 줄로 나간다. 예외 메시지에 접속 정보가 섞일 수 있어 클래스명만 남긴다.
+            jobStatuses = null;
+            lastBackupSucceededAt = null;
+            log.warn("일간 요약 — 자동 작업·백업 상태 조회 실패, reason={}", lookupFailure.getClass().getSimpleName());
+        }
         TrafficDailySummary summary = new TrafficDailySummary(dailyPeriodStartedAt, periodEnd, startedAfterRestart,
                 dailyTotalRequests, dailyTotalRejections, dailyPeakRequestsPerMinute, dailyPeakRequestsAt,
                 dailyPeakRejectionsPerMinute, dailySurgeAlerts, requestsPerMinuteThreshold, rejectionsPerMinuteThreshold,
-                dailyPeakPerIpReads, apiReadRateLimitFilter.limitPerMinute());
+                dailyPeakPerIpReads, apiReadRateLimitFilter.limitPerMinute(), jobStatuses, lastBackupSucceededAt);
         log.info("트래픽 일간 요약 — 기간 시작 {}, 총 요청 {}, 최대 분당 요청 {}",
                 SUMMARY_MINUTE.format(dailyPeriodStartedAt), dailyTotalRequests, dailyPeakRequestsPerMinute);
         // 동기 HTTP(재시도 포함 최대 십여 초)라 이번 판정이 그만큼 늦어지지만, 창과 lastEvaluatedAt 은 이미 잡혀 무해하다.

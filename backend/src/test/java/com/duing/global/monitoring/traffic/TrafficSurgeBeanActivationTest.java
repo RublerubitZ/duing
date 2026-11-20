@@ -3,6 +3,8 @@ package com.duing.global.monitoring.traffic;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 
+import com.duing.domain.adminconsole.service.AdminJobStatusQueryService;
+import com.duing.global.jobrun.repository.ScheduledJobRunRepository;
 import com.duing.global.monitoring.OpsSlackMessageFormatter;
 import com.duing.global.monitoring.SlackNotifier;
 import com.duing.global.ratelimit.ApiReadRateLimitFilter;
@@ -19,6 +21,8 @@ class TrafficSurgeBeanActivationTest {
             .withBean(ApiReadRateLimitFilter.class, () -> mock(ApiReadRateLimitFilter.class))
             .withBean(OpsSlackMessageFormatter.class, () -> mock(OpsSlackMessageFormatter.class))
             .withBean(SlackNotifier.class, () -> mock(SlackNotifier.class))
+            .withBean(AdminJobStatusQueryService.class, () -> mock(AdminJobStatusQueryService.class))
+            .withBean(ScheduledJobRunRepository.class, () -> mock(ScheduledJobRunRepository.class))
             .withBean(Clock.class, Clock::systemUTC);
 
     @Test
