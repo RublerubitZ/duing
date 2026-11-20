@@ -77,7 +77,8 @@ class ApplicationAcceptWithdrawalConcurrencyTest extends IntegrationTestBase {
         List<Future<Throwable>> outcomes = pool.invokeAll(List.<Callable<Throwable>>of(
                 () -> withdrawHoldingUserLock(applicant.getId(), withdrawLocked, decisionDone),
                 () -> {
-                    withdrawLocked.await();
+                    // 탈퇴 쪽이 countDown 전에 예외로 끝나도 멈추지 않고 실패하게 시간 제한을 둔다.
+                    assertThat(withdrawLocked.await(10, TimeUnit.SECONDS)).as("탈퇴가 users 행을 잠갔다").isTrue();
                     try {
                         return tryAccept(application.getId(), leader.getId());
                     } finally {
