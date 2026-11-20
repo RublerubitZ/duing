@@ -103,10 +103,11 @@ describe('TermsPage 처리 위탁·국외 이전·분석 쿠키 고지', () => {
     ).toBeInTheDocument();
   });
 
-  it('6조가 Sentry·PostHog·Slack·GitHub 로 이전되는 항목을 줄마다 적는다', () => {
+  it('6조가 Vercel·Sentry·PostHog·Slack·GitHub 로 이전되는 항목을 줄마다 적는다', () => {
     render(<TermsPage />);
     const transfer = within(articleOf('6. 개인정보의 국외 이전'));
 
+    expect(transfer.getByText(/^Vercel Inc\.\(미국\) \/ 이전 항목:/)).toBeInTheDocument();
     expect(
       transfer.getByText(
         /^Functional Software, Inc\.\(Sentry, 미국\) \/ 이전 항목: .*접속 IP 대역 일부/,
@@ -114,12 +115,12 @@ describe('TermsPage 처리 위탁·국외 이전·분석 쿠키 고지', () => {
     ).toBeInTheDocument();
     expect(
       transfer.getByText(
-        /^PostHog, Inc\.\(미국\) \/ 이전 항목: .*역할·학년·단과대학.*IP 주소 \/ 이전 목적:/,
+        /^PostHog, Inc\.\(미국\) \/ 이전 항목: .*역할·학년·단과대학.*IP 주소, IP 주소로 추정한 위치 \/ 이전 목적:/,
       ),
     ).toBeInTheDocument();
     expect(
       transfer.getByText(
-        /^Slack Technologies, LLC\(미국\) \/ 이전 항목: 회원가입 알림의 이름·학번/,
+        /^Slack Technologies, LLC\(미국\) \/ 이전 항목: 회원가입 알림의 이름·학번.*보유·이용기간: Slack 워크스페이스의 메시지 보관 설정과 요금제에 따릅니다$/,
       ),
     ).toBeInTheDocument();
     expect(
@@ -139,6 +140,11 @@ describe('TermsPage 처리 위탁·국외 이전·분석 쿠키 고지', () => {
       ),
     ).toBeInTheDocument();
     expect(transfer.queryByText(/국외 서버를 경유할 수 있습니다/)).not.toBeInTheDocument();
+    expect(
+      transfer.getByText(
+        /데이터베이스 백업은 매일 04시 15분 무렵 정기 백업과 수동 백업 때 Cloudflare R2에 업로드됩니다/,
+      ),
+    ).toBeInTheDocument();
     expect(
       transfer.getByText(
         /Bank API는 Google Cloud Platform에서 운영되어 .*국외 서버를 거칠 수 있으며/,
