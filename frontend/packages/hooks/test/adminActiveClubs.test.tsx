@@ -67,12 +67,16 @@ function makeWrapper() {
 const requestedPages = () => requestedUrls.map((url) => url.searchParams.get('page'));
 
 describe('useAdminActiveClubsQuery', () => {
-  it('운영 중 동아리를 모든 페이지에서 받아 이름순 그대로 합친다', async () => {
-    pagesByNumber = { 0: pageOf(clubRange(1, 100), 0, 166), 1: pageOf(clubRange(101, 166), 1, 166) };
+  it('운영 중 동아리를 모든 페이지에서 받아 서버가 준 순서(이름순) 그대로 합친다', async () => {
+    // 이름순은 id 순과 다르다 — 0페이지 id 를 내림차순으로 둬 id 로 다시 정렬하는 구현을 잡는다.
+    const firstPageClubs = clubRange(1, 100).reverse();
+    pagesByNumber = { 0: pageOf(firstPageClubs, 0, 166), 1: pageOf(clubRange(101, 166), 1, 166) };
     const { result } = renderHook(() => useAdminActiveClubsQuery(), { wrapper: makeWrapper() });
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
 
-    expect(result.current.data?.map((club) => club.id)).toEqual(clubRange(1, 166).map((club) => club.id));
+    expect(result.current.data?.map((club) => club.id)).toEqual(
+      [...firstPageClubs, ...clubRange(101, 166)].map((club) => club.id),
+    );
     expect(requestedPages()).toEqual(['0', '1']);
     expect(requestedUrls.map((url) => url.searchParams.get('status'))).toEqual(['ACTIVE', 'ACTIVE']);
     expect(requestedUrls.map((url) => url.searchParams.get('size'))).toEqual(['100', '100']);
