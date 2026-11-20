@@ -104,8 +104,17 @@ export function useAdminActiveClubsQuery() {
         Array.from({ length: Math.max(0, firstPage.totalPages - 1) }, (_, index) => fetchPage(index + 1)),
       );
       const clubs = [firstPage, ...restPages].flatMap((pageResponse) => pageResponse.content);
-      // shortcut: 0페이지 뒤에 앞쪽 동아리가 빠지면 offset 이 밀려 한 곳이 빠질 수 있다(중복만 거른다), 잦아지면 서버에 전체 목록 API 를 둔다.
-      return [...new Map(clubs.map((club) => [club.id, club])).values()];
+      // 0페이지 뒤에 앞쪽 동아리가 늘면 같은 곳이 다시 온다 — id 로 거른다(React key 충돌 방지).
+      const uniqueClubs = [...new Map(clubs.map((club) => [club.id, club])).values()];
+      // 앞쪽이 빠지거나 이름이 바뀌면 offset 이 밀려 한 곳이 빠진다 — 건수로 알아채 실패로 던진다(전역 정책대로 한 번 다시 받는다).
+      // 빠진 채로 돌려주면 이미 고른 그 동아리가 '목록 밖'으로 세어져 '빼기'에 함께 지워진다.
+      const listChanged =
+        restPages.some((pageResponse) => pageResponse.totalElements !== firstPage.totalElements) ||
+        uniqueClubs.length < firstPage.totalElements;
+      if (listChanged) {
+        throw new Error('운영 중 동아리 목록이 받는 사이에 바뀌었습니다.');
+      }
+      return uniqueClubs;
     },
   });
 }

@@ -112,6 +112,20 @@ describe('useAdminActiveClubsQuery', () => {
     expect(clubIds.filter((clubId) => clubId === 100)).toHaveLength(1);
   });
 
+  // 페이지 사이에 목록이 바뀐 두 신호를 하나씩 — 건수가 달라짐(앞쪽에 한 곳이 늘어 100번이 다시 옴, 중복을 걸러도 166곳),
+  // 건수는 같은데 한 곳이 빠짐(이름이 바뀌어 offset 이 밀림).
+  it('페이지 사이에 목록이 바뀌면 빠진 채로 돌려주지 않고 실패한다', async () => {
+    pagesByNumber = { 0: pageOf(clubRange(1, 100), 0, 166), 1: pageOf([activeClub(100), ...clubRange(101, 166)], 1, 167) };
+    const countChanged = renderHook(() => useAdminActiveClubsQuery(), { wrapper: makeWrapper() });
+    await waitFor(() => expect(countChanged.result.current.isError).toBe(true));
+    expect(countChanged.result.current.data).toBeUndefined();
+
+    pagesByNumber = { 0: pageOf(clubRange(1, 100), 0, 166), 1: pageOf([activeClub(100), ...clubRange(101, 165)], 1, 166) };
+    const oneSkipped = renderHook(() => useAdminActiveClubsQuery(), { wrapper: makeWrapper() });
+    await waitFor(() => expect(oneSkipped.result.current.isError).toBe(true));
+    expect(oneSkipped.result.current.data).toBeUndefined();
+  });
+
   it('키가 동아리 접두(clubsAll) 아래라 동아리 상태 변경 뒤 다시 받는다', async () => {
     expect(adminQueryKeys.clubsActiveAll()).toEqual([...adminQueryKeys.clubsAll, 'active-all']);
     pagesByNumber = { 0: pageOf(clubRange(1, 3), 0, 3) };
