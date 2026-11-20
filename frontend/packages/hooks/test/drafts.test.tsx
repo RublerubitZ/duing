@@ -263,3 +263,118 @@ describe('임시저장 훅 — 화면을 떠난 뒤 끝난 저장', () => {
     expect(queryClient.getQueryData(draftQueryKeys.byRecruitment(RECRUITMENT_ID))).toBeUndefined();
   });
 });
+
+describe('임시저장 훅 — 같은 모집의 저장이 남은 채 다시 들어올 때', () => {
+  it('저장이 실패로 끝나도 미뤘던 조회를 이어 보내고, 대기 구독을 푼다', async () => {
+    let releaseSave: () => void = () => {};
+    const saveGate = new Promise<void>((resolve) => {
+      releaseSave = resolve;
+    });
+    server.use(
+      http.put(`*/recruitments/${RECRUITMENT_ID}/draft`, async () => {
+        await saveGate;
+        return HttpResponse.json({ ok: false, message: '서버 오류', data: null }, { status: 500 });
+      }),
+    );
+    const queryClient = newQueryClient();
+    const { result, unmount } = renderHook(() => useDraftScreen(RECRUITMENT_ID), {
+      wrapper: makeWrapper(queryClient),
+    });
+    await waitFor(() => expect(result.current.draft.isSuccess).toBe(true));
+
+    let savePromise: Promise<unknown> | undefined;
+    act(() => {
+      savePromise = result.current.save
+        .mutateAsync({ answers: answersOf('떠나며 보낸 답') })
+        .catch(() => undefined);
+    });
+    unmount();
+    // 첫 화면의 저장본 쿼리(gcTime 0)가 치워질 한 틱 — 남아 있으면 다시 들어와도 GET 을 타지 않는다.
+    await act(() => new Promise((resolve) => setTimeout(resolve, 0)));
+
+    const reentry = renderHook(() => useApplicationDraftQuery(RECRUITMENT_ID), {
+      wrapper: makeWrapper(queryClient),
+    });
+    await settleRefetchWindow();
+    expect(reentry.result.current.isLoading).toBe(true);
+    expect(getCountByRecruitment[RECRUITMENT_ID]).toBe(1);
+
+    releaseSave();
+    await act(() => savePromise);
+    await waitFor(() => expect(reentry.result.current.isSuccess).toBe(true));
+    expect(getCountByRecruitment[RECRUITMENT_ID]).toBe(2);
+    // core 안에는 MutationCache 를 구독하는 곳이 없다 — 남아 있으면 대기가 구독을 풀지 않은 것이다.
+    expect(queryClient.getMutationCache().hasListeners()).toBe(false);
+  });
+
+  it('기다리는 동안 queryClient.clear() 로 저장이 치워지면, 저장이 끝나기 전에 조회를 이어 보낸다', async () => {
+    let releaseSave: () => void = () => {};
+    const saveGate = new Promise<void>((resolve) => {
+      releaseSave = resolve;
+    });
+    server.use(
+      http.put(`*/recruitments/${RECRUITMENT_ID}/draft`, async () => {
+        await saveGate;
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+    const queryClient = newQueryClient();
+    const { result, unmount } = renderHook(() => useDraftScreen(RECRUITMENT_ID), {
+      wrapper: makeWrapper(queryClient),
+    });
+    await waitFor(() => expect(result.current.draft.isSuccess).toBe(true));
+
+    let savePromise: Promise<void> | undefined;
+    act(() => {
+      savePromise = result.current.save.mutateAsync({ answers: answersOf('로그아웃 전에 보낸 답') });
+    });
+    unmount();
+    await act(() => new Promise((resolve) => setTimeout(resolve, 0)));
+
+    renderHook(() => useApplicationDraftQuery(RECRUITMENT_ID), { wrapper: makeWrapper(queryClient) });
+    await settleRefetchWindow();
+    expect(getCountByRecruitment[RECRUITMENT_ID]).toBe(1);
+
+    // 로그아웃·세션 만료 정리와 같은 호출 — 진행 중 저장도 mutation 캐시에서 빠진다.
+    act(() => queryClient.clear());
+    // 하한만 본다 — 지워진 쿼리의 GET 뒤, 다시 그리며 새 쿼리를 만들어 한 번 더 받을 수 있다.
+    await waitFor(() => expect(getCountByRecruitment[RECRUITMENT_ID]).toBeGreaterThan(1));
+    expect(queryClient.getMutationCache().hasListeners()).toBe(false);
+
+    releaseSave();
+    await act(() => savePromise);
+  });
+
+  it('다른 모집의 저장은 기다리지 않는다', async () => {
+    let releaseOtherSave: () => void = () => {};
+    const otherSaveGate = new Promise<void>((resolve) => {
+      releaseOtherSave = resolve;
+    });
+    server.use(
+      http.put(`*/recruitments/${OTHER_RECRUITMENT_ID}/draft`, async () => {
+        await otherSaveGate;
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+    const queryClient = newQueryClient();
+    const other = renderHook(() => useDraftScreen(OTHER_RECRUITMENT_ID), {
+      wrapper: makeWrapper(queryClient),
+    });
+    await waitFor(() => expect(other.result.current.draft.isSuccess).toBe(true));
+
+    let otherSavePromise: Promise<void> | undefined;
+    act(() => {
+      otherSavePromise = other.result.current.save.mutateAsync({ answers: answersOf('다른 모집의 답') });
+    });
+    expect(queryClient.isMutating()).toBe(1);
+
+    const target = renderHook(() => useApplicationDraftQuery(RECRUITMENT_ID), {
+      wrapper: makeWrapper(queryClient),
+    });
+    await waitFor(() => expect(target.result.current.isSuccess).toBe(true));
+    expect(getCountByRecruitment[RECRUITMENT_ID]).toBe(1);
+
+    releaseOtherSave();
+    await act(() => otherSavePromise);
+  });
+});

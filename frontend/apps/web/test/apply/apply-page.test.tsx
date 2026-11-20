@@ -1683,6 +1683,83 @@ describe('ApplyPage — 화면을 떠날 때 자동저장', () => {
     await waitFor(() => expect(queryClient.isMutating()).toBe(0));
   }, 10_000);
 
+  it('저장 중에 떠났다 곧바로 다시 들어오면, 줄 선 저장이 모두 끝난 뒤 저장본을 받아 마지막 답으로 연다', async () => {
+    let releaseFirstPut: () => void = () => {};
+    const firstPutGate = new Promise<void>((resolve) => {
+      releaseFirstPut = resolve;
+    });
+    let releaseSecondPut: () => void = () => {};
+    const secondPutGate = new Promise<void>((resolve) => {
+      releaseSecondPut = resolve;
+    });
+    let serverAnswers: DraftAnswer[] | null = null;
+    let putCount = 0;
+    const putEvents: string[] = [];
+    let draftGetCount = 0;
+    let eligibilityGetCount = 0;
+    server.use(
+      http.get(`*/recruitments/${RECRUITMENT_ID}/draft`, () => {
+        draftGetCount += 1;
+        return HttpResponse.json({
+          ok: true,
+          data:
+            serverAnswers === null
+              ? { exists: false, answers: [], updatedAt: null }
+              : { exists: true, answers: serverAnswers, updatedAt: '2026-11-20T12:00:00' },
+          message: null,
+        });
+      }),
+      http.get(`*/recruitments/${RECRUITMENT_ID}/applications/eligibility`, () => {
+        eligibilityGetCount += 1;
+        return HttpResponse.json({ ok: true, data: null, message: null });
+      }),
+      http.put<PathParams, UpsertDraftPayload>(`*/recruitments/${RECRUITMENT_ID}/draft`, async ({ request }) => {
+        const body = await request.json();
+        putCount += 1;
+        const putNumber = putCount;
+        putEvents.push(`start${putNumber}`);
+        await (putNumber === 1 ? firstPutGate : secondPutGate);
+        // 서버는 커밋한 뒤 응답한다 — 저장본은 게이트를 지난 응답 직전에 바뀐다.
+        serverAnswers = body.answers;
+        putEvents.push(`end${putNumber}`);
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+    const queryClient = makeQueryClient();
+    const user = userEvent.setup();
+    const firstVisit = renderApplyPage(queryClient);
+
+    const textarea = await screen.findByRole('textbox', { name: /지원 동기/ });
+    await user.type(textarea, '첫');
+    await waitFor(() => expect(putEvents).toEqual(['start1']), { timeout: 4000 });
+    await user.type(textarea, '째');
+    firstVisit.unmount();
+    // 첫 방문의 저장본 쿼리(gcTime 0)가 치워질 한 틱만 흘린다 — 같은 틱이면 남은 캐시로 열려 고친 코드도 실패한다. PUT 은 기다리지 않는다.
+    await act(() => new Promise((resolve) => setTimeout(resolve, 0)));
+    const draftGetCountBeforeReentry = draftGetCount;
+    const eligibilityGetCountBeforeReentry = eligibilityGetCount;
+
+    renderApplyPage(queryClient);
+    // 기준 사건: 다시 들어온 화면의 자격 확인 도착 — 저장본 GET 을 바로 보냈다면 함께 나갔다.
+    await waitFor(() => expect(eligibilityGetCount).toBe(eligibilityGetCountBeforeReentry + 1));
+    await act(() => new Promise((resolve) => setTimeout(resolve, 50)));
+    expect(draftGetCount).toBe(draftGetCountBeforeReentry);
+    expect(screen.queryByRole('textbox', { name: /지원 동기/ })).not.toBeInTheDocument();
+
+    releaseFirstPut();
+    // 기준 사건: 줄 선 떠날 때 저장이 출발했다 — 앞 저장만 기다렸다면 이 사이에 GET 이 나갔다.
+    await waitFor(() => expect(putEvents).toEqual(['start1', 'end1', 'start2']));
+    await act(() => new Promise((resolve) => setTimeout(resolve, 50)));
+    expect(draftGetCount).toBe(draftGetCountBeforeReentry);
+    expect(screen.queryByRole('textbox', { name: /지원 동기/ })).not.toBeInTheDocument();
+
+    releaseSecondPut();
+    expect(await screen.findByRole('textbox', { name: /지원 동기/ })).toHaveValue('첫째');
+    expect(draftGetCount).toBe(draftGetCountBeforeReentry + 1);
+    expect(putEvents).toEqual(['start1', 'end1', 'start2', 'end2']);
+    await waitFor(() => expect(queryClient.isMutating()).toBe(0));
+  }, 10_000);
+
   it('떠난 뒤 끝난 저장은 저장본 캐시를 새로 만들지 않는다', async () => {
     let draftPutCount = 0;
     let releasePut: () => void = () => {};

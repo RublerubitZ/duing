@@ -1,13 +1,36 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
 import type { ApplicationDraft, UpsertDraftPayload } from '@duing/types';
 import { useApiClient } from './api-context';
 import { draftQueryKeys } from './draftQueryKeys';
+
+// 저장 줄과 조회 대기가 같은 id 를 봐야 한다 — 갈라지면 조회가 조용히 기다리지 않는다.
+const draftSaveScopeId = (recruitmentId: number) => `application-draft-${recruitmentId}`;
+
+// 같은 모집의 저장(진행 중·줄 선 것)이 모두 끝날 때까지 기다린다 — 실패로 끝나도, queryClient.clear() 로 치워져도 풀린다.
+function waitForDraftSaves(queryClient: QueryClient, recruitmentId: number): Promise<void> {
+  const savesPending = () =>
+    queryClient.isMutating({
+      predicate: (mutation) => mutation.options.scope?.id === draftSaveScopeId(recruitmentId),
+    }) > 0;
+  if (!savesPending()) return Promise.resolve();
+  return new Promise((resolve) => {
+    const unsubscribe = queryClient.getMutationCache().subscribe(() => {
+      if (savesPending()) return;
+      unsubscribe();
+      resolve();
+    });
+  });
+}
 
 export function useApplicationDraftQuery(recruitmentId: number) {
   const client = useApiClient();
   return useQuery({
     queryKey: draftQueryKeys.byRecruitment(recruitmentId),
-    queryFn: () => client.drafts.get(recruitmentId),
+    // 떠날 때 저장이 줄에 남은 채 다시 들어오면 먼저 읽은 옛 답으로 폼이 열려, 다음 자동저장이 마지막 입력을 덮는다 — 저장이 끝난 뒤 읽는다.
+    queryFn: async ({ client: queryClient }) => {
+      await waitForDraftSaves(queryClient, recruitmentId);
+      return client.drafts.get(recruitmentId);
+    },
     // 남은 캐시로 다시 열리면 폼이 옛 답으로 시작해 다른 곳에서 고친 답을 자동저장이 덮는다 — 자격 조회처럼 떠나면 바로 버린다.
     gcTime: 0,
   });
@@ -19,7 +42,7 @@ export function useApplicationDraftMutation(recruitmentId: number) {
   return useMutation({
     mutationFn: (payload: UpsertDraftPayload) => client.drafts.upsert(recruitmentId, payload),
     // 같은 모집의 저장은 앞의 것이 끝난 뒤 이어서 보낸다 — 떠날 때 저장이 진행 중 저장과 겹쳐 늦게 끝난 옛 답이 새 답을 덮지 않게.
-    scope: { id: `application-draft-${recruitmentId}` },
+    scope: { id: draftSaveScopeId(recruitmentId) },
     // 자동저장은 입력이 멈출 때마다 반복 발화한다. 여기서 invalidate 하면 지원서 화면에 떠 있는
     // 조회 훅이 곧바로 재조회해, 방금 올려보낸 답변 전문이 GET 응답으로 그대로 되돌아온다(순수 낭비).
     // PUT 은 204(본문 없음)라 서버 에코가 없지만, 저장에 성공한 payload 자체가 곧 서버 상태이므로
