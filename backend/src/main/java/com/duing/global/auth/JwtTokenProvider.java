@@ -3,6 +3,7 @@ package com.duing.global.auth;
 import com.auth0.jwt.JWT;
 import com.auth0.jwt.JWTVerifier;
 import com.auth0.jwt.algorithms.Algorithm;
+import com.auth0.jwt.exceptions.JWTDecodeException;
 import com.auth0.jwt.exceptions.JWTVerificationException;
 import com.auth0.jwt.interfaces.DecodedJWT;
 import jakarta.annotation.PostConstruct;
@@ -74,7 +75,15 @@ public class JwtTokenProvider {
     }
 
     public TokenClaims parse(String token) throws JWTVerificationException {
-        DecodedJWT decoded = verifier.verify(token);
+        DecodedJWT decoded;
+        try {
+            decoded = verifier.verify(token);
+        } catch (JWTVerificationException verificationException) {
+            throw verificationException;
+        } catch (RuntimeException unexpectedFailure) {
+            // 검증 예외가 아닌 런타임 예외도 인증 실패로 다룬다(#1643).
+            throw new JWTDecodeException("토큰을 해석할 수 없습니다.", unexpectedFailure);
+        }
         Long userId = Long.parseLong(decoded.getSubject());
         Integer tokenVersion = decoded.getClaim("tokenVersion").asInt();
         // sid 는 이 변경 이전 발급 토큰엔 없으므로 asLong() 이 null 을 돌려준다(구버전 호환).
