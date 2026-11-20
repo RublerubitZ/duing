@@ -2,6 +2,8 @@ package com.duing.global.monitoring;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.duing.domain.adminconsole.service.dto.query.JobHealth;
+import com.duing.domain.adminconsole.service.dto.query.JobStatusQuery;
 import com.duing.domain.club.entity.ClubStatus;
 import com.duing.domain.fee.entity.Bank;
 import com.duing.domain.notification.event.FacilityBookingCancelledEvent;
@@ -11,6 +13,8 @@ import com.duing.domain.notification.event.FacilityBookingSubmittedEvent;
 import com.duing.domain.notification.event.RecruitmentOpenedEvent;
 import com.duing.domain.user.entity.AdminUserAction;
 import com.duing.domain.user.service.MoPollThrottle;
+import com.duing.global.jobrun.JobRunOutcome;
+import com.duing.global.jobrun.MonitoredJob;
 import com.duing.global.monitoring.event.AdminUserActionEvent;
 import com.duing.global.monitoring.event.ClubClosedEvent;
 import com.duing.global.monitoring.event.ClubCreatedEvent;
@@ -19,10 +23,14 @@ import com.duing.global.monitoring.event.ClubStatusChangedEvent;
 import com.duing.global.monitoring.event.FeeAccountCreatedEvent;
 import com.duing.global.monitoring.event.UserRegisteredEvent;
 import java.time.Clock;
+import java.time.Duration;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
+import java.util.Arrays;
+import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -235,23 +243,15 @@ class OpsSlackMessageFormatterTest {
     }
 
     @Test
-    @DisplayName("트래픽 일간 요약은 기간·총 요청(429)·최대 분당 요청과 시각·최대 분당 429·한 IP 분당 최대 조회(한도와 함께)·감지 횟수·기준을 싣는다")
+    @DisplayName("트래픽 일간 요약은 기간·총 요청(429)·최대 분당 요청과 시각·최대 분당 429·한 IP 분당 최대 조회(한도와 함께)·감지 횟수·기준과 자동 작업 개수·마지막 백업 성공을 싣는다")
     void trafficDailySummaryMessageCarriesAggregates() {
-        TrafficDailySummary summary = new TrafficDailySummary(
-                LocalDateTime.of(2026, 10, 6, 9, 0), LocalDateTime.of(2026, 10, 7, 9, 0), false,
-                12_345, 1_234, 2_345, LocalDateTime.of(2026, 10, 6, 21, 14), 1_010, 2, 3_000, 300, 612, 1_000);
-
-        assertThat(formatter.trafficDailySummary(summary)).isEqualTo(String.join("\n",
+        assertThat(formatter.trafficDailySummary(dailySummary(ALL_OK, RECENT_BACKUP))).isEqualTo(String.join("\n",
                 "📊 api 트래픽 일간 요약",
                 "서비스: Duing",
                 "이벤트: TRAFFIC_DAILY_SUMMARY",
-                "기간: 2026-10-06 09:00 ~ 2026-10-07 09:00 KST",
-                "총 요청: 12,345 (429 1,234)",
-                "최대 분당 요청: 2,345 (2026-10-06 21:14)",
-                "최대 분당 429: 1,010",
-                "한 IP 분당 최대 조회: 612건(한도 1,000건)",
-                "이상 감지: 2회",
-                "기준: 분당 요청 3,000 · 분당 429 300",
+                TRAFFIC_LINES,
+                "자동 작업: 정상 5",
+                "마지막 백업 성공: 2026-08-22 10:17 KST",
                 "환경: production",
                 "시간: 2026-08-22 23:41 KST"));
     }
@@ -261,7 +261,7 @@ class OpsSlackMessageFormatterTest {
     void trafficDailySummaryMarksRestartAndOmitsMissingPeakTime() {
         TrafficDailySummary summary = new TrafficDailySummary(
                 LocalDateTime.of(2026, 10, 7, 8, 57), LocalDateTime.of(2026, 10, 7, 9, 0), true,
-                0, 0, 0, null, 0, 0, 3_000, 300, 0, 0);
+                0, 0, 0, null, 0, 0, 3_000, 300, 0, 0, ALL_OK, RECENT_BACKUP);
 
         assertThat(formatter.trafficDailySummary(summary)).isEqualTo(String.join("\n",
                 "📊 api 트래픽 일간 요약",
@@ -274,6 +274,8 @@ class OpsSlackMessageFormatterTest {
                 "한 IP 분당 최대 조회: 제한 비활성",
                 "이상 감지: 0회",
                 "기준: 분당 요청 3,000 · 분당 429 300",
+                "자동 작업: 정상 5",
+                "마지막 백업 성공: 2026-08-22 10:17 KST",
                 "환경: production",
                 "시간: 2026-08-22 23:41 KST"));
     }
@@ -283,7 +285,8 @@ class OpsSlackMessageFormatterTest {
     void trafficDailySummaryMarksReadLimitExceeded() {
         TrafficDailySummary summary = new TrafficDailySummary(
                 LocalDateTime.of(2026, 10, 6, 9, 0), LocalDateTime.of(2026, 10, 7, 9, 0), false,
-                12_345, 1_234, 2_345, LocalDateTime.of(2026, 10, 6, 21, 14), 1_010, 2, 3_000, 300, 1_001, 1_000);
+                12_345, 1_234, 2_345, LocalDateTime.of(2026, 10, 6, 21, 14), 1_010, 2, 3_000, 300, 1_001, 1_000,
+                ALL_OK, RECENT_BACKUP);
 
         assertThat(formatter.trafficDailySummary(summary))
                 .contains("최대 분당 429: 1,010\n한 IP 분당 최대 조회: 한도 초과(1,000건 넘음)\n이상 감지: 2회");
@@ -295,5 +298,109 @@ class OpsSlackMessageFormatterTest {
         assertThat(OpsSlackMessageFormatter.peakPerIpReadsLabel(1_000, 1_000)).isEqualTo("1,000건(한도 1,000건)");
         assertThat(OpsSlackMessageFormatter.peakPerIpReadsLabel(1_001, 1_000)).isEqualTo("한도 초과(1,000건 넘음)");
         assertThat(OpsSlackMessageFormatter.peakPerIpReadsLabel(0, -5)).isEqualTo("제한 비활성");
+    }
+
+    @Test
+    @DisplayName("늦음·실패·일부 실패인 작업은 선언 순서대로 키와 마지막 종료(기록이 없으면 '기록 없음')를 한 줄씩 적고, 머리말을 경고로 바꾸고 런북 줄을 단다 — 꺼짐은 개수에만 든다")
+    void trafficDailySummaryHighlightsUnhealthyJobs() {
+        List<JobStatusQuery> statuses = List.of(
+                new JobStatusQuery(MonitoredJob.RECRUITMENT_AUTO_CLOSE, JobHealth.OVERDUE, kst(2026, 8, 21, 0, 40),
+                        kst(2026, 8, 21, 0, 40), JobRunOutcome.SUCCESS, 0, 0),
+                JobStatusQuery.withoutRun(MonitoredJob.APPLICATION_PENDING_REMINDER, JobHealth.OVERDUE),
+                new JobStatusQuery(MonitoredJob.FACILITY_RESERVATION_CRAWL, JobHealth.FAILED, kst(2026, 8, 22, 23, 30),
+                        kst(2026, 8, 22, 22, 50), JobRunOutcome.FAILED, 0, 0),
+                new JobStatusQuery(MonitoredJob.FACILITY_BOOKING_MATCHING, JobHealth.PARTIAL, kst(2026, 8, 22, 23, 33),
+                        kst(2026, 8, 22, 23, 33), JobRunOutcome.PARTIAL, 4, 2),
+                JobStatusQuery.withoutRun(MonitoredJob.FEDERATION_INQUIRY_PURGE, JobHealth.DISABLED));
+
+        assertThat(formatter.trafficDailySummary(dailySummary(statuses, RECENT_BACKUP))).isEqualTo(String.join("\n",
+                WARNING_HEADER,
+                "서비스: Duing",
+                "이벤트: TRAFFIC_DAILY_SUMMARY",
+                TRAFFIC_LINES,
+                "자동 작업: 정상 0 · 꺼짐 1 · 경고 4",
+                "⚠️ RECRUITMENT_AUTO_CLOSE 늦음 — 마지막 종료 2026-08-21 00:40 KST",
+                "⚠️ APPLICATION_PENDING_REMINDER 늦음 — 기록 없음",
+                "⚠️ FACILITY_RESERVATION_CRAWL 실패 — 마지막 종료 2026-08-22 23:30 KST",
+                "⚠️ FACILITY_BOOKING_MATCHING 일부 실패 — 마지막 종료 2026-08-22 23:33 KST",
+                "마지막 백업 성공: 2026-08-22 10:17 KST",
+                "환경: production",
+                "시간: 2026-08-22 23:41 KST",
+                RUNBOOK_LINE));
+    }
+
+    @Test
+    @DisplayName("첫 실행 전·꺼짐은 경고가 아니다 — 개수 줄에만 들고 머리말·런북 줄은 그대로다")
+    void notYetAndDisabledJobsAreNotWarnings() {
+        List<JobStatusQuery> statuses = List.of(ALL_OK.get(0), ALL_OK.get(1), ALL_OK.get(2),
+                JobStatusQuery.withoutRun(MonitoredJob.FACILITY_BOOKING_MATCHING, JobHealth.NOT_YET),
+                JobStatusQuery.withoutRun(MonitoredJob.FEDERATION_INQUIRY_PURGE, JobHealth.DISABLED));
+
+        assertThat(formatter.trafficDailySummary(dailySummary(statuses, RECENT_BACKUP)))
+                .startsWith("📊 api 트래픽 일간 요약\n")
+                .contains("\n기준: 분당 요청 3,000 · 분당 429 300\n자동 작업: 정상 3 · 첫 실행 전 1 · 꺼짐 1\n"
+                        + "마지막 백업 성공: 2026-08-22 10:17 KST\n환경: production\n")
+                .doesNotContain("⚠️")
+                .doesNotContain("런북:");
+    }
+
+    @Test
+    @DisplayName("마지막 백업 성공이 요약 시각보다 정확히 26시간 전이면 정상, 1분이라도 넘거나 기록이 없으면 경고다 — 기준은 기간 끝이 아니라 요약을 만드는 순간이다")
+    void backupLineWarnsOnlyPastTwentySixHoursOrWithoutRecord() {
+        Instant exactlyTwentySixHoursAgo = kst(2026, 8, 21, 21, 41);
+
+        assertThat(formatter.trafficDailySummary(dailySummary(ALL_OK, exactlyTwentySixHoursAgo)))
+                .startsWith("📊 api 트래픽 일간 요약\n")
+                .contains("\n마지막 백업 성공: 2026-08-21 21:41 KST\n");
+        assertThat(formatter.trafficDailySummary(
+                dailySummary(ALL_OK, exactlyTwentySixHoursAgo.minus(Duration.ofMinutes(1)))))
+                .startsWith(WARNING_HEADER + "\n")
+                .contains("\n⚠️ 마지막 백업 성공: 2026-08-21 21:40 KST (26시간 넘음)\n")
+                .endsWith("\n" + RUNBOOK_LINE);
+        assertThat(formatter.trafficDailySummary(dailySummary(ALL_OK, null)))
+                .startsWith(WARNING_HEADER + "\n")
+                .contains("\n자동 작업: 정상 5\n⚠️ 마지막 백업 성공: 기록 없음\n환경: production\n");
+    }
+
+    @Test
+    @DisplayName("상태 조회가 실패했으면(작업 목록 null) 작업·백업 줄 대신 조회 실패 한 줄을 적고 머리말을 경고로 바꾼다")
+    void opsStatusLookupFailureBecomesSingleWarningLine() {
+        assertThat(formatter.trafficDailySummary(dailySummary(null, null))).isEqualTo(String.join("\n",
+                WARNING_HEADER,
+                "서비스: Duing",
+                "이벤트: TRAFFIC_DAILY_SUMMARY",
+                TRAFFIC_LINES,
+                "⚠️ 자동 작업·백업 상태: 조회 실패 — 백엔드 로그 확인",
+                "환경: production",
+                "시간: 2026-08-22 23:41 KST",
+                RUNBOOK_LINE));
+    }
+
+    private static final Instant RECENT_BACKUP = kst(2026, 8, 22, 10, 17);
+    private static final List<JobStatusQuery> ALL_OK = Arrays.stream(MonitoredJob.values())
+            .map(job -> new JobStatusQuery(job, JobHealth.OK, kst(2026, 8, 22, 23, 30), kst(2026, 8, 22, 23, 30),
+                    JobRunOutcome.SUCCESS, 1, 0))
+            .toList();
+    // 기간 끝(2026-10-07 09:00)은 시계(2026-08-22 23:41)와 다르다 — 백업 경과를 기간 끝으로 재는 구현을 걸러 낸다.
+    private static final String TRAFFIC_LINES = String.join("\n",
+            "기간: 2026-10-06 09:00 ~ 2026-10-07 09:00 KST",
+            "총 요청: 12,345 (429 1,234)",
+            "최대 분당 요청: 2,345 (2026-10-06 21:14)",
+            "최대 분당 429: 1,010",
+            "한 IP 분당 최대 조회: 612건(한도 1,000건)",
+            "이상 감지: 2회",
+            "기준: 분당 요청 3,000 · 분당 429 300");
+    private static final String WARNING_HEADER = "⚠️ api 트래픽 일간 요약 — 자동 작업·백업 확인 필요";
+    private static final String RUNBOOK_LINE = "런북: deploy/MONITORING.md (일간 요약의 자동 작업·백업 경고)";
+
+    private static TrafficDailySummary dailySummary(List<JobStatusQuery> jobStatuses, Instant lastBackupSucceededAt) {
+        return new TrafficDailySummary(
+                LocalDateTime.of(2026, 10, 6, 9, 0), LocalDateTime.of(2026, 10, 7, 9, 0), false,
+                12_345, 1_234, 2_345, LocalDateTime.of(2026, 10, 6, 21, 14), 1_010, 2, 3_000, 300, 612, 1_000,
+                jobStatuses, lastBackupSucceededAt);
+    }
+
+    private static Instant kst(int year, int month, int day, int hour, int minute) {
+        return LocalDateTime.of(year, month, day, hour, minute).atZone(SEOUL).toInstant();
     }
 }

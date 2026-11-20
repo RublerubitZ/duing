@@ -18,6 +18,9 @@ import lombok.NoArgsConstructor;
  * <p>자연키 PK 라 BaseEntity 를 상속하지 않는다(AdminPendingSnapshot 전례). 키를 enum 이 아니라 문자열로 매핑해,
  * 나중 이미지가 남긴 모르는 키 줄이 있어도 읽기가 깨지지 않는다(조회는 아는 키만 findAllById 로 읽는다).
  * 저장은 {@code ScheduledJobRunRepository#upsert} 네이티브 한 문장으로만 한다 — 이 엔티티는 조회 전용이다.
+ *
+ * <p>{@code DB_BACKUP} 줄은 백엔드 잡이 아니라 백업 워크플로({@code .github/workflows/backup.yml})가 업로드 성공 뒤 고정 SQL 로
+ * 덮어쓴다. MonitoredJob 이 아니므로 카드는 읽지 않고, 일간 Slack 요약({@code TrafficSurgeMonitor})만 마지막 성공 시각을 읽는다.
  */
 @Getter
 @Entity

@@ -1,5 +1,7 @@
 package com.duing.global.monitoring;
 
+import com.duing.domain.adminconsole.service.dto.query.JobHealth;
+import com.duing.domain.adminconsole.service.dto.query.JobStatusQuery;
 import com.duing.domain.notification.event.FacilityBookingCancelledEvent;
 import com.duing.domain.notification.event.FacilityBookingConflictEvent;
 import com.duing.domain.notification.event.FacilityBookingRejectedEvent;
@@ -14,13 +16,17 @@ import com.duing.global.monitoring.event.ClubStatusChangedEvent;
 import com.duing.global.monitoring.event.FeeAccountCreatedEvent;
 import com.duing.global.monitoring.event.UserRegisteredEvent;
 import java.time.Clock;
+import java.time.Duration;
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Objects;
+import java.util.stream.Collectors;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
@@ -29,7 +35,7 @@ import org.springframework.stereotype.Component;
  * 자유 텍스트(사유·상세)는 어떤 메서드도 읽지 않는다. 골격: 헤더 / 서비스 / 이벤트 / 도메인 필드 / 환경 / 시간 (/ 부가줄).
  * 동아리명은 리스너가 id 로 조회해 넘기는 유일한 외부 값이다(이미 다른 이벤트가 싣는 필드).
  * 프론트 재생성 트리거 알림({@code FrontendRevalidator})과 트래픽 이상·일간 요약 알림({@code TrafficSurgeMonitor})만 이벤트 없이
- * 호출부가 명시 값(경로·횟수·사유 토큰 / 집계 수치)으로 부른다.
+ * 호출부가 명시 값(경로·횟수·사유 토큰 / 집계 수치·작업 상태·백업 시각)으로 부른다.
  *
  * <p>환경 라벨은 {@code sentry.environment} 를 재사용한다(prod=production, 로컬=local) — 환경 이름의 단일 출처.
  * 시간은 seoulClock(Asia/Seoul) 기준 KST — USER_REGISTERED 만 가입 트랜잭션의 시각(event.registeredAt)이고, 프론트 재생성
@@ -41,6 +47,16 @@ public class OpsSlackMessageFormatter {
 
     private static final String SERVICE_NAME = "Duing";
     private static final DateTimeFormatter KST_MINUTE = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
+    private static final String WARNING_MARK = "⚠️ ";
+    /**
+     * 마지막 백업 성공 뒤 이만큼 넘게 지나면 경고 — 매일 잡의 maxGap 과 같다. 09:00 요약에서 26시간을 넘는다는 것은 마지막 성공이
+     * 전날 07:00 전이라는 뜻이다. 이 값을 늘려도 이틀 이상 이어지는 공백은 그대로 잡고, 달라지는 것은 '전날 실행이 07:00 전에 끝났고
+     * 그날 09:00 까지 새 성공이 없을 때 당일 09:00 에 바로 경고하느냐'뿐이다. 그날 실행이 빠진 것인지 늦을 뿐인지는 구별하지 못한다
+     * (2026-07~11 실측에서 늦을 뿐이던 날의 경고 1번).
+     */
+    static final Duration BACKUP_MAX_GAP = Duration.ofHours(26);
+    /** 개수 줄의 칸 순서 — 정상은 0 이어도 적고, 나머지는 있을 때만 적는다. */
+    private static final List<String> JOB_COUNT_ORDER = List.of("정상", "첫 실행 전", "꺼짐", "경고");
 
     private final String environment;
     private final MoPollThrottle moPollThrottle;
@@ -185,25 +201,98 @@ public class OpsSlackMessageFormatter {
 
     /**
      * api 트래픽 일간 요약 — 매일 09:00 KST 경계에서 직전 기간을 한 번 보낸다({@code TrafficSurgeMonitor}). 기준 조정 근거이자
-     * 감지 잡 생존 신호다. 재기동으로 중간부터 셌으면 기간 줄에 표시한다. 집계 수치만 싣는다.
+     * 감지 잡 생존 신호다. 재기동으로 중간부터 셌으면 기간 줄에 표시한다. 트래픽은 집계 수치만 싣는다.
+     * 기준 줄 뒤에 자동 작업 상태(카드와 같은 판정)와 마지막 백업 성공을 싣고, 경고 줄(⚠️)이 하나라도 있으면 머리말을 바꾸고
+     * 런북 줄을 단다 — Slack 알림 미리보기는 첫 줄만 보여 준다.
      */
     public String trafficDailySummary(TrafficDailySummary summary) {
         String period = KST_MINUTE.format(summary.periodStart()) + " ~ " + KST_MINUTE.format(summary.periodEnd()) + " KST"
                 + (summary.startedAfterRestart() ? " (재기동 뒤부터)" : "");
         String peakRequests = String.format(Locale.ROOT, "%,d", summary.peakRequestsPerMinute())
                 + (summary.peakRequestsAt() == null ? "" : " (" + KST_MINUTE.format(summary.peakRequestsAt()) + ")");
-        return compose("📊 api 트래픽 일간 요약", "TRAFFIC_DAILY_SUMMARY",
-                Arrays.asList(
-                        field("기간", period),
-                        field("총 요청", String.format(Locale.ROOT, "%,d (429 %,d)",
-                                summary.totalRequests(), summary.totalRejections())),
-                        field("최대 분당 요청", peakRequests),
-                        field("최대 분당 429", String.format(Locale.ROOT, "%,d", summary.peakRejectionsPerMinute())),
-                        field("한 IP 분당 최대 조회",
-                                peakPerIpReadsLabel(summary.peakPerIpReads(), summary.readLimitPerMinute())),
-                        field("이상 감지", summary.surgeAlerts() + "회"),
-                        field("기준", String.format(Locale.ROOT, "분당 요청 %,d · 분당 429 %,d",
-                                summary.requestThreshold(), summary.rejectionThreshold()))));
+        List<String> statusLines = opsStatusLines(summary.jobStatuses(), summary.lastBackupSucceededAt());
+        boolean warning = statusLines.stream().anyMatch(line -> line.startsWith(WARNING_MARK));
+        List<String> domainLines = new ArrayList<>(Arrays.asList(
+                field("기간", period),
+                field("총 요청", String.format(Locale.ROOT, "%,d (429 %,d)",
+                        summary.totalRequests(), summary.totalRejections())),
+                field("최대 분당 요청", peakRequests),
+                field("최대 분당 429", String.format(Locale.ROOT, "%,d", summary.peakRejectionsPerMinute())),
+                field("한 IP 분당 최대 조회",
+                        peakPerIpReadsLabel(summary.peakPerIpReads(), summary.readLimitPerMinute())),
+                field("이상 감지", summary.surgeAlerts() + "회"),
+                field("기준", String.format(Locale.ROOT, "분당 요청 %,d · 분당 429 %,d",
+                        summary.requestThreshold(), summary.rejectionThreshold()))));
+        domainLines.addAll(statusLines);
+        return compose(warning ? WARNING_MARK + "api 트래픽 일간 요약 — 자동 작업·백업 확인 필요" : "📊 api 트래픽 일간 요약",
+                "TRAFFIC_DAILY_SUMMARY", domainLines, "시간", LocalDateTime.now(clock),
+                warning ? List.of("런북: deploy/MONITORING.md (일간 요약의 자동 작업·백업 경고)") : List.of());
+    }
+
+    // 경고 줄은 모두 WARNING_MARK 로 시작한다 — 머리말·런북 줄은 이 표시가 있는지로 정한다.
+    private List<String> opsStatusLines(List<JobStatusQuery> jobStatuses, Instant lastBackupSucceededAt) {
+        if (jobStatuses == null) {
+            return List.of(WARNING_MARK + "자동 작업·백업 상태: 조회 실패 — 백엔드 로그 확인");
+        }
+        List<String> lines = new ArrayList<>();
+        lines.add(jobCountsLine(jobStatuses));
+        jobStatuses.stream()
+                .filter(status -> warningLabel(status.health()) != null)
+                .map(status -> WARNING_MARK + status.job().name() + " " + warningLabel(status.health()) + " — "
+                        + (status.lastFinishedAt() == null
+                        ? "기록 없음"
+                        : "마지막 종료 " + kstMinute(status.lastFinishedAt()) + " KST"))
+                .forEach(lines::add);
+        lines.add(backupLine(lastBackupSucceededAt));
+        return lines;
+    }
+
+    private static String jobCountsLine(List<JobStatusQuery> jobStatuses) {
+        Map<String, Long> counts = jobStatuses.stream()
+                .collect(Collectors.groupingBy(status -> jobCountLabel(status.health()), Collectors.counting()));
+        List<String> parts = new ArrayList<>();
+        for (String label : JOB_COUNT_ORDER) {
+            long count = counts.getOrDefault(label, 0L);
+            if (count > 0 || label.equals(JOB_COUNT_ORDER.get(0))) {
+                parts.add(label + " " + count);
+            }
+        }
+        return "자동 작업: " + String.join(" · ", parts);
+    }
+
+    // 아래 두 switch 는 default 가 없다 — 작업 상태가 늘면 컴파일이 막혀 개수 칸과 경고 여부를 정하게 된다. 카드의 경고 기준과 같다.
+    private static String jobCountLabel(JobHealth health) {
+        return switch (health) {
+            case OK -> "정상";
+            case NOT_YET -> "첫 실행 전";
+            case DISABLED -> "꺼짐";
+            case OVERDUE, FAILED, PARTIAL -> "경고";
+        };
+    }
+
+    /** 경고 줄의 상태 표기 — 경고가 아니면 null(개수 줄에만 든다). */
+    private static String warningLabel(JobHealth health) {
+        return switch (health) {
+            case OVERDUE -> "늦음";
+            case FAILED -> "실패";
+            case PARTIAL -> "일부 실패";
+            case OK, NOT_YET, DISABLED -> null;
+        };
+    }
+
+    // 경과는 요약을 만드는 순간(이 시계)으로 잰다 — 기간 끝(09:00)과는 1분 안쪽 차이다.
+    private String backupLine(Instant lastBackupSucceededAt) {
+        if (lastBackupSucceededAt == null) {
+            return WARNING_MARK + "마지막 백업 성공: 기록 없음";
+        }
+        String line = "마지막 백업 성공: " + kstMinute(lastBackupSucceededAt) + " KST";
+        return Duration.between(lastBackupSucceededAt, clock.instant()).compareTo(BACKUP_MAX_GAP) > 0
+                ? WARNING_MARK + line + " (" + BACKUP_MAX_GAP.toHours() + "시간 넘음)"
+                : line;
+    }
+
+    private String kstMinute(Instant instant) {
+        return KST_MINUTE.format(LocalDateTime.ofInstant(instant, clock.getZone()));
     }
 
     /**

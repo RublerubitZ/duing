@@ -67,6 +67,46 @@ jobs:
           aws s3 cp backup/ "s3://${{ secrets.R2_BUCKET }}/$(TZ=Asia/Seoul date +%Y/%m/%d)/" \
             --recursive --endpoint-url "${{ secrets.R2_ENDPOINT }}"
 
+      # 백엔드 09:00 일간 요약(TrafficSurgeMonitor.BACKUP_JOB_KEY — 키를 바꾸면 두 곳을 함께 바꾼다)이 이 줄로 '마지막 백업
+      # 성공'을 본다. 잡이 시작조차 못 한 날(계정 잠금·예약 누락·비활성)은 아래 실패 알림도 돌지 않아, 이 줄이 멈춘 것이 유일한
+      # 신호다(C57). 입력 없는 고정 문장으로 한 행만 덮어쓴다. 덤프 롤을 분리하면(#1323) 그 롤에 public.scheduled_job_run
+      # INSERT·UPDATE 권한이 필요하다.
+      # 기록 실패는 백업 결과를 바꾸지 않는다 — psql 실패는 경고 주석만 남기고(이어서 빠지면 다음 요약이 '26시간 넘음'으로
+      # 드러낸다), 걸리면 스텝 시간 상한 + continue-on-error 로 끊는다. 잠금·문장 상한은 트랜잭션 안 SET LOCAL 로 건다 — 풀러가
+      # PGOPTIONS 를 넘기는지 불확실하고, 세션 SET 은 세션 풀러가 연결을 다음 클라이언트에 물려줄 때 남을 수 있다.
+      # 공개 로그라 psql 출력은 버린다 — 연결 오류에 호스트·사용자 이름이 찍힌다. 원인은 종료 코드로만 남긴다(2 = 연결 실패,
+      # 3 = SQL 오류 — 잠금·문장 상한·권한). -w 는 비밀번호를 묻지 않게 한다(URL 에 없으면 바로 연결 실패).
+      - name: Record backup success
+        continue-on-error: true
+        timeout-minutes: 2
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+          PGCONNECT_TIMEOUT: '10'
+        run: |
+          if psql -X -q -w -v ON_ERROR_STOP=1 "$SUPABASE_DB_URL" >/dev/null 2>&1 <<'SQL'
+          BEGIN;
+          SET LOCAL lock_timeout = '5s';
+          SET LOCAL statement_timeout = '15s';
+          INSERT INTO public.scheduled_job_run (job_key, last_started_at, last_finished_at, last_outcome,
+                  last_result_count, last_failed_count, last_succeeded_at, consecutive_unhealthy_runs)
+          VALUES ('DB_BACKUP', now(), now(), 'SUCCESS', 0, 0, now(), 0)
+          ON CONFLICT (job_key) DO UPDATE SET
+                  last_started_at = EXCLUDED.last_started_at,
+                  last_finished_at = EXCLUDED.last_finished_at,
+                  last_outcome = EXCLUDED.last_outcome,
+                  last_result_count = EXCLUDED.last_result_count,
+                  last_failed_count = EXCLUDED.last_failed_count,
+                  last_succeeded_at = EXCLUDED.last_succeeded_at,
+                  consecutive_unhealthy_runs = EXCLUDED.consecutive_unhealthy_runs;
+          COMMIT;
+          SQL
+          then
+            echo "백업 성공 기록 완료(DB_BACKUP)"
+          else
+            psql_exit=$?
+            echo "::warning::백업 성공 기록 실패(psql 종료 코드 ${psql_exit} — 2 연결 실패, 3 SQL 오류) — 백업은 R2 에 올라갔다. 이어서 빠지면 09:00 일간 요약이 백업 경고를 띄운다(deploy/MONITORING.md)"
+          fi
+
       # 백업 실패는 사람이 며칠 뒤에야 알아채는 사고였다(2026-09-20 풀러 한도 점유). 서드파티 액션 없이
       # curl+jq 로 실패·취소 시에만 알린다 — 채널·형식은 deploy-backend.yml 의 배포 알림과 동일(deploy/MONITORING.md).
       # 알림 실패는 잡 결과를 바꾸지 않는다(항상 exit 0).

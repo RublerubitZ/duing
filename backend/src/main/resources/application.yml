@@ -318,6 +318,7 @@ duing:
       # 한 번, 5회 연속 정상이면 정상화를 한 번 알린다(deploy/MONITORING.md). 기본 비활성 — 운영은 application-prod.yml
       # 에서 기본 활성. 기준값은 추정치라 일간 요약(Slack, 매일 09:00)과 매시 요약 로그로 맞춘다. Slack 전송 설정(webhook)은 최상위
       # monitoring.slack 이고, 이건 잡 플래그라 다른 잡처럼 duing.* 아래에 둔다.
+      # 일간 요약에는 자동 작업 상태·마지막 백업 성공도 싣는다 — 이 잡을 끄면 그 두 감시도 함께 멈춘다.
       enabled: ${DUING_TRAFFIC_SURGE_ENABLED:false}
       requests-per-minute: ${DUING_TRAFFIC_SURGE_REQUESTS_PER_MINUTE:3000}
       rejections-per-minute: ${DUING_TRAFFIC_SURGE_REJECTIONS_PER_MINUTE:300}

@@ -31,8 +31,9 @@
 | 산출물 | `roles.sql`(`--role-only`) · `schema.sql`(기본) · `data.sql`(`--data-only --use-copy`, storage 벡터 테이블 2개 제외) — 전부 gzip |
 | 검증 | `gzip -t` 무결성 + `data.sql.gz` 가 10KB 이하이면 **잡 실패**(빈 덤프 방지) |
 | 업로드 | `s3://$R2_BUCKET/YYYY/MM/DD/` — 날짜는 **KST 기준**(`TZ=Asia/Seoul date`) |
+| 기록 | 업로드에 성공하면 `Record backup success` 스텝이 `public.scheduled_job_run` 의 `DB_BACKUP` 줄을 덮어쓴다 — 백엔드 09:00 일간 Slack 요약이 이 시각으로 '마지막 백업 성공'을 싣는다([MONITORING.md](./MONITORING.md)). 기록 실패는 백업 결과를 바꾸지 않는다(경고 주석만) |
 | 시크릿 | `SUPABASE_DB_URL`(Session Pooler 문자열) · `R2_ACCESS_KEY_ID` · `R2_SECRET_ACCESS_KEY` · `R2_BUCKET` · `R2_ENDPOINT` |
-| 실패 대응 | 실패하면 Slack 으로 통지된다(`Notify Slack (backup failure)` 스텝). RPO 가 24시간이라 하루만 빠져도 목표를 넘으므로 **실패 당일** `gh workflow run backup.yml` 로 재실행한다 |
+| 실패 대응 | 스텝이 실패하면 Slack 으로 통지된다(`Notify Slack (backup failure)` 스텝). 잡이 시작조차 못 한 날(계정 잠금·예약 누락·워크플로 비활성)은 이 알림도 돌지 않는다 — 그때는 09:00 일간 요약의 백업 경고가 잡는다(이틀 이상 공백은 반드시, 하루 누락은 다음 날 실행이 09:00 뒤에 끝나거나 전날 실행이 07:00 전에 끝났을 때만). RPO 가 24시간이라 하루만 빠져도 목표를 넘으므로 **알게 된 당일** `gh workflow run backup.yml` 로 재실행한다 |
 | 권한 | `permissions: {}`(GITHUB_TOKEN 미사용) |
 
 - `SUPABASE_DB_URL` 은 **Session Pooler** 주소를 쓴다. Supabase Direct 연결은 IPv6 이고 GitHub 러너는
@@ -172,6 +173,9 @@ curl -s https://api.duings.com/actuator/health
 마지막으로 회비·면접 화면에서 시각 표기가 맞는지, 최근 지원·결제가 보이는지 눈으로 확인한다.
 쓰기 경로도 한 번 확인한다 — 운영진 콘솔에서 공지 1건을 작성했다가 지운다. 외부 모니터([`UPTIME.md`](./UPTIME.md) 에서 운영 중인 것)가
 전부 Up 으로 돌아왔는지까지 보고 복구 완료로 기록한다.
+
+덤프에서 복원하면 `scheduled_job_run` 의 `DB_BACKUP` 줄도 그 덤프에 든 시각(그 백업의 직전 백업)으로 돌아간다. 다음 09:00 일간 요약이
+백업 경고를 띄울 수 있으니, 복원을 마치면 `gh workflow run backup.yml` 로 새 백업을 한 번 떠 둔다 — 복원된 DB 의 첫 스냅샷도 된다.
 
 ## 부록 A — V112/V113 비멱등 백필
 
