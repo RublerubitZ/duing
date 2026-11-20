@@ -96,7 +96,7 @@ public class GeneralJoinRequestService implements JoinRequestService {
 
     @Override
     public JoinCodeCheckQuery check(String rawCode, Long currentUserId, String clientIp) {
-        joinCodeRateLimiter.assertAndRecordCodeCheck(clientIp, LocalDateTime.now(clock));
+        joinCodeRateLimiter.assertAndRecordCodeCheck(currentUserId, clientIp, LocalDateTime.now(clock));
         ClubJoinCode joinCode = clubJoinCodeRepository.findByCode(normalizeCode(rawCode))
                 .orElseThrow(JoinCodeException.JoinCodeNotFoundException::new);
         Club club = joinCode.getClub();
@@ -125,7 +125,7 @@ public class GeneralJoinRequestService implements JoinRequestService {
     @Override
     @Transactional
     public void createRequest(CreateJoinRequestCommand createCommand) {
-        joinCodeRateLimiter.assertAndRecordRequestCreation(createCommand.clientIp(), LocalDateTime.now(clock));
+        joinCodeRateLimiter.assertAndRecordRequestCreation(createCommand.userId(), LocalDateTime.now(clock));
         String code = normalizeCode(createCommand.rawCode());
         // 잠금 순서는 club → code 다(#905). 동아리 폐쇄(GeneralClubClosureService.close)가 같은 순서로 잠근다 —
         // 코드를 먼저 잠그면 폐쇄가 이 요청 뒤에서 대기하는 사이 폐쇄 중인 동아리로 요청이 접수된다

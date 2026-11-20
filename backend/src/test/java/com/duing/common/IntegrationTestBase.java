@@ -1,5 +1,6 @@
 package com.duing.common;
 
+import com.duing.domain.joincode.service.JoinCodeRateLimiter;
 import com.duing.domain.user.service.StepUpAttemptRateLimiter;
 import com.duing.domain.user.service.UnknownStudentLoginLock;
 import com.duing.global.privacy.PhoneRevealRateLimiter;
@@ -59,6 +60,9 @@ public abstract class IntegrationTestBase {
     @Autowired
     private StepUpAttemptRateLimiter stepUpAttemptRateLimiter;
 
+    @Autowired
+    private JoinCodeRateLimiter joinCodeRateLimiter;
+
     @BeforeEach
     void cleanDatabase() {
         if (truncateStatement == null) {
@@ -73,6 +77,9 @@ public abstract class IntegrationTestBase {
         // 비밀번호 확인 실패 창도 userId 키 in-memory 라, RESTART IDENTITY 로 userId 가 매 테스트 1부터 돌아올 때
         // 앞 테스트의 실패가 클래스를 넘어 누적되지 않게 비운다.
         stepUpAttemptRateLimiter.reset();
+        // 가입 링크 한도도 userId 키 in-memory 라, RESTART IDENTITY 로 userId 가 매 테스트 1부터 돌아올 때
+        // 앞 테스트의 확인·요청이 클래스를 넘어 누적되지 않게 비운다.
+        joinCodeRateLimiter.reset();
     }
 
     private String buildTruncateStatement() {

@@ -67,7 +67,7 @@ public class JoinRequestException extends ApplicationException {
         }
     }
 
-    /** 코드 확인·요청 생성의 IP 레이트리밋 초과 — 코드 열거·스팸 요청 방지(스펙 4.5). */
+    /** 코드 확인·요청 생성의 레이트리밋 초과(로그인은 사용자별, 비로그인 확인은 IP별) — 코드 열거·스팸 요청 방지(스펙 4.5). */
     public static final class JoinCodeRateLimitedException extends JoinRequestException {
         private static final String MESSAGE = "요청이 너무 많습니다. 잠시 후 다시 시도해주세요.";
 
