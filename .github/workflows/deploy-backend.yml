@@ -129,7 +129,7 @@ jobs:
             on_exit() {
               local exit_code=$? restored=true file docker_log=/dev/null up_status
               # ssh-action 은 PTY 없이 돌려 SSH 끊김·명령 제한 시간·잡 취소가 여기에는 다음 출력의 SIGPIPE 로 온다(본문은 거기서 끝난다).
-              # 트랩은 끝까지 돈다 — SIGPIPE 를 무시하고, 출력이 실패하면 표준 출력·오류를 버린 뒤 계속한다(아래 R0·R1 의 || exec).
+              # 트랩은 끝까지 돈다 — SIGPIPE 를 무시하고, 출력이 실패하면 표준 출력·오류를 버린 뒤 계속한다(아래 두 echo 의 || exec).
               # 되돌리는 docker 명령은 출력을 파일로 받아 끝난 뒤 찍는다 — 도는 동안 연결이 끊겨도 끊긴 파이프에 쓰다 죽지 않게.
               trap '' PIPE
               # 되돌리기는 한 단계가 실패해도 나머지를 계속한다. 트랩 안의 exit 는 이 트랩을 다시 부르지 않는다.
