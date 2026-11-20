@@ -37,7 +37,6 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -57,7 +56,6 @@ class ClubInviteConcurrencyTest extends IntegrationTestBase {
 
     @Autowired JoinCodeService joinCodeService;
     @Autowired JoinRequestService joinRequestService;
-    @Autowired JoinCodeRateLimiter joinCodeRateLimiter;
     @Autowired UserRepository userRepository;
     @Autowired ClubRepository clubRepository;
     @Autowired ClubMemberRepository clubMemberRepository;
@@ -70,12 +68,6 @@ class ClubInviteConcurrencyTest extends IntegrationTestBase {
     @Autowired Clock clock;
 
     private final AtomicLong sequence = new AtomicLong(System.nanoTime());
-
-    @BeforeEach
-    void resetRateLimiter() {
-        // @SpringBootTest 컨텍스트 공유로 누적된 창이 두 스레드를 429 로 밀어내지 않도록 초기화한다.
-        joinCodeRateLimiter.reset();
-    }
 
     @Test
     @DisplayName("두 운영진이 같은 동아리에 동시에 초대 링크를 발급해도 활성 링크는 정확히 1개만 남는다")

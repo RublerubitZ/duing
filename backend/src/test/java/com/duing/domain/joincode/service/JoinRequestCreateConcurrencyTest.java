@@ -30,7 +30,6 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -44,7 +43,6 @@ import org.springframework.transaction.support.TransactionTemplate;
 class JoinRequestCreateConcurrencyTest extends IntegrationTestBase {
 
     @Autowired JoinRequestService joinRequestService;
-    @Autowired JoinCodeRateLimiter joinCodeRateLimiter;
     @Autowired UserRepository userRepository;
     @Autowired ClubRepository clubRepository;
     @Autowired RecruitmentRepository recruitmentRepository;
@@ -54,12 +52,6 @@ class JoinRequestCreateConcurrencyTest extends IntegrationTestBase {
     @Autowired JdbcTemplate jdbcTemplate;
 
     private final AtomicLong sequence = new AtomicLong(System.nanoTime());
-
-    @BeforeEach
-    void resetRateLimiter() {
-        // @SpringBootTest 컨텍스트 공유로 누적된 창이 두 스레드를 429 로 밀어내지 않도록 초기화한다.
-        joinCodeRateLimiter.reset();
-    }
 
     @Test
     @DisplayName("같은 사용자가 동시에 두 번 요청해도 PENDING 요청은 1개만 생성된다")

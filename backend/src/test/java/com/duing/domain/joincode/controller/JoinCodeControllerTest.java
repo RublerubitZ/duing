@@ -23,7 +23,6 @@ import com.duing.domain.joincode.entity.ClubJoinRequest;
 import com.duing.domain.joincode.entity.JoinRequestStatus;
 import com.duing.domain.joincode.repository.ClubJoinCodeRepository;
 import com.duing.domain.joincode.repository.ClubJoinRequestRepository;
-import com.duing.domain.joincode.service.JoinCodeRateLimiter;
 import com.duing.domain.joincode.service.JoinRequestService;
 import com.duing.domain.joincode.service.dto.command.DecideJoinRequestCommand;
 import com.duing.domain.recruitment.entity.ApplicationMode;
@@ -76,7 +75,6 @@ class JoinCodeControllerTest extends IntegrationTestBase {
     @Autowired ClubJoinCodeRepository clubJoinCodeRepository;
     @Autowired ClubJoinRequestRepository clubJoinRequestRepository;
     @Autowired ClubAuditEventRepository clubAuditEventRepository;
-    @Autowired JoinCodeRateLimiter joinCodeRateLimiter;
     @Autowired JoinRequestService joinRequestService;
     @Autowired JwtTokenProvider jwtTokenProvider;
     /** LAZY 연관(reviewedBy)을 트랜잭션 안에서 읽기 위한 도구 — open-in-view 가 꺼져 있다. */
@@ -96,8 +94,6 @@ class JoinCodeControllerTest extends IntegrationTestBase {
     @BeforeEach
     void setUp() throws Exception {
         RestAssured.port = port;
-        // @SpringBootTest 컨텍스트 공유로 창이 누적되면 뒤 테스트가 429 로 밀린다.
-        joinCodeRateLimiter.reset();
 
         club = saveClub("가입코드동아리", ClubStatus.ACTIVE);
         recruitment = saveOpenExternalRecruitment(club);
