@@ -110,19 +110,20 @@ describe('TermsPage 처리 위탁·국외 이전·분석 쿠키 고지', () => {
     expect(transfer.getByText(/^Vercel Inc\.\(미국\) \/ 이전 항목:/)).toBeInTheDocument();
     expect(
       transfer.getByText(
-        /^Functional Software, Inc\.\(Sentry, 미국\) \/ 이전 항목: .*접속 IP 대역 일부/,
+        /^Functional Software, Inc\.\(Sentry, 미국\) \/ 이전 항목: .*접속 IP 대역 일부.*보유·이용기간: 수집 후 30일이 지나면 삭제됩니다$/,
       ),
     ).toBeInTheDocument();
     expect(
       transfer.getByText(
-        /^PostHog, Inc\.\(미국\) \/ 이전 항목: .*역할·학년·단과대학.*IP 주소, IP 주소로 추정한 위치 \/ 이전 목적:/,
+        /^PostHog, Inc\.\(미국\) \/ 이전 항목: .*역할·학년·단과대학.*IP 주소, IP 주소로 추정한 위치 \/ 이전 목적:.*보유·이용기간: 이용 기록\(이벤트\)은 수집 후 1년이 지나면 삭제/,
       ),
     ).toBeInTheDocument();
     expect(
       transfer.getByText(
-        /^Slack Technologies, LLC\(미국\) \/ 이전 항목: 회원가입 알림의 이름·학번.*보유·이용기간: 운영팀이 따로 삭제하지 않으며, Slack 워크스페이스의 메시지 보관 설정과 요금제에 따릅니다$/,
+        /^Slack Technologies, LLC\(미국\) \/ 이전 항목: 회원가입 알림의 이름·학번.*보유·이용기간: 운영팀이 따로 삭제하지 않으며, 무료 워크스페이스 정책에 따라 1년이 지난 메시지는 Slack이 순차 삭제합니다$/,
       ),
     ).toBeInTheDocument();
+    expect(transfer.queryByText(/의 정책에 따릅니다/)).not.toBeInTheDocument();
     expect(
       transfer.getByText(
         /^GitHub, Inc\.\(미국\) \/ 이전 항목: .* \/ 이전 일시: 매일 04시 15분 이후 하루 한 번 실행되는 정기 백업/,
@@ -140,6 +141,14 @@ describe('TermsPage 처리 위탁·국외 이전·분석 쿠키 고지', () => {
       ),
     ).toBeInTheDocument();
     expect(transfer.queryByText(/국외 서버를 경유할 수 있습니다/)).not.toBeInTheDocument();
+    expect(
+      transfer.getByText(
+        /업로드 파일은 위탁계약 종료 시까지 보관되고 데이터베이스 백업은 생성 후 30일이 지나면 삭제됩니다/,
+      ),
+    ).toBeInTheDocument();
+    expect(
+      transfer.queryByText(/국외 데이터센터에 저장될 수 있으며, 위탁계약 종료 시까지 보관됩니다/),
+    ).not.toBeInTheDocument();
     expect(
       transfer.getByText(
         /업로드 파일은 이용자가 올릴 때, 데이터베이스 백업은 매일 04시 15분 이후 하루 한 번 실행되는 정기 백업과 수동 백업 때 Cloudflare R2에 업로드됩니다/,
@@ -167,6 +176,17 @@ describe('TermsPage 처리 위탁·국외 이전·분석 쿠키 고지', () => {
     ).toBeInTheDocument();
     expect(cookies.getByText(/쿠키는 마지막 방문 후 1년간 유지됩니다/)).toBeInTheDocument();
     expect(cookies.getByText(/6\. 개인정보의 국외 이전 항목과 같고/)).toBeInTheDocument();
+  });
+
+  it('3조가 파기 뒤에도 DB 백업에 30일, Slack 가입 알림에 약 1년 남을 수 있음을 적는다', () => {
+    render(<TermsPage />);
+    const retention = within(articleOf('3. 개인정보의 보유 및 이용 기간'));
+
+    expect(
+      retention.getByText(
+        /^파기 전에 만들어진 데이터베이스 백업에는 백업 생성 후 30일 동안 해당 개인정보가 남을 수 있으며, 운영 알림\(Slack\)으로 보낸 회원가입 알림\(이름·학번\)은 약 1년 동안 남을 수 있습니다\.$/,
+      ),
+    ).toBeInTheDocument();
   });
 
   it('1조가 회비 거래내역 조회 때 받는 계좌 비밀번호·생년월일을 저장하지 않는다고 적는다', () => {
