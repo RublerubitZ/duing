@@ -98,7 +98,7 @@
 
 1. **재현 확인**: `curl -s https://api.duings.com/actuator/health` — 로컬에서도 실패하면 진짜 장애, 성공하면 모니터측 일시 문제(회복 알림 대기).
 2. **1차 분류**:
-   - 1·2번 동시 다운 → VM/Caddy/네트워크: Lightsail 콘솔에서 인스턴스 상태 확인 → SSH → `cd /home/ubuntu/duing` 뒤 `docker compose ps` / `docker compose logs --tail 100 caddy backend`. 배포 잡이 실패로 끝났거나(실패 종류별 안내는 그 절 첫머리), caddy 가 Up 이 아니거나(배포와 무관해도 — 되돌릴지는 그 절에서 로그로 가른다), HTTP/2 만 문제면 아래 [Caddy 롤백 (증상별)](#caddy-롤백-증상별).
+   - 1·2번 동시 다운 → VM/Caddy/네트워크: Lightsail 콘솔에서 인스턴스 상태 확인 → SSH → `cd /home/ubuntu/duing` 뒤 `docker compose ps` / `docker compose logs --tail 100 caddy backend`. 배포 잡이 실패로 끝났거나(잡 로그의 끝 줄로 가르는 안내는 그 절 첫머리), caddy 가 Up 이 아니거나(배포와 무관해도 — 되돌릴지는 그 절에서 로그로 가른다), HTTP/2 만 문제면 아래 [Caddy 롤백 (증상별)](#caddy-롤백-증상별).
    - 2번만 다운(1번 UP) → 앱/DB 쿼리 경로: backend 로그와 Sentry(backend 프로젝트) 확인, Supabase 대시보드 상태 확인.
    - 서버 부하·연결 수가 치솟거나 여러 IP 의 429 가 쏟아진다 → 공격·트래픽 폭증 의심: [`EDGE-EMERGENCY.md`](./EDGE-EMERGENCY.md) 로 Cloudflare 비상 모드 전환.
    - 3번만 다운 → Vercel 상태(https://www.vercel-status.com) 및 배포 히스토리 확인, 필요 시 Vercel 대시보드에서 직전 배포로 Instant Rollback. 2026-11-04 릴리스 뒤 직전 운영 배포는 10/21 빌드(next 16.3.8)다 — 사이트 전체가 다운됐을 때만 쓰고, 복구한 뒤에는 되돌림 PR 로 다시 앞으로 낸다. 화면 문제는 `deploy/README.md` 의 운영 중단 미결 정리 절처럼 되돌림 PR 로 고친다.
@@ -114,60 +114,175 @@
 
      오류가 나면(`SHA` 가 비었다 — `gh run view` 실패·`<실행 ID>` 를 안 바꿈 — 또는 fetch 전 커밋) grep 은 0 을 찍는다. 그 0 으로 가르지 말고 오류부터 푼다.
 
-     - ① **Caddy 2.11.9 전환 이후 커밋**: 그 커밋의 파일로 서버를 덮는다. 서버가 저장소와 같으면 바뀌는 것이 없지만, 아래 [Caddy 롤백 (증상별)](#caddy-롤백-증상별) 로 서버를 손댄 상태(HTTP/2 만 내림·`.bak` 복원·손으로 내림)면 re-run 하지 않는다 — 그 커밋의 버전·프로토콜(지금은 2.11.9·:443 `h1 h2`)로 되돌아가고 `.bak` 도 덮인다.
-     - ② **#1563 ~ 2.11.9 전환 사이 커밋**(2.11.9 전환 릴리스 직후의 '직전 성공 실행'이 여기 든다): re-run 하면 서버가 2.11.4 + `protocols h1` 로 돌아간다. 취약한 조합은 아니지만 Go 보안 수정과 HTTP/2 를 경보 없이 잃고 caddy 가 다시 만들어진다(수 초 끊김). 백엔드만 되돌리려면 위 `BACKEND_IMAGE` 절차를 먼저 쓴다. re-run 했다면 `docker compose exec -T caddy caddy version` 과 바깥에서 `curl -sS -o /dev/null -w '%{http_version}\n' --http2 https://api.duings.com/actuator/health`(`1.1` 이면 HTTP/2 를 잃은 상태)로 다시 확인한다.
+     - ① **Caddy 2.11.9 전환 이후 커밋**: 그 커밋의 파일로 서버를 덮는다. 서버가 저장소와 같으면 바뀌는 것이 없지만, 아래 [Caddy 롤백 (증상별)](#caddy-롤백-증상별) 로 서버를 손댄 상태(HTTP/2 만 내림·`.bak` 복원·손으로 내림)면 re-run 하지 않는다 — 그 커밋의 버전·프로토콜(지금은 2.11.9·:443 `h1 h2`)로 되돌아가고 `.bak` 도 덮인다. 예외는 그 절이 re-run 해도 된다고 하는 두 경우다 — 배포 잡이 스스로 되돌린 뒤(그 절 끝 줄 가르기의 3번)와, 그 절의 '상태를 모를 때' 를 끝까지 따른 뒤에는 실패한 그 실행을 re-run 해도 된다.
+     - ② **#1563 ~ 2.11.9 전환 사이 커밋**(2.11.9 전환 릴리스 직후의 '직전 성공 실행'이 여기 든다): re-run 하면 서버가 2.11.4 + `protocols h1` 로 돌아간다. 취약한 조합은 아니지만 Go 보안 수정과 HTTP/2 를 경보 없이 잃고 caddy 가 다시 만들어진다(수 초 끊김). 백엔드만 되돌리려면 위 `BACKEND_IMAGE` 절차를 먼저 쓴다. re-run 했다면 `docker compose exec -T caddy caddy version` 과 바깥에서 `curl -sS -o /dev/null -w '%{http_version}\n' --http2 https://api.duings.com/actuator/health`(`1.1` 이면 HTTP/2 를 잃은 상태)로 다시 확인한다. 2.11.8 미만으로 **내리는** 배포라 프로토콜도 되읽는다 — 헬스 통과 뒤 reload 가 실패하면 스크립트가 `Caddyfile.bak`(내리기 전의 새 형태)을 되돌려, 잡이 녹색이어도 2.11.4 + :443 HTTP/2 로 뜬 채 끝날 수 있다. `docker compose exec -T caddy curl -s localhost:2019/config/apps/http/servers | grep -o '"protocols":\[[^]]*\]'` 에 `h2` 가 보이면 아래 [Caddy 롤백 (증상별)](#caddy-롤백-증상별) 의 '손으로 내릴 때' 로 간다 — 태그가 이미 2.11.4 라 그 절의 `docker compose up -d --no-deps caddy` 는 caddy 를 다시 만들지 않는다. 되읽기에 `h2` 가 남으면 그 절 끝 문단처럼 reload 로 반영한다.
      - ③ **#1563 이전 커밋**: re-run 하지 않는다 — 그 커밋의 Caddyfile(`protocols h1 h2`, :80 사이트 없음)이 2.11.4 에서 :443 HTTP/2 와 :80 평문 HTTP/2 를 경보 없이 되살린다(#1397 이전 커밋은 떠다니는 태그다). 서버 `.env` 의 `BACKEND_IMAGE` 만 되돌린다 → 헬스 재확인.
 4. **DB 의심 시**: Supabase 대시보드 → Database health. 복구 불가 수준이면 [`DB-RESTORE.md`](./DB-RESTORE.md) 백업/복원 런북(R2 일일 백업, 04:15 KST) 절차로 이관.
 5. **사후**: Sentry 이슈 링크와 함께 타임라인 기록(감지→분류→복구), 원인이 배포였다면 해당 커밋 명시.
 
 ## Caddy 롤백 (증상별)
 
-배포 워크플로의 자동 롤백은 backend 가 unhealthy 일 때만 돈다 — caddy 가 뜨지 못하는 경우는 덮지 않는다. 잡이 `backend 가 healthy 에 도달하지 못했습니다 — 직전 이미지로 롤백: …` 으로 끝났으면 자동 롤백이 두 `.bak` 을 되돌리고 `docker compose up -d` 를 다시 했으므로 caddy 도 배포 전 파일로 돌아가 있다 — 전환 배포라면 2.11.4 + 옛 Caddyfile 이고, 새 Caddy 가 올라간 것이 아니다(직전 이미지가 없거나 이번 이미지와 같으면 되돌리지 않아 새 파일이 남는다).
+배포 워크플로는 새 백엔드 이미지를 설정 파일 교체 전에 받는다(`docker pull` 이 실패하면 교체 전에 멈춘다). 설정 파일을 교체한 뒤 헬스 게이트를 통과하기 전에 끝나면 종료 트랩이 두 설정 파일(Caddyfile 먼저)과 `.env` 의 `BACKEND_IMAGE` 를 배포 전 값으로 되돌리고, 확인한 뒤 `docker compose up -d` 를 다시 한다. 명령이 실패했을 때도, 출력이 끊겼을 때도(SSH 끊김·명령 제한 시간·잡 취소) 그렇다 — 출력이 끊기면 되돌린 기록(`배포가 끝나지 않았습니다 — …` 이후 줄)은 로그에 남지 않는다. 같은 커밋 re-run 이어도 파일은 되돌린다. 전환 배포에서 되돌렸으면 caddy 도 2.11.4 + 옛 Caddyfile 로 돌아가 있다. 되돌리지 않는 것은 헬스 게이트를 통과한 뒤의 실패·끊김(아래 `caddy reload` 실패 등 — 배포는 끝났다)과 최초 배포(`.bak` 이 없다)다. 되돌리지 못하는 것은 강제 종료(`kill -9`·서버 중단)와 되돌리기 자체의 실패(`되돌리기 실패 — …`·`되돌린 설정으로 컨테이너를 다시 띄우지 못했습니다 — …`)다.
 
-Caddy 이미지 태그가 바뀐 배포에서 새 caddy 가 시작된 뒤 죽으면, 배포 잡의 `caddy reload` 가 실패하고(멈춘 컨테이너에는 `docker compose exec` 가 닿지 않는다) 잡은 `Caddyfile.bak` 만 되돌린 뒤 두 번째 reload 도 실패해 `이미지 배포는 성공, Caddy 설정 반영 실패` 로 끝난다. 그때 서버는 **새 compose(2.11.9) + 옛 Caddyfile** 이고, `.bak` 두 개는 배포 전 파일이다. caddy 는 `restart: unless-stopped` 라 그 조합으로 혼자 다시 떠 있을 수도, 계속 죽어 있을 수도 있다(평소의 '실패한 reload 는 돌던 설정을 유지한다'는 컨테이너가 살아 있을 때 이야기다). `docker compose up -d` 자체가 실패하면 잡은 거기서 멈춘다(`set -euo pipefail`) — 그 문구도 `.bak` 복원도 없고, 서버는 새 compose + 새 Caddyfile 이다. 잡이 이렇게 다른 오류로 끝났고 caddy 가 떠 있지 않으면 아래 'caddy 가 뜨지 않는다' 로 간다(옛 버전으로 떠 있으면 아래 '파일만 바뀌고 caddy 는 옛 것이다').
+Caddy 이미지 태그가 바뀐 배포에서 새 caddy 가 시작된 뒤 죽으면, 배포 잡의 `caddy reload` 가 실패하고(멈춘 컨테이너에는 `docker compose exec` 가 닿지 않는다) 잡은 `Caddyfile.bak` 만 되돌린 뒤 두 번째 reload 도 실패해 `이미지 배포는 성공, Caddy 설정 반영 실패` 로 끝난다. 그때 서버는 **새 compose(2.11.9) + 옛 Caddyfile** 이고, `.bak` 두 개는 배포 전 파일이다. caddy 는 `restart: unless-stopped` 라 그 조합으로 혼자 다시 떠 있을 수도, 계속 죽어 있을 수도 있다(평소의 '실패한 reload 는 돌던 설정을 유지한다'는 컨테이너가 살아 있을 때 이야기다). `docker compose up -d` 자체가 실패하면 잡은 `docker compose up 실패 — 직전 이미지로 롤백: …` 을 찍고 위 종료 트랩으로 되돌린다.
 
-실패한 잡이 파일을 바꿨는지는 잡 로그에 `배포 설정 검증 통과 — compose·Caddyfile 반영 완료` 가 찍혔는지로 가른다(워크플로가 `.bak` 복사와 새 파일 `cp` 를 마친 직후에 찍는 줄이다).
+실패한 잡이 서버를 어떤 상태로 두었는지는 실행 화면과 'Deploy over SSH' 단계 로그의 끝 줄로 가른다. 그 단계의 로그 머리에는 스크립트 본문이 그대로 찍혀, 문구로 검색하면 `echo "…"` 줄이 늘 걸린다 — 아래 문구는 `echo "…"` 꼴이 아닌 **출력 줄**(로그의 끝 쪽)에서 본다. 아래 문구는 워크플로가 찍는 그대로다.
 
-- **그 줄이 없다** — 파일을 바꾸기 전에 멈췄다. 빌드·scp·GHCR 로그인 실패, 또는 `incoming/ 에 docker-compose.yml·Caddyfile 이 없습니다 — 스테이징 실패`·`새 docker-compose.yml 검증 실패 — 기존 설정 유지·배포 중단`·`새 Caddyfile 검증 실패(검증 이미지 pull 실패일 수도 있음) — 기존 설정 유지·배포 중단` 오류다. `.bak` 도 파일도 건드리지 않았으므로 서버는 그대로이고, re-run 이 맞는 대응이다(같은 검증이 또 실패하면 저장소를 고친다).
-- **그 줄이 있다** — 새 파일이 서버에 남아 있다(위 헬스 게이트 자동 롤백이 두 `.bak` 을 되돌린 경우만 빼고). `docker compose pull backend`·`up -d`·`Caddy 설정 반영 실패` 어디서 끝났든 re-run 하지 않고 이 절을 따른다. caddy 가 아직 v2.11.4 로 떠 있으면 아래 '파일만 바뀌고 caddy 는 옛 것이다' 부터 본다.
+- **잡이 취소됐거나(Slack 의 `CANCELLED`), 'Deploy over SSH' 단계가 SSH 오류·명령 제한 시간으로 끝났으면(아래 문구가 끝 쪽에 있어도 — 트랩이 그 줄을 찍은 뒤 출력 없이 컨테이너를 다시 띄우는 중에 끊겼을 수 있다), 또는 스크립트의 끝 줄(`배포 완료: …` 이나 아래 문구) 없이 오류로 끝났으면 로그의 줄과 무관하게 아래 '상태를 모를 때' 로 간다.** 출력이 끊긴 잡은 스크립트가 되돌렸는지 로그로 알 수 없다.
+
+그 밖에는 위에서부터 처음 맞는 하나를 따른다.
+
+1. **'Deploy over SSH' 단계가 시작되기 전에 끝났다**(빌드·push·scp 실패) — 서버의 설정 파일·`.env` 는 그대로다(scp 는 `incoming/` 에만 쓴다). re-run 해도 된다.
+2. **스크립트가 아래 오류 줄 하나를 끝 줄로 찍고 스스로 끝났고, `배포 설정 검증 통과 — compose·Caddyfile 반영 완료` 가 없다** — 설정 파일을 교체하기 전에 멈췄다. 서버는 그대로이고 re-run 해도 된다(같은 검증이 또 실패하면 저장소를 고친다).
+   - `incoming/ 에 docker-compose.yml·Caddyfile 이 없습니다 — 스테이징 실패`
+   - `새 docker-compose.yml 검증 실패 — 기존 설정 유지·배포 중단`
+   - `새 Caddyfile 검증 실패(검증 이미지 pull 실패일 수도 있음) — 기존 설정 유지·배포 중단`
+   - `새 백엔드 이미지를 받지 못했습니다 — 기존 설정 유지·배포 중단: …`
+3. **`되돌리기 확인 — docker-compose.yml·Caddyfile·BACKEND_IMAGE 는 배포 전 상태입니다` 가 있고 `되돌린 설정으로 컨테이너를 다시 띄우지 못했습니다 — …` 가 없다** — 스크립트가 배포 전 상태로 되돌리고 다시 띄웠다. 원인은 `배포가 끝나지 않았습니다 — …` 바로 앞의 오류 줄이다(`설정 파일 교체 실패 — 배포 중단`·`.env 의 BACKEND_IMAGE 반영 실패 — 배포 중단`·`docker compose up 실패 — 직전 이미지로 롤백: …`·`backend 가 healthy 에 도달하지 못했습니다 — 직전 이미지로 롤백: …`, 그 밖이면 그 앞에서 실패한 명령의 출력). 원인을 본 뒤 re-run 해도 된다. caddy 가 Up 이 아니면 아래 'caddy 가 뜨지 않는다', backend 가 내려가 있으면 위 장애 대응 런북 3번으로 간다.
+4. **`이미지 배포는 성공, Caddy 설정 반영 실패` 로 끝났다** — 위 문단의 상태다. re-run 하지 않고 아래 '배포 잡이 `Caddy 설정 반영 실패` 로 끝났다' 를 따른다.
+5. **그 밖 전부**(`되돌리기 실패 — …`·`되돌린 설정으로 컨테이너를 다시 띄우지 못했습니다 — …` 가 있다, 판단이 서지 않는다) — re-run 하지 않고 아래 '상태를 모를 때' 로 간다.
 
 **새 파일이 서버에 남은 채 끝난 배포 잡을 re-run 하지 않는다.** re-run 은 지금 파일을 먼저 `.bak` 으로 복사하므로 되돌릴 사본(배포 전 파일)이 사라진다 — `Caddy 설정 반영 실패` 뒤라면 `docker-compose.yml.bak` 이 2.11.9 로 덮인다.
 
 아래는 모두 서버 배포 디렉터리(`/home/ubuntu/duing`)에서 하고, 파일은 `cp` 로 덮는다(Caddyfile 은 단일 파일 bind mount — `mv`·편집기 저장 금지). caddy 만 다시 띄울 때는 `docker compose up -d --no-deps caddy` 로 한다 — compose 에서 caddy 는 backend 에 `depends_on` 이 걸려 있어 `--no-deps` 가 없으면 backend 까지 함께 올리고, `.env` 의 `BACKEND_IMAGE` 가 바뀐 상태면 backend 가 헬스 게이트 없이 새 이미지로 다시 만들어질 수 있다. backend 도 내려가 있으면 위 장애 대응 런북 3번으로 따로 띄운다.
 
-- **파일만 바뀌고 caddy 는 옛 것이다** — 잡이 `배포 설정 검증 통과 — compose·Caddyfile 반영 완료` 를 찍은 뒤, caddy 를 다시 만들기 전에 끝났다(`docker compose pull backend` 실패, caddy 를 다시 만들기 전의 `up -d` 실패, SSH 끊김, 잡 취소). 워크플로는 그 줄 바로 뒤에 `.env` 의 `BACKEND_IMAGE` 도 새 이미지로 바꾼다. 그래서 서버는 **caddy 컨테이너는 2.11.4 로 Up(메모리에는 옛 설정), 디스크는 새 compose·새 Caddyfile·새 `BACKEND_IMAGE`** 다. 이대로 caddy 가 한 번 다시 시작되거나(메모리 초과·재부팅) reload 되면 2.11.4 가 새 Caddyfile 을 읽어 :443 `h1 h2` 로 경보 없이 뜬다.
+- **상태를 모를 때 — 디스크를 한 벌로 맞추고, 컨테이너를 디스크에 맞춘다** — 위 끝 줄 가르기의 첫 항목(취소·SSH 오류·제한 시간)이나 5번에서 온다. 두 설정 파일·`.env`·컨테이너가 배포 전 것인지, 새 것인지, 그 중간인지 로그로는 모른다. 위험한 것은 caddy 가 2.11.4 로 떠 있으면서 :443 HTTP/2 를 켜는 상태다. 디스크의 Caddyfile 이 새 형태면 caddy 가 한 번 다시 시작되거나(메모리 초과·재부팅) reload 될 때 그렇게 뜬다. 서버가 다시 켜질 때 옛 caddy 가 새 Caddyfile 을 이미 읽었으면 지금 그렇게 떠 있다.
+
+  원칙:
+
+  - 디스크를 맞추기 전에는 caddy 를 restart·reload 하지 않고(`EDGE-EMERGENCY.md` 비상 모드의 reload 포함) 서버를 재부팅하지 않는다. 디스크가 안전한 짝으로 확인된 뒤(3단계)의 reload 는 5단계에서 메모리의 설정이 디스크와 다를 때만 한다.
+  - **실패한 배포는 배포 전 상태로 끝낸다.** 새 backend 가 멀쩡히 떠 있어도 디스크·`.env`·컨테이너가 모두 새 것으로 한 벌이 아니면 되돌린다 — 스크립트도 헬스 게이트 전에 출력이 끊기면 그렇게 한다. 헬스 게이트를 통과한 뒤 끊겨 모두 새 것으로 한 벌이면 배포는 끝난 것이다(아래 (나)). 되돌렸으면 그 뒤 re-run 한다.
+  - 이 실행이 서버 파일을 건드렸는지는 **두 `.bak` 의 시각**으로 안다. 스크립트는 설정 파일을 교체하기 직전에 `.bak` 을 만든다.
+
+  **먼저 서버의 배포 스크립트가 끝났는지 본다.** 잡이 취소·SSH 오류·제한 시간으로 끝나도 서버의 배포 스크립트는 다음 출력을 찍을 때까지 돌고, 헬스 게이트 전이었으면 이어서 종료 트랩이 되돌리기(`docker compose pull backend`·`up -d` — backend 정지 유예까지 몇 분)를 한다. 그 사이에 본 상태는 중간 상태이고, 아래 되돌리기의 `up -d`·re-run·다음 main 배포가 트랩과 겹친다.
+
+  ```bash
+  pgrep -c -f '^bash -c'    # ssh-action 이 띄운 배포 스크립트(bash -c)가 돌고 있으면 1 이상 — 0 이 될 때까지 30초마다 다시 본다
+  ```
+
+  `-a`·`-l` 을 붙이지 않는다 — 그 명령줄에는 스크립트 본문과 ssh-action 이 `export` 로 넘긴 GHCR 토큰이 있다. 0 이 되기 전에는 Deploy Backend 를 돌리지 않는다(re-run·수동 실행·main push). 실패한 실행 뒤에 시작된 Deploy Backend 실행이 이미 있으면(대기 중 포함) — 'Deploy over SSH' 전(빌드·push·scp)이면 취소한다(서버에 닿지 않았다). 그 단계에 들었으면 취소하지 않고, 그 실행이 끝나 0 이 되기를 기다린 뒤 그 실행을 실패한 실행으로 놓고 이 절을 처음부터 다시 따른다(성공으로 끝났어도 트랩과 겹쳐 돌았을 수 있다). 10분이 지나도 0 이 아니면 `TZ=UTC ps -o pid=,lstart= -p "$(pgrep -d, -f '^bash -c')"` 의 시작 시각을 실패한 실행의 시작 시각(아래 판정 앞 문단)과 견준다 — 그보다 먼저 시작한 것은 이 배포가 아니니 빼고 센다. 남은 것이 없으면 끝난 것이고, 있으면 계속 기다린다.
+
+  그다음 상태를 본다. 이 블록은 읽기만 한다 — 통째로 붙여 넣어도 서버가 바뀌지 않고, compose 파일이 깨져 있어도 끝까지 돈다.
 
   ```bash
   cd /home/ubuntu/duing
-  docker compose ps caddy                                   # Up 이다
-  docker compose exec -T caddy caddy version                # v2.11.4 로 시작하면 이 갈래다
-  grep -E '^ *image: caddy' docker-compose.yml docker-compose.yml.bak    # 디스크는 2.11.9-alpine, .bak 은 2.11.4-alpine
+  date -u '+지금 %F %T UTC'
+  TZ=UTC ls -l --time-style='+%F %T UTC' docker-compose.yml.bak Caddyfile.bak docker-compose.yml Caddyfile    # 크기와 고친 시각(UTC)
+  for f in docker-compose.yml.bak docker-compose.yml; do echo "$f: $(grep -E '^ *image: caddy' "$f" 2>/dev/null | grep -oE 'caddy:[^ #]+' || echo 태그 없음)"; done
+  grep -cE '^[[:space:]]*protocols[[:space:]].*h2' Caddyfile.bak Caddyfile    # :443 HTTP/2 를 켜는 protocols 줄 수 — 0 = HTTP/1.1 전용
+  cmp -s docker-compose.yml.bak docker-compose.yml && cmp -s Caddyfile.bak Caddyfile && echo "디스크 = .bak" || echo "디스크 ≠ .bak"
+  docker ps -a --format '{{.Names}}\t{{.Image}}\t{{.Status}}'    # 멈춘 컨테이너도 보인다 — caddy·backend 의 이미지와 상태
+  docker exec duing-caddy-1 curl -s localhost:2019/config/apps/http/servers | grep -o '"protocols":\[[^]]*\]' || echo "되읽기 실패"    # 떠 있는 caddy 가 지금 쓰는 프로토콜(서버마다 한 줄) — 이름은 위 caddy 줄의 이름
+  grep '^BACKEND_IMAGE=' .env
   ```
 
-  **되돌리기 전에는 caddy 를 restart·reload 하지 않고(`EDGE-EMERGENCY.md` 비상 모드의 reload 포함), 서버를 재부팅하지 않는다.** 되돌리기 — 먼저 두 `.bak` 의 짝과 지금 떠 있는 backend 이미지를 본다.
+  되읽기(`"protocols":…` 줄)는 떠 있는 caddy 의 메모리 설정이지 디스크가 아니다. 디스크와 같으면 되읽기가 두 줄이고, `h2` 가 든 줄 수가 `Caddyfile:` 줄의 값과 같다(0 = `["h1"]` 두 줄, 1 = `["h1","h2"]` 한 줄 + `["h1"]` 한 줄).
+
+  실패한 실행의 시작 시각은 로컬에서 `gh run view <실행 ID> --json startedAt -q .startedAt` 으로 본다(끝의 `Z` = UTC — 위 `ls` 의 시각과 그대로 견준다). 실행 화면에 보이는 시각은 브라우저 시간대(대개 KST = UTC+9)라 9시간을 빼서 견준다. Slack 알림의 `시간:` 은 잡이 **끝난** 시각(KST)이라 시작 시각으로 쓰지 않는다. 이 실행이 만든 `.bak` 은 빌드·push·scp 뒤라 시작 시각보다 늦다. 실패한 실행의 이미지는 `ghcr.io/rublerubitz/duing-backend:<그 실행의 커밋 SHA>` 다.
+
+  판정 — 위에서부터 처음 맞는 하나를 따른다.
+
+  - (가) **`ls` 의 두 `.bak` 시각이 모두 실패한 실행의 시작 시각보다 앞이고, 떠 있는 caddy 가 디스크와 맞다** — `docker ps -a` 의 caddy 줄 이미지가 `docker-compose.yml:` 줄의 태그와 같고, 그 태그가 2.11.8 미만이면 되읽기가 `"protocols":["h1"]` 두 줄이다(`h2` 가 없다). 이 실행은 교체에 닿지 않았다. 아무것도 되돌리지 않는다 — 오래된 `.bak` 으로 되돌리면 정상 서버를 옛 설정으로 덮는다. backend 가 `(healthy)` 면 끝이고 re-run 해도 된다(caddy 가 Up 이 아니면 아래 'caddy 가 뜨지 않는다', backend 가 healthy 가 아니면 위 장애 대응 런북 3번). 시각은 앞인데 caddy 가 디스크와 맞지 않으면 (가) 로 끝내지 않는다 — 그 전 실행이 남긴 상태다. 두 `.bak` 의 시각 바로 전에 시작한 Deploy Backend 실행(로컬에서 `gh run list --workflow deploy-backend.yml --limit 10 --json databaseId,headSha,startedAt,conclusion`)을 '실패한 실행' 으로 놓고 처음부터 다시 가른다.
+  - (나) **배포는 끝났다**(헬스 게이트를 통과한 뒤 끊겼다) — 아래가 모두 맞다.
+    - `docker ps -a` 의 backend 줄 이미지가 실패한 실행의 이미지이고 상태에 `(healthy)` 가 있다.
+    - 마지막 줄(`BACKEND_IMAGE=…`)도 그 이미지다.
+    - `docker ps -a` 의 caddy 줄 이미지가 `docker-compose.yml:` 줄의 태그와 같다.
+    - `디스크 ≠ .bak` 이다(그 릴리스가 compose·Caddyfile 을 바꾸지 않았으면 `디스크 = .bak` 이어도 된다).
+
+    되돌리지 않는다. 아래 되돌리기의 3단계(짝 확인)와 5단계(확인 — 메모리가 디스크와 다르면 reload)만 한다. 배포가 끝났으니 re-run 할 필요가 없다.
+  - (다) **`.bak` 을 믿을 수 없다** — 아래 가운데 하나라도 맞다.
+    - `ls` 에 `.bak` 이 없거나(`No such file`) 크기가 0 이다.
+    - 두 `.bak` 의 시각이 10초 넘게 다르다.
+    - `docker-compose.yml.bak:` 줄이 `태그 없음` 이다.
+    - `.bak` 짝이 금지 짝이다 — `docker-compose.yml.bak:` 줄의 태그가 2.11.8 미만(`caddy:2.11.4-alpine` 등)인데 `Caddyfile.bak:` 줄이 0 이 아니다.
+
+    직전 성공 릴리스의 두 파일로 `.bak` 을 다시 만든다. 로컬 저장소에서(`git fetch origin` 뒤):
+
+    ```bash
+    SHA="$(gh run list --workflow deploy-backend.yml --status success --limit 1 --json headSha -q '.[0].headSha')"
+    git show "${SHA:?직전 성공 실행을 못 읽었다}:deploy/docker-compose.yml" > /tmp/docker-compose.yml.release
+    git show "${SHA:?직전 성공 실행을 못 읽었다}:deploy/Caddyfile" > /tmp/Caddyfile.release
+    scp /tmp/docker-compose.yml.release /tmp/Caddyfile.release ubuntu@<서버 고정 IP>:/tmp/
+    ```
+
+    서버에서:
+
+    ```bash
+    cd /home/ubuntu/duing
+    cp /tmp/Caddyfile.release Caddyfile.bak && cp /tmp/docker-compose.yml.release docker-compose.yml.bak
+    ```
+
+    위 상태 확인을 다시 돌려 `.bak` 이 (다) 에 걸리지 않으면 (라) 로 간다. 급하면 이 대신 아래 '손으로 내릴 때' 로 디스크를 2.11.4 + HTTP/1.1 전용(언제나 안전한 짝)으로 맞추고, 아래 되돌리기의 2단계부터 이어 간다.
+  - (라) **그 밖** — 이 실행이 교체했고 `.bak` 을 믿을 만하다. 아래 되돌리기로 간다.
+
+  **되돌리기** — 다섯 단계다. 다시 돌려도 결과가 같다.
+
+  1단계 — 두 파일을 `.bak` 으로 덮고 확인한다. 상태 확인이 `디스크 = .bak` 이면 이 단계를 건너뛰고 2단계로 간다(두 파일을 다시 쓰지 않는다). 블록은 Caddyfile 을 먼저, 내용이 다른 파일만 덮는다 — 배포 스크립트의 되돌리기와 같은 꼴이다. compose 를 먼저 덮으면 그 사이가 '2.11.4 compose + 새 Caddyfile' 일 수 있고, `cp` 는 대상을 자른 뒤 쓰므로 디스크가 가득 찼을 때 같은 내용을 다시 쓰면 멀쩡한 파일을 망가뜨린다.
 
   ```bash
   cd /home/ubuntu/duing
-  ls -l --time-style=full-iso docker-compose.yml.bak Caddyfile.bak    # 두 시각이 몇 초 안이어야 한다(같은 배포)
-  grep -E '^ *image: caddy' docker-compose.yml.bak                     # 2.11.4-alpine 이어야 한다
-  grep -cxF $'\tservers :443 {' Caddyfile.bak                          # 0 이어야 한다(옛 형태)
-  docker inspect --format '{{.Config.Image}}' "$(docker compose ps -q backend)"    # 지금 떠 있는 backend 이미지(배포 전 이미지)
+  { cmp -s Caddyfile.bak Caddyfile || cp Caddyfile.bak Caddyfile; } && { cmp -s docker-compose.yml.bak docker-compose.yml || cp docker-compose.yml.bak docker-compose.yml; }
+  cmp -s Caddyfile.bak Caddyfile && cmp -s docker-compose.yml.bak docker-compose.yml && echo "두 파일이 .bak 과 같다" || echo "멈춘다 — 두 파일이 .bak 과 다르다"
   ```
 
-  두 `.bak` 이 `2.11.4-alpine`·`0` 이고 마지막 줄이 backend 이미지 하나를 찍었을 때만 아래를 실행한다. 짝이 다르면(이미 한 번 re-run 해 `.bak` 이 새 파일이 됐다) 되돌릴 사본이 없다 — 아래 블록의 `RUNNING_BACKEND`·`sed` 두 줄로 `.env` 만 되돌리고, 디스크는 아래 '손으로 내릴 때' 로 2.11.4·:443 `protocols h1` 에 맞춘다(떠 있는 caddy 와 같은 2.11.4 라 그 뒤에는 다시 시작돼도 안전하다).
+  마지막 줄이 `두 파일이 .bak 과 같다` 일 때만 아래로 간다. `멈춘다` 면 `cp` 가 실패했다(바로 위의 `cp:` 오류 — 디스크 가득 참 등). 원인을 푼 뒤 이 블록을 다시 돌린다. 그동안 `docker compose up -d` 를 치지 않는다.
+
+  2단계 — **`.env` 를 배포 전 태그로 고칠 때.** 상태 확인의 마지막 줄(`BACKEND_IMAGE=…`)이 실패한 실행의 이미지일 때만 고친다. 그 밖의 값이면 스크립트가 되돌렸거나 건드리지 않은 것이니 그대로 두고 3단계로 간다.
+
+  고칠 값(배포 전 이미지)은 실패한 실행의 로그에서 스크립트가 교체 전에 찍는 `직전 이미지(롤백 기준): …` 줄의 값이다(위의 출력 줄 규칙대로 본다). 그 줄이 없을 때만(로그가 그 전에 끊겼다) `ghcr.io/rublerubitz/duing-backend:<직전 성공 실행의 커밋 SHA>` 를 쓴다(로컬에서 `gh run list --workflow deploy-backend.yml --status success --limit 1 --json headSha -q '.[0].headSha'` — 그 사이 `이미지 배포는 성공, Caddy 설정 반영 실패` 로 끝난 실행이 있으면 그 실행의 SHA). 예외는 실패한 실행이 re-run 일 때다(로컬에서 `gh run view <실행 ID> --json attempt -q .attempt` 가 2 이상) — 실패한 re-run 은 성공 목록에서 빠져, 위 명령이 그보다 앞에 만들어진 실행을 내놓을 수 있다. 그때 앞 시도가 성공했으면(`gh run view <실행 ID> --attempt <앞 번호> --json conclusion -q .conclusion` 이 `success`) 배포 전 이미지는 실패한 실행의 이미지 그대로라 고칠 것이 없다. 그 이미지가 서버에 있는지 본다(배포 때 정리는 태그 없는 이미지만 지운다 — `EDGE-EMERGENCY.md` 1-1 의 직전 태그 찾기와 같은 목록이다).
+
+  ```bash
+  docker images ghcr.io/rublerubitz/duing-backend --format '{{.Tag}}\t{{.CreatedAt}}'    # 새 것이 위 — 배포 전 이미지의 태그가 있는지 본다
+  ```
+
+  그 이미지를 아래 블록의 `BEFORE_IMAGE=` 줄에 넣어 실행한다. 넣지 않고 돌리면 그 줄이 문법 오류로 멈추고 `sed` 도 `배포 전 이미지를 넣지 않았다` 로 멈춘다. `unset` 줄은 같은 세션에 남은 옛 값이 쓰이지 않게 한다.
 
   ```bash
   cd /home/ubuntu/duing
-  RUNNING_BACKEND="$(docker inspect --format '{{.Config.Image}}' "$(docker compose ps -q backend)")"
-  sed -i "s|^BACKEND_IMAGE=.*|BACKEND_IMAGE=${RUNNING_BACKEND:?backend 이미지를 못 읽었다}|" .env
-  cp docker-compose.yml.bak docker-compose.yml
-  cp Caddyfile.bak Caddyfile
-  grep '^BACKEND_IMAGE=' .env                                          # 위에서 본 backend 이미지
-  grep -E '^ *image: caddy' docker-compose.yml                         # 2.11.4-alpine
-  grep -cxF $'\tservers :443 {' Caddyfile                              # 0
+  unset BEFORE_IMAGE
+  BEFORE_IMAGE=<배포 전 이미지>
+  sed -i "s|^BACKEND_IMAGE=.*|BACKEND_IMAGE=${BEFORE_IMAGE:?배포 전 이미지를 넣지 않았다}|" .env
+  grep '^BACKEND_IMAGE=' .env                                          # 배포 전 이미지
   ```
 
-  caddy 는 다시 띄우지 않는다 — Caddyfile 은 단일 파일 bind mount 라 `cp`(inode 유지)로 되돌린 내용을 컨테이너도 그대로 보고, 그 내용이 메모리의 옛 설정과 같다. 이제는 다시 시작되거나 reload 돼도 2.11.4 + 옛 Caddyfile 이다. 서버가 배포 전 상태로 돌아왔으니 **이제 re-run 해도 된다** — re-run 은 지금(옛) 파일로 `.bak` 을 다시 만들고, 워크플로가 `.env` 에서 읽는 직전 이미지(`PREV_IMAGE`)가 배포 전 이미지라 헬스 게이트가 실패하면 자동 롤백이 돈다(`.env` 를 되돌리지 않으면 직전 이미지가 이번 이미지와 같아 자동 롤백을 건너뛴다).
+  3단계 — 디스크 짝을 확인한다(읽기만 한다). 짝 검사는 아래 '손으로 내릴 때' 의 검사와 같은 꼴이다.
+
+  ```bash
+  cd /home/ubuntu/duing
+  tag="$(grep -E '^ *image: caddy' docker-compose.yml | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -n 1)"
+  h2="$(grep -cE '^[[:space:]]*protocols[[:space:]].*h2' Caddyfile)"
+  if [ -z "$tag" ]; then echo "멈춘다 — compose 에 caddy 태그가 없다"; elif [ "$h2" != 0 ] && [ "$(printf '%s\n' "$tag" 2.11.8 | sort -V | head -n 1)" != 2.11.8 ]; then echo "멈춘다 — 금지 짝: caddy ${tag} + :443 HTTP/2"; else echo "금지 짝 아님 — caddy ${tag}, h2 줄 ${h2}"; fi
+  ```
+
+  마지막 줄이 `금지 짝 아님` 일 때만 다음으로 간다(되돌리는 중이면 4단계, 판정 (나) 에서 왔으면 5단계). `멈춘다` 면 아래 '손으로 내릴 때' 로 디스크를 맞춘 뒤 이 블록을 다시 돌린다.
+
+  4단계 — 컨테이너를 디스크와 `.env` 에 맞춘다.
+
+  ```bash
+  cd /home/ubuntu/duing
+  docker compose up -d
+  ```
+
+  바뀐 것만 다시 만든다. backend 가 새 이미지로 떠 있었으면 배포 전 이미지로 돌아가며 수십 초 끊긴다. caddy 는 compose 의 caddy 설정(태그 등)이 바뀔 때만 다시 만들어진다 — 디스크를 되돌려도 태그가 같으면 떠 있는 caddy 의 메모리 설정은 그대로다(5단계에서 본다). `up -d` 가 실패하면 출력으로 가른다 — caddy 쪽이면 아래 'caddy 가 뜨지 않는다', backend 쪽이면 위 장애 대응 런북 3번으로 간다.
+
+  5단계 — 확인한다(읽기만 한다). backend 가 healthy 가 되기까지 2분쯤 걸릴 수 있다 — 다시 돌려도 된다.
+
+  ```bash
+  cd /home/ubuntu/duing
+  docker ps -a --format '{{.Names}}\t{{.Image}}\t{{.Status}}'    # caddy 이미지 = 디스크 태그, backend 이미지 = .env 의 이미지이고 (healthy)
+  docker compose exec -T caddy caddy version                      # 디스크 태그와 같은 버전
+  grep -cE '^[[:space:]]*protocols[[:space:]].*h2' Caddyfile    # 디스크 Caddyfile 의 h2 줄 수
+  docker exec duing-caddy-1 curl -s localhost:2019/config/apps/http/servers | grep -o '"protocols":\[[^]]*\]'    # 메모리의 프로토콜 — 두 줄이고, h2 가 든 줄 수가 바로 위 값과 같아야 한다
+  ```
+
+  되읽기가 디스크와 다르면(두 줄이 아니거나 `h2` 가 든 줄 수가 바로 위 값과 다르다) 메모리의 설정이 디스크와 다르다 — 서버가 다시 켜질 때 옛 caddy 가 새 Caddyfile 을 읽었거나, 태그가 같아 4단계가 caddy 를 다시 만들지 않았다. 3단계가 `금지 짝 아님` 이었으면 아래로 메모리를 디스크에 맞추고 위 블록을 다시 돌린다. 떠 있는 caddy 가 2.11.8 미만인데 `h2` 가 보이면 미루지 않는다 — 지금 금지 조합이 떠 있다.
+
+  ```bash
+  cd /home/ubuntu/duing
+  docker compose exec -T caddy caddy reload --config /etc/caddy/Caddyfile --adapter caddyfile
+  ```
+
+  caddy 버전이 디스크 태그와 같고, 되읽기가 디스크와 같고, backend 가 `(healthy)` 면 디스크·`.env`·컨테이너·메모리가 한 벌로 맞았다. 되돌렸으면 **이제 re-run 해도 된다** — re-run 은 지금 파일로 `.bak` 을 다시 만들고, `.env` 의 직전 이미지가 배포 전 이미지라 실패하면 스크립트가 파일과 이미지를 함께 되돌린다. caddy 가 Up 이 아니면 아래 'caddy 가 뜨지 않는다' 로 간다(디스크가 이미 `.bak` 이라 `diff` 가 비는 것이 정상이다).
 - **배포 잡이 `Caddy 설정 반영 실패` 로 끝났다** — 먼저 지금 상태를 본다.
 
   ```bash
@@ -181,9 +296,10 @@ Caddy 이미지 태그가 바뀐 배포에서 새 caddy 가 시작된 뒤 죽으
 
   - caddy 가 Up 이고 `v2.11.9`, 되읽기가 `"protocols":["h1"]` 두 줄이면 2.11.9 + 옛 Caddyfile(HTTP/1.1 전용)로 돌고 있다. 안전한 조합이고 API 는 산다. 급히 바꾸지 않는다 — `docker compose logs --tail 100 caddy` 로 새 Caddyfile 이 왜 뜨지 못했는지 보고, 저장소에서 고치거나 2.11.9 전환 PR 을 되돌리는 PR 로 맞춘다.
   - caddy 가 Up 이 아니면 아래 'caddy 가 뜨지 않는다' 로 간다.
-  - Up 인데 되읽기에 `["h1","h2"]` 가 있으면 컨테이너는 새 설정으로 떠 있고 파일만 옛 것이다. `docker compose exec -T caddy caddy reload --config /etc/caddy/Caddyfile --adapter caddyfile` 로 파일(옛 설정)과 맞춘 뒤 첫 경우로 본다.
+  - Up 인데 되읽기에 `["h1","h2"]` 가 있으면 컨테이너는 새 설정으로 떠 있고 파일만 옛 것이다. `docker compose exec -T caddy caddy reload --config /etc/caddy/Caddyfile --adapter caddyfile` 로 파일(옛 설정)과 맞춘 뒤 첫 경우로 본다. 떠 있는 caddy 가 2.11.8 미만이면 이 reload 를 하지 않는다 — 아래 갈래로 간다.
+  - **떠 있는 caddy 가 2.11.8 미만이다**(2.11.8 미만으로 **내리는** 배포) — reload 하지 않는다. 헬스 통과 뒤 reload 가 실패하면 스크립트가 `Caddyfile.bak`(내리기 전의 새 형태)을 되돌리므로, 디스크의 Caddyfile 이 :443 HTTP/2 일 수 있다(위 블록의 `Caddyfile:1`). 그대로 reload 하거나 다시 시작되면 2.11.4 + :443 HTTP/2 가 뜬다. 되읽기나 디스크에 `h2` 가 보이면 아래 '손으로 내릴 때' 로 간다 — compose 의 태그가 이미 내린 버전이라 그 절의 `docker compose up -d --no-deps caddy` 는 caddy 를 다시 만들지 않는다. 되읽기에 `h2` 가 남으면 그 절 끝 문단처럼 reload 로 반영한다.
 - **caddy 가 뜨지 않는다(API 전체 불통)** — `docker compose ps caddy` 가 Up 이 아니거나 `docker compose logs --tail 50 caddy` 에 기동 오류가 있다.
-  되돌리기 전에 원인을 가른다 — **로그나 `up -d` 출력(배포 잡 로그, 또는 손으로 다시 친 `docker compose up -d --no-deps caddy` 의 출력)이 설정·버전 탓인 기동 오류를 가리킬 때만 되돌린다.** 배포와 무관하게 내려갔으면(OOM 등 — 설정 오류가 없다) 되돌리지 않고 `docker compose up -d --no-deps caddy` 로 다시 띄운 뒤 로그를 본다 — 다시 띄워도 로그나 `up -d` 출력이 설정·버전을 가리키며 뜨지 않으면 아래 복원으로 이어 간다. 설정·버전 탓인데 아래 `diff` 두 개가 아무것도 찍지 않으면 `.bak` 이 지금 파일과 같아 되돌릴 사본이 없다(실패한 전환 잡을 re-run 해 `.bak` 이 지금 파일과 같아진 경우 등) — 아래 '손으로 내릴 때' 로 간다.
+  되돌리기 전에 원인을 가른다 — **로그나 `up -d` 출력(배포 잡 로그, 또는 손으로 다시 친 `docker compose up -d --no-deps caddy` 의 출력)이 설정·버전 탓인 기동 오류를 가리킬 때만 되돌린다.** 배포와 무관하게 내려갔으면(OOM 등 — 설정 오류가 없다) 되돌리지 않고 `docker compose up -d --no-deps caddy` 로 다시 띄운 뒤 로그를 본다 — 다시 띄워도 로그나 `up -d` 출력이 설정·버전을 가리키며 뜨지 않으면 아래 복원으로 이어 간다. 설정·버전 탓인데 아래 `diff` 두 개가 아무것도 찍지 않으면 `.bak` 이 지금 파일과 같아 되돌릴 사본이 없다(실패한 전환 잡을 re-run 해 `.bak` 이 지금 파일과 같아진 경우 등) — 아래 '손으로 내릴 때' 로 간다. 단 디스크를 이미 배포 전 파일로 되돌렸으면 — 배포 잡이 `되돌리기 확인 — docker-compose.yml·Caddyfile·BACKEND_IMAGE 는 배포 전 상태입니다` 를 찍고 끝났거나, 위 '상태를 모를 때' 를 따라 맞췄다 — `diff` 가 비는 것이 정상이다. '손으로 내릴 때' 로 가지 않고, 배포와 무관하게 내려간 경우처럼 `docker compose up -d --no-deps caddy` 로 다시 띄운 뒤 로그를 본다.
 
   ```bash
   cd /home/ubuntu/duing
@@ -236,7 +352,7 @@ Caddy 이미지 태그가 바뀐 배포에서 새 caddy 가 시작된 뒤 죽으
   ```
 
   바깥에서 `curl -sS -o /dev/null -w '%{http_version}\n' --http2 https://api.duings.com/actuator/health` → `1.1`. 저장소는 :443 을 `protocols h1` 로 바꾸는 후속 PR 로 맞추는데, **같은 PR 에서 `.github/workflows/deploy-config-ci.yml` 의 :443 프로토콜 검사(① — 지금 기대값 `["h1","h2"]`)도 `["h1"]` 로** 바꿔야 Gate 를 통과한다(버전 하한 검사 ④ 는 :443 에 h2 가 없으면 저절로 건너뛴다). 그 PR 이 들어가기 전에 Deploy Backend 가 돌면 서버가 저장소의 `h1 h2` 로 돌아간다.
-- **손으로 내릴 때**(되돌릴 짝 맞는 `.bak` 없이 서버를 2.11.4 에 맞춰야 할 때만 — 위 'caddy 가 뜨지 않는다' 에서 되돌릴 사본이 없거나(`diff` 가 비었다·`.bak` 짝이 깨졌다) 짝 맞는 2.11.9 `.bak` 으로 되돌려도 2.11.9 가 뜨지 않을 때(2.11.9 자체가 원인), 또는 위 '파일만 바뀌고 caddy 는 옛 것이다' 에서 `.bak` 짝이 다를 때) — 태그만 2.11.4 로 내리지 않는다. 2.11.8 미만 빌드는 Go HTTP/2 서버 DoS 수정이 없으니 :443 을 `protocols h1` 로 함께 바꾼다. 주소별 `servers` 문법은 2.11.4 도 받는다(2026-11-18 확인).
+- **손으로 내릴 때**(되돌릴 짝 맞는 `.bak` 없이 서버를 2.11.4 에 맞춰야 할 때만 — 위 'caddy 가 뜨지 않는다' 에서 되돌릴 사본이 없거나(`diff` 가 비었다·`.bak` 짝이 깨졌다) 짝 맞는 2.11.9 `.bak` 으로 되돌려도 2.11.9 가 뜨지 않을 때(2.11.9 자체가 원인), 또는 위 '상태를 모를 때' 에서 `.bak` 을 믿을 수 없거나(판정 (다)) 디스크 짝이 금지 짝일 때(되돌리기 3단계)) — 태그만 2.11.4 로 내리지 않는다. 2.11.8 미만 빌드는 Go HTTP/2 서버 DoS 수정이 없으니 :443 을 `protocols h1` 로 함께 바꾼다. 주소별 `servers` 문법은 2.11.4 도 받는다(2026-11-18 확인).
 
   ```bash
   cd /home/ubuntu/duing
@@ -262,7 +378,7 @@ Caddy 이미지 태그가 바뀐 배포에서 새 caddy 가 시작된 뒤 죽으
 
   이미 한 번 적용한 뒤 Caddyfile 만 다시 고쳐 적용할 때는(예: 되읽기가 한 줄뿐이다) 앞 블록을 처음부터 다시 돌리지 않는다 — 사본 만들기 줄이 `.before-down` 을 이미 내린 파일로 덮는다. `/tmp/Caddyfile.down` 의 `servers :443 {` 블록 안에 `protocols h1` 줄을 넣고(들여쓰기는 같은 블록의 다른 줄과 같게), 앞 블록의 마지막 두 줄(validate·검사)로 확인한 뒤 `cp /tmp/Caddyfile.down Caddyfile` 한다. 태그가 같아 `docker compose up -d --no-deps caddy` 가 컨테이너를 다시 만들지 않으니 `docker compose exec -T caddy caddy reload --config /etc/caddy/Caddyfile --adapter caddyfile` 로 반영하고, 위 블록의 되읽기 줄로 두 줄 모두 `["h1"]` 인지 다시 본다.
 
-  '파일만 바뀌고 caddy 는 옛 것이다' 에서 왔으면 2.11.9 가 원인이 아니니 저장소는 그대로 두고, 그 갈래 끝(이제 re-run 해도 된다)으로 돌아간다. 그 밖에는 저장소를 2.11.9 전환 PR 을 되돌리는 PR 로 맞춘다. 그 PR 이 들어가기 전에 Deploy Backend 가 돌면(main push·re-run·수동 실행) 서버가 저장소의 2.11.9·:443 `h1 h2` 로 다시 덮인다.
+  '상태를 모를 때' 에서 왔으면 2.11.9 가 원인이 아니니 저장소는 그대로 두고, 그 절의 되돌리기 2단계(`.env`)부터 이어 간다 — 1단계는 하지 않는다(내린 파일을 `.bak` 으로 덮는다). 그 밖에는 저장소를 2.11.9 전환 PR 을 되돌리는 PR 로 맞춘다. 그 PR 이 들어가기 전에 Deploy Backend 가 돌면(main push·re-run·수동 실행) 서버가 저장소의 2.11.9·:443 `h1 h2` 로 다시 덮인다.
 - **일반 경로**: 2.11.9 전환 PR 을 통째로 되돌리는 PR 을 develop 에 머지하고 main 으로 내보낸다(배포가 두 파일을 함께 되돌리고, CI 검사도 함께 돌아간다).
 
 ## 미커버 (후속)
