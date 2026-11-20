@@ -103,7 +103,7 @@ describe('TermsPage 처리 위탁·국외 이전·분석 쿠키 고지', () => {
     ).toBeInTheDocument();
   });
 
-  it('6조가 Vercel·Sentry·PostHog·Slack·GitHub 로 이전되는 항목을 줄마다 적는다', () => {
+  it('6조가 Cloudflare·Vercel·Sentry·PostHog·Slack·GitHub 로 이전되는 항목을 줄마다 적는다', () => {
     render(<TermsPage />);
     const transfer = within(articleOf('6. 개인정보의 국외 이전'));
 
@@ -123,7 +123,13 @@ describe('TermsPage 처리 위탁·국외 이전·분석 쿠키 고지', () => {
         /^Slack Technologies, LLC\(미국\) \/ 이전 항목: 회원가입 알림의 이름·학번.*보유·이용기간: 운영팀이 따로 삭제하지 않으며, 무료 워크스페이스 정책에 따라 1년이 지난 메시지는 Slack이 순차 삭제합니다$/,
       ),
     ).toBeInTheDocument();
-    expect(transfer.queryByText(/의 정책에 따릅니다/)).not.toBeInTheDocument();
+    expect(transfer.getAllByText(/^Cloudflare, Inc\./)).toHaveLength(1);
+    expect(
+      transfer.getByText(
+        /^Cloudflare, Inc\.\(미국\) \/ 이전 항목: 업로드 파일·데이터베이스 백업에 포함된 개인정보, 파일 요청 시 IP 주소·브라우저 정보.* \/ 이전 목적: 파일 저장·전송\(CDN\)·보안 \/ 보유·이용기간: 업로드 파일은 위탁계약 종료 시까지 보관되고, 데이터베이스 백업은 생성 후 30일이 지나면 삭제되며/,
+      ),
+    ).toBeInTheDocument();
+    expect(transfer.queryByText(/구체적인 기간은 .*의 정책에 따릅니다/)).not.toBeInTheDocument();
     expect(
       transfer.getByText(
         /^GitHub, Inc\.\(미국\) \/ 이전 항목: .* \/ 이전 일시: 매일 04시 15분 이후 하루 한 번 실행되는 정기 백업/,
@@ -137,15 +143,10 @@ describe('TermsPage 처리 위탁·국외 이전·분석 쿠키 고지', () => {
 
     expect(
       transfer.getByText(
-        /Cloudflare R2는 한국 내 저장 위치를 지정할 수 없어 업로드 파일과 데이터베이스 백업에 포함된 개인정보가 국외 데이터센터에 저장될 수 있으며/,
+        /Cloudflare R2는 한국 내 저장 위치를 지정할 수 없어 업로드 파일과 데이터베이스 백업에 포함된 개인정보가 국외 데이터센터에 저장될 수 있습니다\./,
       ),
     ).toBeInTheDocument();
     expect(transfer.queryByText(/국외 서버를 경유할 수 있습니다/)).not.toBeInTheDocument();
-    expect(
-      transfer.getByText(
-        /업로드 파일은 위탁계약 종료 시까지 보관되고 데이터베이스 백업은 생성 후 30일이 지나면 삭제됩니다/,
-      ),
-    ).toBeInTheDocument();
     expect(
       transfer.queryByText(/국외 데이터센터에 저장될 수 있으며, 위탁계약 종료 시까지 보관됩니다/),
     ).not.toBeInTheDocument();
