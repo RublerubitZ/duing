@@ -1,6 +1,6 @@
 'use client';
 
-import { useAdminClubsQuery } from '@duing/hooks';
+import { useAdminActiveClubsQuery } from '@duing/hooks';
 import type { NoticeClubScopeRole, NoticeVisibility } from '@duing/types';
 import { LoadingGate } from '@/components/loading/LoadingGate';
 import { VISIBILITY_LABEL, CLUB_SCOPE_ROLE_LABEL } from '../_lib/visibilityLabels';
@@ -21,7 +21,12 @@ export function VisibilityPicker({
   visibility, clubScopeRole, targetClubIds,
   onVisibilityChange, onClubScopeRoleChange, onTargetClubIdsChange,
 }: Props) {
-  const clubsQuery = useAdminClubsQuery({ size: 200 });
+  const clubsQuery = useAdminActiveClubsQuery();
+  // 다 받은 뒤에만 센다 — 받기 전엔 모든 선택이 목록 밖으로 보인다.
+  const listedClubIds = clubsQuery.data ? new Set(clubsQuery.data.map((club) => club.id)) : null;
+  const unlistedSelectedCount = listedClubIds
+    ? targetClubIds.filter((clubId) => !listedClubIds.has(clubId)).length
+    : 0;
 
   return (
     <div className="space-y-3">
@@ -71,7 +76,7 @@ export function VisibilityPicker({
             {clubsQuery.isLoading && (
               <LoadingGate className="min-h-0 py-4" label="동아리 목록 불러오는 중" />
             )}
-            {clubsQuery.data?.content.map((club) => {
+            {clubsQuery.data?.map((club) => {
               const checked = targetClubIds.includes(club.id);
               return (
                 <label
@@ -98,6 +103,19 @@ export function VisibilityPicker({
           <p className="text-[12px] text-charcoal-3">
             선택된 동아리: {targetClubIds.length}개
           </p>
+          {listedClubIds && unlistedSelectedCount > 0 && (
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[12px] text-charcoal-3">
+              <span>
+                목록에 없는 동아리 {unlistedSelectedCount}곳도 선택돼 있습니다 — 운영 중이 아니라 지금은 회원에게 보이지 않고,
+                폐쇄된 동아리가 섞여 있으면 저장이 거절됩니다.
+              </span>
+              <button
+                type="button"
+                onClick={() => onTargetClubIdsChange(targetClubIds.filter((clubId) => listedClubIds.has(clubId)))}
+                className="font-semibold text-charcoal-2 underline underline-offset-2"
+              >목록에 없는 선택 빼기</button>
+            </div>
+          )}
         </div>
       )}
     </div>
