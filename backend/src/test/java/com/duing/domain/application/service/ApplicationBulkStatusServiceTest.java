@@ -1,6 +1,7 @@
 package com.duing.domain.application.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.tuple;
 
 import com.duing.common.IntegrationTestBase;
 import com.duing.common.TestcontainersConfiguration;
@@ -23,6 +24,7 @@ import com.duing.domain.user.entity.Grade;
 import com.duing.domain.user.entity.User;
 import com.duing.domain.user.entity.UserRole;
 import com.duing.domain.user.repository.UserRepository;
+import com.duing.domain.user.service.UserService;
 import java.lang.reflect.Field;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -33,6 +35,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.jdbc.core.JdbcTemplate;
 
 // @DirtiesContext 제거: IntegrationTestBase.cleanDatabase() 가 매 테스트 전 전체 테이블을 TRUNCATE 해
 // 이전 테스트의 application / club_member 데이터가 다음 테스트 assertion 에 영향을 주지 않는다.
@@ -46,6 +49,8 @@ class ApplicationBulkStatusServiceTest extends IntegrationTestBase {
     @Autowired ClubRepository clubRepository;
     @Autowired ClubMemberRepository clubMemberRepository;
     @Autowired UserRepository userRepository;
+    @Autowired UserService userService;
+    @Autowired JdbcTemplate jdbcTemplate;
 
     private final AtomicLong sequence = new AtomicLong(System.nanoTime());
 
@@ -309,6 +314,45 @@ class ApplicationBulkStatusServiceTest extends IntegrationTestBase {
 
         assertThat(result.updated()).isEqualTo(2);
         assertThat(result.failures()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("일괄 합격에 탈퇴한 지원자가 섞이면 그 건만 일반 사유로 실패하고 회원 행이 생기지 않으며 나머지는 합격된다")
+    void bulkAcceptFailsOnlyWithdrawnApplicant() throws Exception {
+        User leader = saveUser("탈퇴일괄리더", UserRole.STUDENT);
+        Club club = saveActiveClub("탈퇴일괄동아리");
+        clubMemberRepository.save(ClubMember.asLeader(club, leader));
+        Recruitment recruitment = recruitmentRepository.save(
+                Recruitment.create(club, "탈퇴일괄모집", null,
+                        LocalDate.now().minusDays(1), LocalDate.now().plusDays(7), 10));
+        Application aliveApplication =
+                saveApplicationWithStatus(recruitment, ApplicationStatus.SUBMITTED, "생존지원자");
+        Application withdrawnApplication =
+                saveApplicationWithStatus(recruitment, ApplicationStatus.SUBMITTED, "탈퇴지원자");
+        userService.withdraw(withdrawnApplication.getUser().getId());
+
+        BulkUpdateApplicationStatusResult result = applicationService.bulkUpdateStatus(
+                new BulkUpdateApplicationStatusCommand(
+                        List.of(aliveApplication.getId(), withdrawnApplication.getId()),
+                        leader.getId(),
+                        ApplicationStatus.ACCEPTED));
+
+        assertThat(result.updated()).isEqualTo(1);
+        assertThat(result.failures())
+                .extracting(BulkUpdateApplicationStatusResult.Failure::applicationId,
+                        BulkUpdateApplicationStatusResult.Failure::reason)
+                .containsExactly(tuple(withdrawnApplication.getId(), "해당 지원서를 처리할 권한이 없거나 존재하지 않습니다."));
+        assertThat(activeMembershipCount(club, aliveApplication.getUser()))
+                .as("살아 있는 지원자는 회원이 된다").isEqualTo(1);
+        assertThat(activeMembershipCount(club, withdrawnApplication.getUser()))
+                .as("탈퇴한 계정에는 회원 행이 없다").isZero();
+    }
+
+    // 파생 쿼리는 user 조인으로 유령 행을 가릴 수 있어 jdbc 로 물리 행을 센다.
+    private int activeMembershipCount(Club club, User member) {
+        return jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM club_member WHERE club_id = ? AND user_id = ? AND deleted_at IS NULL",
+                Integer.class, club.getId(), member.getId());
     }
 
     private User saveUser(String name, UserRole role) {

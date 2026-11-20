@@ -97,6 +97,15 @@ class ApplicationStatusServiceTest {
         stubActorRole(ClubMemberRole.OFFICER);
     }
 
+    /**
+     * 지원자 생존 판정(users 행 잠금 조회)의 기본 전제는 "살아 있는 지원자" — 스텁이 없으면 Mockito 기본값(빈 Optional)이라
+     * 모든 상태 변경이 지원서 미존재(404)로 끝난다. 탈퇴자 경로는 통합 테스트(LeaderApplicationControllerTest 등)가 본다.
+     */
+    @BeforeEach
+    void stubApplicantAlive() {
+        when(userRepository.findByIdForUpdate(any())).thenAnswer(invocation -> Optional.of(mock(User.class)));
+    }
+
     private void stubActorRole(ClubMemberRole role) {
         ClubMember actor = mock(ClubMember.class);
         when(actor.getRole()).thenReturn(role);

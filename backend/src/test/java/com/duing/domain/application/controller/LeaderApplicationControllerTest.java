@@ -31,6 +31,7 @@ import com.duing.domain.user.entity.Grade;
 import com.duing.domain.user.entity.User;
 import com.duing.domain.user.entity.UserRole;
 import com.duing.domain.user.repository.UserRepository;
+import com.duing.domain.user.service.UserService;
 import com.duing.global.auth.JwtTokenProvider;
 import com.duing.global.constant.ErrorCodes;
 import io.restassured.RestAssured;
@@ -44,6 +45,8 @@ import java.util.concurrent.atomic.AtomicLong;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
@@ -84,6 +87,9 @@ class LeaderApplicationControllerTest extends IntegrationTestBase {
 
     @Autowired
     private ClubAuditEventRepository clubAuditEventRepository;
+
+    @Autowired
+    private UserService userService;
 
     private final AtomicLong sequence = new AtomicLong(System.nanoTime());
 
@@ -512,6 +518,88 @@ class LeaderApplicationControllerTest extends IntegrationTestBase {
                 .then().statusCode(409)
                 .body("code", equalTo(ErrorCodes.RECRUITMENT_CLOSED))
                 .body("message", equalTo("마감된 모집에서는 할 수 없는 작업입니다."));
+    }
+
+    @Test
+    @DisplayName("탈퇴한 지원자의 지원서를 합격시키면 없는 지원서와 같은 404 이고 상태·이력·회원 행이 생기지 않는다")
+    void acceptingWithdrawnApplicantReturnsNotFoundWithoutMembership() {
+        Club club = saveActiveClub("탈퇴합격동아리");
+        clubMemberRepository.save(ClubMember.asLeader(club, leader));
+        Recruitment recruitment = saveOpenRecruitment(club, "탈퇴합격모집");
+        User applicant = saveUser("탈퇴합격지원자", UserRole.STUDENT, College.EDUCATION, "교육학");
+        Long applicationId = saveApplicationWithStatus(recruitment, applicant, ApplicationStatus.SUBMITTED).getId();
+        userService.withdraw(applicant.getId());
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
+                .contentType(ContentType.JSON)
+                .body(Map.of("status", "ACCEPTED"))
+                .when().patch("/api/v1/leader/applications/{applicationId}/status", applicationId)
+                .then().statusCode(404)
+                .body("message", equalTo("지원 내역을 찾을 수 없습니다."));
+
+        assertUntouched(applicationId);
+        // 파생 쿼리는 user 조인에 soft-delete 필터가 붙어 유령 행을 가릴 수 있어 jdbc 로 물리 부재를 본다(#1144 테스트와 같다).
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM club_member WHERE club_id = ? AND user_id = ? AND deleted_at IS NULL",
+                Integer.class, club.getId(), applicant.getId()))
+                .as("탈퇴한 계정에 활성 회원 행이 물리적으로 없다").isZero();
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @EnumSource(value = ApplicationStatus.class, names = {"REJECTED", "ON_HOLD"})
+    @DisplayName("탈퇴한 지원자의 지원서는 불합격·보류로도 바꿀 수 없다 — 운영진은 탈퇴자 지원서를 처리하지 않는다")
+    void withdrawnApplicantApplicationRejectsEveryStatusChange(ApplicationStatus targetStatus) {
+        Club club = saveActiveClub("탈퇴상태변경동아리");
+        clubMemberRepository.save(ClubMember.asLeader(club, leader));
+        Recruitment recruitment = saveOpenRecruitment(club, "탈퇴상태변경모집");
+        User applicant = saveUser("탈퇴상태지원자", UserRole.STUDENT, College.EDUCATION, "교육학");
+        Long applicationId = saveApplicationWithStatus(recruitment, applicant, ApplicationStatus.SUBMITTED).getId();
+        userService.withdraw(applicant.getId());
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
+                .contentType(ContentType.JSON)
+                .body(Map.of("status", targetStatus.name()))
+                .when().patch("/api/v1/leader/applications/{applicationId}/status", applicationId)
+                .then().statusCode(404)
+                .body("message", equalTo("지원 내역을 찾을 수 없습니다."));
+
+        assertUntouched(applicationId);
+    }
+
+    @Test
+    @DisplayName("마감된 모집이라도 탈퇴한 지원자의 지원서는 마감 거절(409)보다 먼저 없는 지원서(404)로 답한다")
+    void withdrawnApplicantInClosedRecruitmentIsNotFoundBeforeClosedPolicy() {
+        Club club = saveActiveClub("탈퇴마감동아리");
+        clubMemberRepository.save(ClubMember.asLeader(club, leader));
+        Recruitment recruitment = saveOpenRecruitment(club, "탈퇴마감모집");
+        User applicant = saveUser("탈퇴마감지원자", UserRole.STUDENT, College.EDUCATION, "교육학");
+        Long applicationId = saveApplicationWithStatus(recruitment, applicant, ApplicationStatus.SUBMITTED).getId();
+        recruitment.close(LocalDateTime.now());
+        recruitmentRepository.save(recruitment);
+        userService.withdraw(applicant.getId());
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
+                .contentType(ContentType.JSON)
+                .body(Map.of("status", "ON_HOLD"))
+                .when().patch("/api/v1/leader/applications/{applicationId}/status", applicationId)
+                .then().statusCode(404)
+                .body("message", equalTo("지원 내역을 찾을 수 없습니다."));
+
+        assertUntouched(applicationId);
+    }
+
+    /** 거절된 상태 변경은 지원서 상태도 이력도 남기지 않는다 — 지원서는 탈퇴 전 그대로(SUBMITTED)다. */
+    private void assertUntouched(Long applicationId) {
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT status FROM application WHERE id = ?", String.class, applicationId))
+                .isEqualTo("SUBMITTED");
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM application_status_history WHERE application_id = ?",
+                Integer.class, applicationId))
+                .isZero();
     }
 
     @Test

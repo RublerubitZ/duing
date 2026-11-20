@@ -398,6 +398,10 @@ public class GeneralApplicationService implements ApplicationService {
                 ApplicationDomainException.ApplicationNotFoundException::new);
         Application application = applicationRepository.findById(applicationId)
                 .orElseThrow(ApplicationDomainException.ApplicationNotFoundException::new);
+        // 지원자 생존은 users 행 잠금이 판정한다(#1144 전례) — 목록·상세는 탈퇴자를 숨기지만 오래된 화면·일괄 처리는 id 로 닿고,
+        // 지원자 연관은 미초기화 프록시라 @SQLRestriction 을 거치지 않는다. 잠금 조회는 탈퇴와 직렬화되고 탈퇴가 커밋됐으면 빈 결과다.
+        userRepository.findByIdForUpdate(application.getUser().getId())
+                .orElseThrow(ApplicationDomainException.ApplicationNotFoundException::new);
         // 마감된 모집은 아카이브라 새 활동은 막지만, 남은 지원서의 최종 결과 확정만은 허용한다 —
         // 아무도 처리할 수 없으면 지원자는 결과를 못 받고 운영진도 손댈 수 없는 교착이 된다.
         // 벌크도 건별로 이 메서드를 경유하므로 여기 한 곳이면 충분하고, 실패 사유는 failures[] 로 전파된다.
