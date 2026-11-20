@@ -152,6 +152,7 @@ export {
   useAdminClubSignalsQuery,
   useAdminClubMembersQuery,
   useAdminClubsQuery,
+  useAdminActiveClubsQuery,
   useAdminClubDetailQuery,
   shouldRunAdminUserSearch,
   useAdminUserSearchQuery,

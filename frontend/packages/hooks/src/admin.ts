@@ -85,6 +85,31 @@ export function useAdminClubsQuery(params: AdminClubSearchParams = {}) {
   });
 }
 
+// 서버 페이지 상한(PageableConfig.MAX_PAGE_SIZE) — 페이지 번호를 서버와 맞추려고 같은 값을 보낸다.
+const ADMIN_CLUB_PAGE_SIZE = 100;
+
+/**
+ * 운영 중 동아리 전부(이름순) — 공지 '특정 동아리' 선택 목록. 공지가 닿는 곳(뷰어·알림 범위)이 운영 중 동아리뿐이라 그 상태만 받는다.
+ * 0페이지의 totalPages 를 본 뒤 나머지를 함께 받는다. 한 페이지라도 실패하면 전체가 실패한다 — 일부만 보이는 것이 고치려는 결함이다.
+ */
+export function useAdminActiveClubsQuery() {
+  const client = useApiClient();
+  return useQuery({
+    queryKey: adminQueryKeys.clubsActiveAll(),
+    queryFn: async () => {
+      const fetchPage = (page: number) =>
+        client.admin.clubs.list({ status: 'ACTIVE', page, size: ADMIN_CLUB_PAGE_SIZE });
+      const firstPage = await fetchPage(0);
+      const restPages = await Promise.all(
+        Array.from({ length: Math.max(0, firstPage.totalPages - 1) }, (_, index) => fetchPage(index + 1)),
+      );
+      const clubs = [firstPage, ...restPages].flatMap((pageResponse) => pageResponse.content);
+      // shortcut: 0페이지 뒤에 앞쪽 동아리가 빠지면 offset 이 밀려 한 곳이 빠질 수 있다(중복만 거른다), 잦아지면 서버에 전체 목록 API 를 둔다.
+      return [...new Map(clubs.map((club) => [club.id, club])).values()];
+    },
+  });
+}
+
 export function useAdminClubDetailQuery(clubId: number | undefined) {
   const client = useApiClient();
   return useQuery({

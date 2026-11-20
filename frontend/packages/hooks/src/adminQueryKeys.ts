@@ -44,6 +44,8 @@ export const adminQueryKeys = {
     [...adminQueryKeys.facilityCrawlAll, 'reservations', params] as const,
   clubsList: (params: AdminClubSearchParams) =>
     [...adminQueryKeys.clubsAll, 'list', params] as const,
+  // 공지 '특정 동아리' 선택용 운영 중 동아리 전부(배열) — clubsList 의 페이지 객체와 모양이 달라 키를 나눈다. clubsAll 아래라 동아리 변경 무효화가 닿는다.
+  clubsActiveAll: () => [...adminQueryKeys.clubsAll, 'active-all'] as const,
   clubsDetail: (clubId: number) =>
     [...adminQueryKeys.clubsAll, 'detail', clubId] as const,
   clubMembers: (clubId: number) =>
