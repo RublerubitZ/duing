@@ -235,11 +235,11 @@ class OpsSlackMessageFormatterTest {
     }
 
     @Test
-    @DisplayName("트래픽 일간 요약은 기간·총 요청(429)·최대 분당 요청과 시각·최대 분당 429·감지 횟수·기준을 싣는다")
+    @DisplayName("트래픽 일간 요약은 기간·총 요청(429)·최대 분당 요청과 시각·최대 분당 429·한 IP 분당 최대 조회(한도와 함께)·감지 횟수·기준을 싣는다")
     void trafficDailySummaryMessageCarriesAggregates() {
         TrafficDailySummary summary = new TrafficDailySummary(
                 LocalDateTime.of(2026, 10, 6, 9, 0), LocalDateTime.of(2026, 10, 7, 9, 0), false,
-                12_345, 1_234, 2_345, LocalDateTime.of(2026, 10, 6, 21, 14), 1_010, 2, 3_000, 300);
+                12_345, 1_234, 2_345, LocalDateTime.of(2026, 10, 6, 21, 14), 1_010, 2, 3_000, 300, 612, 1_000);
 
         assertThat(formatter.trafficDailySummary(summary)).isEqualTo(String.join("\n",
                 "📊 api 트래픽 일간 요약",
@@ -249,6 +249,7 @@ class OpsSlackMessageFormatterTest {
                 "총 요청: 12,345 (429 1,234)",
                 "최대 분당 요청: 2,345 (2026-10-06 21:14)",
                 "최대 분당 429: 1,010",
+                "한 IP 분당 최대 조회: 612건(한도 1,000건)",
                 "이상 감지: 2회",
                 "기준: 분당 요청 3,000 · 분당 429 300",
                 "환경: production",
@@ -256,11 +257,11 @@ class OpsSlackMessageFormatterTest {
     }
 
     @Test
-    @DisplayName("재기동 뒤부터 센 기간은 표시하고, 요청이 없으면 최대 분당 요청의 시각 괄호를 뺀다")
+    @DisplayName("재기동 뒤부터 센 기간은 표시하고, 요청이 없으면 최대 분당 요청의 시각 괄호를 빼며, 조회 요청 제한이 꺼져 있으면 최대 조회 줄에 비활성을 적는다")
     void trafficDailySummaryMarksRestartAndOmitsMissingPeakTime() {
         TrafficDailySummary summary = new TrafficDailySummary(
                 LocalDateTime.of(2026, 10, 7, 8, 57), LocalDateTime.of(2026, 10, 7, 9, 0), true,
-                0, 0, 0, null, 0, 0, 3_000, 300);
+                0, 0, 0, null, 0, 0, 3_000, 300, 0, 0);
 
         assertThat(formatter.trafficDailySummary(summary)).isEqualTo(String.join("\n",
                 "📊 api 트래픽 일간 요약",
@@ -270,9 +271,29 @@ class OpsSlackMessageFormatterTest {
                 "총 요청: 0 (429 0)",
                 "최대 분당 요청: 0",
                 "최대 분당 429: 0",
+                "한 IP 분당 최대 조회: 제한 비활성",
                 "이상 감지: 0회",
                 "기준: 분당 요청 3,000 · 분당 429 300",
                 "환경: production",
                 "시간: 2026-08-22 23:41 KST"));
+    }
+
+    @Test
+    @DisplayName("한 IP 가 한도를 넘긴 기간은 일간 요약의 최대 조회 줄을 건수 대신 '한도 초과'로 적는다")
+    void trafficDailySummaryMarksReadLimitExceeded() {
+        TrafficDailySummary summary = new TrafficDailySummary(
+                LocalDateTime.of(2026, 10, 6, 9, 0), LocalDateTime.of(2026, 10, 7, 9, 0), false,
+                12_345, 1_234, 2_345, LocalDateTime.of(2026, 10, 6, 21, 14), 1_010, 2, 3_000, 300, 1_001, 1_000);
+
+        assertThat(formatter.trafficDailySummary(summary))
+                .contains("최대 분당 429: 1,010\n한 IP 분당 최대 조회: 한도 초과(1,000건 넘음)\n이상 감지: 2회");
+    }
+
+    @Test
+    @DisplayName("한 IP 분당 최대 조회 문구 — 한도와 같은 건수는 초과가 아니고 한도 + 1 부터 '한도 초과'이며, 한도 0 이하는 비활성이다")
+    void peakPerIpReadsLabelTreatsLimitItselfAsWithinLimit() {
+        assertThat(OpsSlackMessageFormatter.peakPerIpReadsLabel(1_000, 1_000)).isEqualTo("1,000건(한도 1,000건)");
+        assertThat(OpsSlackMessageFormatter.peakPerIpReadsLabel(1_001, 1_000)).isEqualTo("한도 초과(1,000건 넘음)");
+        assertThat(OpsSlackMessageFormatter.peakPerIpReadsLabel(0, -5)).isEqualTo("제한 비활성");
     }
 }

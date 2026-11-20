@@ -61,6 +61,9 @@ export function AdminNavContent({
           Icon={section.icon}
           active={isStandaloneSectionActive(section, pathname)}
           collapsed={collapsed}
+          // 보던 화면의 메뉴를 다시 누르면 기록을 쌓지 않는다 — 주간 브리핑은 주소를 `?week=` 로 정리해 둬, replace 를 주지 않으면 주소창과
+          // 목적지가 달라 Next 가 push 한다. 하위 경로에서 오는 것은 실제 이동이라 push 로 둔다(그래서 하위 경로도 참인 active 를 쓰지 않는다).
+          replace={pathname === section.href}
         />
       ))}
 
@@ -174,6 +177,7 @@ function NavRow({
   collapsed,
   badge,
   danger,
+  replace,
 }: {
   href: `/${string}`;
   title: string;
@@ -182,10 +186,13 @@ function NavRow({
   collapsed: boolean;
   badge?: number;
   danger?: boolean;
+  /** true 면 새 방문 기록 대신 지금 항목을 바꾼다 — 단독 메뉴만 넘긴다(그룹 메뉴 재클릭은 필터가 풀린 다른 주소라 기록을 남긴다). */
+  replace?: boolean;
 }) {
   return (
     <Link
       href={toRoute(href)}
+      replace={replace}
       aria-current={active ? 'page' : undefined}
       title={collapsed ? title : undefined}
       className={cn(rowBase, collapsed && 'justify-center px-0', active ? rowActive : rowIdle)}

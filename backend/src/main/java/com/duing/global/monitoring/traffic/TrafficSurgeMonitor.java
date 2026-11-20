@@ -3,6 +3,7 @@ package com.duing.global.monitoring.traffic;
 import com.duing.global.monitoring.OpsSlackMessageFormatter;
 import com.duing.global.monitoring.SlackNotifier;
 import com.duing.global.monitoring.TrafficDailySummary;
+import com.duing.global.ratelimit.ApiReadRateLimitFilter;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -34,8 +35,9 @@ import org.springframework.stereotype.Component;
  * 와 같음). 알림은 이 스레드에서 직접 보낸다 — 트랜잭션 없는 스케줄러 스레드라 AFTER_COMMIT 리스너는 버린다. 전송 실패는
  * 재전송하지 않는다(알림은 손실 허용).
  *
- * <p>기준값은 평소 수치를 모르는 상태의 추정치다 — 일간 요약(Slack)과 매시 요약(INFO 로그)으로 맞춘다.
- * 집계 수치만 다룬다 — IP·경로는 세지도 남기지도 않는다.
+ * <p>기준값은 평소 수치를 모르는 상태의 추정치다 — 일간 요약(Slack)과 매시 요약(INFO 로그)으로 맞춘다. 두 요약에는 조회 요청
+ * 제한({@link ApiReadRateLimitFilter})의 한 IP 분당 최대 조회도 한도와 나란히 싣는다 — 한도 조정 근거이고, 이상 감지 판정에는
+ * 쓰지 않는다. 집계 수치만 다룬다 — IP·경로는 남기지 않는다(한 IP 최대 조회도 필터가 건수만 넘긴다).
  */
 @Slf4j
 @Component
@@ -50,6 +52,7 @@ public class TrafficSurgeMonitor {
     private static final int DAILY_SUMMARY_HOUR = 9;
 
     private final TrafficCountingFilter trafficCountingFilter;
+    private final ApiReadRateLimitFilter apiReadRateLimitFilter;
     private final OpsSlackMessageFormatter opsSlackMessageFormatter;
     private final SlackNotifier slackNotifier;
     private final Clock clock;
@@ -67,6 +70,7 @@ public class TrafficSurgeMonitor {
     private long hourPeakRequestsPerMinute;
     private long hourPeakRejectionsPerMinute;
     private long hourTotalRequests;
+    private int hourPeakPerIpReads;
     private LocalDate dailyPeriodDate;
     private LocalDateTime dailyPeriodStartedAt;
     private long dailyTotalRequests;
@@ -74,9 +78,11 @@ public class TrafficSurgeMonitor {
     private long dailyPeakRequestsPerMinute;
     private LocalDateTime dailyPeakRequestsAt;
     private long dailyPeakRejectionsPerMinute;
+    private int dailyPeakPerIpReads;
     private int dailySurgeAlerts;
 
     public TrafficSurgeMonitor(TrafficCountingFilter trafficCountingFilter,
+                               ApiReadRateLimitFilter apiReadRateLimitFilter,
                                OpsSlackMessageFormatter opsSlackMessageFormatter,
                                SlackNotifier slackNotifier,
                                Clock clock,
@@ -85,6 +91,7 @@ public class TrafficSurgeMonitor {
                                @Value("${duing.monitoring.traffic-surge.rejections-per-minute:300}")
                                long rejectionsPerMinuteThreshold) {
         this.trafficCountingFilter = trafficCountingFilter;
+        this.apiReadRateLimitFilter = apiReadRateLimitFilter;
         this.opsSlackMessageFormatter = opsSlackMessageFormatter;
         this.slackNotifier = slackNotifier;
         this.clock = clock;
@@ -103,10 +110,11 @@ public class TrafficSurgeMonitor {
     @Scheduled(fixedDelay = RUN_INTERVAL_MILLIS, initialDelay = RUN_INTERVAL_MILLIS)
     public void run() {
         TrafficCountingFilter.Window window = trafficCountingFilter.drain();
-        evaluate(window.requests(), window.rejections(), clock.instant());
+        evaluate(window.requests(), window.rejections(), apiReadRateLimitFilter.drainPeakPerIpCount(), clock.instant());
     }
 
-    void evaluate(long requests, long rejections, Instant now) {
+    // peakPerIpReads 는 이미 한 분 창의 건수라 분당 환산하지 않는다. 이상 감지 판정에는 쓰지 않고 요약에만 싣는다.
+    void evaluate(long requests, long rejections, int peakPerIpReads, Instant now) {
         long elapsedSeconds = Duration.between(lastEvaluatedAt, now).toSeconds();
         if (elapsedSeconds < 1) {
             // 시계 역행(NTP 보정 등) — 건수는 실행 간격만큼 쌓였으므로 기본 주기로 본다(작은 값으로 나누면 몇십 배로 부푼다).
@@ -115,8 +123,8 @@ public class TrafficSurgeMonitor {
         lastEvaluatedAt = now;
         long requestsPerMinute = requests * 60 / elapsedSeconds;
         long rejectionsPerMinute = rejections * 60 / elapsedSeconds;
-        recordHourlySummary(now, requests, requestsPerMinute, rejectionsPerMinute);
-        recordDailySummary(now, requests, rejections, requestsPerMinute, rejectionsPerMinute);
+        recordHourlySummary(now, requests, requestsPerMinute, rejectionsPerMinute, peakPerIpReads);
+        recordDailySummary(now, requests, rejections, requestsPerMinute, rejectionsPerMinute, peakPerIpReads);
 
         boolean surge = requestsPerMinute >= requestsPerMinuteThreshold
                 || rejectionsPerMinute >= rejectionsPerMinuteThreshold;
@@ -159,26 +167,30 @@ public class TrafficSurgeMonitor {
     }
 
     // 시가 바뀐 첫 집계에서 직전 시를 먼저 남기고, 이번 집계 값은 새 시에 넣는다(경계의 1분 어긋남은 기준 조정에 무해).
-    private void recordHourlySummary(Instant now, long requests, long requestsPerMinute, long rejectionsPerMinute) {
+    private void recordHourlySummary(Instant now, long requests, long requestsPerMinute, long rejectionsPerMinute,
+                                     int peakPerIpReads) {
         LocalDateTime hour = LocalDateTime.ofInstant(now, clock.getZone()).truncatedTo(ChronoUnit.HOURS);
         if (summaryHour != null && !summaryHour.equals(hour)) {
-            log.info("트래픽 시간 요약 — {}, 최대 분당 요청 {}, 최대 분당 429 {}, 총 요청 {}",
+            log.info("트래픽 시간 요약 — {}, 최대 분당 요청 {}, 최대 분당 429 {}, 총 요청 {}, 한 IP 분당 최대 조회 {}",
                     SUMMARY_HOUR.format(summaryHour), hourPeakRequestsPerMinute, hourPeakRejectionsPerMinute,
-                    hourTotalRequests);
+                    hourTotalRequests,
+                    OpsSlackMessageFormatter.peakPerIpReadsLabel(hourPeakPerIpReads, apiReadRateLimitFilter.limitPerMinute()));
             hourPeakRequestsPerMinute = 0;
             hourPeakRejectionsPerMinute = 0;
             hourTotalRequests = 0;
+            hourPeakPerIpReads = 0;
         }
         summaryHour = hour;
         hourPeakRequestsPerMinute = Math.max(hourPeakRequestsPerMinute, requestsPerMinute);
         hourPeakRejectionsPerMinute = Math.max(hourPeakRejectionsPerMinute, rejectionsPerMinute);
         hourTotalRequests += requests;
+        hourPeakPerIpReads = Math.max(hourPeakPerIpReads, peakPerIpReads);
     }
 
     // 09:00(KST) 경계를 넘은 첫 집계에서 직전 기간을 보낸다. 키가 앞으로 갈 때만 넘긴다 — 시계가 거꾸로 가 키가 뒤로 가면
     // 그대로 둔다(그러지 않으면 되돌아왔다 다시 넘을 때 요약이 두 번 간다). 경계 집계의 값은 새 기간에 넣는다.
     private void recordDailySummary(Instant now, long requests, long rejections,
-                                    long requestsPerMinute, long rejectionsPerMinute) {
+                                    long requestsPerMinute, long rejectionsPerMinute, int peakPerIpReads) {
         LocalDateTime localNow = LocalDateTime.ofInstant(now, clock.getZone());
         LocalDate periodDate = localNow.minusHours(DAILY_SUMMARY_HOUR).toLocalDate();
         if (dailyPeriodDate == null) {
@@ -192,6 +204,7 @@ public class TrafficSurgeMonitor {
             dailyPeakRequestsPerMinute = 0;
             dailyPeakRequestsAt = null;
             dailyPeakRejectionsPerMinute = 0;
+            dailyPeakPerIpReads = 0;
             dailySurgeAlerts = 0;
         }
         dailyTotalRequests += requests;
@@ -201,6 +214,7 @@ public class TrafficSurgeMonitor {
             dailyPeakRequestsAt = localNow;
         }
         dailyPeakRejectionsPerMinute = Math.max(dailyPeakRejectionsPerMinute, rejectionsPerMinute);
+        dailyPeakPerIpReads = Math.max(dailyPeakPerIpReads, peakPerIpReads);
     }
 
     private void notifyDailySummary() {
@@ -209,7 +223,8 @@ public class TrafficSurgeMonitor {
         boolean startedAfterRestart = !dailyPeriodStartedAt.equals(periodNominalStart);
         TrafficDailySummary summary = new TrafficDailySummary(dailyPeriodStartedAt, periodEnd, startedAfterRestart,
                 dailyTotalRequests, dailyTotalRejections, dailyPeakRequestsPerMinute, dailyPeakRequestsAt,
-                dailyPeakRejectionsPerMinute, dailySurgeAlerts, requestsPerMinuteThreshold, rejectionsPerMinuteThreshold);
+                dailyPeakRejectionsPerMinute, dailySurgeAlerts, requestsPerMinuteThreshold, rejectionsPerMinuteThreshold,
+                dailyPeakPerIpReads, apiReadRateLimitFilter.limitPerMinute());
         log.info("트래픽 일간 요약 — 기간 시작 {}, 총 요청 {}, 최대 분당 요청 {}",
                 SUMMARY_MINUTE.format(dailyPeriodStartedAt), dailyTotalRequests, dailyPeakRequestsPerMinute);
         // 동기 HTTP(재시도 포함 최대 십여 초)라 이번 판정이 그만큼 늦어지지만, 창과 lastEvaluatedAt 은 이미 잡혀 무해하다.

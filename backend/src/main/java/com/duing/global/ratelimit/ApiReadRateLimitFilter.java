@@ -10,10 +10,16 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.Duration;
+import java.util.Locale;
+import java.util.Objects;
+import java.util.OptionalInt;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.atomic.AtomicInteger;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.context.event.ApplicationReadyEvent;
+import org.springframework.context.event.EventListener;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -49,6 +55,9 @@ import org.springframework.web.filter.OncePerRequestFilter;
  *
  * <p>보안 체인의 {@code CorsFilter} 뒤, 인증 필터 앞에 둔다({@code SecurityConfig}) — 429 응답에 CORS 헤더가 붙어
  * 브라우저가 안내를 읽을 수 있고, 거절되는 요청은 토큰 검증까지 가지 않는다.
+ *
+ * <p>매분 {@code TrafficSurgeMonitor} 가 {@link #drainPeakPerIpCount} 로 어느 IP 든 한 분 창에서 도달한 최대 건수를
+ * 가져가 매시·일간 요약에 한도와 나란히 싣는다 — 한도가 실제 사용과 얼마나 떨어져 있는지 보는 근거다. IP 는 넘기지 않는다.
  */
 @Slf4j
 @Component
@@ -57,22 +66,68 @@ public class ApiReadRateLimitFilter extends OncePerRequestFilter {
 
     static final String MESSAGE = "요청이 너무 많습니다. 잠시 후 다시 시도해주세요.";
 
+    // 한도 설정값을 읽지 못했을 때 켜는 한도 — 프로파일 기본값(로컬 0)이 아니라 이 상수다.
+    static final int DEFAULT_LIMIT_PER_MINUTE = 1000;
+
     private static final Duration WINDOW = Duration.ofMinutes(1);
 
     // clientIp 를 못 얻은 요청이 키 없음으로 창을 통째로 우회하지 못하도록 한 버킷에 모은다.
     private static final String UNKNOWN_CLIENT_IP = "unknown";
 
+    // ERROR 줄에 싣는 받은 값의 최대 글자 수 — .env 가 깨져 다음 줄의 값이 붙어 올 수 있고, ERROR 는 Sentry 로 나간다.
+    // 자른 뒤 제어 문자는 ? 로 바꾼다 — 줄바꿈이 로그 줄을 쪼개지 않게. 숫자 표기(0-9 , . + - 공백)가 아닌 나머지 글자는
+    // * 로 가린다 — 값 자리에 잘못 붙인 비밀값이 남지 않게(원래 값의 ? 도 * 다).
+    private static final int LOGGED_VALUE_MAX_LENGTH = 16;
+
     private final ObjectMapper objectMapper;
     private final Clock clock;
 
-    // 0 이하면 끈다. 운영에서 한도가 정상 사용자를 자르면 DUING_RATE_LIMIT_API_READ_PER_MINUTE 로 올리거나 0 으로 끄고
+    // 0 이하면 끈다. setLimitPerMinute 가 채운다 — 비었거나 정수가 아니면 꺼지지 않고 DEFAULT_LIMIT_PER_MINUTE 로 켠다.
+    // 운영에서 한도가 정상 사용자를 자르면 DUING_RATE_LIMIT_API_READ_PER_MINUTE 로 올리거나 0 으로 끄고
     // 컨테이너를 다시 만든다(docker compose up -d — restart 는 env_file 을 다시 읽지 않는다). 재배포는 필요 없다.
-    @Value("${duing.rate-limit.api-read-per-minute:1000}")
     private int limitPerMinute;
+
+    // 한도 설정값을 정수로 읽지 못했으면 받은 원래 값(기동 로그용), 읽었으면 null.
+    private String unreadableLimitValue;
 
     private final ConcurrentMap<String, MinuteCount> countsByIp = RateLimitMaps.expiringMap(WINDOW);
 
+    // 어느 IP 든 한 분 창에서 도달한 최대 건수 — TrafficSurgeMonitor 가 매분 drainPeakPerIpCount 로 가져간다. IP 는 담지 않는다.
+    private final AtomicInteger peakPerIpCount = new AtomicInteger();
+
     private record MinuteCount(long minute, int count) {
+    }
+
+    // 문자열로 받아 직접 읽는다 — int 로 받으면 빈 값·'1,000' 에서 기동이 실패하고 compose 가 재시작만 되풀이한다.
+    @Value("${duing.rate-limit.api-read-per-minute:1000}")
+    void setLimitPerMinute(String configuredLimit) {
+        OptionalInt parsedLimit = parseLimit(configuredLimit);
+        limitPerMinute = parsedLimit.orElse(DEFAULT_LIMIT_PER_MINUTE);
+        unreadableLimitValue = parsedLimit.isPresent() ? null : Objects.requireNonNullElse(configuredLimit, "");
+    }
+
+    /** 적용 중인 분당 한도 — 0 이하면 꺼짐. */
+    public int limitPerMinute() {
+        return limitPerMinute;
+    }
+
+    @EventListener(ApplicationReadyEvent.class)
+    public void logStatus() {
+        if (limitPerMinute <= 0) {
+            log.info("[조회 요청 제한] 비활성 — 한도 0 이하(로컬·CI 는 기본이 0)");
+            return;
+        }
+        String limitText = String.format(Locale.ROOT, "%,d", limitPerMinute);
+        if (unreadableLimitValue == null) {
+            log.info("[조회 요청 제한] 활성 — 한 IP 분당 {}건", limitText);
+            return;
+        }
+        log.info("[조회 요청 제한] 활성 — 한 IP 분당 {}건(설정값을 읽지 못해 기본값)", limitText);
+        String loggedValue = unreadableLimitValue.substring(0,
+                Math.min(unreadableLimitValue.length(), LOGGED_VALUE_MAX_LENGTH))
+                .replaceAll("[^0-9,.+\\- \\p{Cntrl}]", "*").replaceAll("\\p{Cntrl}", "?");
+        log.error("[조회 요청 제한] 한도 설정값을 정수로 읽지 못해 기본값 {}건으로 기동함 — 받은 값 '{}'({}자), 끄려면 0",
+                limitText, loggedValue, String.format(Locale.ROOT, "%,d", unreadableLimitValue.length()));
     }
 
     @Override
@@ -111,6 +166,9 @@ public class ApiReadRateLimitFilter extends OncePerRequestFilter {
             return new MinuteCount(currentMinute, nextCount);
         });
 
+        // 콜백 밖에서 돌려받은 창 건수로 갱신한다 — 새 창·증가·한도 초과 유지 세 분기를 한 번에 덮는다.
+        recordPeak(minuteCount.count());
+
         if (minuteCount.count() > limitPerMinute) {
             long secondsUntilNextWindow = Math.max(1, (WINDOW.toMillis() - nowMillis % WINDOW.toMillis() + 999) / 1000);
             response.setStatus(HttpStatus.TOO_MANY_REQUESTS.value());
@@ -121,6 +179,22 @@ public class ApiReadRateLimitFilter extends OncePerRequestFilter {
             return;
         }
         filterChain.doFilter(request, response);
+    }
+
+    /**
+     * 직전 호출 뒤로 어느 IP 든 한 분 창에서 도달한 최대 건수를 돌려주고 0 으로 되돌린다. 가져간 뒤의 증가분이 아니라 창 누적
+     * 건수다(같은 창에서 더 오면 다음에 누적값). 한도를 넘기면 한도 + 1 에서 멈춘다(창 카운터가 그렇다). 한도가 꺼져 있으면 0.
+     */
+    public int drainPeakPerIpCount() {
+        return peakPerIpCount.getAndSet(0);
+    }
+
+    // 지금 최대보다 클 때만 쓴다 — 조회마다 공유 카운터에 쓰지 않게 한다. 실패하면 다른 요청이 그새 올린 값과 다시 비교한다.
+    private void recordPeak(int windowCount) {
+        int currentPeak = peakPerIpCount.get();
+        while (windowCount > currentPeak && !peakPerIpCount.compareAndSet(currentPeak, windowCount)) {
+            currentPeak = peakPerIpCount.get();
+        }
     }
 
     /**
@@ -138,5 +212,14 @@ public class ApiReadRateLimitFilter extends OncePerRequestFilter {
             }
         }
         return windowKey.substring(0, thirdSeparator) + (ipv6 ? "::/48" : ".x");
+    }
+
+    /** 앞뒤 공백(줄끝 CR 포함)을 떼고 int 로 읽히면 그 값(0 이하 = 꺼짐), null·비었거나 정수가 아니거나 int 범위를 넘으면 빈 값. */
+    static OptionalInt parseLimit(String configuredLimit) {
+        try {
+            return OptionalInt.of(Integer.parseInt(Objects.requireNonNullElse(configuredLimit, "").strip()));
+        } catch (NumberFormatException unreadable) {
+            return OptionalInt.empty();
+        }
     }
 }
