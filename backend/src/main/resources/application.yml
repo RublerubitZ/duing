@@ -186,7 +186,8 @@ duing:
     # 운영 엣지(Caddy request_body max_size 11MB)가 1차 방어이며, 이 값은 앱 레이어 심층 방어다.
     max-body-bytes: ${DUING_REQUEST_MAX_BODY_BYTES:2097152}
   rate-limit:
-    # 한 IP 가 분당 부를 수 있는 조회(GET·HEAD) 건수(ApiReadRateLimitFilter). 0 이하면 끈다.
+    # 한 IP 가 분당 부를 수 있는 조회(GET·HEAD) 건수(ApiReadRateLimitFilter). 0 이하면 끈다. 비었거나 정수가 아니면
+    # 꺼지지 않고 코드 기본값 1000 으로 켜며 기동 로그에 ERROR 를 남긴다(오타로 부팅이 죽지 않게 — 끌 때는 0).
     api-read-per-minute: ${DUING_RATE_LIMIT_API_READ_PER_MINUTE:1000}
   notice:
     cover-image-url-prefix: ${NOTICE_COVER_IMAGE_URL_PREFIX:}
