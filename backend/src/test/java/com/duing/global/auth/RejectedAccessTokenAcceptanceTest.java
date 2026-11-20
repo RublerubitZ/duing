@@ -76,8 +76,10 @@ class RejectedAccessTokenAcceptanceTest extends IntegrationTestBase {
 
     @AfterEach
     void tearDown() {
-        // 컨텍스트 캐시를 다른 테스트와 나눠 쓰므로 바꾼 검증기를 원래 것으로 되돌린다.
-        ReflectionTestUtils.setField(jwtTokenProvider, "verifier", originalVerifier);
+        // 컨텍스트 캐시를 다른 테스트와 나눠 쓰므로 바꾼 검증기를 원래 것으로 되돌린다 — setUp 전에 실패했으면 건드리지 않는다.
+        if (originalVerifier != null) {
+            ReflectionTestUtils.setField(jwtTokenProvider, "verifier", originalVerifier);
+        }
         rootLogger.detachAppender(logAppender);
     }
 
