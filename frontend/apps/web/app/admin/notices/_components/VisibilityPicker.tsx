@@ -100,7 +100,7 @@ export function VisibilityPicker({
             })}
           </div>
 
-          <p className="text-[12px] text-charcoal-3">
+          <p className="text-[12px] text-charcoal-3" aria-live="polite">
             선택된 동아리: {targetClubIds.length}개
           </p>
           {listedClubIds && unlistedSelectedCount > 0 && (
