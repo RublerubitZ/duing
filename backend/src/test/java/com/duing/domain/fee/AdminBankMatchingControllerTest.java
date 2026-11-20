@@ -19,8 +19,8 @@ import com.duing.domain.user.entity.UserRole;
 import com.duing.domain.user.repository.UserRepository;
 import com.duing.global.auth.JwtTokenProvider;
 import com.duing.global.bank.BankApiClient;
-import com.duing.global.bank.dto.BankTransactionData;
 import com.duing.global.bank.dto.TransactionLookupCommand;
+import com.duing.global.bank.dto.TransactionLookupResult;
 import com.duing.global.crypto.FeeAccountCipher;
 import io.restassured.RestAssured;
 import io.restassured.http.ContentType;
@@ -62,9 +62,9 @@ class AdminBankMatchingControllerTest extends IntegrationTestBase {
         }
 
         @Override
-        public List<BankTransactionData> getTransactions(TransactionLookupCommand command) {
+        public TransactionLookupResult getTransactions(TransactionLookupCommand command) {
             calls.add("getTransactions");
-            return List.of();
+            return new TransactionLookupResult(List.of(), true);
         }
     }
 

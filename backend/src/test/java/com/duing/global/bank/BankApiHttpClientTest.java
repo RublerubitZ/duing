@@ -11,6 +11,7 @@ import static org.springframework.test.web.client.response.MockRestResponseCreat
 
 import com.duing.global.bank.dto.BankTransactionData;
 import com.duing.global.bank.dto.TransactionLookupCommand;
+import com.duing.global.bank.dto.TransactionLookupResult;
 import com.duing.global.bank.exception.BankApiException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.LocalDate;
@@ -19,6 +20,8 @@ import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -60,7 +63,10 @@ class BankApiHttpClientTest {
                 .andRespond(withSuccess("{\"success\":true,\"transactions\":[]}",
                         MediaType.APPLICATION_JSON));
 
-        assertThat(bankApiClient.getTransactions(lookupCommand())).isEmpty();
+        TransactionLookupResult lookupResult = bankApiClient.getTransactions(lookupCommand());
+        assertThat(lookupResult.transactions()).isEmpty();
+        // 빈 배열은 '거래 없음'을 끝까지 읽은 것이다.
+        assertThat(lookupResult.fullyRead()).isTrue();
         mockServer.verify();
     }
 
@@ -79,8 +85,11 @@ class BankApiHttpClientTest {
                           {"date":"20260111","time":"08:00:00","amount":10000,"type":"deposit"}
                         ]}""", MediaType.APPLICATION_JSON));
 
-        List<BankTransactionData> transactions = bankApiClient.getTransactions(lookupCommand());
+        TransactionLookupResult lookupResult = bankApiClient.getTransactions(lookupCommand());
+        List<BankTransactionData> transactions = lookupResult.transactions();
 
+        // 세 건을 모두 읽었으므로 이 조회는 끝까지 읽은 것이다.
+        assertThat(lookupResult.fullyRead()).isTrue();
         assertThat(transactions).hasSize(3);
         assertThat(transactions.get(0).transactionAt())
                 .isEqualTo(LocalDateTime.of(2026, 1, 9, 9, 15, 0));
@@ -123,7 +132,7 @@ class BankApiHttpClientTest {
     }
 
     @Test
-    @DisplayName("날짜가 비었거나 파싱 불가한 거래만 건너뛰고 나머지는 정상 적재된다")
+    @DisplayName("날짜가 비었거나 파싱 불가한 거래만 건너뛰고 나머지는 정상 적재되며, 건너뛴 거래가 있으면 끝까지 읽지 못했다고 알린다")
     void skipsOnlyMalformedRows() {
         mockServer.expect(requestTo(BASE_URL + "/v1/transactions"))
                 .andRespond(withSuccess("""
@@ -133,11 +142,31 @@ class BankApiHttpClientTest {
                           {"date":"2026-01-11","time":"10:00:00","amount":3000,"type":"deposit"}
                         ]}""", MediaType.APPLICATION_JSON));
 
-        List<BankTransactionData> transactions = bankApiClient.getTransactions(lookupCommand());
+        TransactionLookupResult lookupResult = bankApiClient.getTransactions(lookupCommand());
+        List<BankTransactionData> transactions = lookupResult.transactions();
 
         // 빈 날짜(MISSING_DATE)와 일-월-년 순서(UNPARSEABLE)만 빠지고 정상 1건이 남는다.
         assertThat(transactions).hasSize(1);
         assertThat(transactions.get(0).amount()).isEqualTo(3000L);
+        // 건너뛴 거래가 있으면 끝까지 읽지 못한 조회다 — 호출자가 이 기간을 다 봤다고 기억하지 않게 한다.
+        assertThat(lookupResult.fullyRead()).isFalse();
+    }
+
+    @ParameterizedTest(name = "[{index}] {0}")
+    @ValueSource(strings = {
+            "{\"success\":true}",
+            "{\"success\":true,\"transactions\":null}",
+            "{\"success\":true,\"transactions\":{}}"
+    })
+    @DisplayName("거래 목록이 없거나 배열이 아니면 빈 목록과 함께 끝까지 읽지 못했다고 알린다")
+    void reportsNotFullyReadWhenTransactionsIsNotArray(String responseBody) {
+        mockServer.expect(requestTo(BASE_URL + "/v1/transactions"))
+                .andRespond(withSuccess(responseBody, MediaType.APPLICATION_JSON));
+
+        TransactionLookupResult lookupResult = bankApiClient.getTransactions(lookupCommand());
+
+        assertThat(lookupResult.transactions()).isEmpty();
+        assertThat(lookupResult.fullyRead()).isFalse();
     }
 
     @Test
