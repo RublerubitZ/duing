@@ -116,8 +116,8 @@ public class GeneralClubEventService implements ClubEventService {
         if (!event.getClubId().equals(clubId)) {
             throw new ClubEventException.CrossClubAccessException();
         }
-        User creator = userRepository.findById(event.getCreatedBy())
-                .orElseThrow(() -> new IllegalStateException("event creator missing: " + event.getCreatedBy()));
+        // created_by 는 users 외래키라 비는 경우는 탈퇴(soft delete)뿐이다 — 이름 자리만 응답에서 채운다.
+        User creator = userRepository.findById(event.getCreatedBy()).orElse(null);
         return ClubEventDetailResponse.from(event, creator);
     }
 }

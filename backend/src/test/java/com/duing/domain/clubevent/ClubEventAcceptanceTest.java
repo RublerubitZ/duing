@@ -82,6 +82,13 @@ class ClubEventAcceptanceTest extends IntegrationTestBase {
                 Grade.FRESHMAN, College.IT_ENGINEERING, "미설정", "010-0000-0000", LocalDateTime.now()));
     }
 
+    private User saveOfficer() {
+        User officer = saveUser();
+        Club club = clubRepository.findById(clubId).orElseThrow();
+        clubMemberRepository.save(ClubMember.of(club, officer, ClubMemberRole.OFFICER));
+        return officer;
+    }
+
     private Long createEventAs(String token, LocalDateTime start, LocalDateTime end) {
         return RestAssured.given()
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
@@ -249,5 +256,43 @@ class ClubEventAcceptanceTest extends IntegrationTestBase {
                 .when().get("/api/v1/clubs/" + clubId + "/events")
                 .then().statusCode(HttpStatus.OK.value())
                 .body("data", hasSize(0));
+    }
+
+    @Test
+    @DisplayName("일정 상세는 작성자의 id 와 이름을 원값 그대로 내려준다")
+    void detailExposesCreator() {
+        User officer = saveOfficer();
+        String creatorToken = jwtTokenProvider.createToken(officer.getId(), officer.getRole().name());
+        LocalDateTime start = LocalDateTime.now().plusDays(3).withNano(0);
+        Long eventId = createEventAs(creatorToken, start, start.plusHours(2));
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + memberToken)
+                .when().get("/api/v1/clubs/" + clubId + "/events/" + eventId)
+                .then().statusCode(HttpStatus.OK.value())
+                .body("data.createdBy.id", equalTo(officer.getId().intValue()))
+                .body("data.createdBy.name", equalTo(officer.getName()));
+    }
+
+    @Test
+    @DisplayName("작성자가 탈퇴한 일정도 상세는 200 으로 '탈퇴한 회원' 과 원본 작성자 id 를 내려준다")
+    void detailLabelsWithdrawnCreator() {
+        User withdrawnOfficer = saveOfficer();
+        String withdrawnToken = jwtTokenProvider.createToken(
+                withdrawnOfficer.getId(), withdrawnOfficer.getRole().name());
+        LocalDateTime start = LocalDateTime.now().plusDays(3).withNano(0);
+        Long eventId = createEventAs(withdrawnToken, start, start.plusHours(2));
+
+        // soft delete — users 행은 남고 @SQLRestriction 때문에 조회만 되지 않는다.
+        userRepository.delete(withdrawnOfficer);
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + memberToken)
+                .when().get("/api/v1/clubs/" + clubId + "/events/" + eventId)
+                .then().statusCode(HttpStatus.OK.value())
+                .body("data.createdBy.id", equalTo(withdrawnOfficer.getId().intValue()))
+                .body("data.createdBy.name", equalTo("탈퇴한 회원"))
+                .body("data.title", equalTo("정기 모임"))
+                .body("data.location", equalTo("동아리방"));
     }
 }
