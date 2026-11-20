@@ -254,8 +254,10 @@ describe('NoticeForm — 특정 동아리 선택', () => {
 
     expect(onSubmit).not.toHaveBeenCalled();
     expect(screen.queryByText(/목록에 없는 동아리/)).toBeNull();
-    // 버튼이 사라지므로 바뀐 선택 수를 화면 낭독기가 알린다.
-    expect(screen.getByText('선택된 동아리: 1개')).toHaveAttribute('aria-live', 'polite');
+    // 버튼이 사라지므로 바뀐 선택 수를 화면 낭독기가 알린다 — 숫자 글자만 바뀌므로 문장 전체를 읽게 한다.
+    const selectedCountNotice = screen.getByText('선택된 동아리: 1개');
+    expect(selectedCountNotice).toHaveAttribute('aria-live', 'polite');
+    expect(selectedCountNotice).toHaveAttribute('aria-atomic', 'true');
 
     fireEvent.click(screen.getByRole('button', { name: '저장' }));
 

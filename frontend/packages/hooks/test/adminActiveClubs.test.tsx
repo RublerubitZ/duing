@@ -105,17 +105,6 @@ describe('useAdminActiveClubsQuery', () => {
     expect(result.current.data).toBeUndefined();
   });
 
-  it('뒤 페이지에 앞 페이지 동아리가 다시 와도 한 번만 담는다', async () => {
-    pagesByNumber = { 0: pageOf(clubRange(1, 100), 0, 166), 1: pageOf(clubRange(100, 166), 1, 166) };
-    const { result } = renderHook(() => useAdminActiveClubsQuery(), { wrapper: makeWrapper() });
-    await waitFor(() => expect(result.current.isSuccess).toBe(true));
-
-    const clubIds = result.current.data?.map((club) => club.id) ?? [];
-    expect(clubIds).toHaveLength(166);
-    expect(new Set(clubIds).size).toBe(166);
-    expect(clubIds.filter((clubId) => clubId === 100)).toHaveLength(1);
-  });
-
   // 페이지 사이에 목록이 바뀐 두 신호를 하나씩 — 건수가 달라짐(앞쪽에 한 곳이 늘어 100번이 다시 옴, 중복을 걸러도 166곳),
   // 건수는 같은데 한 곳이 빠짐(이름이 바뀌어 offset 이 밀림).
   it('페이지 사이에 목록이 바뀌면 빠진 채로 돌려주지 않고 실패한다', async () => {

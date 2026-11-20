@@ -104,7 +104,7 @@ export function useAdminActiveClubsQuery() {
         Array.from({ length: Math.max(0, firstPage.totalPages - 1) }, (_, index) => fetchPage(index + 1)),
       );
       const clubs = [firstPage, ...restPages].flatMap((pageResponse) => pageResponse.content);
-      // 0페이지 뒤에 앞쪽 동아리가 늘면 같은 곳이 다시 온다 — id 로 거른다(React key 충돌 방지).
+      // offset 이 밀리면 한 곳이 빠지면서 다른 한 곳이 두 번 온다 — 중복을 걸러야 아래 건수 검사가 빠진 곳을 알아챈다.
       const uniqueClubs = [...new Map(clubs.map((club) => [club.id, club])).values()];
       // 앞쪽이 빠지거나 이름이 바뀌면 offset 이 밀려 한 곳이 빠진다 — 건수로 알아채 실패로 던진다(전역 정책대로 한 번 다시 받는다).
       // 빠진 채로 돌려주면 이미 고른 그 동아리가 '목록 밖'으로 세어져 '빼기'에 함께 지워진다.
