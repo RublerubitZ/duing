@@ -7,6 +7,8 @@ import { draftQueryKeys } from './draftQueryKeys';
 const draftSaveScopeId = (recruitmentId: number) => `application-draft-${recruitmentId}`;
 
 // 같은 모집의 저장(진행 중·줄 선 것)이 모두 끝날 때까지 기다린다 — 실패로 끝나도, queryClient.clear() 로 치워져도 풀린다.
+// 앱 mutation 의 networkMode 'always'(apps/web providers.tsx)가 전제다 — 'online' 이면 오프라인 동안 줄 선 저장이 pending 에 멈춰 조회가 무한 대기한다.
+// 저장본 쿼리의 gcTime 0 도 전제다 — 깨지면(다시 들어온 쿼리에 데이터가 남으면) 폼이 그 데이터로 열려 이 대기가 조용히 무력화된다.
 function waitForDraftSaves(queryClient: QueryClient, recruitmentId: number): Promise<void> {
   const savesPending = () =>
     queryClient.isMutating({
