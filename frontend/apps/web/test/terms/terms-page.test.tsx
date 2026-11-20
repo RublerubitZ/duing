@@ -120,12 +120,12 @@ describe('TermsPage 처리 위탁·국외 이전·분석 쿠키 고지', () => {
     ).toBeInTheDocument();
     expect(
       transfer.getByText(
-        /^Slack Technologies, LLC\(미국\) \/ 이전 항목: 회원가입 알림의 이름·학번.*보유·이용기간: Slack 워크스페이스의 메시지 보관 설정과 요금제에 따릅니다$/,
+        /^Slack Technologies, LLC\(미국\) \/ 이전 항목: 회원가입 알림의 이름·학번.*보유·이용기간: 운영팀이 따로 삭제하지 않으며, Slack 워크스페이스의 메시지 보관 설정과 요금제에 따릅니다$/,
       ),
     ).toBeInTheDocument();
     expect(
       transfer.getByText(
-        /^GitHub, Inc\.\(미국\) \/ 이전 항목: .* \/ 이전 일시: 매일 04시 15분 무렵 정기 백업/,
+        /^GitHub, Inc\.\(미국\) \/ 이전 항목: .* \/ 이전 일시: 매일 04시 15분 이후 하루 한 번 실행되는 정기 백업/,
       ),
     ).toBeInTheDocument();
   });
@@ -142,7 +142,7 @@ describe('TermsPage 처리 위탁·국외 이전·분석 쿠키 고지', () => {
     expect(transfer.queryByText(/국외 서버를 경유할 수 있습니다/)).not.toBeInTheDocument();
     expect(
       transfer.getByText(
-        /데이터베이스 백업은 매일 04시 15분 무렵 정기 백업과 수동 백업 때 Cloudflare R2에 업로드됩니다/,
+        /업로드 파일은 이용자가 올릴 때, 데이터베이스 백업은 매일 04시 15분 이후 하루 한 번 실행되는 정기 백업과 수동 백업 때 Cloudflare R2에 업로드됩니다/,
       ),
     ).toBeInTheDocument();
     expect(
