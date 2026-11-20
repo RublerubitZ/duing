@@ -20,9 +20,22 @@ vi.mock('next/navigation', () => ({
   usePathname: () => mockUsePathname(),
   useRouter: () => ({ replace: vi.fn(), push: vi.fn() }),
 }));
+// replace 는 DOM 에 남지 않으므로 data 속성으로 드러낸다(값이 없으면 Next 기본값처럼 false).
 vi.mock('next/link', () => ({
-  default: ({ href, children, ...rest }: { href: string; children: ReactNode; [key: string]: unknown }) => (
-    <a href={href} {...rest}>{children}</a>
+  default: ({
+    href,
+    replace,
+    children,
+    ...rest
+  }: {
+    href: string;
+    replace?: boolean;
+    children: ReactNode;
+    [key: string]: unknown;
+  }) => (
+    <a href={href} data-replace={String(replace === true)} {...rest}>
+      {children}
+    </a>
   ),
 }));
 vi.mock('next/image', () => ({
@@ -277,5 +290,20 @@ describe('AdminSidebar', () => {
       expect(screen.getByRole('link', { name: '대시보드' })).not.toHaveAttribute('aria-current');
       unmount();
     }
+  });
+
+  // 보던 화면의 단독 메뉴를 다시 누를 때만 replace 다 — 방문 기록을 쌓을지는 Next 안에서 정해져 jsdom 으로는 볼 수 없어 배선만 고정한다.
+  // usePathname 은 쿼리를 싣지 않으므로 첫 행이 `?week=<지난주>` 를 보던 중의 재클릭도 대표한다.
+  it.each<[string, string | RegExp, 'true' | 'false']>([
+    ['/admin/weekly-briefing', '주간 브리핑', 'true'],
+    ['/admin', '주간 브리핑', 'false'],
+    ['/admin/weekly-briefing/print', '주간 브리핑', 'false'],
+    ['/admin', '대시보드', 'true'],
+    ['/admin/clubs', /동아리 관리/, 'false'],
+  ])('%s 에서 %s 메뉴의 replace 는 %s 다 — 정확히 그 주소의 단독 메뉴만', (pathname, linkName, expectedReplace) => {
+    mockUsePathname.mockReturnValue(pathname);
+    renderSidebar();
+
+    expect(screen.getByRole('link', { name: linkName })).toHaveAttribute('data-replace', expectedReplace);
   });
 });
