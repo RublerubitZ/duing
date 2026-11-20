@@ -41,6 +41,7 @@ import java.lang.reflect.Field;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
 import org.junit.jupiter.api.BeforeEach;
@@ -62,6 +63,9 @@ class JoinCodeControllerTest extends IntegrationTestBase {
     private static final int DEFAULT_WINDOW_DAYS = 7;
     /** 모집 링크(12)와 눈으로 구분되는 값 — 자동 가입된 회원의 기수가 어느 링크에서 왔는지 드러난다. */
     private static final int INVITE_GENERATION = 13;
+    /** JoinCodeRateLimiter 의 분 한도와 같은 값 — 그쪽 상수는 패키지 전용이라 여기서 다시 적는다. */
+    private static final int CHECK_PER_MINUTE_LIMIT = 30;
+    private static final int REQUEST_CREATION_PER_MINUTE_LIMIT = 10;
 
     @LocalServerPort int port;
 
@@ -92,7 +96,7 @@ class JoinCodeControllerTest extends IntegrationTestBase {
     @BeforeEach
     void setUp() throws Exception {
         RestAssured.port = port;
-        // @SpringBootTest 컨텍스트 공유로 IP 창이 누적되면 뒤 테스트가 429 로 밀린다.
+        // @SpringBootTest 컨텍스트 공유로 창이 누적되면 뒤 테스트가 429 로 밀린다.
         joinCodeRateLimiter.reset();
 
         club = saveClub("가입코드동아리", ClubStatus.ACTIVE);
@@ -348,6 +352,60 @@ class JoinCodeControllerTest extends IntegrationTestBase {
 
         createRequest(null, "AB12CD").then().statusCode(HttpStatus.UNAUTHORIZED.value());
         assertThat(clubJoinRequestRepository.count()).isZero();
+    }
+
+    @Test
+    @DisplayName("같은 IP 에서 서로 다른 학생 11명이 가입 요청해도 모두 접수되고, 한 학생의 한도는 따로 걸린다")
+    void studentsBehindSharedIpEachHaveOwnRequestLimit() {
+        saveJoinCode("AB12CD", 12, 30, DEFAULT_WINDOW_DAYS);
+        List<String> studentTokens = new ArrayList<>();
+        studentTokens.add(studentToken);
+        while (studentTokens.size() <= REQUEST_CREATION_PER_MINUTE_LIMIT) {
+            studentTokens.add(tokenOf(saveUser()));
+        }
+
+        // RestAssured 요청은 모두 127.0.0.1 에서 나간다 — 한도를 IP 로 세면 11번째 학생이 429 다.
+        for (String token : studentTokens) {
+            createRequest(token, "AB12CD").then().statusCode(HttpStatus.CREATED.value());
+        }
+        assertThat(clubJoinRequestRepository.count()).isEqualTo(studentTokens.size());
+
+        // 첫 학생은 이미 1회를 썼다 — 대기 중 요청 409 로 9번 더 쓰면 자기 분 한도에 닿는다.
+        for (int attempt = 1; attempt < REQUEST_CREATION_PER_MINUTE_LIMIT; attempt++) {
+            createRequest(studentToken, "AB12CD").then().statusCode(HttpStatus.CONFLICT.value());
+        }
+        createRequest(studentToken, "AB12CD").then().statusCode(HttpStatus.TOO_MANY_REQUESTS.value());
+        // 같은 IP 의 새 학생은 여전히 접수된다 — IP 창 수치만 넓힌 구현(예: 분 20)이면 여기서 429 다.
+        createRequest(tokenOf(saveUser()), "AB12CD").then().statusCode(HttpStatus.CREATED.value());
+    }
+
+    @Test
+    @DisplayName("없는 코드로 보낸 가입 요청·확인도 한도를 쓴다 — 한도 검사가 코드 조회보다 먼저다")
+    void unknownCodeAttemptsCountTowardUserLimits() {
+        for (int attempt = 0; attempt < REQUEST_CREATION_PER_MINUTE_LIMIT; attempt++) {
+            createRequest(studentToken, "ZZZZZZ").then().statusCode(HttpStatus.NOT_FOUND.value());
+        }
+        createRequest(studentToken, "ZZZZZZ").then().statusCode(HttpStatus.TOO_MANY_REQUESTS.value());
+
+        for (int attempt = 0; attempt < CHECK_PER_MINUTE_LIMIT; attempt++) {
+            checkCode(studentToken, "ZZZZZZ").then().statusCode(HttpStatus.NOT_FOUND.value());
+        }
+        checkCode(studentToken, "ZZZZZZ").then().statusCode(HttpStatus.TOO_MANY_REQUESTS.value());
+    }
+
+    @Test
+    @DisplayName("같은 IP 의 비로그인 확인이 한도에 닿아도 로그인 학생의 확인은 자기 창으로 통과하고, 그 창에도 한도가 있다")
+    void signedInCheckIsNotBlockedBySharedIpAnonymousWindow() {
+        saveJoinCode("AB12CD", 12, 30, DEFAULT_WINDOW_DAYS);
+        for (int attempt = 0; attempt < CHECK_PER_MINUTE_LIMIT; attempt++) {
+            checkCode(null, "AB12CD").then().statusCode(HttpStatus.OK.value());
+        }
+        checkCode(null, "AB12CD").then().statusCode(HttpStatus.TOO_MANY_REQUESTS.value());
+
+        for (int attempt = 0; attempt < CHECK_PER_MINUTE_LIMIT; attempt++) {
+            checkCode(studentToken, "AB12CD").then().statusCode(HttpStatus.OK.value());
+        }
+        checkCode(studentToken, "AB12CD").then().statusCode(HttpStatus.TOO_MANY_REQUESTS.value());
     }
 
     @Test
