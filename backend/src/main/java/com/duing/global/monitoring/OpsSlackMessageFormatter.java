@@ -26,6 +26,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.stream.Collectors;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
@@ -48,13 +49,14 @@ public class OpsSlackMessageFormatter {
     private static final DateTimeFormatter KST_MINUTE = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
     private static final String WARNING_MARK = "⚠️ ";
     /**
-     * 마지막 백업 성공 뒤 이만큼 넘게 지나면 경고 — 매일 잡의 maxGap 과 같다. 2026-07~11 완료 시각 실측에서 09:00 기준 거짓 경고는
-     * 4개월에 한 번(늦게 돈 날)이었고, 더 늘리면 다음 날 09:00 뒤에 끝나 덮이지 않은 하루 누락을 놓친다.
+     * 마지막 백업 성공 뒤 이만큼 넘게 지나면 경고 — 매일 잡의 maxGap 과 같다. 09:00 요약에서 26시간을 넘는다는 것은 마지막 성공이
+     * 전날 07:00 전이라는 뜻이다. 이 값을 늘려도 이틀 이상 이어지는 공백은 그대로 잡고, 달라지는 것은 '전날 실행이 07:00 전에 끝났고
+     * 그날 09:00 까지 새 성공이 없을 때 당일 09:00 에 바로 경고하느냐'뿐이다. 그날 실행이 빠진 것인지 늦을 뿐인지는 구별하지 못한다
+     * (2026-07~11 실측에서 늦을 뿐이던 날의 경고 1번).
      */
     static final Duration BACKUP_MAX_GAP = Duration.ofHours(26);
-    /** 경고로 올리는 작업 상태와 그 표기 — 꺼짐·첫 실행 전·정상은 개수 줄에만 든다(카드의 경고 기준과 같다). */
-    private static final Map<JobHealth, String> WARNING_LABELS =
-            Map.of(JobHealth.OVERDUE, "늦음", JobHealth.FAILED, "실패", JobHealth.PARTIAL, "일부 실패");
+    /** 개수 줄의 칸 순서 — 정상은 0 이어도 적고, 나머지는 있을 때만 적는다. */
+    private static final List<String> JOB_COUNT_ORDER = List.of("정상", "첫 실행 전", "꺼짐", "경고");
 
     private final String environment;
     private final MoPollThrottle moPollThrottle;
@@ -235,8 +237,8 @@ public class OpsSlackMessageFormatter {
         List<String> lines = new ArrayList<>();
         lines.add(jobCountsLine(jobStatuses));
         jobStatuses.stream()
-                .filter(status -> WARNING_LABELS.containsKey(status.health()))
-                .map(status -> WARNING_MARK + status.job().name() + " " + WARNING_LABELS.get(status.health()) + " — "
+                .filter(status -> warningLabel(status.health()) != null)
+                .map(status -> WARNING_MARK + status.job().name() + " " + warningLabel(status.health()) + " — "
                         + (status.lastFinishedAt() == null
                         ? "기록 없음"
                         : "마지막 종료 " + kstMinute(status.lastFinishedAt()) + " KST"))
@@ -246,21 +248,36 @@ public class OpsSlackMessageFormatter {
     }
 
     private static String jobCountsLine(List<JobStatusQuery> jobStatuses) {
-        long notYet = jobStatuses.stream().filter(status -> status.health() == JobHealth.NOT_YET).count();
-        long disabled = jobStatuses.stream().filter(status -> status.health() == JobHealth.DISABLED).count();
-        long warnings = jobStatuses.stream().filter(status -> WARNING_LABELS.containsKey(status.health())).count();
-        StringBuilder line = new StringBuilder("자동 작업: 정상 ")
-                .append(jobStatuses.stream().filter(status -> status.health() == JobHealth.OK).count());
-        if (notYet > 0) {
-            line.append(" · 첫 실행 전 ").append(notYet);
+        Map<String, Long> counts = jobStatuses.stream()
+                .collect(Collectors.groupingBy(status -> jobCountLabel(status.health()), Collectors.counting()));
+        List<String> parts = new ArrayList<>();
+        for (String label : JOB_COUNT_ORDER) {
+            long count = counts.getOrDefault(label, 0L);
+            if (count > 0 || label.equals(JOB_COUNT_ORDER.get(0))) {
+                parts.add(label + " " + count);
+            }
         }
-        if (disabled > 0) {
-            line.append(" · 꺼짐 ").append(disabled);
-        }
-        if (warnings > 0) {
-            line.append(" · 경고 ").append(warnings);
-        }
-        return line.toString();
+        return "자동 작업: " + String.join(" · ", parts);
+    }
+
+    // 아래 두 switch 는 default 가 없다 — 작업 상태가 늘면 컴파일이 막혀 개수 칸과 경고 여부를 정하게 된다. 카드의 경고 기준과 같다.
+    private static String jobCountLabel(JobHealth health) {
+        return switch (health) {
+            case OK -> "정상";
+            case NOT_YET -> "첫 실행 전";
+            case DISABLED -> "꺼짐";
+            case OVERDUE, FAILED, PARTIAL -> "경고";
+        };
+    }
+
+    /** 경고 줄의 상태 표기 — 경고가 아니면 null(개수 줄에만 든다). */
+    private static String warningLabel(JobHealth health) {
+        return switch (health) {
+            case OVERDUE -> "늦음";
+            case FAILED -> "실패";
+            case PARTIAL -> "일부 실패";
+            case OK, NOT_YET, DISABLED -> null;
+        };
     }
 
     // 경과는 요약을 만드는 순간(이 시계)으로 잰다 — 기간 끝(09:00)과는 1분 안쪽 차이다.
