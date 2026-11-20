@@ -38,11 +38,9 @@ public class JoinCodeController implements JoinCodeApi {
     @Override
     public ResponseEntity<ApiResponse<Void>> createJoinRequest(
             @PathVariable String code,
-            @AuthenticationPrincipal UserPrincipal currentUser,
-            HttpServletRequest httpServletRequest
+            @AuthenticationPrincipal UserPrincipal currentUser
     ) {
-        joinRequestService.createRequest(new CreateJoinRequestCommand(
-                code, currentUser.id(), httpServletRequest.getRemoteAddr()));
+        joinRequestService.createRequest(new CreateJoinRequestCommand(code, currentUser.id()));
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success());
     }
 }

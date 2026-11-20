@@ -36,7 +36,6 @@ public interface JoinCodeApi {
     @PostMapping("/join-codes/{code}/requests")
     ResponseEntity<ApiResponse<Void>> createJoinRequest(
             @PathVariable String code,
-            @Parameter(hidden = true) @AuthenticationPrincipal UserPrincipal currentUser,
-            HttpServletRequest httpServletRequest
+            @Parameter(hidden = true) @AuthenticationPrincipal UserPrincipal currentUser
     );
 }

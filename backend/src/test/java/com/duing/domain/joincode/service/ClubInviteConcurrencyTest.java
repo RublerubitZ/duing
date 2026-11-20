@@ -73,7 +73,7 @@ class ClubInviteConcurrencyTest extends IntegrationTestBase {
 
     @BeforeEach
     void resetRateLimiter() {
-        // @SpringBootTest 컨텍스트 공유로 누적된 IP 창이 두 스레드를 429 로 밀어내지 않도록 초기화한다.
+        // @SpringBootTest 컨텍스트 공유로 누적된 창이 두 스레드를 429 로 밀어내지 않도록 초기화한다.
         joinCodeRateLimiter.reset();
     }
 
@@ -271,7 +271,7 @@ class ClubInviteConcurrencyTest extends IntegrationTestBase {
 
     private Throwable tryCreateRequest(String code, Long userId) {
         try {
-            joinRequestService.createRequest(new CreateJoinRequestCommand(code, userId, "127.0.0.1"));
+            joinRequestService.createRequest(new CreateJoinRequestCommand(code, userId));
             return null;
         } catch (Throwable failure) {
             return failure;
