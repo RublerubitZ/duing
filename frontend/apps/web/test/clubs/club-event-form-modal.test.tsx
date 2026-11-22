@@ -99,3 +99,130 @@ describe('ClubEventFormModal 시각 전송 형식 (Schedule Time = KST 벽시계
     });
   });
 });
+
+describe('ClubEventFormModal 저장 실패 안내 (#1633)', () => {
+  const EVENTS_URL = `http://localhost:8080/api/v1/clubs/${CLUB_ID}/events`;
+  const EVENT_URL = `${EVENTS_URL}/11`;
+  const SAVE_FALLBACK_MESSAGE = '일정을 저장하지 못했어요. 잠시 후 다시 시도해 주세요.';
+
+  function rejectWith(status: number, message: string) {
+    return HttpResponse.json({ ok: false, data: null, message }, { status });
+  }
+
+  function renderCreateModal(onClose: () => void) {
+    const view = renderWithProviders(
+      <ClubEventFormModal mode="create" clubId={CLUB_ID} onClose={onClose} />,
+    );
+    fireEvent.change(inputByName(view.container, 'title'), { target: { value: '정기 모임' } });
+    fireEvent.change(inputByName(view.container, 'startAt'), { target: { value: '2026-09-10T18:00' } });
+    fireEvent.change(inputByName(view.container, 'endAt'), { target: { value: '2026-09-10T20:30' } });
+    return view;
+  }
+
+  function renderEditModal(onClose: () => void) {
+    return renderWithProviders(
+      <ClubEventFormModal
+        mode="edit"
+        clubId={CLUB_ID}
+        eventId={11}
+        defaultValues={{ title: '기존 일정', startAt: '2026-09-10T18:00', endAt: '2026-09-10T20:30' }}
+        onClose={onClose}
+      />,
+    );
+  }
+
+  it('추가 — 서버가 거절하면 서버 메시지를 버튼 줄 바로 위에 보이고, 창과 입력은 그대로 둔다', async () => {
+    server.use(http.post(EVENTS_URL, () => rejectWith(403, '일정 추가 권한이 없습니다.')));
+    const onClose = vi.fn();
+    const user = userEvent.setup();
+    const { container } = renderCreateModal(onClose);
+
+    await user.click(screen.getByRole('button', { name: '추가' }));
+
+    const alert = await screen.findByRole('alert');
+    expect(alert).toHaveTextContent('일정 추가 권한이 없습니다.');
+    // 스크롤 영역 밖, 버튼 줄 바로 위 — 어디까지 스크롤했든 실패 순간 보이는 자리다.
+    expect(alert.closest('.overflow-y-auto')).toBeNull();
+    expect(alert.nextElementSibling).toContainElement(screen.getByRole('button', { name: '추가' }));
+    expect(onClose).not.toHaveBeenCalled();
+    expect(inputByName(container, 'title')).toHaveValue('정기 모임');
+    expect(screen.getByRole('button', { name: '추가' })).toBeEnabled();
+  });
+
+  it('추가 — ApiError 가 아닌 예외면 원문 대신 고정 문구를 보인다', async () => {
+    // 2xx 인데 본문이 JSON 이 아니면 파서의 SyntaxError 가 ApiError 로 바뀌지 않고 그대로 올라온다.
+    server.use(
+      http.post(EVENTS_URL, () =>
+        new HttpResponse('<html>ok</html>', { status: 201, headers: { 'Content-Type': 'text/html' } }),
+      ),
+    );
+    const onClose = vi.fn();
+    const user = userEvent.setup();
+    renderCreateModal(onClose);
+
+    await user.click(screen.getByRole('button', { name: '추가' }));
+
+    const alert = await screen.findByRole('alert');
+    expect(alert).toHaveTextContent(SAVE_FALLBACK_MESSAGE);
+    expect(alert).not.toHaveTextContent('Unexpected token');
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it('수정 — 서버가 거절하면 서버 메시지를 보이고, 창과 입력은 그대로 둔다', async () => {
+    server.use(http.patch(EVENT_URL, () => rejectWith(404, '일정을 찾을 수 없습니다.')));
+    const onClose = vi.fn();
+    const user = userEvent.setup();
+    const { container } = renderEditModal(onClose);
+
+    await user.click(screen.getByRole('button', { name: '수정' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('일정을 찾을 수 없습니다.');
+    expect(onClose).not.toHaveBeenCalled();
+    expect(inputByName(container, 'title')).toHaveValue('기존 일정');
+  });
+
+  it('수정 — 다시 제출하면 요청이 진행되는 동안 문구가 사라지고, 성공하면 창을 닫는다', async () => {
+    let releaseSecondSave: () => void = () => {};
+    const secondSaveGate = new Promise<void>((resolve) => {
+      releaseSecondSave = resolve;
+    });
+    let patchCount = 0;
+    server.use(
+      http.patch(EVENT_URL, async () => {
+        patchCount += 1;
+        if (patchCount === 1) return rejectWith(404, '일정을 찾을 수 없습니다.');
+        await secondSaveGate;
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+    const onClose = vi.fn();
+    const user = userEvent.setup();
+    renderEditModal(onClose);
+
+    await user.click(screen.getByRole('button', { name: '수정' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('일정을 찾을 수 없습니다.');
+
+    await user.click(screen.getByRole('button', { name: '수정' }));
+    await waitFor(() => expect(patchCount).toBe(2));
+    await waitFor(() => expect(screen.queryByRole('alert')).toBeNull());
+    expect(onClose).not.toHaveBeenCalled();
+
+    releaseSecondSave();
+    await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
+    expect(screen.queryByRole('alert')).toBeNull();
+  });
+
+  it('수정 — 본문 없는 5xx 로 합성된 "요청 실패 (502)" 대신 고정 문구를 보인다', async () => {
+    server.use(http.patch(EVENT_URL, () => new HttpResponse(null, { status: 502 })));
+    const onClose = vi.fn();
+    const user = userEvent.setup();
+    renderEditModal(onClose);
+
+    await user.click(screen.getByRole('button', { name: '수정' }));
+
+    const alert = await screen.findByRole('alert');
+    expect(alert).toHaveTextContent(SAVE_FALLBACK_MESSAGE);
+    expect(alert).not.toHaveTextContent('요청 실패');
+    expect(onClose).not.toHaveBeenCalled();
+  });
+});
