@@ -17,6 +17,7 @@ import com.duing.domain.user.entity.College;
 import com.duing.domain.user.entity.Grade;
 import com.duing.domain.user.entity.UserRole;
 import com.duing.domain.user.repository.UserRepository;
+import java.time.Clock;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicLong;
@@ -150,7 +151,8 @@ class NotificationServiceTest extends IntegrationTestBase {
         GeneralNotificationService serviceWithMockedRepository = new GeneralNotificationService(
                 mockedNotificationRepository,
                 mockedBroadcastRepository,
-                mockedBroadcastReadRepository
+                mockedBroadcastReadRepository,
+                Clock.systemDefaultZone()
         );
 
         CreateNotificationCommand command = new CreateNotificationCommand(
