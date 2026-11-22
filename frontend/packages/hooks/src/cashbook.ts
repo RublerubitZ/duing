@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type {
   CashbookSearchParams,
   CreateCashbookEntryPayload,
@@ -12,6 +12,8 @@ export function useCashbookEntriesQuery(clubId: number, params: CashbookSearchPa
   return useQuery({
     queryKey: cashbookQueryKeys.list(clubId, params),
     queryFn: () => client.leader.cashbook.list(clubId, params),
+    // 쪽·조건을 바꾸는 동안 이전 목록을 남긴다 — 장부 패널이 흐림·버튼 잠금으로 갱신 중임을 알린다(#1762). 쓰는 곳은 장부 패널 하나.
+    placeholderData: keepPreviousData,
   });
 }
 
