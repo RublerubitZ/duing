@@ -50,14 +50,15 @@ export function MyInquiriesPage() {
   const isEmptyPlaceholder = listQuery.isPlaceholderData && inquiries.length === 0;
   // 진짜 목록이 없으면 페이지 버튼도 없다 — 2쪽 이후의 실패엔 돌아갈 길을 둔다.
   const showsFirstPageButton = page > 0 && (listQuery.data === undefined || listQuery.isPlaceholderData);
-  // 받는 중(멈춤 포함)에는 판단하지 않는다 — 그동안 data 는 이전 탭·쪽의 자리표시라 쪽 수가 다르다.
+  // 받는 중(멈춤 포함)에는 판단하지 않는다 — 그동안 data 는 이전 탭·쪽의 자리표시이거나, 같은 키의 옛 캐시를 다시 받는 중이라
+  // 옛 쪽 수로 튕기지 않게 한다(찜 목록과 같은 이유).
   const loadedTotalPages = listQuery.fetchStatus !== 'idle' ? undefined : listQuery.data?.totalPages;
 
   // 상태 탭을 바꾸는 동안 이전 탭 자리표시의 페이지 버튼으로 새 탭에 없는 쪽에 갈 수 있다 — 그대로 두면 빈 쪽에 갇히므로
-  // 남은 마지막 쪽(없으면 첫 쪽)으로 옮긴다(찜 목록 보정과 같은 모양).
+  // 남은 마지막 쪽으로 옮긴다. 총 0쪽(0건)이면 옮기지 않는다 — 그 쪽에 머물러도 빈 안내가 맞다(찜 목록 보정과 같은 규칙).
   useEffect(() => {
-    if (loadedTotalPages !== undefined && page > 0 && page >= loadedTotalPages) {
-      setPage(Math.max(loadedTotalPages - 1, 0));
+    if (loadedTotalPages !== undefined && loadedTotalPages > 0 && page >= loadedTotalPages) {
+      setPage(loadedTotalPages - 1);
     }
   }, [loadedTotalPages, page]);
 
