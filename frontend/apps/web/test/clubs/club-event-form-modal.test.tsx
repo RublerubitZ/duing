@@ -5,7 +5,7 @@ import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { setupServer } from 'msw/node';
 import { http, HttpResponse } from 'msw';
-import { createApiClient, NETWORK_ERROR_MESSAGE } from '@duing/api';
+import { createApiClient, NETWORK_ERROR_MESSAGE, registerConnectivityAdapter } from '@duing/api';
 import { ApiClientProvider } from '@duing/hooks';
 
 import { ClubEventFormModal } from '@/app/clubs/[clubId]/member/_components/ClubEventFormModal';
@@ -34,6 +34,7 @@ afterEach(() => {
   server.resetHandlers();
   capturedCreateBody = null;
   capturedUpdateBody = null;
+  registerConnectivityAdapter(null);
 });
 afterAll(() => server.close());
 
@@ -233,6 +234,31 @@ describe('ClubEventFormModal 저장 실패 안내 (#1633)', () => {
     await user.click(screen.getByRole('button', { name: '수정' }));
 
     expect(await screen.findByRole('alert')).toHaveTextContent(NETWORK_ERROR_MESSAGE);
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it('수정 — 요청 전에 바로 막혀도(오프라인) 다시 제출하면 안내를 새 요소로 그려 스크린리더가 다시 읽는다', async () => {
+    // 연결 어댑터가 막으면 요청이 나가기 전에 실패해, 대기 상태가 화면에 그려지지 않고 곧장 오류로 간다.
+    let blockedCount = 0;
+    registerConnectivityAdapter(() => {
+      blockedCount += 1;
+      return false;
+    });
+    const onClose = vi.fn();
+    const user = userEvent.setup();
+    renderEditModal(onClose);
+
+    await user.click(screen.getByRole('button', { name: '수정' }));
+    const firstAlert = await screen.findByRole('alert');
+    expect(firstAlert).toHaveTextContent(NETWORK_ERROR_MESSAGE);
+
+    // 사람은 같은 ms 에 두 번 제출하지 못한다 — 제출 시각이 달라지도록 시계를 조금 넘긴다.
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    await user.click(screen.getByRole('button', { name: '수정' }));
+
+    await waitFor(() => expect(blockedCount).toBe(2));
+    await waitFor(() => expect(screen.getByRole('alert')).not.toBe(firstAlert));
+    expect(screen.getByRole('alert')).toHaveTextContent(NETWORK_ERROR_MESSAGE);
     expect(onClose).not.toHaveBeenCalled();
   });
 });
