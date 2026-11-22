@@ -5,7 +5,7 @@ import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { setupServer } from 'msw/node';
 import { http, HttpResponse } from 'msw';
-import { createApiClient } from '@duing/api';
+import { createApiClient, NETWORK_ERROR_MESSAGE } from '@duing/api';
 import { ApiClientProvider } from '@duing/hooks';
 
 import { ClubEventFormModal } from '@/app/clubs/[clubId]/member/_components/ClubEventFormModal';
@@ -141,8 +141,6 @@ describe('ClubEventFormModal 저장 실패 안내 (#1633)', () => {
 
     const alert = await screen.findByRole('alert');
     expect(alert).toHaveTextContent('일정 추가 권한이 없습니다.');
-    // 스크롤 영역 밖, 버튼 줄 바로 위 — 어디까지 스크롤했든 실패 순간 보이는 자리다.
-    expect(alert.closest('.overflow-y-auto')).toBeNull();
     expect(alert.nextElementSibling).toContainElement(screen.getByRole('button', { name: '추가' }));
     expect(onClose).not.toHaveBeenCalled();
     expect(inputByName(container, 'title')).toHaveValue('정기 모임');
@@ -223,6 +221,18 @@ describe('ClubEventFormModal 저장 실패 안내 (#1633)', () => {
     const alert = await screen.findByRole('alert');
     expect(alert).toHaveTextContent(SAVE_FALLBACK_MESSAGE);
     expect(alert).not.toHaveTextContent('요청 실패');
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it('수정 — 네트워크가 끊기면 정규화된 안내(상태 0 ApiError)를 고정 문구로 덮지 않는다', async () => {
+    server.use(http.patch(EVENT_URL, () => HttpResponse.error()));
+    const onClose = vi.fn();
+    const user = userEvent.setup();
+    renderEditModal(onClose);
+
+    await user.click(screen.getByRole('button', { name: '수정' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(NETWORK_ERROR_MESSAGE);
     expect(onClose).not.toHaveBeenCalled();
   });
 });

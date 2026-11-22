@@ -173,7 +173,8 @@ export function ClubEventFormModal(props: Props) {
 
           {/* 스크롤 영역 밖 — 어디까지 스크롤했든 실패 순간 버튼 줄 바로 위에 보인다. */}
           {saveError && (
-            <p role="alert" className="mx-6 my-3 shrink-0 rounded-xl bg-coral/5 px-4 py-3 text-sm text-coral-deep">
+            // 제출마다 새 요소로 그려 같은 문구도 다시 읽히게 한다 — 요청 전에 바로 막히면 대기 렌더 없이 오류로 가 요소가 그대로 남는다.
+            <p key={createMutation.submittedAt + updateMutation.submittedAt} role="alert" className="mx-6 my-3 shrink-0 rounded-xl bg-coral/5 px-4 py-3 text-sm text-coral-deep">
               {/* 합성 문구('요청 실패 (502)')와 ApiError 가 아닌 예외의 원문은 사용자에게 사유가 아니다. */}
               {saveError instanceof ApiError && saveError.message !== httpFallbackMessage(saveError.status)
                 ? saveError.message
