@@ -67,21 +67,22 @@ export function MyPage() {
   const myInquiriesTotalCount = myInquiriesQuery.data?.totalElements ?? 0;
   // 실패 뒤 다시 받는 중 — TanStack 5 는 데이터 없이 다시 받으면 pending 으로 되돌리고 error·failureCount 도 비운다. 이 마운트에서
   // 이미 결과(실패)를 받았는지(isFetchedAfterMount)로 처음 조회와 가른다 — 실패한 캐시를 든 채 다시 들어온 마운트 재조회는 처음
-  // 조회로 본다(#1756). 이 화면의 목록은 자리표시(placeholderData)를 쓰지 않아 isPlaceholderData 는 늘 거짓이다(다른 목록 화면과 같은 식).
+  // 조회로 본다(#1756). 진행 여부는 isFetching 이 아니라 fetchStatus 로 본다 — 재시도 대기 뒤 탭이 가려져 있으면 요청이 멈춰
+  // ('paused') isFetching 이 내려가도 다시 받는 중이다. 이 화면의 목록은 자리표시(placeholderData)를 쓰지 않아 isPlaceholderData 는 늘 거짓이다.
   const applicationsRetrying =
-    applicationsQuery.isFetching &&
+    applicationsQuery.fetchStatus !== 'idle' &&
     applicationsQuery.isFetchedAfterMount &&
     (applicationsQuery.data === undefined || applicationsQuery.isPlaceholderData);
   const myClubsRetrying =
-    myClubsQuery.isFetching &&
+    myClubsQuery.fetchStatus !== 'idle' &&
     myClubsQuery.isFetchedAfterMount &&
     (myClubsQuery.data === undefined || myClubsQuery.isPlaceholderData);
   const favoritesRetrying =
-    favoriteListQuery.isFetching &&
+    favoriteListQuery.fetchStatus !== 'idle' &&
     favoriteListQuery.isFetchedAfterMount &&
     (favoriteListQuery.data === undefined || favoriteListQuery.isPlaceholderData);
   const inquiriesRetrying =
-    myInquiriesQuery.isFetching &&
+    myInquiriesQuery.fetchStatus !== 'idle' &&
     myInquiriesQuery.isFetchedAfterMount &&
     (myInquiriesQuery.data === undefined || myInquiriesQuery.isPlaceholderData);
   // 조회 중에는 "없음"이 아니라 "아직 모름"이다(#1500) — 정적 HTML·조회 전에 "…없어요" 대신 스켈레톤을 그린다. 하이드레이션

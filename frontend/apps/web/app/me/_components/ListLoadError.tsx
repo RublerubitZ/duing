@@ -25,8 +25,8 @@ export function ListLoadError({ message, onRetry, isRetrying = false }: Props) {
     <div className="bg-paper border border-line rounded-lg px-8 py-12 text-center text-charcoal-3 text-sm">
       <p id={messageId}>{message}</p>
       {/* 실패한 목록이 여럿이면 '다시 시도'도 여럿이다 — 버튼만 훑어도 어느 목록 것인지 들리게 문구를 설명으로 잇는다. */}
-      {/* 다시 받는 동안에도 같은 버튼 노드를 둔다 — disabled 는 포커스를 떨어뜨리므로 aria-disabled 로 잠그고 누름은 무시한다
-          (이전 쪽 자리표시를 쓰는 다른 목록 화면과 같은 동작. 데이터 없는 재요청은 TanStack 이 진행 중 요청으로 합쳐 준다). */}
+      {/* 다시 받는 동안에도 같은 버튼 노드를 둔다 — disabled 는 포커스를 떨어뜨리므로 aria-disabled 로 잠근다. 누름을 무시하는 건
+          aria-disabled 의 뜻(누를 수 없음)과 맞추려는 것이다(데이터 없는 재요청은 TanStack 이 진행 중 요청으로 합쳐 요청은 늘지 않는다). */}
       <button
         type="button"
         onClick={() => {

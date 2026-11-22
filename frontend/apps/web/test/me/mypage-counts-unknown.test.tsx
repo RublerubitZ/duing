@@ -1,7 +1,7 @@
 import { act, cleanup, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ReactElement } from 'react';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { focusManager, QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { setupServer } from 'msw/node';
 import { http, HttpResponse } from 'msw';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -425,6 +425,56 @@ describe('마이페이지 — 받은 목록이 없으면 숫자를 모른다', (
     releaseMyClubs();
     await waitFor(() => expect(queryClient.isFetching()).toBe(0));
     expect(await within(section('joined')).findByText('가입한 동아리를 불러오지 못했어요.')).toBeInTheDocument();
+  });
+
+  it('다시 시도의 재시도가 탭을 가린 동안 멈춰도(paused) 같은 버튼이 잠긴 채 포커스를 지키고, 이어 받다 실패하면 "다시 시도"로 돌아온다', async () => {
+    // 앱처럼 5xx 를 한 번 더 시도하되 기다림은 0 — TanStack 은 재시도 대기 뒤 탭이 가려져 있으면 요청을 멈추고(fetchStatus 'paused')
+    // isFetching 을 내린다. 그 사이 스켈레톤으로 떨어지면 누른 버튼이 사라진다.
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: 1, retryDelay: 0, networkMode: 'always', refetchOnWindowFocus: false } },
+    });
+    server.use(http.get(MY_CLUBS_URL, () => serverError()));
+    try {
+      renderWithClient(<MyPage />, queryClient);
+      const retryButton = await within(section('joined')).findByRole('button', { name: '다시 시도' });
+      let retryRequests = 0;
+      let releaseFirstAttempt: () => void = () => undefined;
+      const firstAttemptGate = new Promise<void>((resolve) => {
+        releaseFirstAttempt = resolve;
+      });
+      server.use(
+        http.get(MY_CLUBS_URL, async () => {
+          retryRequests += 1;
+          if (retryRequests === 1) await firstAttemptGate;
+          return serverError();
+        }),
+      );
+      focusManager.setFocused(false);
+
+      await userEvent.click(retryButton);
+      await waitFor(() => expect(retryButton).toHaveAccessibleName('다시 불러오는 중'));
+
+      releaseFirstAttempt();
+
+      await waitFor(() => expect(queryClient.getQueryState(userQueryKeys.myClubs())?.fetchStatus).toBe('paused'));
+      expect(retryButton).toBeInTheDocument();
+      expect(retryButton).toHaveAccessibleName('다시 불러오는 중');
+      expect(retryButton).toHaveAttribute('aria-disabled', 'true');
+      expect(retryButton).toHaveFocus();
+      expect(within(section('joined')).queryByRole('status')).not.toBeInTheDocument();
+      expect(retryRequests).toBe(1);
+
+      // 탭이 다시 보이면 멈춘 재시도를 이어 받는다 — 그것도 실패하면 같은 버튼이 풀린다.
+      act(() => focusManager.setFocused(true));
+
+      await waitFor(() => expect(retryButton).toHaveAccessibleName('다시 시도'));
+      expect(retryButton).not.toHaveAttribute('aria-disabled');
+      expect(retryButton).toHaveFocus();
+      expect(retryRequests).toBe(2);
+    } finally {
+      // 다른 테스트가 가려진 탭으로 돌지 않게 기본 판정(document.visibilityState)으로 되돌린다.
+      focusManager.setFocused(undefined);
+    }
   });
 
   it.each(retryWiringCases)(
