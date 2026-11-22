@@ -8,6 +8,7 @@ import { cn } from '@/app/_lib/cn';
 import { ArrowRight } from '@/components/duing/Icon';
 import { ListRowsSkeleton } from '@/components/loading/Skeleton';
 
+import { ListLoadError } from './ListLoadError';
 import { SectionHeader } from './SectionHeader';
 
 // 서류검토 단계 제거 (스펙 §5-5). 면접을 쓰지 않는 모집은 면접 마디 대신 최종 결과를 둔다 — 상세 스테퍼·지원 내역 행과 같은 규칙.
@@ -50,10 +51,12 @@ type Props = {
   applications: ApplicationSummary[];
   /** 조회 중 — 빈 상태 대신 스켈레톤(정적 HTML·조회 전에 거짓 "없어요"를 그리지 않는다, #1500). */
   isPending?: boolean;
+  /** 첫 조회가 실패해 받은 목록이 없을 때만 넘긴다 — 있으면 빈 안내 대신 실패 안내와 다시 시도(#1579). */
+  onRetry?: () => void;
 };
 
-export function SectionApply({ applications, isPending = false }: Props) {
-  if (isPending || applications.length === 0) {
+export function SectionApply({ applications, isPending = false, onRetry }: Props) {
+  if (isPending || onRetry || applications.length === 0) {
     return (
       <section
         data-section="apply"
@@ -62,11 +65,13 @@ export function SectionApply({ applications, isPending = false }: Props) {
       >
         <div className="max-w-layout mx-auto px-4 sm:px-6 md:px-10">
           <SectionHeader
-            title={isPending ? '진행 중인 지원' : '진행 중인 지원 · 0'}
+            title={isPending || onRetry ? '진행 중인 지원' : '진행 중인 지원 · 0'}
             hint="아직 결과를 기다리고 있는 지원 내역입니다."
           />
           {isPending ? (
             <ListRowsSkeleton rows={2} rowClassName="h-[88px] rounded-lg" label="진행 중인 지원 불러오는 중" />
+          ) : onRetry ? (
+            <ListLoadError message="진행 중인 지원을 불러오지 못했어요." onRetry={onRetry} />
           ) : (
             <div className="bg-paper border border-line rounded-lg px-8 py-12 text-center text-charcoal-3 text-sm">
               진행 중인 지원이 없어요.{' '}

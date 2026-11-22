@@ -12,6 +12,7 @@ import { ClubLogo } from '@/app/_components/ClubLogo';
 import { ListRowsSkeleton } from '@/components/loading/Skeleton';
 
 import { LeaveClubDialog } from './LeaveClubDialog';
+import { ListLoadError } from './ListLoadError';
 import { SectionHeader } from './SectionHeader';
 
 /**
@@ -29,6 +30,8 @@ type Props = {
   myClubs: MyClubSummary[];
   /** 조회 중 — 빈 상태 대신 스켈레톤(정적 HTML·조회 전에 거짓 "없어요"를 그리지 않는다, #1500). */
   isPending?: boolean;
+  /** 첫 조회가 실패해 받은 목록이 없을 때만 넘긴다 — 있으면 빈 안내 대신 실패 안내와 다시 시도(#1579). */
+  onRetry?: () => void;
 };
 
 /** 부원 카드·운영진 카드가 함께 쓰는 동아리 안 동선 — 공지·회비·일정. */
@@ -56,7 +59,7 @@ function MemberQuickLinks({ club }: { club: MyClubSummary }) {
   );
 }
 
-export function SectionMyClubs({ myClubs, isPending = false }: Props) {
+export function SectionMyClubs({ myClubs, isPending = false, onRetry }: Props) {
   const [leaveTarget, setLeaveTarget] = useState<MyClubSummary | null>(null);
 
   return (
@@ -67,12 +70,14 @@ export function SectionMyClubs({ myClubs, isPending = false }: Props) {
     >
       <div className="max-w-layout mx-auto px-4 sm:px-6 md:px-10">
         <SectionHeader
-          title={isPending ? '가입한 동아리' : `가입한 동아리 · ${myClubs.length}`}
+          title={isPending || onRetry ? '가입한 동아리' : `가입한 동아리 · ${myClubs.length}`}
           hint="활동 중인 동아리와 다음 모임 일정을 확인해요."
         />
 
         {isPending ? (
           <ListRowsSkeleton rows={2} rowClassName="h-[88px] rounded-lg" label="가입한 동아리 불러오는 중" />
+        ) : onRetry ? (
+          <ListLoadError message="가입한 동아리를 불러오지 못했어요." onRetry={onRetry} />
         ) : myClubs.length === 0 ? (
           <div className="bg-paper border border-line rounded-lg px-8 py-12 text-center text-charcoal-3 text-sm">
             아직 가입한 동아리가 없어요.{' '}

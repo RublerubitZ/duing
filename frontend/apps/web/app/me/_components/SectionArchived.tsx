@@ -16,6 +16,7 @@ import { ArrowRight } from '@/components/duing/Icon';
 import { ClubLogo } from '@/app/_components/ClubLogo';
 import { ListRowsSkeleton } from '@/components/loading/Skeleton';
 
+import { ListLoadError } from './ListLoadError';
 import { SectionHeader } from './SectionHeader';
 
 type PillMeta = { label: string; className: string };
@@ -55,9 +56,11 @@ type Props = {
   applications: ApplicationSummary[];
   /** 조회 중 — 빈 상태 대신 스켈레톤(정적 HTML·조회 전에 거짓 "없어요"를 그리지 않는다, #1500). */
   isPending?: boolean;
+  /** 첫 조회가 실패해 받은 목록이 없을 때만 넘긴다 — 있으면 빈 안내 대신 실패 안내와 다시 시도(#1579). */
+  onRetry?: () => void;
 };
 
-export function SectionArchived({ applications, isPending = false }: Props) {
+export function SectionArchived({ applications, isPending = false, onRetry }: Props) {
   return (
     <section
       data-section="archived"
@@ -66,12 +69,14 @@ export function SectionArchived({ applications, isPending = false }: Props) {
     >
       <div className="max-w-layout mx-auto px-4 sm:px-6 md:px-10">
         <SectionHeader
-          title={isPending ? '지난 지원' : `지난 지원 · ${applications.length}`}
+          title={isPending || onRetry ? '지난 지원' : `지난 지원 · ${applications.length}`}
           hint="결과가 나왔거나 모집이 종료된 지원 내역입니다."
         />
 
         {isPending ? (
           <ListRowsSkeleton rows={2} rowClassName="h-[88px] rounded-lg" label="지난 지원 불러오는 중" />
+        ) : onRetry ? (
+          <ListLoadError message="지난 지원을 불러오지 못했어요." onRetry={onRetry} />
         ) : applications.length === 0 ? (
           <div className="bg-paper border border-line rounded-lg px-8 py-12 text-center text-charcoal-3 text-sm">
             지난 지원 내역이 없어요.{' '}

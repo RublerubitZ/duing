@@ -7,15 +7,18 @@ import { ClubLogo } from '@/app/_components/ClubLogo';
 import { clubCategoryLabel } from '@/app/clubs/[clubId]/_lib/clubCategoryLabel';
 import { ListRowsSkeleton } from '@/components/loading/Skeleton';
 
+import { ListLoadError } from './ListLoadError';
 import { SectionHeader } from './SectionHeader';
 
 type Props = {
   favorites: FavoriteClub[];
   /** 조회 중 — 빈 상태 대신 스켈레톤(정적 HTML·조회 전에 거짓 "없어요"를 그리지 않는다, #1500). */
   isPending?: boolean;
+  /** 첫 조회가 실패해 받은 목록이 없을 때만 넘긴다 — 있으면 빈 안내 대신 실패 안내와 다시 시도(#1579). */
+  onRetry?: () => void;
 };
 
-export function SectionSaved({ favorites, isPending = false }: Props) {
+export function SectionSaved({ favorites, isPending = false, onRetry }: Props) {
   return (
     <section
       data-section="saved"
@@ -24,12 +27,14 @@ export function SectionSaved({ favorites, isPending = false }: Props) {
     >
       <div className="max-w-layout mx-auto px-4 sm:px-6 md:px-10">
         <SectionHeader
-          title={isPending ? '찜한 동아리' : `찜한 동아리 · ${favorites.length}`}
+          title={isPending || onRetry ? '찜한 동아리' : `찜한 동아리 · ${favorites.length}`}
           hint="관심 표시한 동아리예요. 모집 마감이 임박하면 알려드려요."
         />
 
         {isPending ? (
           <ListRowsSkeleton rows={2} rowClassName="h-[88px] rounded-lg" label="찜한 동아리 불러오는 중" />
+        ) : onRetry ? (
+          <ListLoadError message="찜한 동아리를 불러오지 못했어요." onRetry={onRetry} />
         ) : favorites.length === 0 ? (
           <div className="bg-paper border border-line rounded-lg px-8 py-12 text-center text-charcoal-3 text-sm">
             아직 찜한 동아리가 없어요.{' '}
