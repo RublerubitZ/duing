@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import {
   useCashbookEntriesQuery,
@@ -60,10 +60,19 @@ export function CashbookPanel({ clubId }: CashbookPanelProps) {
   );
 
   // page 는 목록 요청에만 붙인다 — 합계는 조건 전체를 세므로 페이지를 넘겨도 다시 부르지 않는다.
-  const { data: entryPage, isLoading } = useCashbookEntriesQuery(clubId, { ...filterParams, page, size: PAGE_SIZE });
+  const { data: entryPage, isLoading, isFetching } = useCashbookEntriesQuery(clubId, { ...filterParams, page, size: PAGE_SIZE });
   const { data: summary } = useCashbookSummaryQuery(clubId, filterParams);
   const deleteEntry = useDeleteCashbookEntryMutation(clubId);
   const toggleExclusion = useToggleCashbookExclusionMutation(clubId);
+
+  // 지우기·제외·분류로 지금 페이지가 범위 밖이 되면 마지막 유효 페이지로 옮긴다(상태 보정 — useEffect 금지는 데이터 패칭 한정).
+  // 다시 받는 중에는 판단하지 않는다 — 새 page 키는 data 가 비어 있고, 무효 표시된 옛 캐시는 지난 totalPages 를 들고 있다.
+  const loadedTotalPages = isFetching ? undefined : entryPage?.totalPages;
+  useEffect(() => {
+    if (loadedTotalPages === undefined) return;
+    const lastPage = Math.max(0, loadedTotalPages - 1);
+    if (page > lastPage) setPage(lastPage);
+  }, [loadedTotalPages, page]);
 
   const onDelete = (entry: CashbookEntry) => {
     deleteEntry.mutate(entry.id, {

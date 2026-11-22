@@ -261,3 +261,80 @@ describe('금전출납부 패널 — 페이지 이동', () => {
     expect(lastListRequest()?.get('page')).toBe('1');
   });
 });
+
+describe('금전출납부 패널 — 빈 페이지 보정', () => {
+  it('마지막 페이지의 마지막 항목을 지우면 빈 페이지에 남지 않고 마지막 유효 페이지로 옮긴다', async () => {
+    seedEntries(21, { source: 'MANUAL', bankTransactionId: null });
+    const user = renderPanel();
+    await goToSecondPage(user);
+
+    await user.click(screen.getByRole('button', { name: '삭제' }));
+    await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: '삭제' }));
+
+    expect(await screen.findByText('총 20건')).toBeInTheDocument();
+    expect(screen.getByText('1 / 1')).toBeInTheDocument();
+    expect(screen.queryByText('장부 항목이 없습니다.')).not.toBeInTheDocument();
+  });
+
+  it("'제외 항목 숨기기' 중 마지막 페이지의 마지막 항목을 제외하면 마지막 유효 페이지로 옮긴다", async () => {
+    seedEntries(21);
+    const user = renderPanel();
+    await screen.findByText('1 / 2');
+    await user.click(screen.getByRole('button', { name: '제외 항목 숨기기' }));
+    await waitFor(() => expect(lastListRequest()?.get('hideExcluded')).toBe('true'));
+    await goToSecondPage(user);
+
+    await user.click(screen.getByRole('button', { name: '제외' }));
+
+    expect(await screen.findByText('총 20건')).toBeInTheDocument();
+    expect(screen.getByText('1 / 1')).toBeInTheDocument();
+  });
+
+  it('보정으로 떠난 페이지에 항목이 다시 생기면, 다음이 옛 빈 캐시를 보고 앞 페이지로 튕기지 않는다', async () => {
+    seedEntries(21, { source: 'MANUAL', bankTransactionId: null });
+    const user = renderPanel();
+    await goToSecondPage(user);
+    await user.click(screen.getByRole('button', { name: '삭제' }));
+    await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: '삭제' }));
+    expect(await screen.findByText('1 / 1')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: '지출 등록' }));
+    const dialog = await screen.findByRole('dialog');
+    await user.clear(within(dialog).getByLabelText('금액(원)'));
+    await user.type(within(dialog).getByLabelText('금액(원)'), '5000');
+    await user.type(within(dialog).getByLabelText('설명'), '지난 지출');
+    // 기존 항목(2026-09-03)보다 이른 날 — 맨 마지막(2페이지)으로 간다.
+    fireEvent.change(within(dialog).getByLabelText('거래일'), { target: { value: '2026-08-01' } });
+    await user.click(within(dialog).getByRole('button', { name: '등록' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    expect(await screen.findByText('1 / 2')).toBeInTheDocument();
+
+    // 2페이지 키에는 보정 때 받은 옛 응답(content: [], totalPages: 1)이 무효 표시된 채 남아 있다.
+    await user.click(screen.getByRole('button', { name: '다음' }));
+    expect(await screen.findByText('2 / 2')).toBeInTheDocument();
+    expect(screen.getByText('지난 지출')).toBeInTheDocument();
+  });
+
+  it('다시 받은 결과가 0건이면 0페이지 빈 상태로 돌아간다', async () => {
+    seedEntries(21, { source: 'MANUAL', bankTransactionId: null });
+    // 이 테스트만: 지우는 순간 나머지도 사라진다(다른 운영진이 다 지운 상황).
+    server.use(
+      http.delete(`${CASHBOOK_URL}/:entryId`, () => {
+        serverEntries = [];
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+    const user = renderPanel();
+    await goToSecondPage(user);
+    const requestCountBeforeDelete = listRequests.length;
+
+    await user.click(screen.getByRole('button', { name: '삭제' }));
+    await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: '삭제' }));
+
+    // 빈 상태 문구는 보정 없이 2페이지에 남아도 뜬다 — 삭제 뒤 page=0 요청이 나갔는지로 보정을 가른다.
+    await waitFor(() =>
+      expect(listRequests.slice(requestCountBeforeDelete).some((query) => query.get('page') === '0')).toBe(true),
+    );
+    expect(await screen.findByText('장부 항목이 없습니다.')).toBeInTheDocument();
+  });
+});
