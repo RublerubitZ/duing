@@ -236,6 +236,36 @@ describe('MyFavoritesPage — 페이지 이동', () => {
     renderedText.stop();
   });
 
+  it('보정 뒤 남은 옛 2쪽 캐시로 다시 1쪽에 튕기지 않는다 — 다시 받는 중에는 보정을 판단하지 않는다', async () => {
+    serveFavorites(21);
+    const queryClient = renderPage();
+    await waitFor(() => expect(cardCount()).toBe(20));
+    await goToPage('2');
+    await waitFor(() => expect(cardCount()).toBe(1));
+
+    // 2쪽의 마지막 찜을 풀어 1쪽으로 보정된다 — 2쪽 키에는 빈 쪽(총 1쪽) 캐시가 남는다.
+    // 페이지 버튼은 2쪽의 빈 프레임에서도 잠깐 사라지므로, 1쪽 카드가 보이고 다시 받기가 모두 끝날 때까지 기다린다.
+    serverFavorites.list = serverFavorites.list.slice(0, 20);
+    await act(() => queryClient.invalidateQueries({ queryKey: favoriteQueryKeys.all }));
+    await waitFor(() => expect(cardCount()).toBe(20));
+    await waitFor(() => expect(queryClient.isFetching()).toBe(0));
+    expect(pagination()).not.toBeInTheDocument();
+
+    // 다른 곳에서 찜이 다시 늘어 1쪽을 다시 받으면 페이지 버튼이 돌아온다 — 2쪽 캐시는 비활성이라 무효 표시만 되고 다시 받지 않는다.
+    serverFavorites.list = Array.from({ length: 21 }, (_, index) => favorite(index + 1));
+    await act(() => queryClient.invalidateQueries({ queryKey: favoriteQueryKeys.all }));
+    await waitFor(() => expect(pagination()).toBeInTheDocument());
+    await waitFor(() => expect(queryClient.isFetching()).toBe(0));
+    expect(queryClient.getQueryData<PageResponse<FavoriteClub>>(favoriteQueryKeys.list(1, 20))?.content).toEqual([]);
+
+    await goToPage('2');
+
+    // 다시 받는 동안 먼저 나오는 옛 캐시(빈 쪽·총 1쪽)를 새 데이터로 착각해 보정하면 1쪽으로 튕겨 찜동아리21 이 끝내 안 보인다.
+    expect(await screen.findByText('찜동아리21')).toBeInTheDocument();
+    expect(cardCount()).toBe(1);
+    expect(screen.queryByText('찜동아리1')).not.toBeInTheDocument();
+  });
+
   it('3쪽의 마지막 찜이 풀리면 첫 쪽이 아니라 그 앞 쪽(2쪽)으로 옮긴다', async () => {
     serveFavorites(41);
     const queryClient = renderPage();

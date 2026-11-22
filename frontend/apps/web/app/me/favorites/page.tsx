@@ -19,12 +19,14 @@ export default function MyFavoritesPage() {
   const favoriteListQuery = useFavoriteListQuery(page, PAGE_SIZE);
   const hydrated = useHydrated();
   const totalPages = favoriteListQuery.data?.totalPages ?? 0;
+  // 다시 받는 중에는 판단하지 않는다(옛 캐시로 튕기지 않게) — 무효 표시만 된 옛 쪽 캐시가 먼저 나와 지금 페이지가 범위 밖처럼 보일 수 있다.
+  const settledTotalPages = favoriteListQuery.isFetching ? 0 : totalPages;
 
   // 이 화면의 하트로 마지막 페이지의 마지막 찜을 풀면 지금 페이지가 사라진다 — 페이지 버튼은 총 1쪽이면 그려지지 않아 빈 쪽에
   // 갇히므로 마지막 유효 페이지로 옮긴다(FaqSearchMissPanel 전례). 데이터가 없는 동안(totalPages 0)은 건드리지 않는다.
   useEffect(() => {
-    if (totalPages > 0 && page >= totalPages) setPage(totalPages - 1);
-  }, [totalPages, page]);
+    if (settledTotalPages > 0 && page >= settledTotalPages) setPage(settledTotalPages - 1);
+  }, [settledTotalPages, page]);
 
   // 정적 HTML·하이드레이션 프레임은 조회가 꺼져 있다 — 그대로 두면 "아직 찜한 동아리가 없어요"가 실린다(#1500). 하이드레이션 전에는 로딩으로 둔다.
   // isLoading 이 아니라 isPending — 데이터 없이 받는 중도 아닌 조회(꺼진 조회)가 아래 실패 분기로 떨어지지 않게.
