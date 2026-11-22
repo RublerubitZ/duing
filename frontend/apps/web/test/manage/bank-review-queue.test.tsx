@@ -41,6 +41,8 @@ const manualMatchMembers: ClubMember[] = [
   },
 ];
 const mockFeeBillsByUserId = vi.fn<(userId?: number) => FeeBill[]>(() => []);
+// 수동 매칭이 청구 훅에 넘기는 옵션 — 자리 채움(keepPreviousList)을 켜면 부원을 바꾼 동안 이전 부원 청구가 '적용 가능'으로 남는다(#1762).
+const mockFeeBillsQueryOptions = vi.fn<(options: unknown) => void>();
 
 // status 필터별로 다른 페이지를 돌려준다
 // (PENDING=검토 큐, AUTO_MATCHED=자동 매칭, MANUAL_MATCHED=수동 매칭 — 둘은 '매칭 내역'으로 합쳐 노출).
@@ -82,8 +84,9 @@ vi.mock('@duing/hooks', async (importOriginal) => ({
     void clubId;
     return { data: manualMatchMembers, isLoading: false };
   },
-  useClubFeeBillsQuery: (clubId: number, params: { userId?: number }) => {
+  useClubFeeBillsQuery: (clubId: number, params: { userId?: number }, options?: unknown) => {
     void clubId;
+    mockFeeBillsQueryOptions(options);
     const content = mockFeeBillsByUserId(params.userId);
     return {
       data: { content, page: 0, size: 50, totalElements: content.length, totalPages: 1, hasNext: false },
@@ -473,6 +476,9 @@ describe('BankReviewQueue', () => {
       expect(within(dialog).queryByText(/2026-05/)).not.toBeInTheDocument();
       expect(within(dialog).queryByText(/2026-04/)).not.toBeInTheDocument();
       expect(within(dialog).getAllByRole('button', { name: '이 청구에 적용' })).toHaveLength(1);
+      // 회귀 가드: 수동 매칭은 자리 채움 옵션을 넘기지 않는다.
+      expect(mockFeeBillsQueryOptions).toHaveBeenCalled();
+      expect(mockFeeBillsQueryOptions.mock.calls.every(([options]) => options === undefined)).toBe(true);
     });
 
     it('[이 청구에 적용] 클릭 시 {txId, feeBillId} 로 승인 뮤테이션을 호출한다', async () => {

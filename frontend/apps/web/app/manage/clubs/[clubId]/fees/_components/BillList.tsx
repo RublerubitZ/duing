@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useId, useMemo, useState } from 'react';
 import Link from 'next/link';
 
 import {
@@ -83,7 +83,28 @@ export function BillList({ clubId, initialStatusFilter = '' }: BillListProps) {
     ...(selectedMember ? { userId: selectedMember.userId } : {}),
   };
 
-  const { data: bills, isLoading } = useClubFeeBillsQuery(clubId, params);
+  // 쪽·조건을 바꾸는 동안 이전 목록을 남긴다 — 행마다 부원 이름이 보이고 행 동작은 그 청구 id 로만 가서,
+  // 수동 매칭(옵션 없이 부원별 조회)처럼 엉뚱한 대상에 붙일 위험이 없다.
+  const {
+    data: bills,
+    isLoading,
+    isFetching,
+    fetchStatus,
+    isFetchedAfterMount,
+    isPlaceholderData,
+    refetch: refetchBills,
+  } = useClubFeeBillsQuery(clubId, params, { keepPreviousList: true });
+  const failureMessageId = useId();
+
+  // 취소·납부로 지금 페이지가 상태 필터 범위 밖이 되면 마지막 유효 페이지로 옮긴다(장부 CashbookPanel 과 같은 보정 — useEffect 금지는 데이터 패칭 한정).
+  // 다시 받는 중에는 판단하지 않는다 — 새 page 키는 받는 동안 이전 쪽 자리 채움을, 무효 표시된 옛 캐시는 지난 totalPages 를 들고 있다.
+  const loadedTotalPages = isFetching ? undefined : bills?.totalPages;
+  useEffect(() => {
+    if (loadedTotalPages === undefined) return;
+    const lastPage = Math.max(0, loadedTotalPages - 1);
+    if (page > lastPage) setPage(lastPage);
+  }, [loadedTotalPages, page]);
+
   const [cancelTarget, setCancelTarget] = useState<FeeBill | null>(null);
   const [recordTarget, setRecordTarget] = useState<FeeBill | null>(null);
   const [historyTarget, setHistoryTarget] = useState<FeeBill | null>(null);
@@ -103,6 +124,18 @@ export function BillList({ clubId, initialStatusFilter = '' }: BillListProps) {
   const totalPages = bills?.totalPages ?? 0;
   const totalElements = bills?.totalElements ?? 0;
   const hasNext = bills?.hasNext ?? false;
+
+  // 이 키에서 실패를 본 뒤 다시 받는 중 — 실패 상자를 두고 버튼만 잠근다(장부·다른 목록 화면과 같은 규칙).
+  // 2쪽 이후 실패 뒤에는 이전 쪽 자리 채움이 붙어도 다시 받는 중이다. 실패 캐시가 남은 쪽으로 다시 옮겨 온 직후는
+  // isFetchedAfterMount 가 거짓이라 들지 않는다 — 처음 가는 쪽처럼 이전 쪽을 흐리게 둔다.
+  // 받는 중 여부는 isFetching 이 아니라 fetchStatus 로 본다 — 재시도 대기 뒤 탭이 가려지면 TanStack 이 재시도를 멈춰(paused)
+  // isFetching 이 거짓이 되고, 그러면 잠긴 버튼이 '다시 시도'로 풀리거나 자리 채움 목록이 다시 그려진다(query-core retryer.ts:183-186).
+  const isRetrying = fetchStatus !== 'idle' && isFetchedAfterMount && (bills === undefined || isPlaceholderData);
+  // 받는 중인데 목록이 비면(빈 결과를 캐시한 조건으로 돌아감 등) "없습니다"를 단정하지 않고 로딩으로 둔다.
+  const isListLoading = !isRetrying && (isLoading || (isFetching && bills?.content.length === 0));
+  // 처음 가는 쪽·새 조건을 받는 동안 푸터는 이전 쪽 번호를 보인다 — 또 누르면 한 쪽을 건너뛰므로 잠근다(겉모습은 그대로).
+  const isPreviousLocked = page0Based === 0 || isPlaceholderData;
+  const isNextLocked = !hasNext || isPlaceholderData;
 
   return (
     <div data-pagination-anchor="" className="space-y-4 scroll-mt-16 md:scroll-mt-6">
@@ -194,9 +227,36 @@ export function BillList({ clubId, initialStatusFilter = '' }: BillListProps) {
         </div>
       </div>
 
-      {isLoading ? (
+      {isListLoading ? (
         <LoadingGate label="청구 목록 불러오는 중" className="min-h-0 py-8" />
-      ) : !bills || bills.content.length === 0 ? (
+      ) : isRetrying || !bills ? (
+        // 실패와 다시 받는 중을 한 분기로 그린다 — '다시 시도' 버튼이 같은 노드로 남아 포커스를 잃지 않는다.
+        <div className="rounded-xl border border-dashed border-line px-6 py-12 text-center">
+          <p id={failureMessageId} className="text-sm text-charcoal-2">청구 목록을 불러오지 못했어요.</p>
+          <div className="mt-3 flex justify-center gap-2">
+            <button
+              type="button"
+              aria-disabled={isRetrying || undefined}
+              aria-describedby={failureMessageId}
+              onClick={() => {
+                if (!isRetrying) void refetchBills();
+              }}
+              className="rounded-md border border-line px-3 py-1.5 text-xs font-semibold text-ink transition-colors hover:bg-graysoft"
+            >
+              {isRetrying ? '다시 불러오는 중' : '다시 시도'}
+            </button>
+            {page > 0 && (
+              <button
+                type="button"
+                onClick={() => setPage(0)}
+                className="rounded-md border border-line px-3 py-1.5 text-xs font-semibold text-ink transition-colors hover:bg-graysoft"
+              >
+                첫 페이지로
+              </button>
+            )}
+          </div>
+        </div>
+      ) : bills.content.length === 0 ? (
         <div className="rounded-xl border border-dashed border-line px-6 py-12 text-center">
           <p className="text-sm text-charcoal-2">발행된 청구가 없습니다.</p>
           <p className="mt-1 text-xs text-charcoal-3">
@@ -204,8 +264,11 @@ export function BillList({ clubId, initialStatusFilter = '' }: BillListProps) {
           </p>
         </div>
       ) : (
-        <>
-          <ul className="space-y-2">
+        // 처음 가는 쪽·새 조건을 받는 동안(자리 채움) 목록·푸터를 흐린다 — 이전 조건의 건수를 새 결과로 읽지 않게(#906).
+        // aria-busy 는 목록에만 — 쪽 표시 라이브 영역이 busy 영역 안에 들면 보조기기가 알림을 미룰 수 있다.
+        // 행 버튼은 잠그지 않는다 — 행 동작은 그 청구 id 로만 가고, 취소는 확인 창에 부원·회차를 보인다.
+        <div className={cn('space-y-4', isPlaceholderData && 'opacity-60 transition-opacity')}>
+          <ul aria-busy={isPlaceholderData || undefined} className="space-y-2">
             {bills.content.map((bill) => (
               <BillRow
                 key={bill.id}
@@ -219,37 +282,41 @@ export function BillList({ clubId, initialStatusFilter = '' }: BillListProps) {
             ))}
           </ul>
 
+          {/* 끝 쪽·받는 중에는 disabled 대신 aria-disabled — 누른 버튼이 꺼져 포커스가 문서 앞으로 빠지지 않게(WeekPicker 와 같은 이유).
+              끝 쪽만 조건부 클래스로 흐린다 — aria-disabled: 변형을 쓰면 받는 중 잠김까지 흐려져 깜빡인다(#1360). */}
           <footer className="flex items-center justify-between text-xs text-charcoal-3">
             <span>총 {totalElements}건</span>
-            <div className="flex items-center gap-2">
+            <nav aria-label="청구 목록 페이지" className="flex items-center gap-2">
               <button
                 type="button"
+                aria-disabled={isPreviousLocked || undefined}
                 onClick={(event) => {
+                  if (isPreviousLocked) return;
                   setPage((current) => Math.max(0, current - 1));
                   scrollToPaginatedListStart(event.currentTarget);
                 }}
-                disabled={page0Based === 0}
-                className="rounded-md border border-line px-2 py-1 disabled:opacity-40"
+                className={cn('rounded-md border border-line px-2 py-1', page0Based === 0 && 'cursor-not-allowed opacity-40')}
               >
                 이전
               </button>
-              <span>
+              <span aria-live="polite" aria-atomic="true">
                 {page0Based + 1} / {Math.max(1, totalPages)}
               </span>
               <button
                 type="button"
+                aria-disabled={isNextLocked || undefined}
                 onClick={(event) => {
+                  if (isNextLocked) return;
                   setPage((current) => current + 1);
                   scrollToPaginatedListStart(event.currentTarget);
                 }}
-                disabled={!hasNext}
-                className="rounded-md border border-line px-2 py-1 disabled:opacity-40"
+                className={cn('rounded-md border border-line px-2 py-1', !hasNext && 'cursor-not-allowed opacity-40')}
               >
                 다음
               </button>
-            </div>
+            </nav>
           </footer>
-        </>
+        </div>
       )}
 
       {cancelTarget && (

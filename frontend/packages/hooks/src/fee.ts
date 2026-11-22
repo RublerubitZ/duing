@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type {
   BillSearchParams,
   CreateFeePolicyPayload,
@@ -54,11 +54,22 @@ export function useDeleteFeePolicyMutation(clubId: number) {
   });
 }
 
-export function useClubFeeBillsQuery(clubId: number, params: BillSearchParams) {
+/**
+ * 동아리 청구 목록.
+ * keepPreviousList: 쪽·조건을 바꾸는 동안 이전 목록을 자리 채움으로 남긴다 — 청구 탭 목록만 켠다(#1762).
+ * 기본은 끈다 — 부원별로 부르는 수동 매칭(ManualMatchDialog)은 키가 바뀐 동안 이전 부원의 청구가 '적용 가능'으로
+ * 보이면 입금을 다른 부원의 청구에 붙일 수 있다.
+ */
+export function useClubFeeBillsQuery(
+  clubId: number,
+  params: BillSearchParams,
+  options: { keepPreviousList?: boolean } = {},
+) {
   const client = useApiClient();
   return useQuery({
     queryKey: feeQueryKeys.bills(clubId, params),
     queryFn: () => client.leader.fees.listBills(clubId, params),
+    ...(options.keepPreviousList ? { placeholderData: keepPreviousData } : {}),
   });
 }
 
