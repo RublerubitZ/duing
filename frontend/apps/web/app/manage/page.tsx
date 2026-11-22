@@ -32,7 +32,7 @@ function ManageRedirect() {
 
   useEffect(() => {
     if (!isLoading && targetClub) {
-      router.push(toRoute(`/manage/clubs/${targetClub.clubId}`));
+      router.replace(toRoute(`/manage/clubs/${targetClub.clubId}`));
     }
   }, [isLoading, targetClub, router]);
 
