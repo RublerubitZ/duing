@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type {
   AnswerFederationInquiryPayload,
   ChangeFederationInquiryStatusPayload,
@@ -24,6 +24,9 @@ export function useMyFederationInquiriesQuery(params: MyListParams, enabled = tr
     queryKey: federationInquiryQueryKeys.my(params),
     queryFn: () => client.federationInquiries.listMine(params),
     enabled,
+    // 쪽·상태 탭을 옮기는 동안 이전 목록을 남긴다 — 스켈레톤으로 바뀌면 페이지 버튼이 사라져 포커스를 잃는다(#1756).
+    // 쪽 키가 고정된 호출처(마이페이지)는 clear() 뒤에만 자리표시가 붙고, 그때는 /me 가드가 화면을 내린다.
+    placeholderData: keepPreviousData,
   });
 }
 
