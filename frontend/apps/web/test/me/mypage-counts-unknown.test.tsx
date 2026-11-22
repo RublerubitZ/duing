@@ -285,19 +285,29 @@ describe('마이페이지 — 받은 목록이 없으면 숫자를 모른다', (
   });
 
   it.each(sectionFailureCases)(
-    '$label 첫 조회가 실패하면 그 숫자를 숨기고 실패 안내와 다시 시도를 그린다',
+    '$label 첫 조회가 실패하면 그 숫자를 숨기고 실패 안내와 다시 시도를 그리고, 다시 시도는 그 목록을 다시 부른다',
     async ({ url, sectionId, title, failedMessage, empty, headerLabel }) => {
-      server.use(http.get(url, () => serverError()));
+      let failedListRequests = 0;
+      server.use(
+        http.get(url, () => {
+          failedListRequests += 1;
+          return serverError();
+        }),
+      );
       renderWithClient(<MyPage />);
 
       expect(await within(section(sectionId)).findByText(failedMessage)).toBeInTheDocument();
       expect(within(section(sectionId)).getByRole('heading', { level: 2, name: title })).toBeInTheDocument();
-      expect(within(section(sectionId)).getByRole('button', { name: '다시 시도' })).toBeInTheDocument();
       expect(screen.queryByText(empty)).not.toBeInTheDocument();
       expect(tab(title).textContent).not.toMatch(/\d/);
       if (headerLabel !== null) expect(headerCount(headerLabel)).toBe('—');
       // 실패한 목록만 모른다 — 지원은 받은 대로 센다.
       await waitFor(() => expect(headerCount('지원 중')).toBe('2'));
+
+      await userEvent.click(within(section(sectionId)).getByRole('button', { name: '다시 시도' }));
+
+      // 다른 목록의 refetch 에 잘못 이으면 이 목록의 요청은 1 에 머문다.
+      await waitFor(() => expect(failedListRequests).toBe(2));
     },
   );
 

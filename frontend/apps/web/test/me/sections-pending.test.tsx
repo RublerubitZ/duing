@@ -88,6 +88,8 @@ describe('마이페이지 섹션 — 첫 조회가 실패하면 빈 상태 대�
       expect(screen.getByText(failedMessage)).toBeInTheDocument();
       expect(screen.queryByText(new RegExp(empty.replace(/\.$/, '')))).not.toBeInTheDocument();
       expect(screen.queryByRole('status')).not.toBeInTheDocument();
+      // 실패 안내는 사용자 행동에 대한 응답이 아니라 화면 상태다 — 라이브 영역(alert)으로 알리지 않는다.
+      expect(screen.queryByRole('alert')).not.toBeInTheDocument();
       const retryButton = screen.getByRole('button', { name: '다시 시도' });
       // 버튼 목록으로 훑어도 어느 목록의 다시 시도인지 들리게 — 이름은 '다시 시도' 그대로, 설명이 문구다.
       expect(retryButton).toHaveAccessibleDescription(failedMessage);

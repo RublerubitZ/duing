@@ -100,6 +100,30 @@ function renderPage(): QueryClient {
 const cardCount = () => screen.queryAllByRole('listitem').length;
 const pagination = () => screen.queryByRole('navigation', { name: '찜한 동아리 페이지' });
 
+/**
+ * 지금부터 화면에 한 번이라도 그려진 글자를 모은다 — 곧바로 다른 화면으로 바뀌는 한 프레임도 놓치지 않게(끝 상태만 보면 지나간 거짓 안내를 못 잡는다).
+ * 새로 붙은 노드의 글자와, 바뀐 글자 노드의 이전 값까지 모은다(React 는 같은 자리의 글자를 노드를 바꾸지 않고 고쳐 쓴다).
+ */
+function recordRenderedText() {
+  const renderedTexts: string[] = [];
+  const collect = (records: MutationRecord[]) => {
+    for (const record of records) {
+      if (record.oldValue !== null) renderedTexts.push(record.oldValue);
+      renderedTexts.push(record.target.textContent ?? '');
+      record.addedNodes.forEach((addedNode) => renderedTexts.push(addedNode.textContent ?? ''));
+    }
+  };
+  const observer = new MutationObserver(collect);
+  observer.observe(document.body, { childList: true, subtree: true, characterData: true, characterDataOldValue: true });
+  return {
+    everRendered: (text: string) => {
+      collect(observer.takeRecords());
+      return renderedTexts.some((renderedText) => renderedText.includes(text));
+    },
+    stop: () => observer.disconnect(),
+  };
+}
+
 async function goToPage(pageLabel: string) {
   const pageNav = pagination();
   if (pageNav === null) throw new Error('페이지 버튼이 없다');
@@ -198,6 +222,9 @@ describe('MyFavoritesPage — 페이지 이동', () => {
     await goToPage('2');
     await waitFor(() => expect(cardCount()).toBe(1));
 
+    // 보정 전 한 프레임(이 쪽은 비었지만 전체는 남음)에 거짓 빈 안내가 스치는지까지 본다 — 끝 상태만 보면 놓친다.
+    const renderedText = recordRenderedText();
+
     // 이 화면의 하트로 찜을 풀면 서버에서 빠지고 찜 목록 전체가 무효화된다(favorites.ts onSettled) — 카드 목을 쓰므로 그 둘을 직접 한다.
     serverFavorites.list = serverFavorites.list.slice(0, 20);
     await act(() => queryClient.invalidateQueries({ queryKey: favoriteQueryKeys.all }));
@@ -205,7 +232,26 @@ describe('MyFavoritesPage — 페이지 이동', () => {
     await waitFor(() => expect(cardCount()).toBe(20));
     // 0쪽의 옛 캐시(총 2쪽)가 먼저 그려져 페이지 버튼이 다시 받을 때까지 잠깐 남는다(받아들인 동작, 스펙 3.5) — 사라질 때까지 기다린다.
     await waitFor(() => expect(pagination()).not.toBeInTheDocument());
-    expect(screen.queryByText('아직 찜한 동아리가 없어요')).not.toBeInTheDocument();
+    expect(renderedText.everRendered('아직 찜한 동아리가 없어요')).toBe(false);
+    renderedText.stop();
+  });
+
+  it('3쪽의 마지막 찜이 풀리면 첫 쪽이 아니라 그 앞 쪽(2쪽)으로 옮긴다', async () => {
+    serveFavorites(41);
+    const queryClient = renderPage();
+    await waitFor(() => expect(cardCount()).toBe(20));
+    await goToPage('3');
+    await waitFor(() => expect(cardCount()).toBe(1));
+    expect(screen.getByText('찜동아리41')).toBeInTheDocument();
+
+    serverFavorites.list = serverFavorites.list.slice(0, 40);
+    await act(() => queryClient.invalidateQueries({ queryKey: favoriteQueryKeys.all }));
+
+    // 마지막 유효 페이지는 2쪽(21~40) — 첫 쪽(1~20)으로 가면 보던 자리에서 멀어진다.
+    expect(await screen.findByText('찜동아리21')).toBeInTheDocument();
+    expect(cardCount()).toBe(20);
+    expect(screen.queryByText('찜동아리1')).not.toBeInTheDocument();
+    expect(requestedPages.at(-1)).toEqual({ page: '1', size: '20' });
   });
 
   it('2쪽을 보다 찜이 전부 풀리면 빈 안내를 그린다 — 보정이 돌지 않는다', async () => {
