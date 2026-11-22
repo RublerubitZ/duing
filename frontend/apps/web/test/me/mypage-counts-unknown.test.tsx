@@ -346,7 +346,7 @@ describe('마이페이지 — 받은 목록이 없으면 숫자를 모른다', (
   });
 
   // 회귀 가드 — 지금 코드에서도 통과한다.
-  it('옛 목록을 든 채 다시 받다 실패하면 마지막 숫자와 목록을 그대로 둔다(#1549 와 같은 기준)', async () => {
+  it('옛 목록을 든 채 다시 받다 실패하면 마지막 숫자와 목록을 그대로 둔다(숫자는 #1549 와 같은 기준, 목록은 남긴다)', async () => {
     const queryClient = renderWithClient(<MyPage />);
     await waitFor(() => expect(headerCount('지원 중')).toBe('2'));
     server.use(http.get(APPLICATIONS_URL, () => serverError()));
