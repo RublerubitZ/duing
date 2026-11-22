@@ -23,7 +23,7 @@ export default function MyFavoritesPage() {
   const settledTotalPages = favoriteListQuery.isFetching ? 0 : totalPages;
 
   // 이 화면의 하트로 마지막 페이지의 마지막 찜을 풀면 지금 페이지가 사라진다 — 페이지 버튼은 총 1쪽이면 그려지지 않아 빈 쪽에
-  // 갇히므로 마지막 유효 페이지로 옮긴다(FaqSearchMissPanel 전례). 데이터가 없는 동안(totalPages 0)은 건드리지 않는다.
+  // 갇히므로 마지막 유효 페이지로 옮긴다(FaqSearchMissPanel 전례). 판단할 값이 없는 동안(데이터 없음·다시 받는 중 = 0)은 건드리지 않는다.
   useEffect(() => {
     if (settledTotalPages > 0 && page >= settledTotalPages) setPage(settledTotalPages - 1);
   }, [settledTotalPages, page]);
