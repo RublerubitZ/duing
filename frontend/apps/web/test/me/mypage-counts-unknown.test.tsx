@@ -34,8 +34,15 @@ vi.mock('next/navigation', () => ({
 vi.mock('@/app/_components/HomeNav', () => ({ HomeNav: () => null }));
 vi.mock('@/app/_components/ProfileCheckPrompt', () => ({ ProfileCheckPrompt: () => null }));
 vi.mock('@/components/duing/Sparkle', () => ({ SparkleFull: () => null }));
+// 설정 화면의 대화상자·세션 카드 — 머리글 숫자만 본다.
+vi.mock('@/app/_components/ProfileEditDialog', () => ({ ProfileEditDialog: () => null }));
+vi.mock('@/app/me/settings/_components/PasswordChangeDialog', () => ({ PasswordChangeDialog: () => null }));
+vi.mock('@/app/me/settings/_components/PhoneChangeDialog', () => ({ PhoneChangeDialog: () => null }));
+vi.mock('@/app/me/settings/_components/WithdrawAccountDialog', () => ({ WithdrawAccountDialog: () => null }));
+vi.mock('@/app/me/settings/_components/SessionListCard', () => ({ SessionListCard: () => null }));
 
 import { MyPage } from '@/app/me/_pages/MyPage';
+import { SettingsPage } from '@/app/me/settings/_pages/SettingsPage';
 
 /**
  * 받은 목록이 없으면 숫자를 모른다(#1579) — 조회 중뿐 아니라 첫 조회가 실패해도 0 이 아니라 "—"·배지 없음, 섹션은 빈 안내 대신
@@ -342,4 +349,33 @@ describe('마이페이지 — 받은 목록이 없으면 숫자를 모른다', (
     expect(within(section('apply')).getByRole('heading', { level: 2, name: '진행 중인 지원 · 2' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: '다시 시도' })).not.toBeInTheDocument();
   });
+});
+
+type SettingsHeaderCase = { label: string; url: string; headerLabel: HeaderLabel };
+
+const settingsHeaderCases: SettingsHeaderCase[] = [
+  { label: '지원', url: APPLICATIONS_URL, headerLabel: '지원 중' },
+  { label: '가입', url: MY_CLUBS_URL, headerLabel: '가입' },
+  { label: '찜', url: FAVORITES_URL, headerLabel: '찜' },
+];
+
+// 기본 응답의 머리글 숫자 — 진행 중 지원 2, 가입 2, 찜 1.
+const settledHeaderCounts: Record<HeaderLabel, string> = { '지원 중': '2', 가입: '2', 찜: '1' };
+
+describe('설정 머리글 — 받은 목록이 없으면 숫자를 모른다', () => {
+  it.each(settingsHeaderCases)(
+    '$label 목록 첫 조회가 실패하면 머리글 $headerLabel 은 "—", 나머지 둘은 받은 숫자',
+    async ({ url, headerLabel }) => {
+      server.use(http.get(url, () => serverError()));
+      const queryClient = renderWithClient(<SettingsPage />);
+      const otherLabels = HEADER_LABELS.filter((label) => label !== headerLabel);
+
+      for (const otherLabel of otherLabels) {
+        await waitFor(() => expect(headerCount(otherLabel)).toBe(settledHeaderCounts[otherLabel]));
+      }
+      // 조회 중과 실패는 화면에서 같은 "—" 다 — 실패가 앉을 때까지(진행 중인 조회 0) 기다린 뒤 본다.
+      await waitFor(() => expect(queryClient.isFetching()).toBe(0));
+      expect(headerCount(headerLabel)).toBe('—');
+    },
+  );
 });

@@ -144,8 +144,9 @@ export function SettingsPage() {
   );
   const joinedCount = myClubsQuery.data?.length ?? 0;
   const savedCount = favoriteListQuery.data?.content.length ?? 0;
-  // 조회 중에는 거짓 0 대신 "—"(#1500) — 하이드레이션 프레임도 서버처럼 조회 중으로 둔다.
-  const headerCount = (count: number, isPending: boolean) => (!hydrated || isPending ? null : count);
+  // 받은 목록이 없으면(조회 중 또는 첫 조회 실패) 거짓 0 대신 "—"(#1500·#1579) — 하이드레이션 프레임도 서버처럼 모름으로 둔다.
+  // 옛 목록을 든 채 재조회가 실패하면 마지막 숫자를 둔다(#1549 와 같은 기준).
+  const headerCount = (count: number, isUnknown: boolean) => (!hydrated || isUnknown ? null : count);
 
   const [profileOpen, setProfileOpen] = useState(false);
   const [passwordOpen, setPasswordOpen] = useState(false);
@@ -204,9 +205,9 @@ export function SettingsPage() {
       <MyPageHeader
         name={user?.name ?? '—'}
         studentId={user?.studentId ?? '—'}
-        applyCount={headerCount(applyCount, applicationsQuery.isPending)}
-        joinedCount={headerCount(joinedCount, myClubsQuery.isPending)}
-        savedCount={headerCount(savedCount, favoriteListQuery.isPending)}
+        applyCount={headerCount(applyCount, applicationsQuery.data === undefined)}
+        joinedCount={headerCount(joinedCount, myClubsQuery.data === undefined)}
+        savedCount={headerCount(savedCount, favoriteListQuery.data === undefined)}
       />
       <SettingsPageTabs />
 
