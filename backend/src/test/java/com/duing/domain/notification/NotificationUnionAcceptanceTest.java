@@ -155,6 +155,101 @@ class NotificationUnionAcceptanceTest extends IntegrationTestBase {
                 .body("data.content.findAll { it.title == '" + noticeTitle + "' }.size()", equalTo(0));
     }
 
+    @Test
+    @DisplayName("총동연이 전체 공개·알림 발송 공지를 삭제하면 학생 알림 목록과 안 읽음 수에서 그 알림이 빠진다")
+    void deletedNoticeBroadcastDisappearsFromStudentInbox() {
+        Long noticeId = publishPublicNoticeWithBroadcast();
+        assertStudentSeesBroadcastOf(noticeId);
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+            .when()
+                .delete("/api/v1/admin/notices/" + noticeId)
+            .then()
+                .statusCode(HttpStatus.NO_CONTENT.value());
+
+        assertStudentSeesNoBroadcast();
+    }
+
+    @Test
+    @DisplayName("수정에서 공개 범위를 임원 전체로 좁히면 학생 알림 목록과 안 읽음 수에서 그 알림이 빠진다")
+    void narrowedNoticeBroadcastDisappearsFromStudentInbox() {
+        Long noticeId = publishPublicNoticeWithBroadcast();
+        assertStudentSeesBroadcastOf(noticeId);
+
+        updateNoticeAsAdmin(noticeId, """
+                { "visibility": "OFFICERS_ALL" }
+                """);
+
+        assertStudentSeesNoBroadcast();
+    }
+
+    @Test
+    @DisplayName("수정에서 알림 발송을 끄면 학생 알림 목록과 안 읽음 수에서 그 알림이 빠진다")
+    void notifyOffNoticeBroadcastDisappearsFromStudentInbox() {
+        Long noticeId = publishPublicNoticeWithBroadcast();
+        assertStudentSeesBroadcastOf(noticeId);
+
+        updateNoticeAsAdmin(noticeId, """
+                { "notifyOnPublish": false }
+                """);
+
+        assertStudentSeesNoBroadcast();
+    }
+
+    private void updateNoticeAsAdmin(Long noticeId, String requestBody) {
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                .contentType(ContentType.JSON)
+                .body(requestBody)
+            .when()
+                .patch("/api/v1/admin/notices/" + noticeId)
+            .then()
+                .statusCode(HttpStatus.NO_CONTENT.value());
+    }
+
+    private void assertStudentSeesBroadcastOf(Long noticeId) {
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + studentToken)
+            .when()
+                .get("/api/v1/me/notifications")
+            .then()
+                .statusCode(HttpStatus.OK.value())
+                .body("data.content.find { it.source == 'BROADCAST' }.linkUrl", equalTo("/notices/" + noticeId));
+        assertStudentUnreadCount(1);
+    }
+
+    private void assertStudentSeesNoBroadcast() {
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + studentToken)
+            .when()
+                .get("/api/v1/me/notifications")
+            .then()
+                .statusCode(HttpStatus.OK.value())
+                .body("data.content.findAll { it.source == 'BROADCAST' }.size()", equalTo(0))
+                .body("data.totalElements", equalTo(0));
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + studentToken)
+                .queryParam("unreadOnly", true)
+            .when()
+                .get("/api/v1/me/notifications")
+            .then()
+                .statusCode(HttpStatus.OK.value())
+                .body("data.content.size()", equalTo(0))
+                .body("data.totalElements", equalTo(0));
+        assertStudentUnreadCount(0);
+    }
+
+    private void assertStudentUnreadCount(int expectedCount) {
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + studentToken)
+            .when()
+                .get("/api/v1/me/notifications/unread-count")
+            .then()
+                .statusCode(HttpStatus.OK.value())
+                .body("data.count", equalTo(expectedCount));
+    }
+
     private Long publishPublicNoticeWithBroadcast() {
         Integer noticeId = RestAssured.given()
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
