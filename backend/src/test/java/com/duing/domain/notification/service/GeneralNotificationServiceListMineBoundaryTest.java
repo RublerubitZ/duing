@@ -15,6 +15,7 @@ import com.duing.domain.notice.broadcast.repository.NoticeBroadcastRepository;
 import com.duing.domain.notification.controller.dto.response.NotificationResponse;
 import com.duing.domain.notification.entity.Notification;
 import com.duing.domain.notification.repository.NotificationRepository;
+import java.time.Clock;
 import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -38,7 +39,7 @@ class GeneralNotificationServiceListMineBoundaryTest {
     private final NoticeBroadcastReadRepository broadcastReadRepository = mock(NoticeBroadcastReadRepository.class);
 
     private final GeneralNotificationService service = new GeneralNotificationService(
-            notificationRepository, broadcastRepository, broadcastReadRepository);
+            notificationRepository, broadcastRepository, broadcastReadRepository, Clock.systemDefaultZone());
 
     @Test
     @DisplayName("요청 깊이가 상한과 정확히 같으면(page 49, size 100 → 5000) 단락하지 않고 over-fetch=5000 으로 서빙한다")

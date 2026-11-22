@@ -10,6 +10,9 @@ import com.duing.domain.club.repository.ClubRepository;
 import com.duing.domain.clubmember.entity.ClubMember;
 import com.duing.domain.clubmember.entity.ClubMemberRole;
 import com.duing.domain.clubmember.repository.ClubMemberRepository;
+import com.duing.domain.notification.entity.Notification;
+import com.duing.domain.notification.entity.NotificationType;
+import com.duing.domain.notification.repository.NotificationRepository;
 import com.duing.domain.user.entity.College;
 import com.duing.domain.user.entity.Grade;
 import com.duing.domain.user.entity.User;
@@ -33,6 +36,7 @@ import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.context.annotation.Import;
+import org.springframework.jdbc.core.JdbcTemplate;
 
 @Import(TestcontainersConfiguration.class)
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
@@ -43,6 +47,8 @@ class NotificationUnionAcceptanceTest extends IntegrationTestBase {
     @Autowired ClubRepository clubRepository;
     @Autowired ClubMemberRepository clubMemberRepository;
     @Autowired JwtTokenProvider jwtTokenProvider;
+    @Autowired NotificationRepository notificationRepository;
+    @Autowired JdbcTemplate jdbcTemplate;
 
     private final AtomicLong sequence = new AtomicLong(System.nanoTime());
 
@@ -102,6 +108,77 @@ class NotificationUnionAcceptanceTest extends IntegrationTestBase {
                 .statusCode(HttpStatus.OK.value())
                 .body("data.content.find { it.source == 'BROADCAST' && it.id == " + broadcastId + " }.isRead",
                         equalTo(true));
+    }
+
+    @Test
+    @DisplayName("개인 알림과 전체 알림이 섞여 있을 때 모두 읽음을 누르면 30일 경계 가까이의 전체 알림까지 모두 읽음이 되고 안 읽음 수는 0 이다")
+    void readAllMarksPersonalAndVisibleBroadcastsRead() {
+        User otherStudent = saveUser(UserRole.STUDENT);
+        String otherStudentToken = jwtTokenProvider.createToken(otherStudent.getId(), otherStudent.getRole().name());
+        notificationRepository.save(Notification.create(student.getId(), NotificationType.RECRUITMENT_OPENED,
+                "개인 알림", "본문", "/clubs/1", null, "MARK_ALL_READ:personal"));
+        publishPublicNoticeWithBroadcast();
+        Long nearFloorNoticeId = publishPublicNoticeWithBroadcast();
+        // 저장 존 기준 30일 경계 1시간 안 — 서비스가 경계를 KST 벽시계로 만들면 UTC JVM(CI)에서 이 알림만 빠진다.
+        jdbcTemplate.update("UPDATE notice_broadcast SET created_at = ? WHERE notice_id = ?",
+                java.sql.Timestamp.valueOf(LocalDateTime.now().minusDays(30).plusHours(1)), nearFloorNoticeId);
+        assertStudentUnreadCount(3);
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + studentToken)
+            .when()
+                .patch("/api/v1/me/notifications/read-all")
+            .then()
+                .statusCode(HttpStatus.NO_CONTENT.value());
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + studentToken)
+            .when()
+                .get("/api/v1/me/notifications")
+            .then()
+                .statusCode(HttpStatus.OK.value())
+                .body("data.content.size()", equalTo(3))
+                .body("data.content.findAll { !it.isRead }.size()", equalTo(0));
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + studentToken)
+                .queryParam("unreadOnly", true)
+            .when()
+                .get("/api/v1/me/notifications")
+            .then()
+                .statusCode(HttpStatus.OK.value())
+                .body("data.content.size()", equalTo(0))
+                .body("data.totalElements", equalTo(0));
+        assertStudentUnreadCount(0);
+        assertUnreadCount(otherStudentToken, 2);
+    }
+
+    @Test
+    @DisplayName("모두 읽음 때 범위가 좁혀져 숨겨져 있던 전체 알림은 전체 공개로 되돌리면 안 읽음으로 다시 보인다")
+    void broadcastHiddenAtReadAllStaysUnreadAfterRestore() {
+        Long noticeId = publishPublicNoticeWithBroadcast();
+        assertStudentSeesBroadcastOf(noticeId);
+        updateNoticeAsAdmin(noticeId, """
+                { "visibility": "OFFICERS_ALL" }
+                """);
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + studentToken)
+            .when()
+                .patch("/api/v1/me/notifications/read-all")
+            .then()
+                .statusCode(HttpStatus.NO_CONTENT.value());
+        updateNoticeAsAdmin(noticeId, """
+                { "visibility": "PUBLIC", "notifyOnPublish": true }
+                """);
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + studentToken)
+            .when()
+                .get("/api/v1/me/notifications")
+            .then()
+                .statusCode(HttpStatus.OK.value())
+                .body("data.content.find { it.source == 'BROADCAST' }.isRead", equalTo(false));
+        assertStudentUnreadCount(1);
     }
 
     @Test

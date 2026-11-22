@@ -6,11 +6,13 @@ import com.duing.domain.notice.broadcast.exception.NoticeBroadcastException;
 import com.duing.domain.notice.broadcast.repository.NoticeBroadcastReadRepository;
 import com.duing.domain.notice.broadcast.repository.NoticeBroadcastRepository;
 import com.duing.domain.notice.broadcast.repository.NoticeBroadcastRepositoryCustom.BroadcastSlice;
+import com.duing.domain.notification.NotificationRetention;
 import com.duing.domain.notification.controller.dto.response.NotificationResponse;
 import com.duing.domain.notification.entity.Notification;
 import com.duing.domain.notification.repository.NotificationRepository;
 import com.duing.domain.notification.service.dto.command.CreateNotificationCommand;
 import com.duing.domain.notification.service.dto.query.NotificationQuery;
+import java.time.Clock;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -39,6 +41,7 @@ public class GeneralNotificationService implements NotificationService {
     private final NotificationRepository notificationRepository;
     private final NoticeBroadcastRepository broadcastRepository;
     private final NoticeBroadcastReadRepository broadcastReadRepository;
+    private final Clock clock;
 
     @Override
     @Transactional(propagation = Propagation.REQUIRES_NEW)
@@ -139,6 +142,8 @@ public class GeneralNotificationService implements NotificationService {
     @Transactional
     public void markAllRead(Long userId) {
         notificationRepository.markAllRead(userId);
+        // 전체 알림은 읽음 표가 따로라 지금 보이는 것의 읽음 행을 함께 만든다(#1765) — 경계는 읽는 쪽과 같은 함수로.
+        broadcastReadRepository.bulkInsertVisibleBroadcastReads(userId, NotificationRetention.visibilityFloor(clock));
     }
 
     @Override
