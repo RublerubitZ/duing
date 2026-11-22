@@ -3,11 +3,12 @@ import { render, screen, waitFor } from '@testing-library/react';
 import type { ManagedClub } from '@duing/types';
 
 const pushSpy = vi.fn();
+const replaceSpy = vi.fn();
 
 let mockSearchParams = new URLSearchParams();
 
 vi.mock('next/navigation', () => ({
-  useRouter: () => ({ push: pushSpy }),
+  useRouter: () => ({ push: pushSpy, replace: replaceSpy }),
   useSearchParams: () => mockSearchParams,
 }));
 
@@ -33,6 +34,7 @@ import ManagePage from '@/app/manage/page';
 describe('ManagePage', () => {
   beforeEach(() => {
     pushSpy.mockReset();
+    replaceSpy.mockReset();
     mockQueryResult = { data: undefined, isLoading: true };
     mockSearchParams = new URLSearchParams();
     window.localStorage.clear();
@@ -57,21 +59,23 @@ describe('ManagePage', () => {
     },
   ];
 
-  it('로딩 중이면 로딩 스피너를 렌더하고 push 를 호출하지 않는다', () => {
+  it('로딩 중이면 로딩 스피너를 렌더하고 이동하지 않는다', () => {
     mockQueryResult = { data: undefined, isLoading: true };
     render(<ManagePage />);
     expect(screen.getByRole('status', { name: '관리 동아리 불러오는 중' })).toBeInTheDocument();
+    expect(replaceSpy).not.toHaveBeenCalled();
     expect(pushSpy).not.toHaveBeenCalled();
   });
 
-  it('동아리가 없으면 "관리하는 동아리가 없습니다." 를 렌더하고 push 를 호출하지 않는다', () => {
+  it('동아리가 없으면 "관리하는 동아리가 없습니다." 를 렌더하고 이동하지 않는다', () => {
     mockQueryResult = { data: [], isLoading: false };
     render(<ManagePage />);
     expect(screen.getByText('관리하는 동아리가 없습니다.')).toBeInTheDocument();
+    expect(replaceSpy).not.toHaveBeenCalled();
     expect(pushSpy).not.toHaveBeenCalled();
   });
 
-  it('clubId 쿼리가 없으면 첫 번째 동아리 경로로 push 한다', async () => {
+  it('clubId 쿼리가 없으면 첫 번째 동아리 경로로 replace 하고 push 는 부르지 않는다', async () => {
     mockQueryResult = {
       data: [
         {
@@ -86,39 +90,41 @@ describe('ManagePage', () => {
       isLoading: false,
     };
     render(<ManagePage />);
-    await waitFor(() => expect(pushSpy).toHaveBeenCalledWith('/manage/clubs/10'));
+    await waitFor(() => expect(replaceSpy).toHaveBeenCalledWith('/manage/clubs/10'));
+    // push 는 /manage 를 방문 기록에 남겨, 콘솔에서 뒤로가기를 누르면 /manage 가 곧바로 다시 콘솔로 보낸다(#1751).
+    expect(pushSpy).not.toHaveBeenCalled();
   });
 
-  it('clubId 쿼리가 관리 목록에 있으면 첫 동아리가 아니라 해당 동아리로 push 한다', async () => {
+  it('clubId 쿼리가 관리 목록에 있으면 첫 동아리가 아니라 해당 동아리로 replace 한다', async () => {
     mockQueryResult = { data: TWO_CLUBS, isLoading: false };
     mockSearchParams = new URLSearchParams('clubId=12');
     render(<ManagePage />);
-    await waitFor(() => expect(pushSpy).toHaveBeenCalledWith('/manage/clubs/12'));
-    expect(pushSpy).not.toHaveBeenCalledWith('/manage/clubs/5');
+    await waitFor(() => expect(replaceSpy).toHaveBeenCalledWith('/manage/clubs/12'));
+    expect(replaceSpy).not.toHaveBeenCalledWith('/manage/clubs/5');
   });
 
   it('clubId 쿼리가 관리 목록에 없으면 첫 동아리로 fallback 한다', async () => {
     mockQueryResult = { data: TWO_CLUBS, isLoading: false };
     mockSearchParams = new URLSearchParams('clubId=999');
     render(<ManagePage />);
-    await waitFor(() => expect(pushSpy).toHaveBeenCalledWith('/manage/clubs/5'));
+    await waitFor(() => expect(replaceSpy).toHaveBeenCalledWith('/manage/clubs/5'));
   });
 
   // 저장 키는 app/manage/_lib/lastClubStorage.ts 의 상수와 같은 값이다(리터럴로 두어 값 변경을 테스트가 잡는다).
   const LAST_CLUB_STORAGE_KEY = 'duing:manage:last-club';
 
-  it('clubId 쿼리가 없고 저장된 마지막 동아리가 목록에 있으면 첫 동아리가 아니라 그 동아리로 push 한다', async () => {
+  it('clubId 쿼리가 없고 저장된 마지막 동아리가 목록에 있으면 첫 동아리가 아니라 그 동아리로 replace 한다', async () => {
     mockQueryResult = { data: TWO_CLUBS, isLoading: false };
     window.localStorage.setItem(LAST_CLUB_STORAGE_KEY, '12');
     render(<ManagePage />);
-    await waitFor(() => expect(pushSpy).toHaveBeenCalledWith('/manage/clubs/12'));
-    expect(pushSpy).not.toHaveBeenCalledWith('/manage/clubs/5');
+    await waitFor(() => expect(replaceSpy).toHaveBeenCalledWith('/manage/clubs/12'));
+    expect(replaceSpy).not.toHaveBeenCalledWith('/manage/clubs/5');
   });
 
   it('저장된 마지막 동아리가 목록에 없으면 첫 동아리로 fallback 한다', async () => {
     mockQueryResult = { data: TWO_CLUBS, isLoading: false };
     window.localStorage.setItem(LAST_CLUB_STORAGE_KEY, '999');
     render(<ManagePage />);
-    await waitFor(() => expect(pushSpy).toHaveBeenCalledWith('/manage/clubs/5'));
+    await waitFor(() => expect(replaceSpy).toHaveBeenCalledWith('/manage/clubs/5'));
   });
 });
