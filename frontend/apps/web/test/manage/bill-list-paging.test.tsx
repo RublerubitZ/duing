@@ -176,7 +176,7 @@ describe('청구 목록 — 조회 실패(#1762)', () => {
     expect(screen.getByText('청구 목록을 불러오지 못했어요.')).toBeInTheDocument();
     expect(screen.queryByRole('status', { name: '청구 목록 불러오는 중' })).not.toBeInTheDocument();
     await waitFor(() => expect(listRequestCount(0)).toBe(2));
-    // 회귀 가드: 다시 받는 중에 또 눌러도 요청이 늘지 않는다(쿼리 캐시에 data 가 없으면 진행 중 promise 를 돌려준다 — query.ts:714-720).
+    // 회귀 가드: 다시 받는 중에 또 눌러도 요청이 늘지 않는다(쿼리 캐시에 data 가 없으면 진행 중 요청을 끊지 않고 그 promise 를 돌려준다).
     await user.click(retryButton);
 
     gate.open();
@@ -186,7 +186,7 @@ describe('청구 목록 — 조회 실패(#1762)', () => {
   });
 
   // 앱은 빠른 실패를 1회 재시도한다(shouldRetryQuery). 재시도 대기 뒤 탭이 가려져 있으면 TanStack 이 재시도를 멈춘다
-  // (fetchStatus 'paused' — query-core retryer.ts:183-186 의 canContinue 첫 조건이 focusManager.isFocused(), query.ts:945-949).
+  // (fetchStatus 'paused' — 재시도를 이어 갈지 볼 때 탭 포커스를 먼저 본다).
   // 이때 isFetching 은 거짓이라, 그것으로 가르면 잠긴 버튼이 '다시 시도'로 풀린다 — fetchStatus 로 가른다.
   it('다시 시도의 재시도 차례에 탭이 가려져 멈춰도(paused) 같은 버튼이 다시 불러오는 중으로 잠겨 있고, 탭이 돌아오면 재시도 결과를 보인다', async () => {
     seedBills(3);

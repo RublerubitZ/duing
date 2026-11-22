@@ -4,7 +4,8 @@ import { describe, it, expect, vi } from 'vitest';
 const emptyPage = { content: [], page: 0, size: 20, totalElements: 0, totalPages: 0, hasNext: false };
 const idleQuery = { data: undefined, isLoading: false, error: null };
 const idleMutation = { mutate: vi.fn(), isPending: false, error: null };
-const mockBillsQuery = vi.fn((_clubId: number, _params: unknown) => ({ data: emptyPage, isLoading: false, error: null }));
+// 다 받은 상태(fetchStatus 'idle')로 준다 — 청구 목록은 받는 중인데 비면 빈 안내 대신 로딩을 보인다(#1762).
+const mockBillsQuery = vi.fn((_clubId: number, _params: unknown) => ({ data: emptyPage, isLoading: false, error: null, fetchStatus: 'idle' }));
 
 vi.mock('@duing/hooks', () => ({
   useClubBankMatchingStatusQuery: () => ({ data: { enabled: false }, isLoading: false, error: null }),

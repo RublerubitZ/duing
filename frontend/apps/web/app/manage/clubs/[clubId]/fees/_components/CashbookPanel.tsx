@@ -85,8 +85,9 @@ export function CashbookPanel({ clubId }: CashbookPanelProps) {
   // 이 키에서 실패를 본 뒤 다시 받는 중 — 실패 상자를 두고 버튼만 잠근다(다른 목록 화면과 같은 규칙).
   // 2쪽 이후 실패 뒤에는 이전 쪽 자리 채움이 붙어도 다시 받는 중이다. 실패 캐시가 남은 쪽으로 다시 옮겨 온 직후는
   // isFetchedAfterMount 가 거짓이라 들지 않는다 — 처음 가는 쪽처럼 이전 쪽을 흐리게 둔다.
-  // 받는 중 여부는 isFetching 이 아니라 fetchStatus 로 본다(이 파일 전체 같은 기준) — 재시도 대기 뒤 탭이 가려지면 TanStack 이
-  // 재시도를 멈춰(paused) isFetching 이 거짓이 되고, 그러면 잠긴 버튼이 '다시 시도'로 풀리거나 자리 채움 목록이 다시 그려진다.
+  // 받는 중 여부는 isFetching 이 아니라 fetchStatus 로 본다(보정 effect·빈 캐시 로딩도 같은 기준 — 첫 로딩 판정 isLoading 만
+  // 멈춤을 빼는 의도된 예외다). 재시도 대기 뒤 탭이 가려지면 TanStack 이 재시도를 멈춰(paused) isFetching 이 거짓이 되고,
+  // 그러면 잠긴 버튼이 '다시 시도'로 풀리거나 자리 채움 목록이 다시 그려진다.
   const isRetrying = fetchStatus !== 'idle' && isFetchedAfterMount && (entryPage === undefined || isPlaceholderData);
   // 받는 중인데 목록이 비면(무효 표시된 옛 빈 캐시 등) "없습니다"를 단정하지 않고 로딩으로 둔다.
   const isListLoading = !isRetrying && (isLoading || (fetchStatus !== 'idle' && entryPage?.content.length === 0));

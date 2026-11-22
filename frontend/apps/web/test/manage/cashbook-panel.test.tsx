@@ -110,7 +110,8 @@ describe('금전출납부 패널', () => {
   });
 
   it('"제외 항목 숨기기" 토글이 hideExcluded 파라미터를 연결한다', () => {
-    mockUseEntries.mockReturnValue({ data: buildPage([]), isLoading: false });
+    // 다 받은 상태(fetchStatus 'idle')로 준다 — 받는 중인데 목록이 비면 빈 안내 대신 로딩을 보이기 때문이다(#1762).
+    mockUseEntries.mockReturnValue({ data: buildPage([]), isLoading: false, fetchStatus: 'idle' });
     mockUseSummary.mockReturnValue({ data: { totalIncome: 0, totalExpense: 0, bookBalance: 0 } });
     render(<CashbookPanel clubId={1} />);
     fireEvent.click(screen.getByRole('button', { name: '제외 항목 숨기기' }));
