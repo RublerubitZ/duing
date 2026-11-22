@@ -3,6 +3,7 @@
 import { useEffect, useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { ApiError, httpFallbackMessage } from '@duing/api';
 import { createClubNoticeSchema } from '@duing/schemas';
 import type { CreateClubNoticeInput } from '@duing/schemas';
 import type { NoticeContentFormat, UpdateClubNoticePayload } from '@duing/types';
@@ -105,6 +106,8 @@ export function ClubNoticeFormModal(props: Props) {
   };
 
   const isPending = createMutation.isPending || updateMutation.isPending;
+  // 한 창에서는 자기 mode 의 mutation 만 실행돼 다른 쪽은 늘 null 이다. 다시 제출하면 새 mutation 이 null 로 시작한다.
+  const saveError = createMutation.error ?? updateMutation.error;
 
   return (
     <div
@@ -185,6 +188,17 @@ export function ClubNoticeFormModal(props: Props) {
               <label htmlFor="pinned" className="text-sm text-charcoal-2">상단 고정</label>
             </div>
           </div>
+
+          {/* 스크롤 영역 밖 — 어디까지 스크롤했든 실패 순간 버튼 줄 바로 위에 보인다. */}
+          {saveError && (
+            // 제출마다 새 요소로 그려 같은 문구도 다시 읽히게 한다 — 요청 전에 바로 막히면 대기 렌더 없이 오류로 가 요소가 그대로 남는다.
+            <p key={createMutation.submittedAt + updateMutation.submittedAt} role="alert" className="mx-6 my-3 shrink-0 rounded-xl bg-coral/5 px-4 py-3 text-sm text-coral-deep">
+              {/* 합성 문구('요청 실패 (502)')와 ApiError 가 아닌 예외의 원문은 사용자에게 사유가 아니다. */}
+              {saveError instanceof ApiError && saveError.message !== httpFallbackMessage(saveError.status)
+                ? saveError.message
+                : '공지를 저장하지 못했어요. 잠시 후 다시 시도해 주세요.'}
+            </p>
+          )}
 
           <div className="flex shrink-0 gap-2 border-t border-line px-6 py-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
             <button
