@@ -303,6 +303,9 @@ class NoticeBroadcastRepositoryImplTest {
     void excludesUnreadBroadcastOlderThanRetentionWhenUnreadOnly() {
         Long authorId = saveUser(UserRole.ADMIN);
         Long userId = saveUser(UserRole.STUDENT);
+        Notice recentNotice = persistNotice(authorId);
+        NoticeBroadcast recentBroadcast = broadcastRepository.saveAndFlush(
+                NoticeBroadcast.snapshot(recentNotice.getId(), "최근 안 읽은 공지", "내용", "/notices/" + recentNotice.getId()));
         Notice oldNotice = persistNotice(authorId);
         NoticeBroadcast oldBroadcast = broadcastRepository.saveAndFlush(
                 NoticeBroadcast.snapshot(oldNotice.getId(), "오래된 안 읽은 공지", "내용", "/notices/" + oldNotice.getId()));
@@ -313,7 +316,8 @@ class NoticeBroadcastRepositoryImplTest {
                 .map(slice -> slice.broadcast().getId())
                 .toList();
 
-        assertThat(unreadSliceIds).doesNotContain(oldBroadcast.getId());
+        // 30일 안 안 읽은 행이 보여야 '빈 목록이라 통과'가 아님을 안다.
+        assertThat(unreadSliceIds).contains(recentBroadcast.getId()).doesNotContain(oldBroadcast.getId());
     }
 
     private void backdateBroadcastCreatedAt(Long broadcastId, int daysAgo) {
