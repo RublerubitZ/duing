@@ -63,20 +63,32 @@ export function MyPage() {
   const favorites = favoriteListQuery.data?.content ?? [];
   const myInquiries = myInquiriesQuery.data?.content ?? [];
   const myInquiriesTotalCount = myInquiriesQuery.data?.totalElements ?? 0;
-  // 조회 중에는 "없음"이 아니라 "아직 모름"이다(#1500) — 정적 HTML·조회 전에 "…없어요"·0 을 그리지 않는다. 하이드레이션
+  // 조회 중에는 "없음"이 아니라 "아직 모름"이다(#1500) — 정적 HTML·조회 전에 "…없어요" 대신 스켈레톤을 그린다. 하이드레이션
   // 프레임도 서버처럼 조회 중으로 둔다(캐시가 먼저 차 있어도 서버 HTML 의 스켈레톤과 어긋나지 않게).
   const applicationsPending = !hydrated || applicationsQuery.isPending;
   const myClubsPending = !hydrated || myClubsQuery.isPending;
   const favoritesPending = !hydrated || favoriteListQuery.isPending;
   const inquiriesPending = !hydrated || myInquiriesQuery.isPending;
+  // 받은 목록이 없으면(조회 중 또는 첫 조회 실패) 셀 것이 없다 — 0 은 거짓이다(#1579). 옛 목록을 든 채 재조회가 실패하면 마지막 숫자를 둔다(#1549 와 같은 기준).
+  const applicationsUnknown = !hydrated || applicationsQuery.data === undefined;
+  const myClubsUnknown = !hydrated || myClubsQuery.data === undefined;
+  const favoritesUnknown = !hydrated || favoriteListQuery.data === undefined;
+  const inquiriesUnknown = !hydrated || myInquiriesQuery.data === undefined;
+  // 모르는데 조회 중도 아니면 첫 조회가 실패한 것이다(TanStack Query 5 는 undefined 로 성공하지 않는다) — 그 섹션에만 다시 시도를 넘긴다.
+  // 데이터 없이 다시 받으면 조회 중으로 돌아가 섹션이 스켈레톤으로 바뀐다.
+  const retryApplications =
+    applicationsUnknown && !applicationsPending ? () => void applicationsQuery.refetch() : undefined;
+  const retryMyClubs = myClubsUnknown && !myClubsPending ? () => void myClubsQuery.refetch() : undefined;
+  const retryFavorites = favoritesUnknown && !favoritesPending ? () => void favoriteListQuery.refetch() : undefined;
+  const retryInquiries = inquiriesUnknown && !inquiriesPending ? () => void myInquiriesQuery.refetch() : undefined;
 
   /* ── 섹션 순서 — 진행 중 지원이 없으면 빈 "지원 현황" 대신 내 동아리를 먼저 보여준다 ── */
-  // 로딩 중에는 "0건" 이 아니라 "아직 모름" 이다 — 그대로 0 을 넘기면 pending 동안 joined-first 로 그렸다가
+  // 조회 중 또는 첫 조회 실패에는 "0건" 이 아니라 "아직 모름" 이다 — 그대로 0 을 넘기면 그동안 joined-first 로 그렸다가
   // 응답이 오는 순간 apply-first 로 뒤집혀 섹션이 통째로 점프한다. 미확정 구간은 1(=기본 apply-first)로 고정하고,
   // 0건이 확정된 뒤에만 재배치한다.
   const order = useMemo(
-    () => resolveSectionOrder(applicationsPending ? 1 : applications.length),
-    [applicationsPending, applications.length],
+    () => resolveSectionOrder(applicationsUnknown ? 1 : applications.length),
+    [applicationsUnknown, applications.length],
   );
   const sections = order.map((id) => ({
     id,
@@ -186,13 +198,13 @@ export function MyPage() {
   };
 
   /* ── Tabs with live count badges ── */
-  // 조회 중인 섹션은 숫자를 숨긴다(탭은 count 가 없으면 배지를 그리지 않는다).
+  // 숫자를 모르는 섹션(조회 중 또는 첫 조회 실패)은 숫자를 숨긴다(탭은 count 가 없으면 배지를 그리지 않는다).
   const sectionCount: Record<SectionId, number | undefined> = {
-    apply: applicationsPending ? undefined : applications.length,
-    joined: myClubsPending ? undefined : myClubs.length,
-    saved: favoritesPending ? undefined : favorites.length,
-    inquiries: inquiriesPending ? undefined : myInquiriesTotalCount,
-    archived: applicationsPending ? undefined : archivedApplications.length,
+    apply: applicationsUnknown ? undefined : applications.length,
+    joined: myClubsUnknown ? undefined : myClubs.length,
+    saved: favoritesUnknown ? undefined : favorites.length,
+    inquiries: inquiriesUnknown ? undefined : myInquiriesTotalCount,
+    archived: applicationsUnknown ? undefined : archivedApplications.length,
   };
   const sectionsWithCount = sections.map((section) => ({ ...section, count: sectionCount[section.id] }));
 
@@ -215,9 +227,9 @@ export function MyPage() {
         <MyPageHeader
           name={user?.name ?? '—'}
           studentId={user?.studentId ?? '—'}
-          applyCount={applicationsPending ? null : applications.length}
-          joinedCount={myClubsPending ? null : myClubs.length}
-          savedCount={favoritesPending ? null : favorites.length}
+          applyCount={applicationsUnknown ? null : applications.length}
+          joinedCount={myClubsUnknown ? null : myClubs.length}
+          savedCount={favoritesUnknown ? null : favorites.length}
         />
 
         <AcceptanceBanner myClubs={myClubsPending ? NO_CLUBS : myClubs} />
@@ -230,18 +242,29 @@ export function MyPage() {
 
         {order.map((id) => (
           <div key={id} ref={refFor(id)} data-section={id}>
-            {id === 'apply' && <SectionApply applications={applications} isPending={applicationsPending} />}
-            {id === 'joined' && <SectionMyClubs myClubs={myClubs} isPending={myClubsPending} />}
-            {id === 'saved' && <SectionSaved favorites={favorites} isPending={favoritesPending} />}
+            {id === 'apply' && (
+              <SectionApply applications={applications} isPending={applicationsPending} onRetry={retryApplications} />
+            )}
+            {id === 'joined' && (
+              <SectionMyClubs myClubs={myClubs} isPending={myClubsPending} onRetry={retryMyClubs} />
+            )}
+            {id === 'saved' && (
+              <SectionSaved favorites={favorites} isPending={favoritesPending} onRetry={retryFavorites} />
+            )}
             {id === 'inquiries' && (
               <SectionInquiries
                 inquiries={myInquiries}
                 totalCount={myInquiriesTotalCount}
                 isPending={inquiriesPending}
+                onRetry={retryInquiries}
               />
             )}
             {id === 'archived' && (
-              <SectionArchived applications={archivedApplications} isPending={applicationsPending} />
+              <SectionArchived
+                applications={archivedApplications}
+                isPending={applicationsPending}
+                onRetry={retryApplications}
+              />
             )}
           </div>
         ))}

@@ -11,7 +11,7 @@ import { ToastProvider } from '@/app/_components/toast/ToastProvider';
 // 본문 하이드레이션보다 먼저 끝나면 캐시에 me 가 이미 있다 — 그 순간을 이 값으로 흉내 낸다.
 const meState: { current: User | undefined } = vi.hoisted(() => ({ current: undefined }));
 // 목록 캐시 — 지금은 하이드레이션 전에 차는 경로가 없지만, 셸 쪽 선요청이 생기면 생긴다. 그 순간을 흉내 내 하이드레이션 게이트를 고정한다.
-const applicationsState: { data: unknown[]; isPending: boolean } = vi.hoisted(() => ({ data: [], isPending: false }));
+const applicationsState: { data: unknown[] | undefined; isPending: boolean } = vi.hoisted(() => ({ data: [], isPending: false }));
 
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: vi.fn(), replace: vi.fn(), back: vi.fn(), refresh: vi.fn(), prefetch: vi.fn() }),
@@ -147,6 +147,20 @@ describe('me 를 그리는 화면 — 부팅 세션 복원이 본문 하이드�
     expect(result.recoverableErrors).toEqual([]);
     expect(result.hydrationWarnings).toEqual([]);
     expect(result.hydratedHtml).toContain('두잉 댄스');
+  });
+
+  it('마이페이지: 지원 첫 조회가 하이드레이션 전에 이미 실패해 있어도 서버처럼 스켈레톤으로 하이드레이션하고, 그 뒤 실패 안내를 그린다', async () => {
+    const result = await hydrateAfterSessionRestore(() => <MyPage />, student, () => {
+      applicationsState.data = undefined;
+      applicationsState.isPending = false;
+    });
+
+    // 게이트가 없으면 서버 스켈레톤 ↔ 클라이언트 실패 안내로 어긋난다.
+    expect(result.serverHtml).toContain('진행 중인 지원 불러오는 중');
+    expect(result.recoverableErrors).toEqual([]);
+    expect(result.hydrationWarnings).toEqual([]);
+    expect(result.hydratedHtml).toContain('진행 중인 지원을 불러오지 못했어요.');
+    expect(result.hydratedHtml).not.toContain('진행 중인 지원이 없어요');
   });
 
   it('총동연 링크: 서버처럼 비운 채 하이드레이션하고, 그 뒤 관리자에게만 붙인다', async () => {
