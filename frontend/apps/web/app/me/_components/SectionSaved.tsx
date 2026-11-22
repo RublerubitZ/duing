@@ -3,19 +3,29 @@ import Link from 'next/link';
 import type { FavoriteClub } from '@duing/types';
 
 import { cn } from '@/app/_lib/cn';
+import { toRoute } from '@/app/_lib/route';
 import { ClubLogo } from '@/app/_components/ClubLogo';
 import { clubCategoryLabel } from '@/app/clubs/[clubId]/_lib/clubCategoryLabel';
 import { ListRowsSkeleton } from '@/components/loading/Skeleton';
 
+import { ListLoadError } from './ListLoadError';
 import { SectionHeader } from './SectionHeader';
 
 type Props = {
+  /** 받은 찜 — 마이페이지는 첫 페이지(20개)만 받는다. */
   favorites: FavoriteClub[];
+  /** 찜 전체 수(응답 totalElements) — 받은 카드보다 많을 수 있다(#1580). */
+  totalCount: number;
   /** 조회 중 — 빈 상태 대신 스켈레톤(정적 HTML·조회 전에 거짓 "없어요"를 그리지 않는다, #1500). */
   isPending?: boolean;
+  /** 첫 조회가 실패해 받은 목록이 없을 때만 넘긴다 — 있으면 빈 안내 대신 실패 안내와 다시 시도(#1579). */
+  onRetry?: () => void;
 };
 
-export function SectionSaved({ favorites, isPending = false }: Props) {
+export function SectionSaved({ favorites, totalCount, isPending = false, onRetry }: Props) {
+  // 첫 페이지만 그린다 — 전체가 더 많을 때만 나머지를 볼 /me/favorites 로 잇는다(받은 것이 전부면 같은 목록이라 링크가 필요 없다).
+  const hasMoreFavorites = !isPending && !onRetry && totalCount > favorites.length;
+
   return (
     <section
       data-section="saved"
@@ -24,13 +34,27 @@ export function SectionSaved({ favorites, isPending = false }: Props) {
     >
       <div className="max-w-layout mx-auto px-4 sm:px-6 md:px-10">
         <SectionHeader
-          title={isPending ? '찜한 동아리' : `찜한 동아리 · ${favorites.length}`}
+          title={isPending || onRetry ? '찜한 동아리' : `찜한 동아리 · ${totalCount}`}
           hint="관심 표시한 동아리예요. 모집 마감이 임박하면 알려드려요."
+          extra={
+            hasMoreFavorites ? (
+              <Link
+                href={toRoute('/me/favorites')}
+                className="text-[13px] font-semibold text-ink hover:underline"
+              >
+                {/* 문의 섹션에도 '전체 보기'가 있다 — 링크 목록으로 훑어도 구분되게 접근 이름에만 섹션을 붙인다.
+                    띄어쓰기는 span 밖에 둔다(span 안 끝 공백은 이름 계산에서 잘린다). 보이는 쪽 맨 앞 공백은 줄 처음이라 접힌다. */}
+                <span className="sr-only">찜한 동아리</span> 전체 보기
+              </Link>
+            ) : undefined
+          }
         />
 
         {isPending ? (
           <ListRowsSkeleton rows={2} rowClassName="h-[88px] rounded-lg" label="찜한 동아리 불러오는 중" />
-        ) : favorites.length === 0 ? (
+        ) : onRetry ? (
+          <ListLoadError message="찜한 동아리를 불러오지 못했어요." onRetry={onRetry} />
+        ) : totalCount === 0 ? (
           <div className="bg-paper border border-line rounded-lg px-8 py-12 text-center text-charcoal-3 text-sm">
             아직 찜한 동아리가 없어요.{' '}
             <Link href="/clubs" className="text-ink font-semibold hover:underline">

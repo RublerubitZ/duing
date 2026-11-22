@@ -7,11 +7,11 @@ import { SparkleFull } from '@/components/duing/Sparkle';
 type Props = {
   name: string;
   studentId: string;
-  /** 진행 중인 지원 수 — null 은 조회 중(이름 자리처럼 "—", 거짓 0 을 그리지 않는다 #1500) */
+  /** 진행 중인 지원 수 — null 은 숫자를 모름(조회 중 또는 첫 조회 실패 — 이름 자리처럼 "—", 거짓 0 을 그리지 않는다 #1500·#1579) */
   applyCount: number | null;
-  /** 가입한 동아리 수 — null 은 조회 중 */
+  /** 가입한 동아리 수 — null 은 숫자를 모름(조회 중 또는 첫 조회 실패) */
   joinedCount: number | null;
-  /** 찜한 동아리 수 — null 은 조회 중 */
+  /** 찜한 동아리 수 — null 은 숫자를 모름(조회 중 또는 첫 조회 실패) */
   savedCount: number | null;
 };
 

@@ -12,6 +12,7 @@ import {
 } from '@/app/_lib/federationInquiryLabels';
 import { ListRowsSkeleton } from '@/components/loading/Skeleton';
 
+import { ListLoadError } from './ListLoadError';
 import { SectionHeader } from './SectionHeader';
 
 type Props = {
@@ -19,9 +20,11 @@ type Props = {
   totalCount: number;
   /** 조회 중 — 빈 상태 대신 스켈레톤(정적 HTML·조회 전에 거짓 "없어요"를 그리지 않는다, #1500). */
   isPending?: boolean;
+  /** 첫 조회가 실패해 받은 목록이 없을 때만 넘긴다 — 있으면 빈 안내 대신 실패 안내와 다시 시도(#1579). */
+  onRetry?: () => void;
 };
 
-export function SectionInquiries({ inquiries, totalCount, isPending = false }: Props) {
+export function SectionInquiries({ inquiries, totalCount, isPending = false, onRetry }: Props) {
   return (
     <section
       data-section="inquiries"
@@ -30,20 +33,24 @@ export function SectionInquiries({ inquiries, totalCount, isPending = false }: P
     >
       <div className="max-w-layout mx-auto px-4 sm:px-6 md:px-10">
         <SectionHeader
-          title={isPending ? '내 문의' : `내 문의 · ${totalCount}`}
+          title={isPending || onRetry ? '내 문의' : `내 문의 · ${totalCount}`}
           hint="총동아리연합회에 남긴 1:1 문의 내역입니다."
           extra={
             <Link
               href={toRoute('/me/inquiries')}
               className="text-[13px] font-semibold text-ink hover:underline"
             >
-              전체 보기
+              {/* 찜 섹션에도 '전체 보기'가 생길 수 있다 — 링크 목록으로 훑어도 구분되게 접근 이름에만 섹션을 붙인다.
+                  띄어쓰기는 span 밖에 둔다(span 안 끝 공백은 이름 계산에서 잘린다). 보이는 쪽 맨 앞 공백은 줄 처음이라 접힌다. */}
+              <span className="sr-only">내 문의</span> 전체 보기
             </Link>
           }
         />
 
         {isPending ? (
           <ListRowsSkeleton rows={2} rowClassName="h-[88px] rounded-lg" label="내 문의 불러오는 중" />
+        ) : onRetry ? (
+          <ListLoadError message="내 문의를 불러오지 못했어요." onRetry={onRetry} />
         ) : totalCount === 0 ? (
           <div className="bg-paper border border-line rounded-lg px-8 py-12 text-center text-charcoal-3 text-sm">
             아직 문의 내역이 없어요.{' '}
