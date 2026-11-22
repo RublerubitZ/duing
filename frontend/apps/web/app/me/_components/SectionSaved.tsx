@@ -18,11 +18,13 @@ type Props = {
   totalCount: number;
   /** 조회 중 — 빈 상태 대신 스켈레톤(정적 HTML·조회 전에 거짓 "없어요"를 그리지 않는다, #1500). */
   isPending?: boolean;
-  /** 첫 조회가 실패해 받은 목록이 없을 때만 넘긴다 — 있으면 빈 안내 대신 실패 안내와 다시 시도(#1579). */
+  /** 첫 조회가 실패해 받은 목록이 없을 때만 넘긴다(실패 뒤 다시 받는 중에도) — 있으면 빈 안내 대신 실패 안내와 다시 시도(#1579). */
   onRetry?: () => void;
+  /** 실패 뒤 다시 받는 중 — 실패 안내를 그대로 두고 다시 시도 버튼만 잠근다(누른 버튼의 포커스가 남게, #1756). onRetry 와 함께 넘긴다. */
+  isRetrying?: boolean;
 };
 
-export function SectionSaved({ favorites, totalCount, isPending = false, onRetry }: Props) {
+export function SectionSaved({ favorites, totalCount, isPending = false, onRetry, isRetrying = false }: Props) {
   // 첫 페이지만 그린다 — 전체가 더 많을 때만 나머지를 볼 /me/favorites 로 잇는다(받은 것이 전부면 같은 목록이라 링크가 필요 없다).
   const hasMoreFavorites = !isPending && !onRetry && totalCount > favorites.length;
 
@@ -53,7 +55,7 @@ export function SectionSaved({ favorites, totalCount, isPending = false, onRetry
         {isPending ? (
           <ListRowsSkeleton rows={2} rowClassName="h-[88px] rounded-lg" label="찜한 동아리 불러오는 중" />
         ) : onRetry ? (
-          <ListLoadError message="찜한 동아리를 불러오지 못했어요." onRetry={onRetry} />
+          <ListLoadError message="찜한 동아리를 불러오지 못했어요." onRetry={onRetry} isRetrying={isRetrying} />
         ) : totalCount === 0 ? (
           <div className="bg-paper border border-line rounded-lg px-8 py-12 text-center text-charcoal-3 text-sm">
             아직 찜한 동아리가 없어요.{' '}

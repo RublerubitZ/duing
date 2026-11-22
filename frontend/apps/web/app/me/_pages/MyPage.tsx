@@ -65,30 +65,53 @@ export function MyPage() {
   const favoritesTotalCount = favoriteListQuery.data?.totalElements ?? 0;
   const myInquiries = myInquiriesQuery.data?.content ?? [];
   const myInquiriesTotalCount = myInquiriesQuery.data?.totalElements ?? 0;
+  // 실패 뒤 다시 받는 중 — TanStack 5 는 데이터 없이 다시 받으면 pending 으로 되돌리고 error·failureCount 도 비운다. 이 마운트에서
+  // 이미 결과(실패)를 받았는지(isFetchedAfterMount)로 처음 조회와 가른다 — 실패한 캐시를 든 채 다시 들어온 마운트 재조회는 처음
+  // 조회로 본다(#1756). 진행 여부는 isFetching 이 아니라 fetchStatus 로 본다 — 재시도 대기 뒤 탭이 가려져 있으면 요청이 멈춰
+  // ('paused') isFetching 이 내려가도 다시 받는 중이다. 이 화면의 목록은 자리표시(placeholderData)를 쓰지 않아 isPlaceholderData 는 늘 거짓이다.
+  const applicationsRetrying =
+    applicationsQuery.fetchStatus !== 'idle' &&
+    applicationsQuery.isFetchedAfterMount &&
+    (applicationsQuery.data === undefined || applicationsQuery.isPlaceholderData);
+  const myClubsRetrying =
+    myClubsQuery.fetchStatus !== 'idle' &&
+    myClubsQuery.isFetchedAfterMount &&
+    (myClubsQuery.data === undefined || myClubsQuery.isPlaceholderData);
+  const favoritesRetrying =
+    favoriteListQuery.fetchStatus !== 'idle' &&
+    favoriteListQuery.isFetchedAfterMount &&
+    (favoriteListQuery.data === undefined || favoriteListQuery.isPlaceholderData);
+  const inquiriesRetrying =
+    myInquiriesQuery.fetchStatus !== 'idle' &&
+    myInquiriesQuery.isFetchedAfterMount &&
+    (myInquiriesQuery.data === undefined || myInquiriesQuery.isPlaceholderData);
   // 조회 중에는 "없음"이 아니라 "아직 모름"이다(#1500) — 정적 HTML·조회 전에 "…없어요" 대신 스켈레톤을 그린다. 하이드레이션
-  // 프레임도 서버처럼 조회 중으로 둔다(캐시가 먼저 차 있어도 서버 HTML 의 스켈레톤과 어긋나지 않게).
-  const applicationsPending = !hydrated || applicationsQuery.isPending;
-  const myClubsPending = !hydrated || myClubsQuery.isPending;
-  const favoritesPending = !hydrated || favoriteListQuery.isPending;
-  const inquiriesPending = !hydrated || myInquiriesQuery.isPending;
+  // 프레임도 서버처럼 조회 중으로 둔다(캐시가 먼저 차 있어도 서버 HTML 의 스켈레톤과 어긋나지 않게). 실패 뒤 다시 받는 중은
+  // 스켈레톤 대신 실패 안내를 그대로 둔다 — 누른 버튼이 남아야 포커스가 빠지지 않는다(#1756).
+  const applicationsPending = !hydrated || (applicationsQuery.isPending && !applicationsRetrying);
+  const myClubsPending = !hydrated || (myClubsQuery.isPending && !myClubsRetrying);
+  const favoritesPending = !hydrated || (favoriteListQuery.isPending && !favoritesRetrying);
+  const inquiriesPending = !hydrated || (myInquiriesQuery.isPending && !inquiriesRetrying);
   // 받은 목록이 없으면(조회 중 또는 첫 조회 실패) 셀 것이 없다 — 0 은 거짓이다(#1579). 옛 목록을 든 채 재조회가 실패하면 마지막 숫자를 둔다(#1549 와 같은 기준).
   const applicationsUnknown = !hydrated || applicationsQuery.data === undefined;
   const myClubsUnknown = !hydrated || myClubsQuery.data === undefined;
   const favoritesUnknown = !hydrated || favoriteListQuery.data === undefined;
   const inquiriesUnknown = !hydrated || myInquiriesQuery.data === undefined;
-  // 첫 조회가 실패해 받은 목록이 없는 섹션에만 다시 시도를 넘긴다 — 데이터 없이 다시 받으면 조회 중으로 돌아가 섹션이 스켈레톤으로 바뀐다.
+  // 받은 목록 없이 실패한 섹션(실패 뒤 다시 받는 중 포함)에만 다시 시도를 넘긴다 — 다시 받는 동안 섹션은 버튼만 잠근다.
   const retryApplications =
-    hydrated && applicationsQuery.isError && applicationsQuery.data === undefined
+    hydrated && applicationsQuery.data === undefined && (applicationsQuery.isError || applicationsRetrying)
       ? () => void applicationsQuery.refetch()
       : undefined;
   const retryMyClubs =
-    hydrated && myClubsQuery.isError && myClubsQuery.data === undefined ? () => void myClubsQuery.refetch() : undefined;
+    hydrated && myClubsQuery.data === undefined && (myClubsQuery.isError || myClubsRetrying)
+      ? () => void myClubsQuery.refetch()
+      : undefined;
   const retryFavorites =
-    hydrated && favoriteListQuery.isError && favoriteListQuery.data === undefined
+    hydrated && favoriteListQuery.data === undefined && (favoriteListQuery.isError || favoritesRetrying)
       ? () => void favoriteListQuery.refetch()
       : undefined;
   const retryInquiries =
-    hydrated && myInquiriesQuery.isError && myInquiriesQuery.data === undefined
+    hydrated && myInquiriesQuery.data === undefined && (myInquiriesQuery.isError || inquiriesRetrying)
       ? () => void myInquiriesQuery.refetch()
       : undefined;
 
@@ -253,10 +276,20 @@ export function MyPage() {
         {order.map((id) => (
           <div key={id} ref={refFor(id)} data-section={id}>
             {id === 'apply' && (
-              <SectionApply applications={applications} isPending={applicationsPending} onRetry={retryApplications} />
+              <SectionApply
+                applications={applications}
+                isPending={applicationsPending}
+                onRetry={retryApplications}
+                isRetrying={applicationsRetrying}
+              />
             )}
             {id === 'joined' && (
-              <SectionMyClubs myClubs={myClubs} isPending={myClubsPending} onRetry={retryMyClubs} />
+              <SectionMyClubs
+                myClubs={myClubs}
+                isPending={myClubsPending}
+                onRetry={retryMyClubs}
+                isRetrying={myClubsRetrying}
+              />
             )}
             {id === 'saved' && (
               <SectionSaved
@@ -264,6 +297,7 @@ export function MyPage() {
                 totalCount={favoritesTotalCount}
                 isPending={favoritesPending}
                 onRetry={retryFavorites}
+                isRetrying={favoritesRetrying}
               />
             )}
             {id === 'inquiries' && (
@@ -272,6 +306,7 @@ export function MyPage() {
                 totalCount={myInquiriesTotalCount}
                 isPending={inquiriesPending}
                 onRetry={retryInquiries}
+                isRetrying={inquiriesRetrying}
               />
             )}
             {id === 'archived' && (
@@ -279,6 +314,7 @@ export function MyPage() {
                 applications={archivedApplications}
                 isPending={applicationsPending}
                 onRetry={retryApplications}
+                isRetrying={applicationsRetrying}
               />
             )}
           </div>
