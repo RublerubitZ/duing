@@ -20,8 +20,8 @@ import com.duing.domain.user.entity.User;
 import com.duing.domain.user.repository.UserRepository;
 import com.duing.global.auth.JwtTokenProvider;
 import com.duing.global.bank.BankApiClient;
-import com.duing.global.bank.dto.BankTransactionData;
 import com.duing.global.bank.dto.TransactionLookupCommand;
+import com.duing.global.bank.dto.TransactionLookupResult;
 import com.duing.global.crypto.FeeAccountCipher;
 import io.restassured.RestAssured;
 import io.restassured.response.Response;
@@ -48,8 +48,8 @@ class LeaderBankMatchingStatusTest extends IntegrationTestBase {
     static class StubBankApiClient implements BankApiClient {
 
         @Override
-        public List<BankTransactionData> getTransactions(TransactionLookupCommand command) {
-            return List.of();
+        public TransactionLookupResult getTransactions(TransactionLookupCommand command) {
+            return new TransactionLookupResult(List.of(), true);
         }
     }
 

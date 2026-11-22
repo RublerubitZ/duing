@@ -4,6 +4,7 @@ import com.duing.global.entity.BaseEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Table;
+import java.time.Instant;
 import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
@@ -32,6 +33,13 @@ public class BankMatchingSetting extends BaseEntity {
     @Column(name = "api_registered", nullable = false)
     private boolean apiRegistered;
 
+    /**
+     * 은행 응답을 끝까지 읽고 적재·자동매칭까지 마친 마지막 동기화가 시작된 시각. 기록은
+     * {@code BankMatchingSettingRepository#recordLastSyncedAt} 조건부 UPDATE 로만 하고, 자동매칭을 끄면 비운다.
+     */
+    @Column(name = "last_synced_at")
+    private Instant lastSyncedAt;
+
     @Builder(access = AccessLevel.PRIVATE)
     private BankMatchingSetting(Long clubId, boolean active, boolean apiRegistered) {
         this.clubId = clubId;
@@ -53,10 +61,11 @@ public class BankMatchingSetting extends BaseEntity {
         this.apiRegistered = true;
     }
 
-    /** 자동매칭을 끈다. */
+    /** 자동매칭을 끈다. 계좌를 바꾸려면 먼저 꺼야 하므로 동기화 기억도 함께 비워, 다음 동기화가 기억 없이 돈다. */
     public void deactivate() {
         this.active = false;
         this.apiRegistered = false;
+        this.lastSyncedAt = null;
     }
 
     /** 자동매칭이 실제로 동작 가능한 상태인지 여부. */
