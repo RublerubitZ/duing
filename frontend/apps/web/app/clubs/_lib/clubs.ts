@@ -80,6 +80,7 @@ export const CAT_COLORS: Record<
   // text: 탐색 카드의 pill 없는 카테고리 텍스트용 — fg 와 달리 카테고리끼리 색이 겹치지 않게 배정
   // (fg 는 파스텔 배경 위 조합이라 학술·창작이 잉크로 겹친다). 색상값은 기존 pill 팔레트 재사용.
   // 다만 취미(#4d6b8a)·봉사(#2f557a)는 같은 색상 계열(h210)인 것을 알고 받아들였다 — 나머지 분류를 홈 색에 맞추면 풀린다(#1753).
+  // 봉사만 홈 색(#936F2F)으로 옮기면 지금 운동 색(#8e6620)과 거의 같아진다(둘 다 h38) — 창작·운동·봉사를 함께 옮길 것(학술은 이미 같은 값).
   '학술': { bg: 'bg-sage-mist', fg: 'text-ink',       text: 'text-ink',       bgValue: 'var(--sage-mist)',  fgValue: 'var(--ink)',      emoji: '📚', num: '01' },
   '운동': { bg: 'bg-[var(--pill-warm-bg)]', fg: 'text-[var(--pill-warm-ink)]', text: 'text-[var(--pill-warm-ink)]', bgValue: 'var(--pill-warm-bg)',           fgValue: 'var(--pill-warm-ink)',         emoji: '⚽',  num: '02' },
   '음악': { bg: 'bg-[var(--pill-berry-bg)]', fg: 'text-[var(--pill-berry-ink)]', text: 'text-[var(--pill-berry-ink)]', bgValue: 'var(--pill-berry-bg)',           fgValue: 'var(--pill-berry-ink)',         emoji: '🎵', num: '03' },
