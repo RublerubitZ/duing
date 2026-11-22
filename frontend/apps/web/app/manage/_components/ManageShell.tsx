@@ -190,7 +190,10 @@ function ManageSidebarFooter({ collapsed }: { collapsed: boolean }) {
 }
 
 export function ManageShell({ currentClubId, children }: ManageShellProps) {
-  const { data: managedClubs, isLoading } = useManagedClubsQuery();
+  const { data: managedClubs, isLoading, isFetching, isFetchedAfterMount, isPlaceholderData, refetch } =
+    useManagedClubsQuery();
+  // 데이터 없이 다시 받으면 TanStack 은 조회 중(pending)으로 돌아간다 — 이 화면에서 실패한 뒤의 조회는 첫 로딩이 아니라 다시 시도로 본다(다른 화면과 같은 식).
+  const isRetrying = isFetching && isFetchedAfterMount && (managedClubs === undefined || isPlaceholderData);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const pathname = usePathname();
   // 서버 렌더와 첫 페인트는 항상 펼친 상태로 맞추고 저장값은 마운트 후 반영한다
@@ -235,7 +238,13 @@ export function ManageShell({ currentClubId, children }: ManageShellProps) {
   const currentClubName = managedClubs?.find((club) => club.clubId === currentClubId)?.clubName;
 
   return (
-    <ManageGuard managedClubs={managedClubs} currentClubId={currentClubId} isLoading={isLoading}>
+    <ManageGuard
+      managedClubs={managedClubs}
+      currentClubId={currentClubId}
+      isLoading={isLoading && !isRetrying}
+      isRetrying={isRetrying}
+      onRetry={() => void refetch()}
+    >
       <div className="duing flex min-h-dvh bg-cream">
         {/* 데스크탑 플로팅 카드 사이드바 (모바일은 드로어로 대체) */}
         <aside
