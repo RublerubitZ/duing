@@ -103,20 +103,20 @@ export function ClubCard({
   const cat = CAT_COLORS[club.cat];
   const affiliation = clubAffiliationLabel(club);
   // 백엔드가 먼저 배포한 새 모집 상태가 서버 렌더(ISR)를 깨지 않게 모르는 값은 '모집 없음'으로 본다 —
-  // 스타일만 바꾸면 칩·흐림·점 그림자가 엇갈리므로 키 자체를 바꾼다.
+  // 스타일만 바꾸면 칩·점 그림자가 엇갈리므로 키 자체를 바꾼다.
   const displayStatus = club.activeRecruitment?.displayStatus;
   const statusKey: StatusKey = displayStatus && STATUS_STYLES[displayStatus] ? displayStatus : 'NONE';
   const statusStyle = STATUS_STYLES[statusKey];
-  const isDimmed = statusKey === 'CLOSED' || statusKey === 'NONE';
   const logoSize = size === 'lg' ? 96 : 64;
   const initial = (club.name || '?').trim().charAt(0);
   const shouldPop = useHeartPop(liked, isFavoriteStateReady);
 
+  // 모집 없음·마감도 흐리게 그리지 않는다 — 탐색은 동아리 정보를 보는 화면이라 상태는 칩·기간 글자로만 말한다(#1759).
   return (
     <Link
       href={toRoute(`/clubs/${club.id}`)}
       onPointerDown={onPointerDown}
-      className={`relative flex flex-col gap-3.5 overflow-hidden bg-paper border border-line rounded-[18px] p-[18px] cursor-pointer transition hover:shadow-2 ${isDimmed ? 'opacity-[0.85]' : ''}`}
+      className="relative flex flex-col gap-3.5 overflow-hidden bg-paper border border-line rounded-[18px] p-[18px] cursor-pointer transition hover:shadow-2"
     >
       <div className="flex items-start justify-between gap-2">
         <div
@@ -129,7 +129,6 @@ export function ClubCard({
             background: `linear-gradient(135deg, ${club.color} 0%, ${club.color}CC 100%)`,
             fontSize: size === 'lg' ? 44 : 30,
             letterSpacing: '-0.03em',
-            filter: isDimmed ? 'saturate(0.6)' : undefined,
             // 공유요소 전환 — 상세 히어로의 같은 이름 로고로 모핑된다(clubs 목록 → 상세).
             viewTransitionName: `club-logo-${club.id}`,
           }}

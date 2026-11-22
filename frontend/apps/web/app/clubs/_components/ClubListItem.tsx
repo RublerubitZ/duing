@@ -89,18 +89,15 @@ export function ClubListItem({
   const cat = CAT_COLORS[club.cat];
   const affiliation = clubAffiliationLabel(club);
   const badge = recruitBadge(club);
-  const isDimmed = badge?.tone === 'muted' || club.activeRecruitment === null;
   const initial = (club.name || '?').trim().charAt(0);
   const shouldPop = useHeartPop(liked, isFavoriteStateReady);
 
+  // 모집 없음·마감도 흐리게 그리지 않는다 — 탐색은 동아리 정보를 보는 화면이라 상태는 우측 배지로만 말한다(#1759).
   return (
     <Link
       href={toRoute(`/clubs/${club.id}`)}
       onPointerDown={onPointerDown}
-      className={cn(
-        'tap-card group relative flex items-center gap-3 rounded-2xl border border-line bg-paper p-3.5 hover:shadow-2',
-        isDimmed && 'opacity-[0.78]',
-      )}
+      className="tap-card group relative flex items-center gap-3 rounded-2xl border border-line bg-paper p-3.5 hover:shadow-2"
     >
       <div
         className="relative grid h-14 w-14 shrink-0 place-items-center overflow-hidden rounded-2xl text-[23px] font-bold leading-none text-white shadow-1"
@@ -109,7 +106,6 @@ export function ClubListItem({
           // 드러난다. 투명 PNG 는 흰색 대신 이 색이 비친다(허용).
           background: `linear-gradient(135deg, ${club.color} 0%, ${club.color}CC 100%)`,
           letterSpacing: '-0.03em',
-          filter: isDimmed ? 'saturate(0.6)' : undefined,
           // 공유요소 전환 이름(club-logo-<id>)은 달지 않는다 — 모바일 목록 전용이고, 모바일 전환은 화면 전체 push 다(globals.css).
         }}
         aria-label={`${club.name} 로고`}

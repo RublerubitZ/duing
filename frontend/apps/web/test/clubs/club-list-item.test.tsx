@@ -24,6 +24,33 @@ const baseClub: Club = {
   activeRecruitment: null,
 };
 
+const OPEN_RECRUITMENT: Club['activeRecruitment'] = {
+  recruitmentId: 1,
+  displayStatus: 'OPEN',
+  startDate: '2026-03-15',
+  endDate: '2099-12-31',
+};
+
+// 모집 상태는 우측 배지로만 말한다 — 행(링크)과 로고는 상태와 무관하게 같아야 한다(#1759, 흐림 없음).
+// 링크·로고 두 요소만 본다: 배지는 상태마다 달라야 하는 자식이라 비교하지 않는다(자식에 붙는 흐림은 못 잡는다).
+function readRowSurface() {
+  const link = screen.getByRole('link');
+  const logo = screen.getByLabelText('테스트 동아리 로고');
+  return {
+    linkClass: link.className,
+    linkStyle: link.getAttribute('style'),
+    logoClass: logo.className,
+    logoStyle: logo.getAttribute('style'),
+  };
+}
+
+function renderRowSurface(activeRecruitment: Club['activeRecruitment']) {
+  const { unmount } = render(<ClubListItem club={{ ...baseClub, activeRecruitment }} />);
+  const surface = readRowSurface();
+  unmount();
+  return surface;
+}
+
 describe('ClubListItem — 모바일 가로형 카드', () => {
   it('scope="중앙" + division → 소속 칩 "중앙" + 분과 회색 텍스트 분리(접미 "분과" 중복 없음)', () => {
     render(<ClubListItem club={{ ...baseClub, scope: '중앙', division: '컴퓨터정보공학분과' }} />);
@@ -126,6 +153,16 @@ describe('ClubListItem — 모바일 가로형 카드', () => {
       activeRecruitment: { recruitmentId: 2, displayStatus: 'CLOSED', startDate: '2026-02-01', endDate: '2026-02-28' },
     }} />);
     expect(screen.getByText('마감')).toBeInTheDocument();
+  });
+
+  it.each<[string, Club['activeRecruitment']]>([
+    ['CLOSED', { recruitmentId: 2, displayStatus: 'CLOSED', startDate: '2026-02-01', endDate: '2026-02-28' }],
+    ['모집 없음', null],
+    ['UPCOMING', { recruitmentId: 5, displayStatus: 'UPCOMING', startDate: '2026-03-20', endDate: '2026-04-10' }],
+    ['ALWAYS_OPEN', { recruitmentId: 6, displayStatus: 'ALWAYS_OPEN', startDate: '2026-03-01', endDate: null }],
+  ])('%s 행도 모집중 행과 링크·로고의 클래스·인라인 스타일이 같다 — 흐림·채도 낮춤 없음', (_status, activeRecruitment) => {
+    const openSurface = renderRowSurface(OPEN_RECRUITMENT);
+    expect(renderRowSurface(activeRecruitment)).toEqual(openSurface);
   });
 
   it('근거 없는 "추천" 라벨을 렌더하지 않는다 — 추천은 정렬(RECOMMENDED)이 담당한다', () => {

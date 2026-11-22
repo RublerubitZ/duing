@@ -24,6 +24,33 @@ const baseClub: Club = {
   activeRecruitment: null,
 };
 
+const OPEN_RECRUITMENT: Club['activeRecruitment'] = {
+  recruitmentId: 10,
+  displayStatus: 'OPEN',
+  startDate: '2026-03-15',
+  endDate: '2026-04-20',
+};
+
+// 모집 상태는 칩·기간 글자로만 말한다 — 카드(링크)와 로고는 상태와 무관하게 같아야 한다(#1759, 흐림 없음).
+// 링크·로고 두 요소만 본다: 칩·기간 글자는 상태마다 달라야 하는 자식이라 비교하지 않는다(자식에 붙는 흐림은 못 잡는다).
+function readCardSurface() {
+  const link = screen.getByRole('link');
+  const logo = screen.getByLabelText('테스트 동아리 로고');
+  return {
+    linkClass: link.className,
+    linkStyle: link.getAttribute('style'),
+    logoClass: logo.className,
+    logoStyle: logo.getAttribute('style'),
+  };
+}
+
+function renderCardSurface(activeRecruitment: Club['activeRecruitment']) {
+  const { unmount } = render(<ClubCard club={{ ...baseClub, activeRecruitment }} />);
+  const surface = readCardSurface();
+  unmount();
+  return surface;
+}
+
 describe('ClubCard — 모집 상태 뱃지/기간 렌더링', () => {
   it('OPEN: "모집중" 뱃지 + "3.15 - 4.20" 기간(앞자리 0 제거, 접두어 없음)', () => {
     render(<ClubCard club={{
@@ -102,7 +129,8 @@ describe('ClubCard — 모집 상태 뱃지/기간 렌더링', () => {
     expect(screen.queryByText(/모집 종료|상시모집|부터 모집|\d{1,2}\.\d{1,2} - /)).toBeNull();
   });
 
-  it('백엔드가 먼저 배포한 모르는 상태: "모집 없음" 뱃지 + 모집 없음과 같은 흐림', () => {
+  it('백엔드가 먼저 배포한 모르는 상태: 모집 없음과 같은 칩, 카드·로고는 모집중 카드와 같다', () => {
+    const openSurface = renderCardSurface(OPEN_RECRUITMENT);
     render(<ClubCard club={{
       ...baseClub,
       activeRecruitment: {
@@ -112,7 +140,17 @@ describe('ClubCard — 모집 상태 뱃지/기간 렌더링', () => {
         endDate: '2026-03-31',
       },
     }} />);
-    expect(screen.getByText('모집 없음')).toBeInTheDocument();
-    expect(screen.getByRole('link')).toHaveClass('opacity-[0.85]');
+    expect(screen.getByText('모집 없음')).toHaveClass('bg-graysoft', 'text-charcoal-2');
+    expect(readCardSurface()).toEqual(openSurface);
+  });
+
+  it.each<[string, Club['activeRecruitment']]>([
+    ['CLOSED', { recruitmentId: 13, displayStatus: 'CLOSED', startDate: '2026-02-01', endDate: '2026-02-28' }],
+    ['모집 없음', null],
+    ['UPCOMING', { recruitmentId: 12, displayStatus: 'UPCOMING', startDate: '2026-03-20', endDate: '2026-04-10' }],
+    ['ALWAYS_OPEN', { recruitmentId: 11, displayStatus: 'ALWAYS_OPEN', startDate: '2026-03-01', endDate: null }],
+  ])('%s 카드도 모집중 카드와 링크·로고의 클래스·인라인 스타일이 같다 — 흐림·채도 낮춤 없음', (_status, activeRecruitment) => {
+    const openSurface = renderCardSurface(OPEN_RECRUITMENT);
+    expect(renderCardSurface(activeRecruitment)).toEqual(openSurface);
   });
 });

@@ -779,7 +779,7 @@ html[data-had-session] [data-auth-seeding] { visibility: hidden; }
   .tap-card:active,
   .tap-pill:active {
     transform: none;
-    /* 스케일 대신 밝기로 눌림을 알린다 — filter 는 모션이 아니고, 딤 카드의 opacity 를 덮지 않는다. */
+    /* 스케일 대신 밝기로 눌림을 알린다 — filter 는 모션이 아니다. */
     filter: brightness(0.94);
   }
   /* 토스트도 같은 규약 — 스케일은 끄고 페이드(opacity)만 남긴다. 시간은 그대로. */
