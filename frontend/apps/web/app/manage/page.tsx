@@ -32,6 +32,7 @@ function ManageRedirect() {
 
   useEffect(() => {
     if (!isLoading && targetClub) {
+      // push 는 /manage 를 기록에 남겨, 콘솔에서 뒤로가면 이 effect 가 다시 콘솔로 보낸다(#1751).
       router.replace(toRoute(`/manage/clubs/${targetClub.clubId}`));
     }
   }, [isLoading, targetClub, router]);
