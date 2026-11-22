@@ -4,6 +4,7 @@ import static com.duing.domain.notification.entity.QNotification.notification;
 
 import com.duing.domain.notification.NotificationRetention;
 import com.duing.domain.notification.entity.Notification;
+import com.duing.domain.notification.entity.NotificationType;
 import com.querydsl.core.types.dsl.BooleanExpression;
 import com.querydsl.jpa.impl.JPAQueryFactory;
 import java.time.Clock;
@@ -82,6 +83,18 @@ public class NotificationRepositoryImpl implements NotificationRepositoryCustom 
         return (int) queryFactory
                 .delete(notification)
                 .where(notification.createdAt.lt(cutoff))
+                .execute();
+    }
+
+    // 이 표는 soft delete 열이 없고 보존 잡(deleteCreatedBefore)도 물리 삭제한다 — 같은 방식으로 지운다(NotificationRetentionJob 주석).
+    @Override
+    public int deleteByTypeAndDedupKey(NotificationType type, String dedupKey) {
+        return (int) queryFactory
+                .delete(notification)
+                .where(
+                        notification.type.eq(type),
+                        notification.dedupKey.eq(dedupKey)
+                )
                 .execute();
     }
 

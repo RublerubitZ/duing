@@ -33,6 +33,11 @@ public class GeneralNoticeBroadcaster implements NoticeBroadcaster {
         }
     }
 
+    @Override
+    public void retract(Long noticeId) {
+        notificationRepository.deleteByTypeAndDedupKey(NotificationType.NOTICE_TARGETED, dedupKeyOf(noticeId));
+    }
+
     private void publishPublic(Notice notice) {
         if (!notice.isNotifyOnPublish()) return;
         broadcastRepository.save(NoticeBroadcast.snapshot(
@@ -61,7 +66,7 @@ public class GeneralNoticeBroadcaster implements NoticeBroadcaster {
 
     private void bulkInsertNotifications(Notice notice, List<Long> recipients) {
         if (recipients.isEmpty()) return;
-        String dedupKey = "notice:" + notice.getId();
+        String dedupKey = dedupKeyOf(notice.getId());
         String linkUrl = buildLinkUrl(notice.getId());
         Map<String, Object> payload = Map.of(
                 "noticeId", notice.getId(),
@@ -73,6 +78,11 @@ public class GeneralNoticeBroadcaster implements NoticeBroadcaster {
                         linkUrl, payload, dedupKey))
                 .toList();
         notificationRepository.saveAll(rows);
+    }
+
+    // 발송과 회수가 같은 키를 쓰도록 형식은 여기 하나에만 둔다.
+    private static String dedupKeyOf(Long noticeId) {
+        return "notice:" + noticeId;
     }
 
     private static String buildLinkUrl(Long noticeId) {

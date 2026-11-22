@@ -173,6 +173,134 @@ class NotificationUnionAcceptanceTest extends IntegrationTestBase {
     }
 
     @Test
+    @DisplayName("총동연이 임원 전체 공지를 지우면 운영진 알림 목록과 안 읽음 수에서 그 개인 알림이 빠진다")
+    void deletedOfficersAllNoticeRetractsOfficerNotification() {
+        String officerToken = saveActiveClubOfficerToken();
+        Long noticeId = createAdminNotice("""
+                {
+                  "title": "임원 공지", "summary": "요약", "content": "본문",
+                  "coverImageUrl": "https://example.com/c.png",
+                  "category": "GENERAL", "visibility": "OFFICERS_ALL", "pinned": false
+                }
+                """);
+        assertPersonalNoticeNotificationCount(officerToken, noticeId, 1);
+        assertUnreadCount(officerToken, 1);
+
+        deleteNoticeAsAdmin(noticeId);
+
+        assertPersonalNoticeNotificationCount(officerToken, noticeId, 0);
+        assertUnreadCount(officerToken, 0);
+    }
+
+    @Test
+    @DisplayName("총동연이 특정 동아리 공지를 지우면 이미 읽은 회원의 알림도 목록에서 빠진다")
+    void deletedClubScopedNoticeRetractsReadMemberNotification() {
+        User member = saveUser(UserRole.STUDENT);
+        String memberToken = jwtTokenProvider.createToken(member.getId(), member.getRole().name());
+        Club club = saveActiveClub();
+        clubMemberRepository.save(ClubMember.of(club, member, ClubMemberRole.MEMBER));
+        Long noticeId = createAdminNotice("""
+                {
+                  "title": "동아리 대상 공지", "summary": "요약", "content": "본문",
+                  "coverImageUrl": "https://example.com/c.png",
+                  "category": "GENERAL", "visibility": "CLUB_SCOPED", "clubScopeRole": "ALL_MEMBERS",
+                  "targetClubIds": [%d], "pinned": false
+                }
+                """.formatted(club.getId()));
+        Integer notificationId = RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + memberToken)
+            .when()
+                .get("/api/v1/me/notifications")
+            .then()
+                .statusCode(HttpStatus.OK.value())
+                .extract().jsonPath().get("data.content.find { it.linkUrl == '/notices/" + noticeId + "' }.id");
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + memberToken)
+            .when()
+                .patch("/api/v1/me/notifications/" + notificationId + "/read")
+            .then()
+                .statusCode(HttpStatus.NO_CONTENT.value());
+        assertUnreadCount(memberToken, 0);
+
+        deleteNoticeAsAdmin(noticeId);
+
+        assertPersonalNoticeNotificationCount(memberToken, noticeId, 0);
+    }
+
+    @Test
+    @DisplayName("임원 전체로 올린 공지를 전체 공개로 바꾼 뒤 지워도 운영진의 처음 개인 알림이 빠진다")
+    void deletedNoticeWidenedToPublicRetractsOfficerNotification() {
+        String officerToken = saveActiveClubOfficerToken();
+        Long noticeId = createAdminNotice("""
+                {
+                  "title": "임원 공지", "summary": "요약", "content": "본문",
+                  "coverImageUrl": "https://example.com/c.png",
+                  "category": "GENERAL", "visibility": "OFFICERS_ALL", "pinned": false
+                }
+                """);
+        updateNoticeAsAdmin(noticeId, """
+                { "visibility": "PUBLIC" }
+                """);
+        assertPersonalNoticeNotificationCount(officerToken, noticeId, 1);
+
+        deleteNoticeAsAdmin(noticeId);
+
+        assertPersonalNoticeNotificationCount(officerToken, noticeId, 0);
+    }
+
+    private String saveActiveClubOfficerToken() {
+        User officer = saveUser(UserRole.STUDENT);
+        clubMemberRepository.save(ClubMember.of(saveActiveClub(), officer, ClubMemberRole.OFFICER));
+        return jwtTokenProvider.createToken(officer.getId(), officer.getRole().name());
+    }
+
+    private Club saveActiveClub() {
+        // 알림 수신자 스코프는 ACTIVE 동아리 소속만 대상이다(정책 2026-08-18).
+        Club club = Club.create("회수클럽" + sequence.incrementAndGet(), ClubCategory.ACADEMIC, "분과", "설명", null);
+        try {
+            Field statusField = Club.class.getDeclaredField("status");
+            statusField.setAccessible(true);
+            statusField.set(club, ClubStatus.ACTIVE);
+        } catch (ReflectiveOperationException reflectionFailure) {
+            throw new IllegalStateException(reflectionFailure);
+        }
+        return clubRepository.save(club);
+    }
+
+    private Long createAdminNotice(String requestBody) {
+        Integer noticeId = RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                .contentType(ContentType.JSON)
+                .body(requestBody)
+            .when()
+                .post("/api/v1/admin/notices")
+            .then()
+                .statusCode(HttpStatus.CREATED.value())
+                .extract().jsonPath().get("data");
+        return noticeId.longValue();
+    }
+
+    private void deleteNoticeAsAdmin(Long noticeId) {
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+            .when()
+                .delete("/api/v1/admin/notices/" + noticeId)
+            .then()
+                .statusCode(HttpStatus.NO_CONTENT.value());
+    }
+
+    private void assertPersonalNoticeNotificationCount(String accessToken, Long noticeId, int expectedCount) {
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken)
+            .when()
+                .get("/api/v1/me/notifications")
+            .then()
+                .statusCode(HttpStatus.OK.value())
+                .body("data.content.findAll { it.source == 'PERSONAL' && it.linkUrl == '/notices/" + noticeId + "' }.size()",
+                        equalTo(expectedCount));
+    }
+
+    @Test
     @DisplayName("수정에서 공개 범위를 임원 전체로 좁히면 학생 알림 목록과 안 읽음 수에서 그 알림이 빠진다")
     void narrowedNoticeBroadcastDisappearsFromStudentInbox() {
         Long noticeId = publishPublicNoticeWithBroadcast();
