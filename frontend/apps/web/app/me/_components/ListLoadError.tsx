@@ -9,7 +9,6 @@ type Props = {
   onRetry: () => void;
   /**
    * 실패 뒤 다시 받는 중 — 상자를 그대로 두고 같은 버튼의 문구만 바꿔 잠근다(누른 버튼의 포커스가 남게, #1756).
-   * 마이페이지 섹션과 찜 목록(/me/favorites) 모두 넘긴다.
    */
   isRetrying?: boolean;
 };

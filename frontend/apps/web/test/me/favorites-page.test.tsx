@@ -434,7 +434,7 @@ describe('MyFavoritesPage — 이전 쪽 유지·첫 페이지로·다시 받는
     expect(pagination()).not.toBeInTheDocument();
     expect(screen.queryByRole('status', { name: '찜한 동아리 불러오는 중' })).not.toBeInTheDocument();
 
-    // 가드 — 데이터 없이 받는 중이라 다시 불러도 진행 중 요청으로 합쳐진다(query.ts:707-721). 잠금이 없어도 통과한다.
+    // 가드 — 데이터 없이 받는 중이라 다시 불러도 진행 중 요청으로 합쳐진다. 잠금이 없어도 통과한다.
     const secondPageRequests = requestCountFor(1);
     await userEvent.click(retryButton);
     expect(requestCountFor(1)).toBe(secondPageRequests);
@@ -542,8 +542,8 @@ describe('MyFavoritesPage — 이전 쪽 유지·첫 페이지로·다시 받는
     expect(screen.queryByText('찜동아리21')).not.toBeInTheDocument();
   });
 
-  // 공통식이 isFetching 이 아니라 fetchStatus 인 이유 — 재시도 대기 뒤 포커스가 없으면 TanStack 이 멈추고(retryer.ts:183-186·277,
-  // query.ts:945-949) 그동안 isFetching 은 거짓이다. isFetching 으로 되돌리면 멈춘 동안 이전 쪽 자리표시 목록이 그려져 이 테스트가 실패한다.
+  // 공통식이 isFetching 이 아니라 fetchStatus 인 이유 — 재시도 대기 뒤 포커스가 없으면 TanStack 이 멈추고(fetchStatus
+  // 'paused') 그동안 isFetching 은 거짓이다. isFetching 으로 되돌리면 멈춘 동안 이전 쪽 자리표시 목록이 그려져 이 테스트가 실패한다.
   it('다시 받다 재시도 대기에서 멈춰도(탭을 가림) 실패 안내와 같은 잠긴 버튼을 둔다', async () => {
     onTestFinished(() => focusManager.setFocused(undefined));
     serveFavorites(25);
@@ -573,7 +573,7 @@ describe('MyFavoritesPage — 이전 쪽 유지·첫 페이지로·다시 받는
     await waitFor(() => expect(cardCount()).toBe(5));
   });
 
-  // 가드 — 쪽 키가 고정돼도 clear() 뒤엔 이전 쪽 유지가 지워진 옛 데이터를 꺼낸다(스펙 1절). 화면에 닿지 않는 건 /me 가드가 내리기 때문이다.
+  // 가드 — 쪽 키가 고정돼도 clear() 뒤엔 이전 쪽 유지가 지워진 옛 데이터를 꺼낸다. 화면에 닿지 않는 건 /me 가드가 내리기 때문이다.
   it('세션이 끝나 상태를 내리고 캐시를 비우면 이전 찜 목록이 화면에 남지 않는다', async () => {
     serveFavorites(1);
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -587,7 +587,7 @@ describe('MyFavoritesPage — 이전 쪽 유지·첫 페이지로·다시 받는
     );
     expect(await screen.findByText('찜동아리1')).toBeInTheDocument();
 
-    // 세션 만료·로그아웃 경로는 모두 상태를 먼저 내리고 캐시를 비운다(SessionExpiryHandler.tsx:56·67).
+    // 세션 만료·로그아웃 경로는 모두 상태를 먼저 내리고 캐시를 비운다(SessionExpiryHandler·useLogout).
     act(() => {
       useAuthStore.setState({ status: 'unauthenticated', isVerified: true });
       queryClient.clear();

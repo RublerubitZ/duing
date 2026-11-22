@@ -68,7 +68,8 @@ export function MyPage() {
   // 실패 뒤 다시 받는 중 — TanStack 5 는 데이터 없이 다시 받으면 pending 으로 되돌리고 error·failureCount 도 비운다. 이 마운트에서
   // 이미 결과(실패)를 받았는지(isFetchedAfterMount)로 처음 조회와 가른다 — 실패한 캐시를 든 채 다시 들어온 마운트 재조회는 처음
   // 조회로 본다(#1756). 진행 여부는 isFetching 이 아니라 fetchStatus 로 본다 — 재시도 대기 뒤 탭이 가려져 있으면 요청이 멈춰
-  // ('paused') isFetching 이 내려가도 다시 받는 중이다. 이 화면의 목록은 자리표시(placeholderData)를 쓰지 않아 isPlaceholderData 는 늘 거짓이다.
+  // ('paused') isFetching 이 내려가도 다시 받는 중이다.
+  // 찜·문의 훅은 이전 쪽 유지(placeholderData)를 쓰지만 이 화면은 쪽 키가 고정이라 자리표시가 붙지 않는다(clear() 뒤는 /me 가드가 화면을 내린다).
   const applicationsRetrying =
     applicationsQuery.fetchStatus !== 'idle' &&
     applicationsQuery.isFetchedAfterMount &&

@@ -22,9 +22,8 @@ export default function MyFavoritesPage() {
   const favoriteList = favoriteListQuery.data;
   const totalPages = favoriteList?.totalPages ?? 0;
   // 다시 받는 중에는 판단하지 않는다(옛 캐시로 튕기지 않게) — 무효 표시만 된 옛 쪽 캐시가 먼저 나와 지금 페이지가 범위 밖처럼 보일 수 있다.
-  // 쪽을 옮기는 동안의 이전 쪽 자리표시도 받는 중이라 여기서 걸러진다. 재시도 대기 중 멈춤('paused')은 걸러지지 않지만, 그때 자리표시는
-  // 지금 쪽으로 오게 한 쪽(그 쪽의 페이지 버튼으로 왔다)이나 보정 전의 뒤쪽 것이라 totalPages 가 지금 쪽보다 커서 보정이 돌지 않는다.
-  const settledTotalPages = favoriteListQuery.isFetching ? 0 : totalPages;
+  // 이전 쪽 자리표시·재시도 대기 중 멈춤('paused')도 받는 중이다 — 그래서 isFetching 이 아니라 fetchStatus 로 본다.
+  const settledTotalPages = favoriteListQuery.fetchStatus !== 'idle' ? 0 : totalPages;
   // 실패한 뒤 진짜 목록 없이 다시 받는 중 — 이 마운트가 이 쪽 키에서 결과(실패)를 받은 뒤다. 쪽을 옮기면 기준이 새 쪽으로 잡혀
   // (isFetchedAfterMount 거짓) 처음 조회·쪽 이동과 갈린다. 2쪽 이후의 실패면 다시 받는 동안 data 가 이전 쪽 자리표시라 그것도 본다(#1756).
   // isFetching 이 아니라 fetchStatus — 재시도 대기 뒤 탭이 가려져 있으면 멈추고('paused') 그동안 isFetching 은 거짓이다.

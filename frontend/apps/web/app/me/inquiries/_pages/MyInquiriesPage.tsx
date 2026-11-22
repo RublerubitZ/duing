@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 
 import type { FederationInquiryStatus } from '@duing/types';
@@ -50,6 +50,16 @@ export function MyInquiriesPage() {
   const isEmptyPlaceholder = listQuery.isPlaceholderData && inquiries.length === 0;
   // 진짜 목록이 없으면 페이지 버튼도 없다 — 2쪽 이후의 실패엔 돌아갈 길을 둔다.
   const showsFirstPageButton = page > 0 && (listQuery.data === undefined || listQuery.isPlaceholderData);
+  // 받는 중(멈춤 포함)에는 판단하지 않는다 — 그동안 data 는 이전 탭·쪽의 자리표시라 쪽 수가 다르다.
+  const loadedTotalPages = listQuery.fetchStatus !== 'idle' ? undefined : listQuery.data?.totalPages;
+
+  // 상태 탭을 바꾸는 동안 이전 탭 자리표시의 페이지 버튼으로 새 탭에 없는 쪽에 갈 수 있다 — 그대로 두면 빈 쪽에 갇히므로
+  // 남은 마지막 쪽(없으면 첫 쪽)으로 옮긴다(찜 목록 보정과 같은 모양).
+  useEffect(() => {
+    if (loadedTotalPages !== undefined && page > 0 && page >= loadedTotalPages) {
+      setPage(Math.max(loadedTotalPages - 1, 0));
+    }
+  }, [loadedTotalPages, page]);
 
   const handleStatusTabChange = (next: FederationInquiryStatus | 'ALL') => {
     setStatusFilter(next);
@@ -105,7 +115,7 @@ export function MyInquiriesPage() {
               <button
                 type="button"
                 // 잠갔다고 알린 버튼은 동작하지 않게 둔다(aria-disabled 와 행동을 맞춘다). 데이터 없이 받는 중이라 다시 불러도
-                // 요청은 진행 중인 것으로 합쳐진다(query.ts:707-721) — 그래서 이 분기는 테스트로 가를 수 없다(스펙 3.1).
+                // 요청은 진행 중인 것으로 합쳐진다 — 그래서 이 분기는 테스트로 가를 수 없다.
                 aria-disabled={isRetrying || undefined}
                 onClick={() => {
                   if (!isRetrying) void listQuery.refetch();
@@ -123,7 +133,8 @@ export function MyInquiriesPage() {
           </div>
         )}
 
-        {listQuery.isSuccess && !listQuery.isPlaceholderData && inquiries.length === 0 && (
+        {/* 빈 판정은 전체 수로 — 없는 쪽에 간 한 프레임(이 쪽은 비었지만 전체는 남음, 보정 전)에 거짓 빈 안내를 그리지 않는다(찜 목록과 같음). */}
+        {listQuery.isSuccess && !listQuery.isPlaceholderData && shownList?.totalElements === 0 && (
           <div className="rounded-xl border border-dashed border-line px-6 py-12 text-center">
             <p className="text-sm text-charcoal-2">아직 문의 내역이 없어요.</p>
             <p className="mt-1 text-xs text-charcoal-3">

@@ -123,6 +123,30 @@ async function goToPage(pageLabel: string) {
   await userEvent.click(within(pageNav).getByRole('button', { name: pageLabel }));
 }
 
+/**
+ * 지금부터 화면에 한 번이라도 그려진 글자를 모은다 — 곧바로 다른 화면으로 바뀌는 한 프레임도 놓치지 않게(favorites-page.test.tsx 와 같은 방식).
+ * 새로 붙은 노드의 글자와, 바뀐 글자 노드의 이전 값까지 모은다(React 는 같은 자리의 글자를 노드를 바꾸지 않고 고쳐 쓴다).
+ */
+function recordRenderedText() {
+  const renderedTexts: string[] = [];
+  const collect = (records: MutationRecord[]) => {
+    for (const record of records) {
+      if (record.oldValue !== null) renderedTexts.push(record.oldValue);
+      renderedTexts.push(record.target.textContent ?? '');
+      record.addedNodes.forEach((addedNode) => renderedTexts.push(addedNode.textContent ?? ''));
+    }
+  };
+  const observer = new MutationObserver(collect);
+  observer.observe(document.body, { childList: true, subtree: true, characterData: true, characterDataOldValue: true });
+  return {
+    everRendered: (text: string) => {
+      collect(observer.takeRecords());
+      return renderedTexts.some((renderedText) => renderedText.includes(text));
+    },
+    stop: () => observer.disconnect(),
+  };
+}
+
 describe('MyInquiriesPage — 이전 목록 유지·다시 시도·첫 페이지로(#1756)', () => {
   it('처음 가는 쪽으로 옮기는 동안 이전 쪽과 페이지 버튼을 남기고, 누른 번호에 포커스가 남는다', async () => {
     const secondPageGate = createGate();
@@ -162,7 +186,7 @@ describe('MyInquiriesPage — 이전 목록 유지·다시 시도·첫 페이지
     expect(screen.getByText(failureText)).toBeInTheDocument();
     expect(screen.queryByRole('status', { name: '문의 목록 불러오는 중' })).not.toBeInTheDocument();
 
-    // 가드 — 데이터 없이 받는 중이라 다시 불러도 진행 중 요청으로 합쳐진다(query.ts:707-721). 잠금이 없어도 통과한다.
+    // 가드 — 데이터 없이 받는 중이라 다시 불러도 진행 중 요청으로 합쳐진다. 잠금이 없어도 통과한다.
     const requestsWhileRetrying = requestedLists.length;
     await userEvent.click(retryButton);
     expect(requestedLists.length).toBe(requestsWhileRetrying);
@@ -271,7 +295,7 @@ describe('MyInquiriesPage — 이전 목록 유지·다시 시도·첫 페이지
     expect(requestedLists.at(-1)).toEqual({ status: 'ANSWERED', page: '0' });
   });
 
-  // 스펙 3.7 마지막 행·9절 5 — 진짜 목록이 있는 다시 받기는 다시 시도 중 판정에 들지 않는다(받아들인 동작을 고정한다).
+  // 진짜 목록이 있는 다시 받기는 다시 시도 중 판정에 들지 않는다 — 받아들인 동작을 고정한다.
   it('받은 목록을 다시 받다 실패하면 문구·다시 시도와 페이지 버튼을 두고, 다시 받는 동안 버튼을 잠그지 않는다', async () => {
     serveInquiries();
     const queryClient = renderPage();
@@ -330,8 +354,8 @@ describe('MyInquiriesPage — 이전 목록 유지·다시 시도·첫 페이지
     await waitFor(() => expect(rowCount()).toBe(5));
   });
 
-  // 공통식이 isFetching 이 아니라 fetchStatus 인 이유 — 재시도 대기 뒤 포커스가 없으면 멈추고('paused') 그동안 isFetching 은 거짓이다
-  // (retryer.ts:183-186·277, query.ts:945-949). isFetching 으로 되돌리면 멈춘 동안 실패 블록이 내려가 이 테스트가 실패한다.
+  // 공통식이 isFetching 이 아니라 fetchStatus 인 이유 — 재시도 대기 뒤 포커스가 없으면 멈추고('paused') 그동안 isFetching 은 거짓이다.
+  // isFetching 으로 되돌리면 멈춘 동안 실패 블록이 내려가 이 테스트가 실패한다.
   it('다시 받다 재시도 대기에서 멈춰도(탭을 가림) 문구와 같은 잠긴 버튼을 둔다', async () => {
     onTestFinished(() => focusManager.setFocused(undefined));
     failInquiries();
@@ -360,5 +384,28 @@ describe('MyInquiriesPage — 이전 목록 유지·다시 시도·첫 페이지
     act(() => focusManager.setFocused(true));
 
     await waitFor(() => expect(rowCount()).toBe(10));
+  });
+
+  it('상태 탭을 바꾸는 동안 이전 탭의 페이지 버튼으로 새 탭에 없는 쪽에 가면, 거짓 빈 안내 없이 남은 쪽으로 옮긴다', async () => {
+    const answeredGate = createGate();
+    serveInquiries({ status: 'ANSWERED', page: 0, gate: answeredGate, outcome: 'ok' });
+    renderPage();
+    await waitFor(() => expect(rowCount()).toBe(10));
+    await userEvent.click(screen.getByRole('button', { name: INQUIRY_STATUS_LABEL.ANSWERED }));
+    // 답변완료 1쪽은 관문에 걸려 있다 — 그동안 '전체'(2쪽) 자리표시의 페이지 버튼이 남는다.
+    expect(screen.getByRole('list')).toHaveAttribute('aria-busy', 'true');
+    const renderedText = recordRenderedText();
+
+    // 답변완료는 3건(1쪽)이라 2쪽은 빈 쪽(전체 수 3·총 1쪽)으로 온다.
+    await goToPage('2');
+    await waitFor(() => expect(requestedLists).toContainEqual({ status: 'ANSWERED', page: '1' }));
+    answeredGate.open();
+
+    await waitFor(() => expect(rowCount()).toBe(3));
+    expect(screen.getByText('문의13')).toBeInTheDocument();
+    // 3건이면 1쪽뿐이라 페이지 버튼은 없다.
+    expect(pagination()).not.toBeInTheDocument();
+    expect(renderedText.everRendered('아직 문의 내역이 없어요.')).toBe(false);
+    renderedText.stop();
   });
 });
