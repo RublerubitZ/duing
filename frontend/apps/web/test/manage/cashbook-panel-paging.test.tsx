@@ -276,6 +276,23 @@ describe('금전출납부 패널 — 빈 페이지 보정', () => {
     expect(screen.queryByText('장부 항목이 없습니다.')).not.toBeInTheDocument();
   });
 
+  // 두 쪽짜리에서는 마지막 유효 페이지가 늘 첫 쪽이라, 첫 쪽으로 보내는 보정과 구별되지 않는다 — 세 쪽으로 가른다.
+  it('세 쪽 중 마지막 쪽이 비면 첫 쪽이 아니라 마지막 유효 페이지(2쪽)로 옮긴다', async () => {
+    seedEntries(41, { source: 'MANUAL', bankTransactionId: null });
+    const user = renderPanel();
+    await screen.findByText('1 / 3');
+    await user.click(screen.getByRole('button', { name: '다음' }));
+    await screen.findByText('2 / 3');
+    await user.click(screen.getByRole('button', { name: '다음' }));
+    await screen.findByText('3 / 3');
+
+    await user.click(screen.getByRole('button', { name: '삭제' }));
+    await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: '삭제' }));
+
+    expect(await screen.findByText('총 40건')).toBeInTheDocument();
+    expect(screen.getByText('2 / 2')).toBeInTheDocument();
+  });
+
   it("'제외 항목 숨기기' 중 마지막 페이지의 마지막 항목을 제외하면 마지막 유효 페이지로 옮긴다", async () => {
     seedEntries(21);
     const user = renderPanel();
