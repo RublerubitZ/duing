@@ -8,9 +8,9 @@ const CATEGORY_TO_CAT: Record<ClubCategory, ClubCat> = {
   ART: '예술',
   SPORTS: '운동',
   VOLUNTEER: '봉사',
-  RELIGION: '친목',
-  HOBBY: '친목',
-  OTHER: '친목',
+  RELIGION: '종교',
+  HOBBY: '취미',
+  OTHER: '기타',
 };
 
 /** 카드 시그니처 컬러 팔레트. 동아리 id 해시로 결정 — 백엔드에 색 필드가 생기면 교체. */
@@ -27,8 +27,8 @@ const deriveScope = (centralClub: boolean): ClubScope =>
   centralClub ? '중앙' : '학과';
 
 export function summaryToClub(summary: ClubSummary): Club {
-  // 백엔드가 먼저 배포한 새 분류 값이 서버 렌더(ISR)를 깨지 않게 모르는 값은 OTHER 와 같은 '친목'으로 본다.
-  const cat = CATEGORY_TO_CAT[summary.category] ?? '친목';
+  // 백엔드가 먼저 배포한 새 분류 값이 서버 렌더(ISR)를 깨지 않게 모르는 값은 OTHER 와 같은 표기('기타')로 본다.
+  const cat = CATEGORY_TO_CAT[summary.category] ?? CATEGORY_TO_CAT.OTHER;
   const scope = deriveScope(summary.centralClub);
   const division = summary.division ?? null;
   const tagline = summary.tagline?.trim() ? summary.tagline : null;

@@ -22,7 +22,7 @@ export const SCOPE_CLUB_LABEL: Record<ClubScope, string> = {
 
 export type ClubCat =
   | '학술' | '운동' | '음악' | '공연' | '봉사'
-  | '창작' | '예술' | 'IT' | '창업' | '친목';
+  | '창작' | '예술' | 'IT' | '창업' | '종교' | '취미' | '기타';
 
 export type Club = {
   id: number;
@@ -78,7 +78,7 @@ export const CAT_COLORS: Record<
   { bg: string; fg: string; text: string; bgValue: string; fgValue: string; emoji: string; num: string }
 > = {
   // text: 탐색 카드의 pill 없는 카테고리 텍스트용 — fg 와 달리 카테고리끼리 색이 겹치지 않게 배정
-  // (fg 는 파스텔 배경 위 조합이라 학술·창작·친목이 전부 잉크로 겹친다). 색상값은 기존 pill 팔레트 재사용.
+  // (fg 는 파스텔 배경 위 조합이라 학술·창작이 잉크로 겹친다). 색상값은 기존 pill 팔레트 재사용.
   '학술': { bg: 'bg-sage-mist', fg: 'text-ink',       text: 'text-ink',       bgValue: 'var(--sage-mist)',  fgValue: 'var(--ink)',      emoji: '📚', num: '01' },
   '운동': { bg: 'bg-[var(--pill-warm-bg)]', fg: 'text-[var(--pill-warm-ink)]', text: 'text-[var(--pill-warm-ink)]', bgValue: 'var(--pill-warm-bg)',           fgValue: 'var(--pill-warm-ink)',         emoji: '⚽',  num: '02' },
   '음악': { bg: 'bg-[var(--pill-berry-bg)]', fg: 'text-[var(--pill-berry-ink)]', text: 'text-[var(--pill-berry-ink)]', bgValue: 'var(--pill-berry-bg)',           fgValue: 'var(--pill-berry-ink)',         emoji: '🎵', num: '03' },
@@ -89,5 +89,8 @@ export const CAT_COLORS: Record<
   '예술': { bg: 'bg-[#EFE2F1]', fg: 'text-[#7d4f87]', text: 'text-[#7d4f87]', bgValue: '#EFE2F1',           fgValue: '#7d4f87',         emoji: '🎭', num: '07' },
   'IT':   { bg: 'bg-[#E3E9E1]', fg: 'text-ink-deep',  text: 'text-ink-deep',  bgValue: '#E3E9E1',           fgValue: 'var(--ink-deep)', emoji: '💻', num: '08' },
   '창업': { bg: 'bg-[var(--pill-warm-bg)]', fg: 'text-[var(--pill-warm-ink)]', text: 'text-[var(--pill-warm-ink)]', bgValue: 'var(--pill-warm-bg)',           fgValue: 'var(--pill-warm-ink)',         emoji: '🚀', num: '09' },
-  '친목': { bg: 'bg-sage-mist', fg: 'text-ink',       text: 'text-[var(--pill-coral-ink)]', bgValue: 'var(--sage-mist)',  fgValue: 'var(--ink)',      emoji: '🍻', num: '10' },
+  // 종교·취미·기타: 홈 카테고리(homeCategories) 의 라벨색과 맞춘다(#1753, 예술과 같은 방식).
+  '종교': { bg: 'bg-[var(--pill-coral-bg)]', fg: 'text-[#a85e5e]', text: 'text-[#a85e5e]', bgValue: 'var(--pill-coral-bg)', fgValue: '#a85e5e', emoji: '❤️', num: '10' },
+  '취미': { bg: 'bg-[var(--pill-sky-bg)]',   fg: 'text-[#4d6b8a]', text: 'text-[#4d6b8a]', bgValue: 'var(--pill-sky-bg)',   fgValue: '#4d6b8a', emoji: '🫧', num: '11' },
+  '기타': { bg: 'bg-sage-mist',              fg: 'text-[#3e7a73]', text: 'text-[#3e7a73]', bgValue: 'var(--sage-mist)',     fgValue: '#3e7a73', emoji: '💬', num: '12' },
 };

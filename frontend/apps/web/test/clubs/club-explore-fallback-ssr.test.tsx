@@ -47,6 +47,8 @@ describe('ClubExploreFallback — 서버 렌더', () => {
     expect(html).not.toContain('<!--$!-->');
     expect(html).toContain('모션케어');
     expect(html).toContain('href="/clubs/1"');
+    // 분류 글자는 상세와 같은 '기타'로 — 탭에 없는 '친목'이 서버 HTML 에 남지 않는다(#1753).
+    expect(html).not.toContain('친목');
   });
 
   it('데이터가 없으면 지금 스켈레톤을 그린다', () => {
