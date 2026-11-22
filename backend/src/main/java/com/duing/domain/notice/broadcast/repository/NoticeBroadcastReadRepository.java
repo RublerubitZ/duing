@@ -16,8 +16,9 @@ public interface NoticeBroadcastReadRepository
      * '모두 읽음'(#1765) — 그 사용자에게 지금 보이는 전체 알림의 읽음 행을 한 문장으로 만든다. 반환 = 실제 INSERT 된 행 수.
      *
      * <p>'보이는' 조건은 {@code NoticeBroadcastRepositoryImpl#broadcastableNotice()} + NoticeBroadcast 의 @SQLRestriction
-     * + 노출 경계와 같아야 한다 — 네이티브라 자동으로 붙는 조건이 없어 모두 적는다. 한쪽을 바꾸면 함께 바꾼다
-     * (NoticeBroadcastReadRepositoryTest 가 묶는다). 숨겨진 전체 알림은 읽음이 되지 않는다.
+     * + 노출 경계와 같아야 한다 — 네이티브라 자동으로 붙는 조건이 없어 모두 적는다. 한쪽을 바꾸면 함께 바꾼다.
+     * NoticeBroadcastReadRepositoryTest 는 지금 있는 조건마다 숨는 경우를 하나씩 두어 두 벌을 묶을 뿐이라, 조건을 더하면
+     * 그 테스트에도 경우를 하나 더해야 묶인다. 숨겨진 전체 알림은 읽음이 되지 않는다.
      *
      * <p>{@code visibilityFloor} 는 {@code NotificationRetention#visibilityFloor(clock)} 로 넘긴다(created_at 은 system regime).
      * read_at 은 생략해 DB 기본값(NOW())을 쓴다. ON CONFLICT 로 이미 읽은 행·동시 읽음을 건너뛰고, ORDER BY 로 같은 사용자의

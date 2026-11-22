@@ -74,6 +74,7 @@ public class NoticeBroadcastRepositoryImpl implements NoticeBroadcastRepositoryC
     // 전체 알림은 지금도 '삭제 안 됨 · 전체 공개 · 알림 발송'인 공지의 것만 보인다(#1750) — 공지 삭제·범위 축소·알림 끔을 읽는 쪽에서 거른다.
     // deletedAt 은 Hibernate 가 조인에 @SQLRestriction 을 붙여 겹치더라도 명시한다 — 버전이 바뀌어도 판정이 같게.
     // 같은 조건을 네이티브로 한 벌 더 쓰는 곳: NoticeBroadcastReadRepository#bulkInsertVisibleBroadcastReads — 바꾸면 함께 바꾼다.
+    // 여기에 조건을 더하면 NoticeBroadcastReadRepositoryTest 에도 그 조건으로 숨는 경우를 하나 더한다 — 테스트는 지금 있는 조건까지만 두 벌을 묶는다.
     private static BooleanExpression broadcastableNotice() {
         return notice.id.eq(noticeBroadcast.noticeId)
                 .and(notice.deletedAt.isNull())
