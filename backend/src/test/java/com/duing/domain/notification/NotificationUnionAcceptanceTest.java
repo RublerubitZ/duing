@@ -18,6 +18,7 @@ import com.duing.domain.user.repository.UserRepository;
 import com.duing.global.auth.JwtTokenProvider;
 import com.duing.common.IntegrationTestBase;
 import com.duing.common.TestcontainersConfiguration;
+import com.duing.common.fixture.ClubStaffFixture;
 import io.restassured.RestAssured;
 import io.restassured.http.ContentType;
 import java.lang.reflect.Field;
@@ -197,7 +198,7 @@ class NotificationUnionAcceptanceTest extends IntegrationTestBase {
     void deletedClubScopedNoticeRetractsReadMemberNotification() {
         User member = saveUser(UserRole.STUDENT);
         String memberToken = jwtTokenProvider.createToken(member.getId(), member.getRole().name());
-        Club club = saveActiveClub();
+        Club club = clubRepository.save(ClubStaffFixture.activeClub());
         clubMemberRepository.save(ClubMember.of(club, member, ClubMemberRole.MEMBER));
         Long noticeId = createAdminNotice("""
                 {
@@ -250,21 +251,9 @@ class NotificationUnionAcceptanceTest extends IntegrationTestBase {
 
     private String saveActiveClubOfficerToken() {
         User officer = saveUser(UserRole.STUDENT);
-        clubMemberRepository.save(ClubMember.of(saveActiveClub(), officer, ClubMemberRole.OFFICER));
+        Club club = clubRepository.save(ClubStaffFixture.activeClub());
+        clubMemberRepository.save(ClubMember.of(club, officer, ClubMemberRole.OFFICER));
         return jwtTokenProvider.createToken(officer.getId(), officer.getRole().name());
-    }
-
-    private Club saveActiveClub() {
-        // 알림 수신자 스코프는 ACTIVE 동아리 소속만 대상이다(정책 2026-08-18).
-        Club club = Club.create("회수클럽" + sequence.incrementAndGet(), ClubCategory.ACADEMIC, "분과", "설명", null);
-        try {
-            Field statusField = Club.class.getDeclaredField("status");
-            statusField.setAccessible(true);
-            statusField.set(club, ClubStatus.ACTIVE);
-        } catch (ReflectiveOperationException reflectionFailure) {
-            throw new IllegalStateException(reflectionFailure);
-        }
-        return clubRepository.save(club);
     }
 
     private Long createAdminNotice(String requestBody) {

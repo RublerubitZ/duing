@@ -8,6 +8,7 @@ import static org.hamcrest.Matchers.notNullValue;
 
 import com.duing.common.IntegrationTestBase;
 import com.duing.common.TestcontainersConfiguration;
+import com.duing.common.fixture.UserFixture;
 import com.duing.domain.club.entity.Club;
 import com.duing.domain.club.entity.ClubCategory;
 import com.duing.domain.club.repository.ClubRepository;
@@ -198,9 +199,7 @@ class LeaderClubNoticeControllerTest extends IntegrationTestBase {
     @DisplayName("서비스가 동아리 경로 삭제를 거부하면(총동연이 올린 공지) 회원의 공지 알림은 그대로 남는다")
     void rejectedClubDeleteKeepsMemberNoticeNotification() {
         // MEMBER 는 컨트롤러 requireManager 에서 막혀 서비스까지 가지 않는다 — 서비스 소유 확인(403)을 타려면 회장으로 총동연 공지를 지운다.
-        long seq = sequence.incrementAndGet();
-        User admin = userRepository.save(User.create("20" + seq, "A" + seq, "h", UserRole.ADMIN,
-                Grade.FRESHMAN, College.IT_ENGINEERING, "미설정", "010-0000-0000", LocalDateTime.now()));
+        User admin = userRepository.save(UserFixture.admin());
         String adminToken = jwtTokenProvider.createToken(admin.getId(), admin.getRole().name());
         Long noticeId = RestAssured.given()
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
