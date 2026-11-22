@@ -2,7 +2,9 @@ package com.duing.domain.notice.broadcast.repository;
 
 import static com.duing.domain.notice.broadcast.entity.QNoticeBroadcast.noticeBroadcast;
 import static com.duing.domain.notice.broadcast.entity.QNoticeBroadcastRead.noticeBroadcastRead;
+import static com.duing.domain.notice.entity.QNotice.notice;
 
+import com.duing.domain.notice.entity.NoticeVisibility;
 import com.duing.domain.notification.NotificationRetention;
 import com.querydsl.core.Tuple;
 import com.querydsl.core.types.dsl.BooleanExpression;
@@ -26,6 +28,7 @@ public class NoticeBroadcastRepositoryImpl implements NoticeBroadcastRepositoryC
         List<Tuple> rows = queryFactory
                 .select(noticeBroadcast, noticeBroadcastRead.readAt)
                 .from(noticeBroadcast)
+                .join(notice).on(broadcastableNotice())
                 .leftJoin(noticeBroadcastRead).on(readJoin)
                 .where(noticeBroadcast.createdAt.goe(NotificationRetention.visibilityFloor(clock)))
                 .orderBy(noticeBroadcast.createdAt.desc())
@@ -47,6 +50,7 @@ public class NoticeBroadcastRepositoryImpl implements NoticeBroadcastRepositoryC
         Long count = queryFactory
                 .select(noticeBroadcast.count())
                 .from(noticeBroadcast)
+                .join(notice).on(broadcastableNotice())
                 .leftJoin(noticeBroadcastRead).on(readJoin)
                 .where(
                         noticeBroadcastRead.id.userId.isNull(),
@@ -61,8 +65,18 @@ public class NoticeBroadcastRepositoryImpl implements NoticeBroadcastRepositoryC
         Long count = queryFactory
                 .select(noticeBroadcast.count())
                 .from(noticeBroadcast)
+                .join(notice).on(broadcastableNotice())
                 .where(noticeBroadcast.createdAt.goe(NotificationRetention.visibilityFloor(clock)))
                 .fetchOne();
         return count == null ? 0L : count;
+    }
+
+    // 전체 알림은 지금도 '삭제 안 됨 · 전체 공개 · 알림 발송'인 공지의 것만 보인다(#1750) — 공지 삭제·범위 축소·알림 끔을 읽는 쪽에서 거른다.
+    // deletedAt 은 Hibernate 가 조인에 @SQLRestriction 을 붙여 겹치더라도 명시한다 — 버전이 바뀌어도 판정이 같게.
+    private static BooleanExpression broadcastableNotice() {
+        return notice.id.eq(noticeBroadcast.noticeId)
+                .and(notice.deletedAt.isNull())
+                .and(notice.visibility.eq(NoticeVisibility.PUBLIC))
+                .and(notice.notifyOnPublish.isTrue());
     }
 }

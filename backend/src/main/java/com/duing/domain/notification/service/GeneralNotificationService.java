@@ -118,7 +118,7 @@ public class GeneralNotificationService implements NotificationService {
     private long broadcastTotal(Long userId, boolean unreadOnly) {
         return unreadOnly
                 ? broadcastRepository.countUnreadForUser(userId)
-                : broadcastRepository.countWithinRetention(); // 노출 기간(30일) 이내 공지만 집계
+                : broadcastRepository.countWithinRetention(); // 노출 기간(30일) 이내이고 공지가 삭제 안 됨·PUBLIC·알림 발송인 것만 집계
     }
 
     @Override

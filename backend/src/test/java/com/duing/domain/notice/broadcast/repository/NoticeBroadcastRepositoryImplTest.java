@@ -8,6 +8,7 @@ import com.duing.domain.notice.broadcast.entity.NoticeBroadcastRead;
 import com.duing.domain.notice.broadcast.repository.NoticeBroadcastRepositoryCustom.BroadcastSlice;
 import com.duing.domain.notice.entity.Notice;
 import com.duing.domain.notice.entity.NoticeCategory;
+import com.duing.domain.notice.entity.NoticeClubScopeRole;
 import com.duing.domain.notice.entity.NoticeContentFormat;
 import com.duing.domain.notice.entity.NoticeVisibility;
 import com.duing.domain.notice.repository.NoticeRepository;
@@ -21,6 +22,8 @@ import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
@@ -149,9 +152,155 @@ class NoticeBroadcastRepositoryImplTest {
         assertThat(sliceIds).contains(recent.getId()).doesNotContain(old.getId());
     }
 
+    @Test
+    @DisplayName("삭제된 공지의 전체 알림은 알림 목록·안 읽음 수·보존기간 수에서 모두 빠진다")
+    void excludesBroadcastOfDeletedNotice() {
+        Long authorId = saveUser(UserRole.ADMIN);
+        Long userId = saveUser(UserRole.STUDENT);
+        long unreadBefore = broadcastRepository.countUnreadForUser(userId);
+        long retentionBefore = broadcastRepository.countWithinRetention();
+
+        Notice notice = persistNotice(authorId);
+        NoticeBroadcast broadcast = broadcastRepository.saveAndFlush(
+                NoticeBroadcast.snapshot(notice.getId(), "지울 공지", "내용", "/notices/" + notice.getId()));
+        assertBroadcastVisible(userId, broadcast.getId(), unreadBefore, retentionBefore);
+
+        noticeRepository.delete(notice);
+        noticeRepository.flush();
+
+        assertBroadcastHidden(userId, broadcast.getId(), unreadBefore, retentionBefore);
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @CsvSource({"OFFICERS_ALL,", "CLUB_SCOPED,ALL_MEMBERS"})
+    @DisplayName("공개 범위를 임원 전체·특정 동아리로 좁힌 공지의 전체 알림은 알림 발송이 켜져 있어도 빠진다")
+    void excludesBroadcastOfNarrowedNotice(NoticeVisibility narrowedVisibility, NoticeClubScopeRole clubScopeRole) {
+        Long authorId = saveUser(UserRole.ADMIN);
+        Long userId = saveUser(UserRole.STUDENT);
+        long unreadBefore = broadcastRepository.countUnreadForUser(userId);
+        long retentionBefore = broadcastRepository.countWithinRetention();
+
+        Notice notice = persistNotice(authorId);
+        NoticeBroadcast broadcast = broadcastRepository.saveAndFlush(
+                NoticeBroadcast.snapshot(notice.getId(), "좁힐 공지", "내용", "/notices/" + notice.getId()));
+        assertBroadcastVisible(userId, broadcast.getId(), unreadBefore, retentionBefore);
+
+        updateVisibilityAndNotify(notice, narrowedVisibility, clubScopeRole, null);
+
+        // 알림 발송은 켜진 채다(Notice.update 가 PUBLIC 밖으로 바꾸면 true 로 둔다) — visibility 조건만으로 빠져야 한다.
+        assertThat(notice.isNotifyOnPublish()).isTrue();
+        assertBroadcastHidden(userId, broadcast.getId(), unreadBefore, retentionBefore);
+    }
+
+    @Test
+    @DisplayName("알림 발송을 끈 전체 공개 공지의 전체 알림은 빠진다")
+    void excludesBroadcastOfNotifyOffNotice() {
+        Long authorId = saveUser(UserRole.ADMIN);
+        Long userId = saveUser(UserRole.STUDENT);
+        long unreadBefore = broadcastRepository.countUnreadForUser(userId);
+        long retentionBefore = broadcastRepository.countWithinRetention();
+
+        Notice notice = persistNotice(authorId);
+        NoticeBroadcast broadcast = broadcastRepository.saveAndFlush(
+                NoticeBroadcast.snapshot(notice.getId(), "알림 끌 공지", "내용", "/notices/" + notice.getId()));
+        assertBroadcastVisible(userId, broadcast.getId(), unreadBefore, retentionBefore);
+
+        updateVisibilityAndNotify(notice, null, null, false);
+
+        assertThat(notice.getVisibility()).isEqualTo(NoticeVisibility.PUBLIC);
+        assertBroadcastHidden(userId, broadcast.getId(), unreadBefore, retentionBefore);
+    }
+
+    // 읽는 쪽 판정만 고정한다(스펙 10절 Q1) — 수정 API 로 되돌리는 경로는 NotificationUnionAcceptanceTest 가 본다.
+    @Test
+    @DisplayName("범위를 좁혔다가 전체 공개·알림 발송으로 되돌리면 같은 전체 알림이 다시 보이고 읽음 표시도 그대로다")
+    void showsSameBroadcastWithReadStateAfterScopeIsRestored() {
+        Long authorId = saveUser(UserRole.ADMIN);
+        Long userId = saveUser(UserRole.STUDENT);
+        long unreadBefore = broadcastRepository.countUnreadForUser(userId);
+        long retentionBefore = broadcastRepository.countWithinRetention();
+
+        Notice notice = persistNotice(authorId);
+        NoticeBroadcast broadcast = broadcastRepository.saveAndFlush(
+                NoticeBroadcast.snapshot(notice.getId(), "되돌릴 공지", "내용", "/notices/" + notice.getId()));
+        broadcastReadRepository.save(new NoticeBroadcastRead(broadcast.getId(), userId));
+
+        updateVisibilityAndNotify(notice, NoticeVisibility.OFFICERS_ALL, null, null);
+        updateVisibilityAndNotify(notice, NoticeVisibility.PUBLIC, null, true);
+
+        BroadcastSlice restoredSlice = broadcastRepository.findSliceForUser(userId, 50).stream()
+                .filter(slice -> slice.broadcast().getId().equals(broadcast.getId()))
+                .findFirst()
+                .orElseThrow(() -> new AssertionError("되돌린 공지의 전체 알림이 다시 보여야 합니다"));
+        assertThat(restoredSlice.isRead()).isTrue();
+        assertThat(broadcastRepository.countUnreadForUser(userId)).isEqualTo(unreadBefore);
+        assertThat(broadcastRepository.countWithinRetention()).isEqualTo(retentionBefore + 1);
+    }
+
+    @Test
+    @DisplayName("숨겨진 전체 알림이 더 최신이어도 개수 제한은 보이는 알림에만 적용된다")
+    void appliesLimitOnlyToVisibleBroadcasts() {
+        Long authorId = saveUser(UserRole.ADMIN);
+        Long userId = saveUser(UserRole.STUDENT);
+
+        Notice visibleNotice = persistNotice(authorId);
+        NoticeBroadcast visibleBroadcast = broadcastRepository.saveAndFlush(
+                NoticeBroadcast.snapshot(visibleNotice.getId(), "보이는 공지", "내용", "/notices/" + visibleNotice.getId()));
+        Notice deletedNotice = persistNotice(authorId);
+        NoticeBroadcast hiddenBroadcast = broadcastRepository.saveAndFlush(
+                NoticeBroadcast.snapshot(deletedNotice.getId(), "지운 공지", "내용", "/notices/" + deletedNotice.getId()));
+        // 다른 테스트가 남긴 행보다 두 행이 모두 최신이 되게 — 보이는 행은 방금 만든 지금, 숨길 행은 그보다 1분 뒤.
+        setBroadcastCreatedAt(hiddenBroadcast.getId(), LocalDateTime.now().plusMinutes(1));
+        noticeRepository.delete(deletedNotice);
+        noticeRepository.flush();
+
+        List<Long> firstSliceIds = broadcastRepository.findSliceForUser(userId, 1).stream()
+                .map(slice -> slice.broadcast().getId())
+                .toList();
+
+        assertThat(firstSliceIds).containsExactly(visibleBroadcast.getId());
+    }
+
     private void backdateBroadcastCreatedAt(Long broadcastId, int daysAgo) {
         jdbcTemplate.update("UPDATE notice_broadcast SET created_at = ? WHERE id = ?",
                 java.sql.Timestamp.valueOf(LocalDateTime.now().minusDays(daysAgo)), broadcastId);
+    }
+
+    private void setBroadcastCreatedAt(Long broadcastId, LocalDateTime createdAt) {
+        jdbcTemplate.update("UPDATE notice_broadcast SET created_at = ? WHERE id = ?",
+                java.sql.Timestamp.valueOf(createdAt), broadcastId);
+    }
+
+    // 관리자 수정과 같은 도메인 경로로 범위·알림 발송만 바꾼다(null 은 '그대로').
+    private void updateVisibilityAndNotify(Notice notice, NoticeVisibility visibility, NoticeClubScopeRole clubScopeRole,
+                                           Boolean notifyOnPublish) {
+        notice.update(new Notice.UpdatePayload(
+                null, null, null, null, null, null,
+                null, null,
+                visibility, clubScopeRole,
+                null, null, null,
+                notifyOnPublish,
+                null, null, null, null, null, null,
+                null));
+        noticeRepository.flush();
+    }
+
+    private void assertBroadcastVisible(Long userId, Long broadcastId, long unreadBefore, long retentionBefore) {
+        assertThat(sliceIdsFor(userId)).contains(broadcastId);
+        assertThat(broadcastRepository.countUnreadForUser(userId)).isEqualTo(unreadBefore + 1);
+        assertThat(broadcastRepository.countWithinRetention()).isEqualTo(retentionBefore + 1);
+    }
+
+    private void assertBroadcastHidden(Long userId, Long broadcastId, long unreadBefore, long retentionBefore) {
+        assertThat(sliceIdsFor(userId)).doesNotContain(broadcastId);
+        assertThat(broadcastRepository.countUnreadForUser(userId)).isEqualTo(unreadBefore);
+        assertThat(broadcastRepository.countWithinRetention()).isEqualTo(retentionBefore);
+    }
+
+    private List<Long> sliceIdsFor(Long userId) {
+        return broadcastRepository.findSliceForUser(userId, 50).stream()
+                .map(slice -> slice.broadcast().getId())
+                .toList();
     }
 
     // ---- fixture helpers ----
