@@ -74,8 +74,9 @@ export function ManageGuard({
 /**
  * 차단 화면 — `.duing` 브랜드 스코프가 children 안(ManageShell)에 있어 가드 화면에는 닿지 않으므로
  * 여기서 직접 두른다. 레이아웃 밖 단독 화면이라 `/403` 페이지와 동일하게 main + h1 로 구성한다.
+ * `/manage` 진입 화면도 조회 실패 안내에 이 화면을 쓴다(app/manage/page.tsx) — 두 실패 화면이 같은 모양이다.
  */
-function ManageGuardNotice({
+export function ManageGuardNotice({
   status,
   heading,
   actionHref,

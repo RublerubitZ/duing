@@ -33,6 +33,7 @@ vi.mock('@/components/duing/BrandMark', () => ({
 }));
 
 import { ManageShell } from '@/app/manage/_components/ManageShell';
+import ManagePage from '@/app/manage/page';
 
 /**
  * 관리 동아리 목록을 받지 못하면 '없음'이 아니라 '모름'이다(#1766, #1579 기준) — 실패 안내 + 다시 시도 + 홈 링크,
@@ -221,6 +222,100 @@ describe('ManageShell — 관리 동아리 조회 실패', () => {
   it('빈 캐시의 서버 HTML 은 스피너이고 실패 안내가 없다(하이드레이션 첫 프레임 오판 방지)', () => {
     const serverHtml = renderToString(withProviders(shellElement()));
     expect(serverHtml).toContain('운영 권한 확인 중');
+    expect(serverHtml).not.toContain(FAILURE_TEXT);
+  });
+});
+
+describe('/manage — 관리 동아리 조회 실패', () => {
+  it('조회가 실패하면 없음 안내 대신 실패 안내·다시 시도·홈 링크를 보이고 이동하지 않는다', async () => {
+    server.use(http.get(MANAGED_URL, () => fail()));
+    render(withProviders(<ManagePage />));
+
+    expect(await screen.findByRole('heading', { name: FAILURE_TEXT })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '다시 시도' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: '홈으로 돌아가기' })).toHaveAttribute('href', '/');
+    expect(screen.queryByText('관리하는 동아리가 없습니다.')).not.toBeInTheDocument();
+    expect(replaceSpy).not.toHaveBeenCalled();
+    expect(pushSpy).not.toHaveBeenCalled();
+  });
+
+  it('다시 받는 동안 같은 버튼을 잠가 포커스를 지키고, 성공하면 콘솔로 replace 한다', async () => {
+    const user = userEvent.setup();
+    const { releaseHeld } = failFirstThenHold(() => ok([managedClub(10)]));
+    render(withProviders(<ManagePage />));
+
+    const retryButton = await screen.findByRole('button', { name: '다시 시도' });
+    await user.click(retryButton);
+
+    await waitFor(() => expect(retryButton).toHaveAccessibleName('다시 불러오는 중'));
+    expect(retryButton).toHaveAttribute('aria-disabled', 'true');
+    expect(retryButton).toHaveFocus();
+    expect(screen.getByRole('heading', { name: FAILURE_TEXT })).toBeInTheDocument();
+    expect(screen.queryByRole('status', { name: '관리 동아리 불러오는 중' })).not.toBeInTheDocument();
+
+    // 회귀 가드 — 데이터 없는 다시 받기는 TanStack 이 진행 중 promise 를 돌려줘(query.ts:707-721) 잠금이 없어도 새 요청이 나가지 않는다.
+    await waitFor(() => expect(managedRequestCount).toBe(2));
+    await user.click(retryButton);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(managedRequestCount).toBe(2);
+
+    releaseHeld();
+    await waitFor(() => expect(replaceSpy).toHaveBeenCalledWith('/manage/clubs/10'));
+    expect(pushSpy).not.toHaveBeenCalled();
+  });
+
+  it('다시 받기가 또 실패하면 같은 버튼이 다시 시도로 돌아오고 포커스가 남는다', async () => {
+    const user = userEvent.setup();
+    const { releaseHeld } = failFirstThenHold(() => fail());
+    render(withProviders(<ManagePage />));
+
+    const retryButton = await screen.findByRole('button', { name: '다시 시도' });
+    await user.click(retryButton);
+    // '다시 받는 중'이 실제로 그려진 뒤에 게이트를 연다 — 건너뛰면 아래 '같은 요소' 단언이 아무것도 지키지 않는다.
+    await waitFor(() => expect(retryButton).toHaveAccessibleName('다시 불러오는 중'));
+
+    releaseHeld();
+    await waitFor(() => expect(retryButton).toHaveAccessibleName('다시 시도'));
+    expect(retryButton).toBeInTheDocument();
+    expect(retryButton).not.toHaveAttribute('aria-disabled');
+    expect(retryButton).toHaveFocus();
+    expect(screen.getByRole('heading', { name: FAILURE_TEXT })).toBeInTheDocument();
+    expect(screen.queryByText('관리하는 동아리가 없습니다.')).not.toBeInTheDocument();
+    expect(replaceSpy).not.toHaveBeenCalled();
+  });
+
+  it('운영 동아리가 0곳이면 기존 없음 안내를 유지하고 이동하지 않는다', async () => {
+    server.use(http.get(MANAGED_URL, () => ok([])));
+    render(withProviders(<ManagePage />));
+
+    expect(await screen.findByText('관리하는 동아리가 없습니다.')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '다시 시도' })).not.toBeInTheDocument();
+    expect(replaceSpy).not.toHaveBeenCalled();
+  });
+
+  // 실패가 캐시에 남은 채 다시 들어오면 첫 로딩으로 본다(스펙 §7-3). errorUpdateCount 로 판정하면 여기서 깨진다.
+  it('다른 화면에서 실패한 뒤 다시 들어오면 실패 안내가 아니라 스피너부터 보이고, 성공하면 replace 한다', async () => {
+    const queryClient = createTestQueryClient();
+    const { releaseHeld } = failFirstThenHold(() => ok([managedClub(10)]));
+    const firstVisit = render(withProviders(<ManagePage />, queryClient));
+    await waitFor(() => {
+      expect(managedRequestCount).toBe(1);
+      expect(queryClient.isFetching()).toBe(0);
+    });
+    firstVisit.unmount();
+
+    render(withProviders(<ManagePage />, queryClient));
+    await waitFor(() => expect(managedRequestCount).toBe(2));
+    expect(screen.getByRole('status', { name: '관리 동아리 불러오는 중' })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: FAILURE_TEXT })).not.toBeInTheDocument();
+
+    releaseHeld();
+    await waitFor(() => expect(replaceSpy).toHaveBeenCalledWith('/manage/clubs/10'));
+  });
+
+  it('빈 캐시의 서버 HTML 은 스피너이고 실패 안내가 없다(하이드레이션 첫 프레임 오판 방지)', () => {
+    const serverHtml = renderToString(withProviders(<ManagePage />));
+    expect(serverHtml).toContain('관리 동아리 불러오는 중');
     expect(serverHtml).not.toContain(FAILURE_TEXT);
   });
 });
