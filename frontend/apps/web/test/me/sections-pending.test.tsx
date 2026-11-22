@@ -39,9 +39,9 @@ const cases = [
     title: '찜한 동아리',
     empty: '아직 찜한 동아리가 없어요.',
     failedMessage: '찜한 동아리를 불러오지 못했어요.',
-    pending: () => <SectionSaved favorites={[]} isPending />,
-    settled: () => <SectionSaved favorites={[]} />,
-    loadFailed: (onRetry: () => void) => <SectionSaved favorites={[]} onRetry={onRetry} />,
+    pending: () => <SectionSaved favorites={[]} totalCount={0} isPending />,
+    settled: () => <SectionSaved favorites={[]} totalCount={0} />,
+    loadFailed: (onRetry: () => void) => <SectionSaved favorites={[]} totalCount={0} onRetry={onRetry} />,
   },
   {
     title: '내 문의',

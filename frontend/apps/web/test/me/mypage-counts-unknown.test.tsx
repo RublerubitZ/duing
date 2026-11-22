@@ -351,6 +351,37 @@ describe('마이페이지 — 받은 목록이 없으면 숫자를 모른다', (
   });
 });
 
+describe('마이페이지·설정 — 찜은 전체 수로 센다(#1580)', () => {
+  it('마이페이지: 첫 페이지 20개만 그리고 숫자는 전체 25, 나머지는 전체 보기로 /me/favorites', async () => {
+    server.use(http.get(FAVORITES_URL, () => ok(favoritePage(25))));
+    renderWithClient(<MyPage />);
+
+    await waitFor(() => expect(headerCount('찜')).toBe('25'));
+    expect(tab('찜한 동아리').textContent).toMatch(/25$/);
+    const savedSection = section('saved');
+    expect(within(savedSection).getByRole('heading', { level: 2, name: '찜한 동아리 · 25' })).toBeInTheDocument();
+    // 카드는 동아리 상세 링크다(빈 안내의 탐색 링크는 /clubs, 전체 보기는 /me/favorites 라 세지 않는다).
+    expect(savedSection.querySelectorAll('a[href^="/clubs/"]')).toHaveLength(20);
+    expect(within(savedSection).getByRole('link', { name: '전체 보기' })).toHaveAttribute('href', '/me/favorites');
+  });
+
+  // 회귀 가드 — 지금도 링크가 없다.
+  it('마이페이지: 받은 것이 전부(20)면 전체 보기를 두지 않는다', async () => {
+    server.use(http.get(FAVORITES_URL, () => ok(favoritePage(20))));
+    renderWithClient(<MyPage />);
+
+    await waitFor(() => expect(headerCount('찜')).toBe('20'));
+    expect(within(section('saved')).queryByRole('link', { name: '전체 보기' })).not.toBeInTheDocument();
+  });
+
+  it('설정: 머리글 찜도 전체 수 25 다', async () => {
+    server.use(http.get(FAVORITES_URL, () => ok(favoritePage(25))));
+    renderWithClient(<SettingsPage />);
+
+    await waitFor(() => expect(headerCount('찜')).toBe('25'));
+  });
+});
+
 type SettingsHeaderCase = { label: string; url: string; headerLabel: HeaderLabel };
 
 const settingsHeaderCases: SettingsHeaderCase[] = [

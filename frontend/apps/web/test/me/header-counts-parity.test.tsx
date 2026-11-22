@@ -6,7 +6,7 @@ import type { ApplicationStatus, ApplicationSummary, MyClubSummary, RecruitmentS
 import { ToastProvider } from '@/app/_components/toast/ToastProvider';
 
 // 마이페이지와 설정은 같은 머리글(MyPageHeader)을 쓴다 — 같은 사람의 숫자가 화면마다 다르면 안 된다(#1499).
-// 진행 중 지원 1(결과 나온 지원 2는 지난 지원), 가입 동아리 2(운영은 0), 찜 1.
+// 진행 중 지원 1(결과 나온 지원 2는 지난 지원), 가입 동아리 2(운영은 0), 찜 25(첫 페이지 1개만 받음 — 숫자는 전체 수).
 const make = (id: number, status: ApplicationStatus, recruitmentStatus: RecruitmentStatus): ApplicationSummary => ({
   id,
   recruitmentId: id * 10,
@@ -45,7 +45,7 @@ vi.mock('@duing/hooks', () => ({
   useMyApplicationsQuery: () => ({ data: applications, isPending: false }),
   useManagedClubsQuery: () => ({ data: [] }),
   useMyClubsQuery: () => ({ data: [club(1), club(2)] }),
-  useFavoriteListQuery: () => ({ data: { content: [{ clubId: 9 }] } }),
+  useFavoriteListQuery: () => ({ data: { content: [{ clubId: 9 }], totalElements: 25 } }),
   useProfileCheckQuery: () => ({ data: { pending: false }, isFetching: false, isError: false }),
   useMyFederationInquiriesQuery: () => ({ data: { content: [], totalElements: 0 } }),
 }) satisfies Partial<Record<keyof typeof import('@duing/hooks'), unknown>>);
@@ -92,7 +92,7 @@ describe('마이페이지·설정 머리글 숫자 — 같은 데이터면 같�
     );
     const settingsCounts = headerCounts();
 
-    expect(myPageCounts).toEqual({ '지원 중': '1', 가입: '2', 찜: '1' });
+    expect(myPageCounts).toEqual({ '지원 중': '1', 가입: '2', 찜: '25' });
     expect(settingsCounts).toEqual(myPageCounts);
   });
 });

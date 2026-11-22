@@ -143,7 +143,8 @@ export function SettingsPage() {
     [applicationsQuery.data],
   );
   const joinedCount = myClubsQuery.data?.length ?? 0;
-  const savedCount = favoriteListQuery.data?.content.length ?? 0;
+  // 찜 수는 받은 페이지 길이가 아니라 전체 수다 — 첫 페이지(20)만 받는다(#1580).
+  const savedCount = favoriteListQuery.data?.totalElements ?? 0;
   // 받은 목록이 없으면(조회 중 또는 첫 조회 실패) 거짓 0 대신 "—"(#1500·#1579) — 하이드레이션 프레임도 서버처럼 모름으로 둔다.
   // 옛 목록을 든 채 재조회가 실패하면 마지막 숫자를 둔다(#1549 와 같은 기준).
   const headerCount = (count: number, isUnknown: boolean) => (!hydrated || isUnknown ? null : count);

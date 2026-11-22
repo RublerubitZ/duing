@@ -61,6 +61,8 @@ export function MyPage() {
   );
   const myClubs = myClubsQuery.data ?? [];
   const favorites = favoriteListQuery.data?.content ?? [];
+  // 찜 수는 받은 페이지 길이가 아니라 전체 수다 — 첫 페이지(20)만 받는다(#1580).
+  const favoritesTotalCount = favoriteListQuery.data?.totalElements ?? 0;
   const myInquiries = myInquiriesQuery.data?.content ?? [];
   const myInquiriesTotalCount = myInquiriesQuery.data?.totalElements ?? 0;
   // 조회 중에는 "없음"이 아니라 "아직 모름"이다(#1500) — 정적 HTML·조회 전에 "…없어요" 대신 스켈레톤을 그린다. 하이드레이션
@@ -202,7 +204,7 @@ export function MyPage() {
   const sectionCount: Record<SectionId, number | undefined> = {
     apply: applicationsUnknown ? undefined : applications.length,
     joined: myClubsUnknown ? undefined : myClubs.length,
-    saved: favoritesUnknown ? undefined : favorites.length,
+    saved: favoritesUnknown ? undefined : favoritesTotalCount,
     inquiries: inquiriesUnknown ? undefined : myInquiriesTotalCount,
     archived: applicationsUnknown ? undefined : archivedApplications.length,
   };
@@ -229,7 +231,7 @@ export function MyPage() {
           studentId={user?.studentId ?? '—'}
           applyCount={applicationsUnknown ? null : applications.length}
           joinedCount={myClubsUnknown ? null : myClubs.length}
-          savedCount={favoritesUnknown ? null : favorites.length}
+          savedCount={favoritesUnknown ? null : favoritesTotalCount}
         />
 
         <AcceptanceBanner myClubs={myClubsPending ? NO_CLUBS : myClubs} />
@@ -249,7 +251,12 @@ export function MyPage() {
               <SectionMyClubs myClubs={myClubs} isPending={myClubsPending} onRetry={retryMyClubs} />
             )}
             {id === 'saved' && (
-              <SectionSaved favorites={favorites} isPending={favoritesPending} onRetry={retryFavorites} />
+              <SectionSaved
+                favorites={favorites}
+                totalCount={favoritesTotalCount}
+                isPending={favoritesPending}
+                onRetry={retryFavorites}
+              />
             )}
             {id === 'inquiries' && (
               <SectionInquiries
