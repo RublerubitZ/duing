@@ -8,6 +8,7 @@ import static org.hamcrest.Matchers.notNullValue;
 
 import com.duing.common.IntegrationTestBase;
 import com.duing.common.TestcontainersConfiguration;
+import com.duing.common.fixture.UserFixture;
 import com.duing.domain.club.entity.Club;
 import com.duing.domain.club.entity.ClubCategory;
 import com.duing.domain.club.repository.ClubRepository;
@@ -176,6 +177,65 @@ class LeaderClubNoticeControllerTest extends IntegrationTestBase {
                 .when().get("/api/v1/clubs/" + clubId + "/notices")
                 .then().statusCode(HttpStatus.OK.value())
                 .body("data.totalElements", equalTo(0));
+    }
+
+    @Test
+    @DisplayName("임원이 동아리 공지를 지우면 회원 알림함과 안 읽음 수에서 그 공지 알림이 빠진다")
+    void officerDeleteRetractsMemberNoticeNotification() {
+        Long noticeId = createNoticeAs(leaderToken, "회수 대상");
+        assertMemberNoticeNotificationCount(noticeId, 1);
+        assertMemberUnreadCount(1);
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + officerToken)
+                .when().delete("/api/v1/clubs/" + clubId + "/notices/" + noticeId)
+                .then().statusCode(HttpStatus.NO_CONTENT.value());
+
+        assertMemberNoticeNotificationCount(noticeId, 0);
+        assertMemberUnreadCount(0);
+    }
+
+    @Test
+    @DisplayName("서비스가 동아리 경로 삭제를 거부하면(총동연이 올린 공지) 회원의 공지 알림은 그대로 남는다")
+    void rejectedClubDeleteKeepsMemberNoticeNotification() {
+        // MEMBER 는 컨트롤러 requireManager 에서 막혀 서비스까지 가지 않는다 — 서비스 소유 확인(403)을 타려면 회장으로 총동연 공지를 지운다.
+        User admin = userRepository.save(UserFixture.admin());
+        String adminToken = jwtTokenProvider.createToken(admin.getId(), admin.getRole().name());
+        Long noticeId = RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                .contentType(ContentType.JSON)
+                .body(Map.of("title", "총동연 동아리 공지", "summary", "요약", "content", "본문",
+                        "coverImageUrl", "https://example.com/cover.png", "category", "GENERAL",
+                        "visibility", "CLUB_SCOPED", "clubScopeRole", "ALL_MEMBERS",
+                        "targetClubIds", List.of(clubId), "pinned", false))
+                .when().post("/api/v1/admin/notices")
+                .then().statusCode(HttpStatus.CREATED.value())
+                .extract().jsonPath().getLong("data");
+        assertMemberNoticeNotificationCount(noticeId, 1);
+
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + leaderToken)
+                .when().delete("/api/v1/clubs/" + clubId + "/notices/" + noticeId)
+                .then().statusCode(HttpStatus.FORBIDDEN.value());
+
+        assertMemberNoticeNotificationCount(noticeId, 1);
+        assertMemberUnreadCount(1);
+    }
+
+    private void assertMemberNoticeNotificationCount(Long noticeId, int expectedCount) {
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + memberToken)
+                .when().get("/api/v1/me/notifications")
+                .then().statusCode(HttpStatus.OK.value())
+                .body("data.content.findAll { it.linkUrl == '/notices/" + noticeId + "' }.size()", equalTo(expectedCount));
+    }
+
+    private void assertMemberUnreadCount(int expectedCount) {
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + memberToken)
+                .when().get("/api/v1/me/notifications/unread-count")
+                .then().statusCode(HttpStatus.OK.value())
+                .body("data.count", equalTo(expectedCount));
     }
 
     @Test

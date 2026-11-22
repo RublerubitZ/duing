@@ -1,6 +1,7 @@
 package com.duing.domain.notification.repository;
 
 import com.duing.domain.notification.entity.Notification;
+import com.duing.domain.notification.entity.NotificationType;
 import java.time.LocalDateTime;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -14,4 +15,6 @@ public interface NotificationRepositoryCustom {
     int markAllRead(Long userId);
 
     int deleteCreatedBefore(LocalDateTime cutoff);
+
+    int deleteByTypeAndDedupKey(NotificationType type, String dedupKey);
 }

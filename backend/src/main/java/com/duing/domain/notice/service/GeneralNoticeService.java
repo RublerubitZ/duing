@@ -137,6 +137,7 @@ public class GeneralNoticeService implements NoticeService {
         Notice found = noticeRepository.findById(noticeId)
                 .orElseThrow(NoticeException.NoticeNotFoundException::new);
         noticeRepository.delete(found);
+        broadcaster.retract(found.getId());
         // 삭제된 공지의 커버·본문 이미지는 해제(#1153) — 잡이 유예 뒤 참조 스캔을 거쳐 지운다.
         uploadedObjectService.release(found.getCoverImageUrl());
         uploadedObjectService.releaseRemovedFrom(found.getContent(), null);
@@ -267,6 +268,7 @@ public class GeneralNoticeService implements NoticeService {
             throw new NoticeException.NoticeAccessDeniedException();
         }
         noticeRepository.delete(found);
+        broadcaster.retract(found.getId());
         // 삭제된 공지의 커버·본문 이미지는 해제(#1153) — 잡이 유예 뒤 참조 스캔을 거쳐 지운다.
         uploadedObjectService.release(found.getCoverImageUrl());
         uploadedObjectService.releaseRemovedFrom(found.getContent(), null);

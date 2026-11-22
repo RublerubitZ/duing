@@ -29,6 +29,7 @@ import com.duing.domain.user.entity.Grade;
 import com.duing.domain.user.entity.User;
 import com.duing.domain.user.entity.UserRole;
 import com.duing.domain.user.repository.UserRepository;
+import jakarta.persistence.EntityManager;
 import java.lang.reflect.Field;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -52,6 +53,7 @@ class NoticeBroadcasterTest extends IntegrationTestBase {
     @Autowired UserRepository userRepository;
     @Autowired ClubRepository clubRepository;
     @Autowired ClubMemberRepository clubMemberRepository;
+    @Autowired EntityManager entityManager;
 
     private final AtomicLong sequence = new AtomicLong(System.nanoTime());
 
@@ -176,6 +178,35 @@ class NoticeBroadcasterTest extends IntegrationTestBase {
         assertThat(afterCount).isEqualTo(beforeCount);
     }
 
+    @Test
+    @DisplayName("회수는 그 공지의 개인 알림만 지우고 다른 공지·다른 종류·키 앞부분만 같은 알림은 남긴다")
+    void retractRemovesOnlyThatNoticesTargetedNotifications() {
+        Long authorId = saveUser(UserRole.ADMIN).getId();
+        Club club = saveClub();
+        User officer = saveUser(UserRole.STUDENT);
+        clubMemberRepository.save(ClubMember.of(club, officer, ClubMemberRole.OFFICER));
+        Notice retractedNotice = persistNotice(authorId, NoticeVisibility.OFFICERS_ALL, true);
+        Notice keptNotice = persistNotice(authorId, NoticeVisibility.OFFICERS_ALL, true);
+        broadcaster.publish(retractedNotice, List.of());
+        broadcaster.publish(keptNotice, List.of());
+        String retractedKey = "notice:" + retractedNotice.getId();
+        // 테스트마다 RESTART IDENTITY 로 공지 id 가 1·2 라, 앞부분만 같은 키(notice:10)를 따로 둬야 LIKE 비교로의 회귀가 잡힌다.
+        notificationRepository.save(Notification.create(saveUser(UserRole.STUDENT).getId(),
+                NotificationType.RECRUITMENT_OPENED, "다른 종류", "본문", null, null, retractedKey));
+        notificationRepository.save(Notification.create(saveUser(UserRole.STUDENT).getId(),
+                NotificationType.NOTICE_TARGETED, "앞부분만 같은 키", "본문", null, null, retractedKey + "0"));
+        // 운영 경로(요청마다 새 영속성 컨텍스트)와 같게 — 남은 알림 엔티티가 회수 뒤 자동 flush 로 지워진 행을 UPDATE 하지 않게 한다.
+        entityManager.flush();
+        entityManager.clear();
+
+        broadcaster.retract(retractedNotice.getId());
+
+        assertThat(countNotifications(NotificationType.NOTICE_TARGETED, retractedKey)).isZero();
+        assertThat(countNotifications(NotificationType.NOTICE_TARGETED, "notice:" + keptNotice.getId())).isEqualTo(1);
+        assertThat(countNotifications(NotificationType.RECRUITMENT_OPENED, retractedKey)).isEqualTo(1);
+        assertThat(countNotifications(NotificationType.NOTICE_TARGETED, retractedKey + "0")).isEqualTo(1);
+    }
+
     // ---- fixture helpers ----
 
     private User saveUser(UserRole role) {
@@ -209,5 +240,12 @@ class NoticeBroadcasterTest extends IntegrationTestBase {
                 NoticeCategory.GENERAL, List.of(),
                 visibility, null, false, null, notifyOnPublish,
                 null, null, null, null, null, NoticeContentFormat.MARKDOWN, authorId));
+    }
+
+    private long countNotifications(NotificationType type, String dedupKey) {
+        // findAll 은 DB 조회라 일괄 삭제로 사라진 행은 돌아오지 않는다 — 회수 전에 컨텍스트를 비워 두었으므로 자동 flush 도 없다.
+        return notificationRepository.findAll().stream()
+                .filter(notification -> notification.getType() == type && notification.getDedupKey().equals(dedupKey))
+                .count();
     }
 }
