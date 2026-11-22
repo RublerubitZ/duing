@@ -88,7 +88,6 @@ export function BillList({ clubId, initialStatusFilter = '' }: BillListProps) {
   const {
     data: bills,
     isLoading,
-    isFetching,
     fetchStatus,
     isFetchedAfterMount,
     isPlaceholderData,
@@ -97,8 +96,8 @@ export function BillList({ clubId, initialStatusFilter = '' }: BillListProps) {
   const failureMessageId = useId();
 
   // 취소·납부로 지금 페이지가 상태 필터 범위 밖이 되면 마지막 유효 페이지로 옮긴다(장부 CashbookPanel 과 같은 보정 — useEffect 금지는 데이터 패칭 한정).
-  // 다시 받는 중에는 판단하지 않는다 — 새 page 키는 받는 동안 이전 쪽 자리 채움을, 무효 표시된 옛 캐시는 지난 totalPages 를 들고 있다.
-  const loadedTotalPages = isFetching ? undefined : bills?.totalPages;
+  // 다시 받는 중(재시도 멈춤 포함)에는 판단하지 않는다 — 새 page 키는 받는 동안 이전 쪽 자리 채움을, 무효 표시된 옛 캐시는 지난 totalPages 를 들고 있다.
+  const loadedTotalPages = fetchStatus !== 'idle' ? undefined : bills?.totalPages;
   useEffect(() => {
     if (loadedTotalPages === undefined) return;
     const lastPage = Math.max(0, loadedTotalPages - 1);
@@ -128,11 +127,11 @@ export function BillList({ clubId, initialStatusFilter = '' }: BillListProps) {
   // 이 키에서 실패를 본 뒤 다시 받는 중 — 실패 상자를 두고 버튼만 잠근다(장부·다른 목록 화면과 같은 규칙).
   // 2쪽 이후 실패 뒤에는 이전 쪽 자리 채움이 붙어도 다시 받는 중이다. 실패 캐시가 남은 쪽으로 다시 옮겨 온 직후는
   // isFetchedAfterMount 가 거짓이라 들지 않는다 — 처음 가는 쪽처럼 이전 쪽을 흐리게 둔다.
-  // 받는 중 여부는 isFetching 이 아니라 fetchStatus 로 본다 — 재시도 대기 뒤 탭이 가려지면 TanStack 이 재시도를 멈춰(paused)
-  // isFetching 이 거짓이 되고, 그러면 잠긴 버튼이 '다시 시도'로 풀리거나 자리 채움 목록이 다시 그려진다(query-core retryer.ts:183-186).
+  // 받는 중 여부는 isFetching 이 아니라 fetchStatus 로 본다(이 파일 전체 같은 기준) — 재시도 대기 뒤 탭이 가려지면 TanStack 이
+  // 재시도를 멈춰(paused) isFetching 이 거짓이 되고, 그러면 잠긴 버튼이 '다시 시도'로 풀리거나 자리 채움 목록이 다시 그려진다.
   const isRetrying = fetchStatus !== 'idle' && isFetchedAfterMount && (bills === undefined || isPlaceholderData);
   // 받는 중인데 목록이 비면(빈 결과를 캐시한 조건으로 돌아감 등) "없습니다"를 단정하지 않고 로딩으로 둔다.
-  const isListLoading = !isRetrying && (isLoading || (isFetching && bills?.content.length === 0));
+  const isListLoading = !isRetrying && (isLoading || (fetchStatus !== 'idle' && bills?.content.length === 0));
   // 처음 가는 쪽·새 조건을 받는 동안 푸터는 이전 쪽 번호를 보인다 — 또 누르면 한 쪽을 건너뛰므로 잠근다(겉모습은 그대로).
   const isPreviousLocked = page0Based === 0 || isPlaceholderData;
   const isNextLocked = !hasNext || isPlaceholderData;

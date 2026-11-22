@@ -422,6 +422,14 @@ describe('청구 목록 — 쪽 이동 중 상태(#1762)', () => {
     // 눌린 것으로 처리되면 같은 렌더에서 새 page 키의 자리 채움이 걸려 목록이 aria-busy 가 된다.
     expect(screen.getByRole('list')).not.toHaveAttribute('aria-busy');
     expect(screen.getByText('2 / 2')).toBeInTheDocument();
+
+    // 첫 쪽의 '이전'도 끝 쪽이라 disabled 가 아니라 aria-disabled — 눌러 1쪽에 닿아도 포커스가 남는다.
+    const previousButton = screen.getByRole('button', { name: '이전' });
+    await user.click(previousButton);
+    expect(await screen.findByText('1 / 2')).toBeInTheDocument();
+    expect(previousButton).toHaveAttribute('aria-disabled', 'true');
+    expect(previousButton).not.toBeDisabled();
+    expect(previousButton).toHaveFocus();
   });
 
   it('이전·다음은 청구 목록 페이지 내비게이션 안에 있고, 쪽 표시는 바뀔 때 읽히는 알림 영역이다', async () => {

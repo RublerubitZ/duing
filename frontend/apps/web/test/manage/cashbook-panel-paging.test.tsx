@@ -6,7 +6,7 @@ import { http, HttpResponse, type PathParams } from 'msw';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { createApiClient } from '@duing/api';
-import { ApiClientProvider } from '@duing/hooks';
+import { ApiClientProvider, cashbookQueryKeys } from '@duing/hooks';
 import type {
   CashbookEntry,
   CreateCashbookEntryPayload,
@@ -601,6 +601,14 @@ describe('금전출납부 패널 — 쪽 이동 중 상태(#1762)', () => {
     // 눌린 것으로 처리되면 같은 렌더에서 새 page 키의 자리 채움이 걸려 목록이 aria-busy 가 된다.
     expect(screen.getByRole('list')).not.toHaveAttribute('aria-busy');
     expect(screen.getByText('2 / 2')).toBeInTheDocument();
+
+    // 첫 쪽의 '이전'도 끝 쪽이라 disabled 가 아니라 aria-disabled — 눌러 1쪽에 닿아도 포커스가 남는다.
+    const previousButton = screen.getByRole('button', { name: '이전' });
+    await user.click(previousButton);
+    expect(await screen.findByText('1 / 2')).toBeInTheDocument();
+    expect(previousButton).toHaveAttribute('aria-disabled', 'true');
+    expect(previousButton).not.toBeDisabled();
+    expect(previousButton).toHaveFocus();
   });
 
   it('이전·다음은 장부 페이지 내비게이션 안에 있고, 쪽 표시는 바뀔 때 읽히는 알림 영역이다', async () => {
@@ -688,16 +696,12 @@ describe('금전출납부 패널 — 합계 카드(#1762)', () => {
 
   it('합계 조회가 실패하면 0원 대신 — 를 보인다', async () => {
     seedEntries(3);
-    let summaryFailures = 0;
-    server.use(
-      http.get(`${CASHBOOK_URL}/summary`, () => {
-        summaryFailures += 1;
-        return failure();
-      }),
-    );
-    renderPanel();
+    server.use(http.get(`${CASHBOOK_URL}/summary`, () => failure()));
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
+    renderPanel(queryClient);
     await screen.findByText('총 3건');
-    await waitFor(() => expect(summaryFailures).toBe(1));
+    // 요청이 나간 것만으로는 로딩과 실패가 가려지지 않는다 — 합계 쿼리가 실제로 실패 상태가 된 뒤 본다.
+    await waitFor(() => expect(queryClient.getQueryState(cashbookQueryKeys.summary(CLUB_ID, {}))?.status).toBe('error'));
 
     expect(screen.getAllByText('—')).toHaveLength(3);
     expect(screen.queryByText('0원')).not.toBeInTheDocument();
