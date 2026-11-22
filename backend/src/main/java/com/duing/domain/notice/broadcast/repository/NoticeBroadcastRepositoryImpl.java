@@ -21,7 +21,7 @@ public class NoticeBroadcastRepositoryImpl implements NoticeBroadcastRepositoryC
     private final Clock clock;
 
     @Override
-    public List<BroadcastSlice> findSliceForUser(Long userId, int limit) {
+    public List<BroadcastSlice> findSliceForUser(Long userId, boolean unreadOnly, int limit) {
         BooleanExpression readJoin = noticeBroadcastRead.id.broadcastId.eq(noticeBroadcast.id)
                 .and(noticeBroadcastRead.id.userId.eq(userId));
 
@@ -30,7 +30,10 @@ public class NoticeBroadcastRepositoryImpl implements NoticeBroadcastRepositoryC
                 .from(noticeBroadcast)
                 .join(notice).on(broadcastableNotice())
                 .leftJoin(noticeBroadcastRead).on(readJoin)
-                .where(noticeBroadcast.createdAt.goe(NotificationRetention.visibilityFloor(clock)))
+                .where(
+                        noticeBroadcast.createdAt.goe(NotificationRetention.visibilityFloor(clock)),
+                        unreadOnlyCondition(unreadOnly)
+                )
                 .orderBy(noticeBroadcast.createdAt.desc())
                 .limit(limit)
                 .fetch();
@@ -78,5 +81,10 @@ public class NoticeBroadcastRepositoryImpl implements NoticeBroadcastRepositoryC
                 .and(notice.deletedAt.isNull())
                 .and(notice.visibility.eq(NoticeVisibility.PUBLIC))
                 .and(notice.notifyOnPublish.isTrue());
+    }
+
+    // 읽음 조인을 사용자로 묶었으므로 읽음 행이 없으면 이 사용자가 안 읽은 것이다.
+    private static BooleanExpression unreadOnlyCondition(boolean unreadOnly) {
+        return unreadOnly ? noticeBroadcastRead.id.userId.isNull() : null;
     }
 }

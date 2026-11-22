@@ -91,10 +91,9 @@ public class GeneralNotificationService implements NotificationService {
                 .map(NotificationResponse::from)
                 .toList();
 
-        // broadcast: 항상 over-fetch, isRead 필터는 union 단계에서.
-        List<BroadcastSlice> broadcastSlices = broadcastRepository.findSliceForUser(userId, overFetch);
+        // broadcast: 개인 쪽처럼 unreadOnly 를 SQL 에서 거른 뒤 over-fetch — 자른 뒤 거르면 쪽이 비거나 밀린다(#1760).
+        List<BroadcastSlice> broadcastSlices = broadcastRepository.findSliceForUser(userId, unreadOnly, overFetch);
         List<NotificationResponse> broadcast = broadcastSlices.stream()
-                .filter(slice -> !unreadOnly || !slice.isRead())
                 .map(slice -> NotificationResponse.fromBroadcast(slice.broadcast(), slice.isRead()))
                 .toList();
         long broadcastTotal = broadcastTotal(userId, unreadOnly);
