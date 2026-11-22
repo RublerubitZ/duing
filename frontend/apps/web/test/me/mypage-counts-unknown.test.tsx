@@ -1,4 +1,4 @@
-import { act, render, screen, waitFor, within } from '@testing-library/react';
+import { act, cleanup, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ReactElement } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -7,7 +7,7 @@ import { http, HttpResponse } from 'msw';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { createApiClient } from '@duing/api';
-import { ApiClientProvider, applicationQueryKeys } from '@duing/hooks';
+import { ApiClientProvider, applicationQueryKeys, userQueryKeys } from '@duing/hooks';
 import { useAuthStore } from '@duing/stores';
 import type {
   ApplicationStatus,
@@ -154,8 +154,11 @@ afterEach(() => {
 });
 afterAll(() => server.close());
 
-function renderWithClient(ui: ReactElement): QueryClient {
-  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+/** 클라이언트를 넘기면 그 캐시로 다시 그린다 — 실패한 목록을 든 채 다시 들어오는 경우(R2)를 본다. */
+function renderWithClient(
+  ui: ReactElement,
+  queryClient: QueryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } }),
+): QueryClient {
   render(
     <QueryClientProvider client={queryClient}>
       <ApiClientProvider client={apiClient}>
@@ -233,6 +236,16 @@ const sectionFailureCases: SectionFailureCase[] = [
   },
 ];
 
+type RetryWiringCase = { label: string; url: string; sectionId: SectionId; lockedCount: number };
+
+// 다시 받는 목록마다 잠기는 상자 수 — 지원은 진행 중·지난 지원 두 섹션이 한 목록이라 둘이다.
+const retryWiringCases: RetryWiringCase[] = [
+  { label: '지원', url: APPLICATIONS_URL, sectionId: 'apply', lockedCount: 2 },
+  { label: '가입한 동아리', url: MY_CLUBS_URL, sectionId: 'joined', lockedCount: 1 },
+  { label: '찜한 동아리', url: FAVORITES_URL, sectionId: 'saved', lockedCount: 1 },
+  { label: '내 문의', url: INQUIRIES_URL, sectionId: 'inquiries', lockedCount: 1 },
+];
+
 describe('마이페이지 — 받은 목록이 없으면 숫자를 모른다', () => {
   it('지원 목록 첫 조회가 실패하면 지원·지난 지원 숫자를 숨기고, 빈 안내 대신 실패 안내와 다시 시도, 순서는 지원 먼저', async () => {
     server.use(http.get(APPLICATIONS_URL, () => serverError()));
@@ -253,16 +266,23 @@ describe('마이페이지 — 받은 목록이 없으면 숫자를 모른다', (
     expect(firstSectionId()).toBe('apply');
   });
 
-  it('다시 시도하면 받는 동안 스켈레톤·숫자 없음, 받으면 숫자와 목록을 그린다', async () => {
-    server.use(http.get(APPLICATIONS_URL, () => serverError()));
+  it('다시 시도하면 받는 동안 실패 안내를 두고 버튼만 잠그며(포커스는 누른 버튼에), 받으면 숫자와 목록을 그린다', async () => {
+    let applicationsRequests = 0;
+    server.use(
+      http.get(APPLICATIONS_URL, () => {
+        applicationsRequests += 1;
+        return serverError();
+      }),
+    );
     renderWithClient(<MyPage />);
-    const retryButton = await within(section('apply')).findByRole('button', { name: '다시 시도' });
+    const retryButton = await within(section('archived')).findByRole('button', { name: '다시 시도' });
     let releaseApplications: () => void = () => undefined;
     const applicationsGate = new Promise<void>((resolve) => {
       releaseApplications = resolve;
     });
     server.use(
       http.get(APPLICATIONS_URL, async () => {
+        applicationsRequests += 1;
         await applicationsGate;
         return ok(applications);
       }),
@@ -270,11 +290,24 @@ describe('마이페이지 — 받은 목록이 없으면 숫자를 모른다', (
 
     await userEvent.click(retryButton);
 
-    // 데이터 없이 다시 받으면 조회 중으로 돌아간다 — 실패 안내 대신 스켈레톤, 숫자는 여전히 모른다.
-    expect(await screen.findByRole('status', { name: '진행 중인 지원 불러오는 중' })).toBeInTheDocument();
-    expect(screen.getByRole('status', { name: '지난 지원 불러오는 중' })).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: '다시 시도' })).not.toBeInTheDocument();
+    // 데이터 없이 다시 받으면 TanStack 은 pending 으로 돌아가지만 스켈레톤으로 바꾸지 않는다 — 같은 버튼이 잠긴 채 남아 포커스가 빠지지 않는다(#1756).
+    await waitFor(() => expect(retryButton).toHaveAccessibleName('다시 불러오는 중'));
+    expect(retryButton).toHaveAttribute('aria-disabled', 'true');
+    expect(retryButton).toHaveFocus();
+    expect(retryButton).toHaveAccessibleDescription('지난 지원을 불러오지 못했어요.');
+    // 진행 중·지난 지원은 한 목록이다 — 두 상자가 함께 잠긴다.
+    const lockedButtons = screen.getAllByRole('button', { name: '다시 불러오는 중' });
+    expect(lockedButtons).toHaveLength(2);
+    for (const lockedButton of lockedButtons) expect(lockedButton).toHaveAttribute('aria-disabled', 'true');
+    expect(within(section('apply')).getByText('진행 중인 지원을 불러오지 못했어요.')).toBeInTheDocument();
+    expect(within(section('archived')).getByText('지난 지원을 불러오지 못했어요.')).toBeInTheDocument();
+    expect(screen.queryByRole('status', { name: '진행 중인 지원 불러오는 중' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('status', { name: '지난 지원 불러오는 중' })).not.toBeInTheDocument();
     expect(headerCount('지원 중')).toBe('—');
+
+    // 회귀 가드 — 데이터 없는 재요청은 TanStack 이 진행 중 요청으로 합쳐 잠금이 없어도 늘지 않는다. 누름 무시 자체는 sections-pending 이 본다.
+    await userEvent.click(retryButton);
+    expect(applicationsRequests).toBe(2);
 
     releaseApplications();
 
@@ -328,7 +361,7 @@ describe('마이페이지 — 받은 목록이 없으면 숫자를 모른다', (
     expect(firstSectionId()).toBe('apply');
   });
 
-  it('다시 시도도 실패하면 실패 안내로 돌아온다 — 스켈레톤에 멈추지 않는다', async () => {
+  it('다시 시도도 실패하면 같은 버튼이 "다시 시도"로 돌아오고 포커스가 남는다 — 스켈레톤에 멈추지 않는다', async () => {
     let myClubsRequests = 0;
     server.use(
       http.get(MY_CLUBS_URL, () => {
@@ -337,12 +370,129 @@ describe('마이페이지 — 받은 목록이 없으면 숫자를 모른다', (
       }),
     );
     renderWithClient(<MyPage />);
+    const retryButton = await within(section('joined')).findByRole('button', { name: '다시 시도' });
+    // 다시 시도 응답을 붙잡는다 — 바로 500 이면 TanStack 이 조회 시작·실패 알림을 setTimeout 0 뒤 한 번에 합쳐
+    // (notifyManager) 지금 코드도 스켈레톤을 그리지 않아 노드가 남는다. 실제 네트워크처럼 응답이 늦은 경우를 만든다.
+    let releaseMyClubs: () => void = () => undefined;
+    const myClubsGate = new Promise<void>((resolve) => {
+      releaseMyClubs = resolve;
+    });
+    server.use(
+      http.get(MY_CLUBS_URL, async () => {
+        myClubsRequests += 1;
+        await myClubsGate;
+        return serverError();
+      }),
+    );
 
-    await userEvent.click(await within(section('joined')).findByRole('button', { name: '다시 시도' }));
+    await userEvent.click(retryButton);
+    await waitFor(() => expect(retryButton).toHaveAccessibleName('다시 불러오는 중'));
 
-    await waitFor(() => expect(myClubsRequests).toBe(2));
-    expect(await within(section('joined')).findByText('가입한 동아리를 불러오지 못했어요.')).toBeInTheDocument();
+    releaseMyClubs();
+
+    await waitFor(() => expect(retryButton).toHaveAccessibleName('다시 시도'));
+    expect(retryButton).not.toHaveAttribute('aria-disabled');
+    expect(retryButton).toHaveFocus();
+    expect(myClubsRequests).toBe(2);
+    expect(within(section('joined')).getByText('가입한 동아리를 불러오지 못했어요.')).toBeInTheDocument();
     expect(within(section('joined')).queryByRole('status')).not.toBeInTheDocument();
+  });
+
+  // 회귀 가드 — 지금 코드에서도 통과한다. 판정을 errorUpdateCount 로 바꾸면 누르기도 전에 잠긴 상자가 떠 실패한다.
+  it('실패한 목록을 든 채 다시 들어오면 마운트 재조회는 처음 조회처럼 스켈레톤이다 — 누르기 전엔 "다시 불러오는 중"이 없다', async () => {
+    server.use(http.get(MY_CLUBS_URL, () => serverError()));
+    const queryClient = renderWithClient(<MyPage />);
+    expect(await within(section('joined')).findByText('가입한 동아리를 불러오지 못했어요.')).toBeInTheDocument();
+    await waitFor(() => expect(queryClient.isFetching()).toBe(0));
+    cleanup();
+
+    let releaseMyClubs: () => void = () => undefined;
+    const myClubsGate = new Promise<void>((resolve) => {
+      releaseMyClubs = resolve;
+    });
+    server.use(
+      http.get(MY_CLUBS_URL, async () => {
+        await myClubsGate;
+        return serverError();
+      }),
+    );
+    renderWithClient(<MyPage />, queryClient);
+
+    expect(await screen.findByRole('status', { name: '가입한 동아리 불러오는 중' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '다시 불러오는 중' })).not.toBeInTheDocument();
+
+    // 붙잡은 응답을 풀고 정착을 기다린다 — 다음 테스트로 요청이 새지 않게.
+    releaseMyClubs();
+    await waitFor(() => expect(queryClient.isFetching()).toBe(0));
+    expect(await within(section('joined')).findByText('가입한 동아리를 불러오지 못했어요.')).toBeInTheDocument();
+  });
+
+  it.each(retryWiringCases)(
+    '네 목록이 모두 실패한 채 $label 만 다시 받으면 그 목록의 상자만 잠기고 나머지 다시 시도는 그대로다',
+    async ({ url, sectionId, lockedCount }) => {
+      server.use(
+        http.get(APPLICATIONS_URL, () => serverError()),
+        http.get(MY_CLUBS_URL, () => serverError()),
+        http.get(FAVORITES_URL, () => serverError()),
+        http.get(INQUIRIES_URL, () => serverError()),
+      );
+      renderWithClient(<MyPage />);
+      await waitFor(() => expect(screen.getAllByRole('button', { name: '다시 시도' })).toHaveLength(5));
+      const retryButton = within(section(sectionId)).getByRole('button', { name: '다시 시도' });
+      let releaseRetry: () => void = () => undefined;
+      const retryGate = new Promise<void>((resolve) => {
+        releaseRetry = resolve;
+      });
+      server.use(
+        http.get(url, async () => {
+          await retryGate;
+          return serverError();
+        }),
+      );
+
+      await userEvent.click(retryButton);
+      await waitFor(() => expect(retryButton).toHaveAccessibleName('다시 불러오는 중'));
+
+      // 다시 받는 목록만 잠긴다(지원은 진행 중·지난 지원 두 상자) — 다른 목록의 다시 시도에 판정을 잘못 이으면 수가 어긋난다.
+      const lockedButtons = screen.getAllByRole('button', { name: '다시 불러오는 중' });
+      expect(lockedButtons).toHaveLength(lockedCount);
+      for (const lockedButton of lockedButtons) expect(lockedButton).toHaveAttribute('aria-disabled', 'true');
+      const idleButtons = screen.getAllByRole('button', { name: '다시 시도' });
+      expect(idleButtons).toHaveLength(5 - lockedCount);
+      for (const idleButton of idleButtons) expect(idleButton).not.toHaveAttribute('aria-disabled');
+
+      releaseRetry();
+      await waitFor(() => expect(retryButton).toHaveAccessibleName('다시 시도'));
+    },
+  );
+
+  it('이 화면에서 실패한 목록을 누르지 않아도 다시 받으면(무효화) 같은 잠긴 상자다 — 스켈레톤으로 돌아가지 않는다', async () => {
+    server.use(http.get(MY_CLUBS_URL, () => serverError()));
+    const queryClient = renderWithClient(<MyPage />);
+    const retryButton = await within(section('joined')).findByRole('button', { name: '다시 시도' });
+    let releaseMyClubs: () => void = () => undefined;
+    const myClubsGate = new Promise<void>((resolve) => {
+      releaseMyClubs = resolve;
+    });
+    server.use(
+      http.get(MY_CLUBS_URL, async () => {
+        await myClubsGate;
+        return serverError();
+      }),
+    );
+
+    // 붙잡은 응답이라 무효화의 Promise 는 기다리지 않는다 — 다시 받기가 시작된 화면만 본다.
+    act(() => {
+      void queryClient.invalidateQueries({ queryKey: userQueryKeys.myClubs() });
+    });
+
+    await waitFor(() => expect(retryButton).toHaveAccessibleName('다시 불러오는 중'));
+    expect(retryButton).toHaveAttribute('aria-disabled', 'true');
+    expect(within(section('joined')).queryByRole('status')).not.toBeInTheDocument();
+
+    releaseMyClubs();
+    await waitFor(() => expect(retryButton).toHaveAccessibleName('다시 시도'));
+    await waitFor(() => expect(queryClient.isFetching()).toBe(0));
   });
 
   // 회귀 가드 — 지금 코드에서도 통과한다.
