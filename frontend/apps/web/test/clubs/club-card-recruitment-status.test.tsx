@@ -147,6 +147,7 @@ describe('ClubCard — 모집 상태 뱃지/기간 렌더링', () => {
   it.each<[string, Club['activeRecruitment']]>([
     ['CLOSED', { recruitmentId: 13, displayStatus: 'CLOSED', startDate: '2026-02-01', endDate: '2026-02-28' }],
     ['모집 없음', null],
+    ['OPEN(마감일 없음)', { recruitmentId: 15, displayStatus: 'OPEN', startDate: '2026-03-15', endDate: null }],
     ['UPCOMING', { recruitmentId: 12, displayStatus: 'UPCOMING', startDate: '2026-03-20', endDate: '2026-04-10' }],
     ['ALWAYS_OPEN', { recruitmentId: 11, displayStatus: 'ALWAYS_OPEN', startDate: '2026-03-01', endDate: null }],
   ])('%s 카드도 모집중 카드와 링크·로고의 클래스·인라인 스타일이 같다 — 흐림·채도 낮춤 없음', (_status, activeRecruitment) => {

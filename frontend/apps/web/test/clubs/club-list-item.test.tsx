@@ -158,6 +158,7 @@ describe('ClubListItem — 모바일 가로형 카드', () => {
   it.each<[string, Club['activeRecruitment']]>([
     ['CLOSED', { recruitmentId: 2, displayStatus: 'CLOSED', startDate: '2026-02-01', endDate: '2026-02-28' }],
     ['모집 없음', null],
+    ['OPEN(마감일 없음)', { recruitmentId: 7, displayStatus: 'OPEN', startDate: '2026-03-15', endDate: null }],
     ['UPCOMING', { recruitmentId: 5, displayStatus: 'UPCOMING', startDate: '2026-03-20', endDate: '2026-04-10' }],
     ['ALWAYS_OPEN', { recruitmentId: 6, displayStatus: 'ALWAYS_OPEN', startDate: '2026-03-01', endDate: null }],
   ])('%s 행도 모집중 행과 링크·로고의 클래스·인라인 스타일이 같다 — 흐림·채도 낮춤 없음', (_status, activeRecruitment) => {

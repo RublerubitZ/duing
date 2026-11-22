@@ -92,7 +92,7 @@ export function ClubListItem({
   const initial = (club.name || '?').trim().charAt(0);
   const shouldPop = useHeartPop(liked, isFavoriteStateReady);
 
-  // 모집 없음·마감도 흐리게 그리지 않는다 — 탐색은 동아리 정보를 보는 화면이라 상태는 우측 배지로만 말한다(#1759).
+  // 모집 없음·마감도 흐리게 그리지 않는다 — 탐색은 동아리 정보를 보는 화면이라 상태는 우측 배지로 말한다(없으면 모집 없음, #1759).
   return (
     <Link
       href={toRoute(`/clubs/${club.id}`)}
