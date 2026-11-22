@@ -97,7 +97,8 @@ describe('BillList', () => {
   });
 
   it('청구가 없으면 빈 상태 안내를 표시한다', () => {
-    mockUseClubFeeBillsQuery.mockReturnValue({ data: buildPage([]), isLoading: false });
+    // 다 받은 상태(fetchStatus 'idle')로 준다 — 받는 중인데 목록이 비면 빈 안내 대신 로딩을 보이기 때문이다(#1762).
+    mockUseClubFeeBillsQuery.mockReturnValue({ data: buildPage([]), isLoading: false, fetchStatus: 'idle' });
     render(<BillList clubId={1} />);
     expect(screen.getByText('발행된 청구가 없습니다.')).toBeInTheDocument();
   });
