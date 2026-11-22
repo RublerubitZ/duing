@@ -1,13 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import type { ClubCategory } from '@duing/types';
 
 import { HOME_CATEGORIES, HOME_CATEGORY_BY_VALUE } from '../../app/_lib/homeCategories';
 import { contrastRatio } from '../a11y/wcagContrast';
-
-const ALL_CATEGORIES: ClubCategory[] = [
-  'ACADEMIC', 'CREATION', 'ART', 'SPORTS',
-  'VOLUNTEER', 'RELIGION', 'HOBBY', 'OTHER',
-];
+import { ALL_CLUB_CATEGORIES } from '../shared/clubCategories';
 
 describe('HOME_CATEGORIES', () => {
   it('8개의 카테고리가 정의된다', () => {
@@ -16,7 +11,7 @@ describe('HOME_CATEGORIES', () => {
 
   it('ClubCategory enum 의 8개 값과 1:1 대응한다 (중복 없음)', () => {
     const values = HOME_CATEGORIES.map((category) => category.value).sort();
-    expect(values).toEqual([...ALL_CATEGORIES].sort());
+    expect(values).toEqual([...ALL_CLUB_CATEGORIES].sort());
   });
 
   it('한글 라벨이 학술/창작/예술/운동/봉사/종교/취미/기타 와 일치한다', () => {
@@ -42,7 +37,7 @@ describe('HOME_CATEGORIES', () => {
   });
 
   it('enum 값으로 찾는 조회 맵이 8개를 모두 덮는다', () => {
-    for (const value of ALL_CATEGORIES) {
+    for (const value of ALL_CLUB_CATEGORIES) {
       expect(HOME_CATEGORY_BY_VALUE[value].value).toBe(value);
     }
   });
