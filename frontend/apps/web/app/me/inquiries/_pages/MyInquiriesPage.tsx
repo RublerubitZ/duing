@@ -36,8 +36,20 @@ export function MyInquiriesPage() {
     size: PAGE_SIZE,
   });
 
-  const inquiries = listQuery.data?.content ?? [];
-  const totalPages = listQuery.data?.totalPages ?? 0;
+  // 실패한 뒤 진짜 목록 없이 다시 받는 중 — 찜 목록(app/me/favorites/page.tsx)과 같은 판정(재시도 대기 중 멈춤 'paused' 도 다시 받는 중). 쪽·상태를 옮기면 기준이 새 키로 잡혀
+  // 일반 이동과 갈린다. 그동안 실패 안내를 두고 버튼만 잠근다 — 누른 버튼이 사라지면 포커스가 문서로 빠진다(#1756).
+  const isRetrying =
+    listQuery.fetchStatus !== 'idle' &&
+    listQuery.isFetchedAfterMount &&
+    (listQuery.data === undefined || listQuery.isPlaceholderData);
+  // 다시 받는 동안에는 이전 쪽 자리표시로 목록·페이지 버튼을 그리지 않는다.
+  const shownList = isRetrying ? undefined : listQuery.data;
+  const inquiries = shownList?.content ?? [];
+  const totalPages = shownList?.totalPages ?? 0;
+  // 이전 탭·쪽 자리표시가 0건이면 받는 동안 빈 안내 대신 로딩으로 둔다.
+  const isEmptyPlaceholder = listQuery.isPlaceholderData && inquiries.length === 0;
+  // 진짜 목록이 없으면 페이지 버튼도 없다 — 2쪽 이후의 실패엔 돌아갈 길을 둔다.
+  const showsFirstPageButton = page > 0 && (listQuery.data === undefined || listQuery.isPlaceholderData);
 
   const handleStatusTabChange = (next: FederationInquiryStatus | 'ALL') => {
     setStatusFilter(next);
@@ -78,7 +90,7 @@ export function MyInquiriesPage() {
           ))}
         </div>
 
-        {listQuery.isLoading && (
+        {!isRetrying && (listQuery.isLoading || isEmptyPlaceholder) && (
           <ListRowsSkeleton
             rows={5}
             rowClassName="h-[64px] rounded-xl"
@@ -86,11 +98,32 @@ export function MyInquiriesPage() {
             label="문의 목록 불러오는 중"
           />
         )}
-        {listQuery.isError && (
-          <p className="py-12 text-center text-[13px] text-coral-deep">문의 목록을 불러오지 못했습니다.</p>
+        {(listQuery.isError || isRetrying) && (
+          <div className="py-12 text-center">
+            <p className="text-[13px] text-coral-deep">문의 목록을 불러오지 못했습니다.</p>
+            <div className="mt-3 flex flex-wrap justify-center gap-2">
+              <button
+                type="button"
+                // 잠갔다고 알린 버튼은 동작하지 않게 둔다(aria-disabled 와 행동을 맞춘다). 데이터 없이 받는 중이라 다시 불러도
+                // 요청은 진행 중인 것으로 합쳐진다(query.ts:707-721) — 그래서 이 분기는 테스트로 가를 수 없다(스펙 3.1).
+                aria-disabled={isRetrying || undefined}
+                onClick={() => {
+                  if (!isRetrying) void listQuery.refetch();
+                }}
+                className="btn btn-secondary btn-sm"
+              >
+                {isRetrying ? '다시 불러오는 중' : '다시 시도'}
+              </button>
+              {showsFirstPageButton && (
+                <button type="button" onClick={() => setPage(0)} className="btn btn-ghost btn-sm">
+                  첫 페이지로
+                </button>
+              )}
+            </div>
+          </div>
         )}
 
-        {listQuery.isSuccess && inquiries.length === 0 && (
+        {listQuery.isSuccess && !listQuery.isPlaceholderData && inquiries.length === 0 && (
           <div className="rounded-xl border border-dashed border-line px-6 py-12 text-center">
             <p className="text-sm text-charcoal-2">아직 문의 내역이 없어요.</p>
             <p className="mt-1 text-xs text-charcoal-3">
@@ -107,7 +140,11 @@ export function MyInquiriesPage() {
         )}
 
         {listQuery.isSuccess && inquiries.length > 0 && (
-          <ul className="space-y-2">
+          <ul
+            // 쪽·상태를 옮기는 동안은 이전 목록이 남는다 — 흐림으로 갱신 중임을 알린다. 각 행은 자기 id 로 이동해 잠그지 않는다.
+            aria-busy={listQuery.isPlaceholderData}
+            className={cn('space-y-2 transition-opacity', listQuery.isPlaceholderData && 'opacity-60')}
+          >
             {inquiries.map((inquiry) => (
               <li key={inquiry.id}>
                 <Link
