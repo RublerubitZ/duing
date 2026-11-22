@@ -11,7 +11,7 @@ type ManageGuardProps = {
   managedClubs: ManagedClub[] | undefined;
   /** URL 의 `[clubId]` (숫자가 아니면 null). optional 로 두면 호출부가 빠뜨렸을 때 가드가 조용히 꺼진다. */
   currentClubId: number | null;
-  /** 첫 조회 중 — 실패 뒤 다시 받는 중에는 false 로 받아 실패 안내를 그대로 둔다. */
+  /** 쿼리의 isLoading 그대로 — 실패 뒤 다시 받는 중(isRetrying)이면 가드가 스피너 대신 실패 안내를 그대로 둔다. */
   isLoading: boolean;
   /** 실패 뒤 다시 받는 중 — currentClubId 와 같은 이유로 optional 로 두지 않는다. */
   isRetrying: boolean;
@@ -28,7 +28,7 @@ export function ManageGuard({
   onRetry,
   children,
 }: ManageGuardProps) {
-  if (isLoading) {
+  if (isLoading && !isRetrying) {
     return <LoadingGate label="운영 권한 확인 중" className="min-h-dvh" />;
   }
 

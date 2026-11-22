@@ -54,7 +54,7 @@ describe('ManageGuard — clubId 권한 게이트', () => {
     expect(screen.getByText('이 동아리의 운영 권한이 없습니다.')).toBeInTheDocument();
   });
 
-  // 동작 줄(div)로 링크를 감싸도 403 은 링크 하나 그대로여야 한다(Review Focus 4).
+  // 동작 줄(div)로 링크를 감싸도 403 은 링크 하나 그대로여야 한다.
   it('403 안내는 다시 시도 없이 내 운영 콘솔 링크만 둔다', () => {
     renderGuard(25);
     expect(screen.getByRole('link', { name: '내 운영 콘솔로 이동' })).toHaveAttribute('href', '/manage');
@@ -79,7 +79,7 @@ describe('ManageGuard — clubId 권한 게이트', () => {
     expect(screen.queryByText('운영 콘솔 본문')).not.toBeInTheDocument();
   });
 
-  // Review Focus 3 — 잠긴 버튼은 클릭도 Enter 도 무시한다(aria-disabled 의 뜻과 동작을 맞춘다).
+  // 잠긴 버튼은 클릭도 Enter 도 무시한다 — aria-disabled 의 뜻과 동작을 맞춘다.
   it('조회 실패 안내의 다시 시도는 다시 받는 중에 같은 버튼이 잠겨 클릭·Enter 로 onRetry 를 부르지 않는다', async () => {
     const user = userEvent.setup();
     const onRetry = vi.fn();
@@ -103,6 +103,7 @@ describe('ManageGuard — clubId 권한 게이트', () => {
     rerender(guardElement(true));
     expect(retryButton).toHaveAccessibleName('다시 불러오는 중');
     expect(retryButton).toHaveAttribute('aria-disabled', 'true');
+    expect(retryButton).toBeEnabled();
     await user.click(retryButton);
     await user.keyboard('{Enter}');
     expect(onRetry).toHaveBeenCalledTimes(1);

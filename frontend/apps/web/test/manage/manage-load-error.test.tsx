@@ -1,14 +1,14 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ReactElement } from 'react';
 import { renderToString } from 'react-dom/server';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { QueryClient, QueryClientProvider, focusManager } from '@tanstack/react-query';
 import { setupServer } from 'msw/node';
 import { http, HttpResponse } from 'msw';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { createApiClient } from '@duing/api';
-import { ApiClientProvider } from '@duing/hooks';
+import { ApiClientProvider, clubQueryKeys } from '@duing/hooks';
 import type { ManagedClub } from '@duing/types';
 
 import { ToastProvider } from '@/app/_components/toast/ToastProvider';
@@ -68,7 +68,11 @@ beforeEach(() => {
   replaceSpy.mockReset();
   window.localStorage.clear();
 });
-afterEach(() => server.resetHandlers());
+afterEach(() => {
+  server.resetHandlers();
+  // 탭 가림을 흉내 낸 테스트가 중간에 실패해도 다음 테스트로 새지 않게 문서 기준으로 되돌린다.
+  focusManager.setFocused(undefined);
+});
 afterAll(() => {
   server.events.removeListener('request:start', countManagedRequest);
   server.close();
@@ -83,9 +87,12 @@ const managedClub = (clubId: number): ManagedClub => ({
   activeRecruitmentCount: 0,
 });
 
-/** 실제 앱은 빠른 실패를 1회 더 받는다(shouldRetryQuery) — 그 경로를 볼 때만 retry 를 켠다. */
+/**
+ * 실제 앱은 빠른 실패를 1회 더 받는다(shouldRetryQuery) — 그 경로를 볼 때만 retry 를 켠다.
+ * 창 포커스 재조회는 앱처럼 끈다 — 탭 가림을 흉내 낸 뒤 되돌릴 때 낯선 요청이 끼지 않게.
+ */
 const createTestQueryClient = (retry: number | false = false) =>
-  new QueryClient({ defaultOptions: { queries: { retry, retryDelay: 0 } } });
+  new QueryClient({ defaultOptions: { queries: { retry, retryDelay: 0, refetchOnWindowFocus: false } } });
 
 function withProviders(ui: ReactElement, queryClient = createTestQueryClient()) {
   return (
@@ -114,6 +121,39 @@ function failFirstThenHold(heldResponse: () => Response) {
     }),
   );
   return { releaseHeld };
+}
+
+/**
+ * retry 1회 QueryClient 용 — 첫 조회(본 시도·자동 재시도)는 바로 500, 다시 시도의 첫 요청은 게이트를 열면 500,
+ * 그 뒤 자동 재시도는 `resumedResponse` 로 답한다. 게이트를 열 때 탭이 가려져 있으면 TanStack 은 자동 재시도를 멈춘다(paused).
+ */
+function failFirstLoadThenHoldRetryFailure(resumedResponse: () => Response) {
+  let releaseHeld: () => void = () => undefined;
+  const heldGate = new Promise<void>((resolve) => {
+    releaseHeld = resolve;
+  });
+  server.use(
+    http.get(MANAGED_URL, () => fail(), { once: true }),
+    http.get(MANAGED_URL, () => fail(), { once: true }),
+    http.get(
+      MANAGED_URL,
+      async () => {
+        await heldGate;
+        return fail();
+      },
+      { once: true },
+    ),
+    http.get(MANAGED_URL, () => resumedResponse()),
+  );
+  return { releaseHeld };
+}
+
+/** 자동 재시도가 멈췄다(paused) — TanStack 은 알림을 setTimeout 0 뒤에 묶어 보내므로 한 바퀴 흘려 화면까지 닿게 한다. */
+async function waitForPausedRetry(queryClient: QueryClient) {
+  await waitFor(() => expect(queryClient.getQueryState(clubQueryKeys.managed())?.fetchStatus).toBe('paused'));
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  });
 }
 
 const shellElement = () => (
@@ -145,6 +185,7 @@ describe('ManageShell — 관리 동아리 조회 실패', () => {
 
     await waitFor(() => expect(retryButton).toHaveAccessibleName('다시 불러오는 중'));
     expect(retryButton).toHaveAttribute('aria-disabled', 'true');
+    expect(retryButton).toBeEnabled();
     expect(retryButton).toHaveFocus();
     expect(screen.getByRole('heading', { name: FAILURE_TEXT })).toBeInTheDocument();
     expect(screen.queryByRole('status', { name: '운영 권한 확인 중' })).not.toBeInTheDocument();
@@ -175,6 +216,32 @@ describe('ManageShell — 관리 동아리 조회 실패', () => {
     expect(screen.queryByText('운영 콘솔 본문')).not.toBeInTheDocument();
   });
 
+  // 다시 시도의 첫 요청이 실패한 뒤 자동 재시도를 기다리는 사이 탭이 가려지면 TanStack 은 조회를 멈춘다(paused).
+  // 그동안 isFetching·isLoading 은 거짓이지만 아직 받는 중이므로 같은 버튼이 잠겨 있어야 한다.
+  it('다시 받다 탭이 가려져 자동 재시도가 멈춘 동안에도 같은 버튼이 잠겨 있고, 돌아오면 이어 받아 본문을 연다', async () => {
+    const user = userEvent.setup();
+    const queryClient = createTestQueryClient(1);
+    const { releaseHeld } = failFirstLoadThenHoldRetryFailure(() => ok([managedClub(1)]));
+    render(withProviders(shellElement(), queryClient));
+
+    const retryButton = await screen.findByRole('button', { name: '다시 시도' });
+    focusManager.setFocused(false);
+    await user.click(retryButton);
+    await waitFor(() => expect(retryButton).toHaveAccessibleName('다시 불러오는 중'));
+
+    releaseHeld();
+    await waitForPausedRetry(queryClient);
+    expect(retryButton).toHaveAccessibleName('다시 불러오는 중');
+    expect(retryButton).toHaveAttribute('aria-disabled', 'true');
+    expect(retryButton).toBeEnabled();
+    expect(retryButton).toHaveFocus();
+    expect(screen.getByRole('heading', { name: FAILURE_TEXT })).toBeInTheDocument();
+    expect(screen.queryByText('운영 콘솔 본문')).not.toBeInTheDocument();
+
+    act(() => focusManager.setFocused(true));
+    expect(await screen.findByText('운영 콘솔 본문')).toBeInTheDocument();
+  });
+
   it('운영 동아리가 0곳이면 기존 없음 안내와 홈 링크를 유지한다', async () => {
     server.use(http.get(MANAGED_URL, () => ok([])));
     render(withProviders(shellElement()));
@@ -186,7 +253,7 @@ describe('ManageShell — 관리 동아리 조회 실패', () => {
     expect(screen.queryByRole('button', { name: '다시 시도' })).not.toBeInTheDocument();
   });
 
-  // Review Focus 1 — 실제 앱은 빠른 실패를 1회 더 받는다. 그 자동 재시도는 아직 첫 조회라 스피너를 유지한다.
+  // 실제 앱은 빠른 실패를 1회 더 받는다. 그 자동 재시도는 아직 첫 조회라 스피너를 유지한다.
   it('첫 조회의 자동 재시도 중에는 스피너를 유지하고, 끝내 실패하면 실패 안내를 보인다', async () => {
     const { releaseHeld } = failFirstThenHold(() => fail());
     render(withProviders(shellElement(), createTestQueryClient(1)));
@@ -199,7 +266,7 @@ describe('ManageShell — 관리 동아리 조회 실패', () => {
     expect(await screen.findByRole('heading', { name: FAILURE_TEXT })).toBeInTheDocument();
   });
 
-  // Review Focus 2 — 실패가 캐시에 남은 채 다시 들어오면 첫 로딩으로 본다(스펙 §7-3). errorUpdateCount 로 판정하면 여기서 깨진다.
+  // 실패가 캐시에 남은 채 다시 들어오면 첫 로딩으로 본다 — 실패 이력을 캐시 단위(errorUpdateCount)로 보면 여기서 깨진다.
   it('다른 화면에서 실패한 뒤 다시 들어오면 실패 안내가 아니라 스피너부터 보인다', async () => {
     const queryClient = createTestQueryClient();
     const { releaseHeld } = failFirstThenHold(() => ok([managedClub(1)]));
@@ -249,15 +316,10 @@ describe('/manage — 관리 동아리 조회 실패', () => {
 
     await waitFor(() => expect(retryButton).toHaveAccessibleName('다시 불러오는 중'));
     expect(retryButton).toHaveAttribute('aria-disabled', 'true');
+    expect(retryButton).toBeEnabled();
     expect(retryButton).toHaveFocus();
     expect(screen.getByRole('heading', { name: FAILURE_TEXT })).toBeInTheDocument();
     expect(screen.queryByRole('status', { name: '관리 동아리 불러오는 중' })).not.toBeInTheDocument();
-
-    // 회귀 가드 — 데이터 없는 다시 받기는 TanStack 이 진행 중 promise 를 돌려줘(query.ts:707-721) 잠금이 없어도 새 요청이 나가지 않는다.
-    await waitFor(() => expect(managedRequestCount).toBe(2));
-    await user.click(retryButton);
-    await new Promise((resolve) => setTimeout(resolve, 0));
-    expect(managedRequestCount).toBe(2);
 
     releaseHeld();
     await waitFor(() => expect(replaceSpy).toHaveBeenCalledWith('/manage/clubs/10'));
@@ -284,6 +346,32 @@ describe('/manage — 관리 동아리 조회 실패', () => {
     expect(replaceSpy).not.toHaveBeenCalled();
   });
 
+  // 다시 시도의 첫 요청이 실패한 뒤 자동 재시도를 기다리는 사이 탭이 가려지면 TanStack 은 조회를 멈춘다(paused).
+  // 그동안 isFetching·isLoading 은 거짓이지만 아직 받는 중이므로 같은 버튼이 잠겨 있어야 한다.
+  it('다시 받다 탭이 가려져 자동 재시도가 멈춘 동안에도 같은 버튼이 잠겨 있고, 돌아오면 이어 받아 콘솔로 replace 한다', async () => {
+    const user = userEvent.setup();
+    const queryClient = createTestQueryClient(1);
+    const { releaseHeld } = failFirstLoadThenHoldRetryFailure(() => ok([managedClub(10)]));
+    render(withProviders(<ManagePage />, queryClient));
+
+    const retryButton = await screen.findByRole('button', { name: '다시 시도' });
+    focusManager.setFocused(false);
+    await user.click(retryButton);
+    await waitFor(() => expect(retryButton).toHaveAccessibleName('다시 불러오는 중'));
+
+    releaseHeld();
+    await waitForPausedRetry(queryClient);
+    expect(retryButton).toHaveAccessibleName('다시 불러오는 중');
+    expect(retryButton).toHaveAttribute('aria-disabled', 'true');
+    expect(retryButton).toBeEnabled();
+    expect(retryButton).toHaveFocus();
+    expect(screen.getByRole('heading', { name: FAILURE_TEXT })).toBeInTheDocument();
+    expect(replaceSpy).not.toHaveBeenCalled();
+
+    act(() => focusManager.setFocused(true));
+    await waitFor(() => expect(replaceSpy).toHaveBeenCalledWith('/manage/clubs/10'));
+  });
+
   it('운영 동아리가 0곳이면 기존 없음 안내를 유지하고 이동하지 않는다', async () => {
     server.use(http.get(MANAGED_URL, () => ok([])));
     render(withProviders(<ManagePage />));
@@ -293,7 +381,7 @@ describe('/manage — 관리 동아리 조회 실패', () => {
     expect(replaceSpy).not.toHaveBeenCalled();
   });
 
-  // 실패가 캐시에 남은 채 다시 들어오면 첫 로딩으로 본다(스펙 §7-3). errorUpdateCount 로 판정하면 여기서 깨진다.
+  // 실패가 캐시에 남은 채 다시 들어오면 첫 로딩으로 본다 — 실패 이력을 캐시 단위(errorUpdateCount)로 보면 여기서 깨진다.
   it('다른 화면에서 실패한 뒤 다시 들어오면 실패 안내가 아니라 스피너부터 보이고, 성공하면 replace 한다', async () => {
     const queryClient = createTestQueryClient();
     const { releaseHeld } = failFirstThenHold(() => ok([managedClub(10)]));
