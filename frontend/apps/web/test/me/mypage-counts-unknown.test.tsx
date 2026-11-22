@@ -372,7 +372,10 @@ describe('마이페이지·설정 — 찜은 전체 수로 센다(#1580)', () =>
     expect(within(savedSection).getByRole('heading', { level: 2, name: '찜한 동아리 · 25' })).toBeInTheDocument();
     // 카드는 동아리 상세 링크다(빈 안내의 탐색 링크는 /clubs, 전체 보기는 /me/favorites 라 세지 않는다).
     expect(savedSection.querySelectorAll('a[href^="/clubs/"]')).toHaveLength(20);
-    expect(within(savedSection).getByRole('link', { name: '전체 보기' })).toHaveAttribute('href', '/me/favorites');
+    expect(within(savedSection).getByRole('link', { name: '찜한 동아리 전체 보기' })).toHaveAttribute('href', '/me/favorites');
+    // 문의 섹션의 '전체 보기'와 보이는 글자는 같아도 접근 이름이 다르다 — 화면 전체에서 각각 하나로 찾힌다.
+    expect(screen.getByRole('link', { name: '찜한 동아리 전체 보기' })).toHaveAttribute('href', '/me/favorites');
+    expect(screen.getByRole('link', { name: '내 문의 전체 보기' })).toHaveAttribute('href', '/me/inquiries');
   });
 
   // 회귀 가드 — 지금도 링크가 없다.
@@ -381,7 +384,7 @@ describe('마이페이지·설정 — 찜은 전체 수로 센다(#1580)', () =>
     renderWithClient(<MyPage />);
 
     await waitFor(() => expect(headerCount('찜')).toBe('20'));
-    expect(within(section('saved')).queryByRole('link', { name: '전체 보기' })).not.toBeInTheDocument();
+    expect(within(section('saved')).queryByRole('link', { name: '찜한 동아리 전체 보기' })).not.toBeInTheDocument();
   });
 
   it('설정: 머리글 찜도 전체 수 25 다', async () => {

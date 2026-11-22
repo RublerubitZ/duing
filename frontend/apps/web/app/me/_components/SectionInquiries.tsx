@@ -40,7 +40,9 @@ export function SectionInquiries({ inquiries, totalCount, isPending = false, onR
               href={toRoute('/me/inquiries')}
               className="text-[13px] font-semibold text-ink hover:underline"
             >
-              전체 보기
+              {/* 찜 섹션에도 '전체 보기'가 생길 수 있다 — 링크 목록으로 훑어도 구분되게 접근 이름에만 섹션을 붙인다.
+                  띄어쓰기는 span 밖에 둔다(span 안 끝 공백은 이름 계산에서 잘린다). 보이는 쪽 맨 앞 공백은 줄 처음이라 접힌다. */}
+              <span className="sr-only">내 문의</span> 전체 보기
             </Link>
           }
         />

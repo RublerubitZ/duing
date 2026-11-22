@@ -45,14 +45,14 @@ describe('SectionSaved — 전체 수와 전체 보기', () => {
   it('전체가 받은 것보다 많으면 /me/favorites 로 가는 전체 보기를 둔다', () => {
     render(<SectionSaved favorites={[make()]} totalCount={25} />);
 
-    expect(screen.getByRole('link', { name: '전체 보기' })).toHaveAttribute('href', '/me/favorites');
+    expect(screen.getByRole('link', { name: '찜한 동아리 전체 보기' })).toHaveAttribute('href', '/me/favorites');
   });
 
   // 회귀 가드 — 받은 것이 전부면 같은 목록으로 가는 링크는 필요 없다.
   it('받은 것이 전부면 전체 보기를 두지 않는다', () => {
     render(<SectionSaved favorites={[make()]} totalCount={1} />);
 
-    expect(screen.queryByRole('link', { name: '전체 보기' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: '찜한 동아리 전체 보기' })).not.toBeInTheDocument();
   });
 
   // 빈 판정은 전체 수로 — 제목 숫자('· 3')와 빈 안내가 어긋나지 않게(SectionInquiries 와 같은 기준).

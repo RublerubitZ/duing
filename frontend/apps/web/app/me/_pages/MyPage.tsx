@@ -76,13 +76,21 @@ export function MyPage() {
   const myClubsUnknown = !hydrated || myClubsQuery.data === undefined;
   const favoritesUnknown = !hydrated || favoriteListQuery.data === undefined;
   const inquiriesUnknown = !hydrated || myInquiriesQuery.data === undefined;
-  // 모르는데 조회 중도 아니면 첫 조회가 실패한 것이다(TanStack Query 5 는 undefined 로 성공하지 않는다) — 그 섹션에만 다시 시도를 넘긴다.
-  // 데이터 없이 다시 받으면 조회 중으로 돌아가 섹션이 스켈레톤으로 바뀐다.
+  // 첫 조회가 실패해 받은 목록이 없는 섹션에만 다시 시도를 넘긴다 — 데이터 없이 다시 받으면 조회 중으로 돌아가 섹션이 스켈레톤으로 바뀐다.
   const retryApplications =
-    applicationsUnknown && !applicationsPending ? () => void applicationsQuery.refetch() : undefined;
-  const retryMyClubs = myClubsUnknown && !myClubsPending ? () => void myClubsQuery.refetch() : undefined;
-  const retryFavorites = favoritesUnknown && !favoritesPending ? () => void favoriteListQuery.refetch() : undefined;
-  const retryInquiries = inquiriesUnknown && !inquiriesPending ? () => void myInquiriesQuery.refetch() : undefined;
+    hydrated && applicationsQuery.isError && applicationsQuery.data === undefined
+      ? () => void applicationsQuery.refetch()
+      : undefined;
+  const retryMyClubs =
+    hydrated && myClubsQuery.isError && myClubsQuery.data === undefined ? () => void myClubsQuery.refetch() : undefined;
+  const retryFavorites =
+    hydrated && favoriteListQuery.isError && favoriteListQuery.data === undefined
+      ? () => void favoriteListQuery.refetch()
+      : undefined;
+  const retryInquiries =
+    hydrated && myInquiriesQuery.isError && myInquiriesQuery.data === undefined
+      ? () => void myInquiriesQuery.refetch()
+      : undefined;
 
   /* ── 섹션 순서 — 진행 중 지원이 없으면 빈 "지원 현황" 대신 내 동아리를 먼저 보여준다 ── */
   // 조회 중 또는 첫 조회 실패에는 "0건" 이 아니라 "아직 모름" 이다 — 그대로 0 을 넘기면 그동안 joined-first 로 그렸다가

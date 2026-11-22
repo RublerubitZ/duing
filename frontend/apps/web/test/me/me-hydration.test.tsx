@@ -11,7 +11,11 @@ import { ToastProvider } from '@/app/_components/toast/ToastProvider';
 // 본문 하이드레이션보다 먼저 끝나면 캐시에 me 가 이미 있다 — 그 순간을 이 값으로 흉내 낸다.
 const meState: { current: User | undefined } = vi.hoisted(() => ({ current: undefined }));
 // 목록 캐시 — 지금은 하이드레이션 전에 차는 경로가 없지만, 셸 쪽 선요청이 생기면 생긴다. 그 순간을 흉내 내 하이드레이션 게이트를 고정한다.
-const applicationsState: { data: unknown[] | undefined; isPending: boolean } = vi.hoisted(() => ({ data: [], isPending: false }));
+const applicationsState: { data: unknown[] | undefined; isPending: boolean; isError: boolean } = vi.hoisted(() => ({
+  data: [],
+  isPending: false,
+  isError: false,
+}));
 
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: vi.fn(), replace: vi.fn(), back: vi.fn(), refresh: vi.fn(), prefetch: vi.fn() }),
@@ -23,7 +27,11 @@ vi.mock('next/navigation', () => ({
 vi.mock('@duing/hooks', () => ({
   useMeQuery: () => ({ data: meState.current }),
   useLogout: () => vi.fn(),
-  useMyApplicationsQuery: () => ({ data: applicationsState.data, isPending: applicationsState.isPending }),
+  useMyApplicationsQuery: () => ({
+    data: applicationsState.data,
+    isPending: applicationsState.isPending,
+    isError: applicationsState.isError,
+  }),
   useManagedClubsQuery: () => ({ data: [] }),
   useFavoriteListQuery: () => ({ data: { content: [], totalElements: 0 } }),
   useProfileCheckQuery: () => ({ data: { pending: false }, isFetching: false, isError: false }),
@@ -96,6 +104,7 @@ describe('me 를 그리는 화면 — 부팅 세션 복원이 본문 하이드�
   afterEach(() => {
     applicationsState.data = [];
     applicationsState.isPending = false;
+    applicationsState.isError = false;
   });
 
   it('설정: 머리글·프로필 행을 서버와 같이 "—" 로 하이드레이션하고, 그 뒤 이름을 채운다', async () => {
@@ -153,6 +162,7 @@ describe('me 를 그리는 화면 — 부팅 세션 복원이 본문 하이드�
     const result = await hydrateAfterSessionRestore(() => <MyPage />, student, () => {
       applicationsState.data = undefined;
       applicationsState.isPending = false;
+      applicationsState.isError = true;
     });
 
     // 게이트가 없으면 서버 스켈레톤 ↔ 클라이언트 실패 안내로 어긋난다.

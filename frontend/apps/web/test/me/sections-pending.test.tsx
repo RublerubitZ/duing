@@ -65,7 +65,8 @@ describe('마이페이지 섹션 — 조회 중에는 빈 상태 대신 스켈�
   it.each(cases)('$title: 조회 중이면 숫자 없는 제목 + 스켈레톤, 빈 문구 없음', ({ title, empty, pending }) => {
     render(pending());
     expect(screen.getByRole('status', { name: `${title} 불러오는 중` })).toBeInTheDocument();
-    expect(screen.getByText(title, { exact: true })).toBeInTheDocument();
+    // 제목은 heading 으로 찾는다 — 문의 섹션의 '전체 보기' 링크가 접근 이름용으로 같은 글자("내 문의")를 숨겨 들고 있다.
+    expect(screen.getByRole('heading', { level: 2, name: title })).toBeInTheDocument();
     expect(screen.queryByText(new RegExp(empty.replace(/\.$/, '')))).not.toBeInTheDocument();
   });
 
