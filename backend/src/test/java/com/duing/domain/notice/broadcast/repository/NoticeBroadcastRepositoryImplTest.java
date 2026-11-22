@@ -211,7 +211,7 @@ class NoticeBroadcastRepositoryImplTest {
         assertBroadcastHidden(userId, broadcast.getId(), unreadBefore, retentionBefore);
     }
 
-    // 회귀 가드: 지금 코드에서도 통과한다(아예 거르지 않으므로). 되돌리면 다시 보이는 결정(스펙 10절 Q1)을 쓰는 쪽 삭제로 바꿔 깨지 않게 고정한다.
+    // 읽는 쪽 판정만 고정한다(스펙 10절 Q1) — 수정 API 로 되돌리는 경로는 NotificationUnionAcceptanceTest 가 본다.
     @Test
     @DisplayName("범위를 좁혔다가 전체 공개·알림 발송으로 되돌리면 같은 전체 알림이 다시 보이고 읽음 표시도 그대로다")
     void showsSameBroadcastWithReadStateAfterScopeIsRestored() {
