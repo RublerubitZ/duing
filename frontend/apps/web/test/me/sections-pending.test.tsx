@@ -26,6 +26,7 @@ const cases = [
     pending: () => <SectionApply applications={[]} isPending />,
     settled: () => <SectionApply applications={[]} />,
     loadFailed: (onRetry: () => void) => <SectionApply applications={[]} onRetry={onRetry} />,
+    retrying: (onRetry: () => void) => <SectionApply applications={[]} onRetry={onRetry} isRetrying />,
   },
   {
     title: '가입한 동아리',
@@ -34,6 +35,7 @@ const cases = [
     pending: () => <SectionMyClubs myClubs={[]} isPending />,
     settled: () => <SectionMyClubs myClubs={[]} />,
     loadFailed: (onRetry: () => void) => <SectionMyClubs myClubs={[]} onRetry={onRetry} />,
+    retrying: (onRetry: () => void) => <SectionMyClubs myClubs={[]} onRetry={onRetry} isRetrying />,
   },
   {
     title: '찜한 동아리',
@@ -42,6 +44,9 @@ const cases = [
     pending: () => <SectionSaved favorites={[]} totalCount={0} isPending />,
     settled: () => <SectionSaved favorites={[]} totalCount={0} />,
     loadFailed: (onRetry: () => void) => <SectionSaved favorites={[]} totalCount={0} onRetry={onRetry} />,
+    retrying: (onRetry: () => void) => (
+      <SectionSaved favorites={[]} totalCount={0} onRetry={onRetry} isRetrying />
+    ),
   },
   {
     title: '내 문의',
@@ -50,6 +55,9 @@ const cases = [
     pending: () => <SectionInquiries inquiries={[]} totalCount={0} isPending />,
     settled: () => <SectionInquiries inquiries={[]} totalCount={0} />,
     loadFailed: (onRetry: () => void) => <SectionInquiries inquiries={[]} totalCount={0} onRetry={onRetry} />,
+    retrying: (onRetry: () => void) => (
+      <SectionInquiries inquiries={[]} totalCount={0} onRetry={onRetry} isRetrying />
+    ),
   },
   {
     title: '지난 지원',
@@ -58,6 +66,7 @@ const cases = [
     pending: () => <SectionArchived applications={[]} isPending />,
     settled: () => <SectionArchived applications={[]} />,
     loadFailed: (onRetry: () => void) => <SectionArchived applications={[]} onRetry={onRetry} />,
+    retrying: (onRetry: () => void) => <SectionArchived applications={[]} onRetry={onRetry} isRetrying />,
   },
 ];
 
@@ -98,6 +107,34 @@ describe('마이페이지 섹션 — 첫 조회가 실패하면 빈 상태 대�
       await userEvent.click(retryButton);
 
       expect(onRetry).toHaveBeenCalledTimes(1);
+    },
+  );
+});
+
+describe('마이페이지 섹션 — 실패 뒤 다시 받는 중에는 실패 안내를 두고 버튼만 잠근다(#1756)', () => {
+  it.each(cases)(
+    '$title: 숫자 없는 제목 + 실패 안내 그대로, 스켈레톤 없음 · 버튼은 "다시 불러오는 중"·aria-disabled · 클릭·Enter·Space 모두 무시',
+    async ({ title, failedMessage, retrying }) => {
+      const onRetry = vi.fn();
+      render(retrying(onRetry));
+
+      expect(screen.getByRole('heading', { level: 2, name: title })).toBeInTheDocument();
+      expect(screen.getByText(failedMessage)).toBeInTheDocument();
+      // 다시 받는 동안 스켈레톤으로 바꾸지 않는다 — 누른 버튼이 사라지면 포커스가 문서로 빠진다.
+      expect(screen.queryByRole('status')).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: '다시 시도' })).not.toBeInTheDocument();
+      const retryingButton = screen.getByRole('button', { name: '다시 불러오는 중' });
+      expect(retryingButton).toHaveAttribute('aria-disabled', 'true');
+      // disabled 속성은 포커스를 떨어뜨린다 — 잠금은 aria-disabled 로만 한다.
+      expect(retryingButton).toBeEnabled();
+      expect(retryingButton).toHaveAccessibleDescription(failedMessage);
+
+      await userEvent.click(retryingButton);
+      retryingButton.focus();
+      await userEvent.keyboard('{Enter}');
+      await userEvent.keyboard(' ');
+
+      expect(onRetry).not.toHaveBeenCalled();
     },
   );
 });

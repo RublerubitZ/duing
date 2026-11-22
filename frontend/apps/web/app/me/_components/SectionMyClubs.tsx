@@ -30,8 +30,10 @@ type Props = {
   myClubs: MyClubSummary[];
   /** 조회 중 — 빈 상태 대신 스켈레톤(정적 HTML·조회 전에 거짓 "없어요"를 그리지 않는다, #1500). */
   isPending?: boolean;
-  /** 첫 조회가 실패해 받은 목록이 없을 때만 넘긴다 — 있으면 빈 안내 대신 실패 안내와 다시 시도(#1579). */
+  /** 첫 조회가 실패해 받은 목록이 없을 때만 넘긴다(실패 뒤 다시 받는 중에도) — 있으면 빈 안내 대신 실패 안내와 다시 시도(#1579). */
   onRetry?: () => void;
+  /** 실패 뒤 다시 받는 중 — 실패 안내를 그대로 두고 다시 시도 버튼만 잠근다(누른 버튼의 포커스가 남게, #1756). onRetry 와 함께 넘긴다. */
+  isRetrying?: boolean;
 };
 
 /** 부원 카드·운영진 카드가 함께 쓰는 동아리 안 동선 — 공지·회비·일정. */
@@ -59,7 +61,7 @@ function MemberQuickLinks({ club }: { club: MyClubSummary }) {
   );
 }
 
-export function SectionMyClubs({ myClubs, isPending = false, onRetry }: Props) {
+export function SectionMyClubs({ myClubs, isPending = false, onRetry, isRetrying = false }: Props) {
   const [leaveTarget, setLeaveTarget] = useState<MyClubSummary | null>(null);
 
   return (
@@ -77,7 +79,7 @@ export function SectionMyClubs({ myClubs, isPending = false, onRetry }: Props) {
         {isPending ? (
           <ListRowsSkeleton rows={2} rowClassName="h-[88px] rounded-lg" label="가입한 동아리 불러오는 중" />
         ) : onRetry ? (
-          <ListLoadError message="가입한 동아리를 불러오지 못했어요." onRetry={onRetry} />
+          <ListLoadError message="가입한 동아리를 불러오지 못했어요." onRetry={onRetry} isRetrying={isRetrying} />
         ) : myClubs.length === 0 ? (
           <div className="bg-paper border border-line rounded-lg px-8 py-12 text-center text-charcoal-3 text-sm">
             아직 가입한 동아리가 없어요.{' '}
