@@ -45,7 +45,7 @@ class GeneralNotificationServiceListMineBoundaryTest {
     void requestExactlyAtCapIsServedWithFullOverFetch() {
         when(notificationRepository.findMine(anyLong(), anyBoolean(), any(Pageable.class)))
                 .thenReturn(emptyPage());
-        when(broadcastRepository.findSliceForUser(anyLong(), anyInt())).thenReturn(List.of());
+        when(broadcastRepository.findSliceForUser(anyLong(), anyBoolean(), anyInt())).thenReturn(List.of());
         when(broadcastRepository.countWithinRetention()).thenReturn(0L);
 
         service.listMine(1L, false, PageRequest.of(49, 100)); // requestedFetch = 50 * 100 = 5000 == cap

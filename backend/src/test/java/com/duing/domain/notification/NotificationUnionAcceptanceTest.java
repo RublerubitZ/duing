@@ -10,6 +10,9 @@ import com.duing.domain.club.repository.ClubRepository;
 import com.duing.domain.clubmember.entity.ClubMember;
 import com.duing.domain.clubmember.entity.ClubMemberRole;
 import com.duing.domain.clubmember.repository.ClubMemberRepository;
+import com.duing.domain.notification.entity.Notification;
+import com.duing.domain.notification.entity.NotificationType;
+import com.duing.domain.notification.repository.NotificationRepository;
 import com.duing.domain.user.entity.College;
 import com.duing.domain.user.entity.Grade;
 import com.duing.domain.user.entity.User;
@@ -33,6 +36,7 @@ import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.context.annotation.Import;
+import org.springframework.jdbc.core.JdbcTemplate;
 
 @Import(TestcontainersConfiguration.class)
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
@@ -43,6 +47,8 @@ class NotificationUnionAcceptanceTest extends IntegrationTestBase {
     @Autowired ClubRepository clubRepository;
     @Autowired ClubMemberRepository clubMemberRepository;
     @Autowired JwtTokenProvider jwtTokenProvider;
+    @Autowired NotificationRepository notificationRepository;
+    @Autowired JdbcTemplate jdbcTemplate;
 
     private final AtomicLong sequence = new AtomicLong(System.nanoTime());
 
@@ -237,6 +243,83 @@ class NotificationUnionAcceptanceTest extends IntegrationTestBase {
                 .body("data.content.find { it.source == 'BROADCAST' }.isRead", equalTo(true));
         assertUnreadCount(studentToken, 0);
         assertUnreadCount(otherStudentToken, 1);
+    }
+
+    @Test
+    @DisplayName("최신 전체 알림을 읽었으면 '안 읽음' 첫 쪽이 그 아래 안 읽은 전체 알림으로 찬다")
+    void unreadOnlyFirstPageFillsWithOlderUnreadBroadcast() {
+        Long oldestBroadcastId = publishBroadcastCreatedMinutesAgo(3);
+        Long middleBroadcastId = publishBroadcastCreatedMinutesAgo(2);
+        Long newestBroadcastId = publishBroadcastCreatedMinutesAgo(1);
+        readBroadcastAsStudent(newestBroadcastId);
+        readBroadcastAsStudent(middleBroadcastId);
+
+        assertStudentUnreadPage(0, List.of("BROADCAST:" + oldestBroadcastId), 1, false);
+        assertStudentUnreadCount(1);
+    }
+
+    @Test
+    @DisplayName("'안 읽음' 목록을 끝까지 넘기면 개인·전체 안 읽은 알림이 겹치거나 빠지지 않고 최신순으로 한 번씩 나온다")
+    void unreadOnlyPagesNeitherOverlapNorSkip() {
+        // 최신순 B1(읽음) B2(읽음) P1 B3 P2 P3 — 읽은 것을 자른 뒤 거르면 1쪽 [P1,P2]·2쪽 [P2,P3] 으로 P2 가 겹치고 B3 가 빠진다.
+        Long firstBroadcastId = publishBroadcastCreatedMinutesAgo(1);
+        Long secondBroadcastId = publishBroadcastCreatedMinutesAgo(2);
+        Long firstPersonalId = savePersonalNotificationCreatedMinutesAgo(3);
+        Long thirdBroadcastId = publishBroadcastCreatedMinutesAgo(4);
+        Long secondPersonalId = savePersonalNotificationCreatedMinutesAgo(5);
+        Long thirdPersonalId = savePersonalNotificationCreatedMinutesAgo(6);
+        readBroadcastAsStudent(firstBroadcastId);
+        readBroadcastAsStudent(secondBroadcastId);
+
+        // RESTART IDENTITY 로 개인·전체 알림 id 가 둘 다 1부터라 (source, id) 쌍으로 비교한다.
+        assertStudentUnreadPage(0, List.of("PERSONAL:" + firstPersonalId, "BROADCAST:" + thirdBroadcastId), 4, true);
+        assertStudentUnreadPage(1, List.of("PERSONAL:" + secondPersonalId, "PERSONAL:" + thirdPersonalId), 4, false);
+        assertStudentUnreadCount(4);
+    }
+
+    // 쪽 크기는 2 — 병합 규칙은 쪽 크기와 무관하고, 고정 데이터를 작게 둔다.
+    private void assertStudentUnreadPage(int page, List<String> expectedEntries, int expectedTotal,
+                                         boolean expectedHasNext) {
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + studentToken)
+                .queryParam("unreadOnly", true)
+                .queryParam("page", page)
+                .queryParam("size", 2)
+            .when()
+                .get("/api/v1/me/notifications")
+            .then()
+                .statusCode(HttpStatus.OK.value())
+                .body("data.content.collect { it.source + ':' + it.id }", equalTo(expectedEntries))
+                .body("data.totalElements", equalTo(expectedTotal))
+                .body("data.hasNext", equalTo(expectedHasNext));
+    }
+
+    private Long publishBroadcastCreatedMinutesAgo(int minutesAgo) {
+        Long noticeId = publishPublicNoticeWithBroadcast();
+        Long broadcastId = jdbcTemplate.queryForObject(
+                "SELECT id FROM notice_broadcast WHERE notice_id = ?", Long.class, noticeId);
+        jdbcTemplate.update("UPDATE notice_broadcast SET created_at = ? WHERE id = ?",
+                java.sql.Timestamp.valueOf(LocalDateTime.now().minusMinutes(minutesAgo)), broadcastId);
+        return broadcastId;
+    }
+
+    private Long savePersonalNotificationCreatedMinutesAgo(int minutesAgo) {
+        Notification personalNotification = notificationRepository.save(Notification.create(
+                student.getId(), NotificationType.RECRUITMENT_OPENED, "개인 알림 " + minutesAgo, "본문",
+                "/clubs/1", null, "UNREAD_SLICE:" + minutesAgo));
+        // created_at 은 updatable=false 라 엔티티로는 못 바꾼다.
+        jdbcTemplate.update("UPDATE notification SET created_at = ? WHERE id = ?",
+                java.sql.Timestamp.valueOf(LocalDateTime.now().minusMinutes(minutesAgo)), personalNotification.getId());
+        return personalNotification.getId();
+    }
+
+    private void readBroadcastAsStudent(Long broadcastId) {
+        RestAssured.given()
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + studentToken)
+            .when()
+                .patch("/api/v1/me/notifications/broadcasts/" + broadcastId + "/read")
+            .then()
+                .statusCode(HttpStatus.NO_CONTENT.value());
     }
 
     private void updateNoticeAsAdmin(Long noticeId, String requestBody) {

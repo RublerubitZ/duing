@@ -60,7 +60,7 @@ class NoticeBroadcastRepositoryImplTest {
                 NoticeBroadcast.snapshot(thirdNotice.getId(), "세 번째 공지", "내용3", "/notices/3"));
 
         long unusedUserId = Long.MAX_VALUE;
-        List<BroadcastSlice> slices = broadcastRepository.findSliceForUser(unusedUserId, 10);
+        List<BroadcastSlice> slices = broadcastRepository.findSliceForUser(unusedUserId, false, 10);
 
         List<Long> broadcastIds = slices.stream()
                 .map(slice -> slice.broadcast().getId())
@@ -94,7 +94,7 @@ class NoticeBroadcastRepositoryImplTest {
 
         broadcastReadRepository.save(new NoticeBroadcastRead(broadcast.getId(), userId));
 
-        List<BroadcastSlice> slices = broadcastRepository.findSliceForUser(userId, 10);
+        List<BroadcastSlice> slices = broadcastRepository.findSliceForUser(userId, false, 10);
 
         BroadcastSlice targetSlice = slices.stream()
                 .filter(slice -> slice.broadcast().getId().equals(broadcast.getId()))
@@ -144,7 +144,7 @@ class NoticeBroadcastRepositoryImplTest {
         backdateBroadcastCreatedAt(old.getId(), 40);
 
         long afterCount = broadcastRepository.countWithinRetention();
-        List<Long> sliceIds = broadcastRepository.findSliceForUser(unusedUserId, 50).stream()
+        List<Long> sliceIds = broadcastRepository.findSliceForUser(unusedUserId, false, 50).stream()
                 .map(slice -> slice.broadcast().getId())
                 .toList();
 
@@ -228,7 +228,7 @@ class NoticeBroadcastRepositoryImplTest {
         updateVisibilityAndNotify(notice, NoticeVisibility.OFFICERS_ALL, null, null);
         updateVisibilityAndNotify(notice, NoticeVisibility.PUBLIC, null, true);
 
-        BroadcastSlice restoredSlice = broadcastRepository.findSliceForUser(userId, 50).stream()
+        BroadcastSlice restoredSlice = broadcastRepository.findSliceForUser(userId, false, 50).stream()
                 .filter(slice -> slice.broadcast().getId().equals(broadcast.getId()))
                 .findFirst()
                 .orElseThrow(() -> new AssertionError("되돌린 공지의 전체 알림이 다시 보여야 합니다"));
@@ -254,11 +254,66 @@ class NoticeBroadcastRepositoryImplTest {
         noticeRepository.delete(deletedNotice);
         noticeRepository.flush();
 
-        List<Long> firstSliceIds = broadcastRepository.findSliceForUser(userId, 1).stream()
+        List<Long> firstSliceIds = broadcastRepository.findSliceForUser(userId, false, 1).stream()
                 .map(slice -> slice.broadcast().getId())
                 .toList();
 
         assertThat(firstSliceIds).containsExactly(visibleBroadcast.getId());
+    }
+
+    @Test
+    @DisplayName("안 읽음만 고르면 더 최신인 읽은·숨겨진 전체 알림을 건너뛰고 개수 제한을 안 읽은 것에만 건다")
+    void appliesLimitOnlyToUnreadVisibleBroadcastsWhenUnreadOnly() {
+        Long authorId = saveUser(UserRole.ADMIN);
+        Long userId = saveUser(UserRole.STUDENT);
+        Long otherUserId = saveUser(UserRole.STUDENT);
+
+        Notice unreadNotice = persistNotice(authorId);
+        NoticeBroadcast unreadBroadcast = broadcastRepository.saveAndFlush(
+                NoticeBroadcast.snapshot(unreadNotice.getId(), "안 읽은 공지", "내용", "/notices/" + unreadNotice.getId()));
+        Notice readNotice = persistNotice(authorId);
+        NoticeBroadcast readBroadcast = broadcastRepository.saveAndFlush(
+                NoticeBroadcast.snapshot(readNotice.getId(), "읽은 공지", "내용", "/notices/" + readNotice.getId()));
+        Notice deletedNotice = persistNotice(authorId);
+        NoticeBroadcast hiddenBroadcast = broadcastRepository.saveAndFlush(
+                NoticeBroadcast.snapshot(deletedNotice.getId(), "지운 공지", "내용", "/notices/" + deletedNotice.getId()));
+        // 다른 테스트가 남긴 행보다 셋 다 최신이 되게 — 숨김 > 읽음 > 안 읽음 순으로 1분씩.
+        setBroadcastCreatedAt(unreadBroadcast.getId(), LocalDateTime.now().plusMinutes(1));
+        setBroadcastCreatedAt(readBroadcast.getId(), LocalDateTime.now().plusMinutes(2));
+        setBroadcastCreatedAt(hiddenBroadcast.getId(), LocalDateTime.now().plusMinutes(3));
+        noticeRepository.delete(deletedNotice);
+        noticeRepository.flush();
+        broadcastReadRepository.save(new NoticeBroadcastRead(readBroadcast.getId(), userId));
+        // 다른 사용자의 읽음은 이 사용자의 안 읽음 판정에 끼지 않아야 한다.
+        broadcastReadRepository.save(new NoticeBroadcastRead(unreadBroadcast.getId(), otherUserId));
+
+        List<BroadcastSlice> unreadSlices = broadcastRepository.findSliceForUser(userId, true, 1);
+        List<BroadcastSlice> allSlices = broadcastRepository.findSliceForUser(userId, false, 1);
+
+        assertThat(unreadSlices.stream().map(slice -> slice.broadcast().getId()).toList())
+                .containsExactly(unreadBroadcast.getId());
+        assertThat(unreadSlices.get(0).isRead()).isFalse();
+        assertThat(allSlices.stream().map(slice -> slice.broadcast().getId()).toList())
+                .containsExactly(readBroadcast.getId());
+        assertThat(allSlices.get(0).isRead()).isTrue();
+    }
+
+    @Test
+    @DisplayName("30일이 지난 안 읽은 전체 알림은 안 읽음 조회에도 나오지 않는다")
+    void excludesUnreadBroadcastOlderThanRetentionWhenUnreadOnly() {
+        Long authorId = saveUser(UserRole.ADMIN);
+        Long userId = saveUser(UserRole.STUDENT);
+        Notice oldNotice = persistNotice(authorId);
+        NoticeBroadcast oldBroadcast = broadcastRepository.saveAndFlush(
+                NoticeBroadcast.snapshot(oldNotice.getId(), "오래된 안 읽은 공지", "내용", "/notices/" + oldNotice.getId()));
+        backdateBroadcastCreatedAt(oldBroadcast.getId(), 40);
+
+        // 공유 DB 의 다른 행에 밀려 우연히 안 보이는 일이 없게 개수 제한을 열어 둔다.
+        List<Long> unreadSliceIds = broadcastRepository.findSliceForUser(userId, true, Integer.MAX_VALUE).stream()
+                .map(slice -> slice.broadcast().getId())
+                .toList();
+
+        assertThat(unreadSliceIds).doesNotContain(oldBroadcast.getId());
     }
 
     private void backdateBroadcastCreatedAt(Long broadcastId, int daysAgo) {
@@ -298,7 +353,7 @@ class NoticeBroadcastRepositoryImplTest {
     }
 
     private List<Long> sliceIdsFor(Long userId) {
-        return broadcastRepository.findSliceForUser(userId, 50).stream()
+        return broadcastRepository.findSliceForUser(userId, false, 50).stream()
                 .map(slice -> slice.broadcast().getId())
                 .toList();
     }
